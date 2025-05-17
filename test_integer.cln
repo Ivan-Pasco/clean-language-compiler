@@ -1,0 +1,2 @@
+// Test file to reproduce the integer literal issue
+start() { return 42 }

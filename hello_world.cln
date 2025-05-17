@@ -1,0 +1,4 @@
+// Hello World program in Clean Language
+
+start()
+    print("Hello, World!") 

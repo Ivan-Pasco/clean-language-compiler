@@ -1,0 +1,239 @@
+// Advanced syntax test file for Clean Language
+// Tests edge cases and complex language features
+
+// Constants with expressions and type annotations
+constants:
+    GOLDEN_RATIO = 1.618033988749895
+    EULER_NUMBER = 2.718281828459045
+    MAX_RECURSION = 100
+    EMPTY_ARRAY = []
+    DEFAULT_CONFIG = {
+        "debug": true,
+        "maxRetries": 3,
+        "timeout": 1000
+    }
+
+// Complex type definitions with nested structures
+types:
+    Matrix3D:
+        number[][][]:
+            - data
+        number:
+            - rows
+            - cols
+            - depth
+    
+    TreeNode:
+        any:
+            - value
+        TreeNode[]:
+            - children
+        TreeNode:
+            - parent
+    
+    EventHandler:
+        function:
+            - callback
+        string:
+            - eventType
+        boolean:
+            - isAsync
+
+// Interface definitions
+interfaces:
+    Serializable:
+        methods:
+            toString() returns string
+            fromString(string data) returns boolean
+    
+    Comparable:
+        methods:
+            compareTo(any other) returns number
+            equals(any other) returns boolean
+
+// Complex class hierarchy with multiple inheritance and interfaces
+classes:
+    DataStructure implements Serializable:
+        properties:
+            number:
+                - size
+                - capacity
+            boolean:
+                - isLocked
+        methods:
+            abstract resize(number newSize) returns boolean
+            
+            lock()
+                this.isLocked = true
+                onError:
+                    print "Failed to lock structure"
+            
+            unlock()
+                this.isLocked = false
+    
+    BinaryTree inherits DataStructure implements Comparable:
+        properties:
+            TreeNode:
+                - root
+            number:
+                - depth
+        methods:
+            constructor()
+                this.root = null
+                this.depth = 0
+                this.size = 0
+                this.isLocked = false
+            
+            insert(any value) returns boolean
+                if this.isLocked:
+                    error "Structure is locked"
+                
+                if this.root == null:
+                    this.root = TreeNode(value, [], null)
+                    this.size = 1
+                    return true
+                
+                return this.insertRecursive(this.root, value, 0)
+            
+            private insertRecursive(TreeNode node, any value, number currentDepth) returns boolean
+                if currentDepth > MAX_RECURSION:
+                    error "Maximum recursion depth exceeded"
+                
+                if this.compareValues(value, node.value) <= 0:
+                    if length(node.children) == 0:
+                        node.children = [TreeNode(value, [], node)]
+                        this.size = this.size + 1
+                        this.updateDepth(currentDepth + 1)
+                        return true
+                    return this.insertRecursive(node.children[0], value, currentDepth + 1)
+                else:
+                    if length(node.children) < 2:
+                        node.children = node.children + [TreeNode(value, [], node)]
+                        this.size = this.size + 1
+                        this.updateDepth(currentDepth + 1)
+                        return true
+                    return this.insertRecursive(node.children[1], value, currentDepth + 1)
+            
+            private updateDepth(number newDepth)
+                if newDepth > this.depth:
+                    this.depth = newDepth
+            
+            private compareValues(any a, any b) returns number
+                if type(a) != type(b):
+                    error "Cannot compare values of different types"
+                
+                if a < b:
+                    return -1
+                if a > b:
+                    return 1
+                return 0
+            
+            // Interface implementations
+            toString() returns string
+                return "BinaryTree(size=" + this.size + ", depth=" + this.depth + ")"
+            
+            fromString(string data) returns boolean
+                // Parse serialized data
+                try:
+                    // Complex parsing logic would go here
+                    return true
+                onError:
+                    return false
+            
+            compareTo(any other) returns number
+                if not (other is BinaryTree):
+                    error "Can only compare with other BinaryTree"
+                
+                BinaryTree otherTree = other as BinaryTree
+                if this.size < otherTree.size:
+                    return -1
+                if this.size > otherTree.size:
+                    return 1
+                return 0
+            
+            equals(any other) returns boolean
+                if not (other is BinaryTree):
+                    return false
+                return this.compareTo(other) == 0
+
+// Complex functions with generics and advanced error handling
+functions:
+    processMatrix() returns Matrix3D
+        input:
+            Matrix3D:
+                - input
+            function:
+                - transformer
+        
+        Matrix3D result = Matrix3D(
+            input.rows,
+            input.cols,
+            input.depth
+        )
+        
+        iterate i from 0 to input.rows:
+            iterate j from 0 to input.cols:
+                iterate k from 0 to input.depth:
+                    try:
+                        result.data[i][j][k] = transformer(
+                            input.data[i][j][k],
+                            i, j, k
+                        )
+                    onError:
+                        print "Error processing cell (" + i + "," + j + "," + k + ")"
+                        result.data[i][j][k] = 0
+        
+        return result
+    
+    createEventHandler() returns EventHandler
+        input:
+            string:
+                - type
+            function:
+                - handler
+            boolean:
+                - async
+        
+        if type == "":
+            error "Event type cannot be empty"
+        
+        return EventHandler(handler, type, async)
+
+// Main program with complex initialization and error handling
+start()
+    // Initialize complex data structure
+    BinaryTree tree = BinaryTree()
+    
+    // Test insertion with different types (should fail)
+    try:
+        tree.insert(10)
+        tree.insert("string")  // Should cause type error
+    onError:
+        print "Type mismatch error caught successfully"
+    
+    // Test recursion limit
+    try:
+        iterate i from 0 to MAX_RECURSION + 1:
+            tree.insert(i)
+    onError:
+        print "Recursion limit error caught successfully"
+    
+    // Test matrix processing
+    Matrix3D matrix = Matrix3D(2, 2, 2)
+    matrix.data = [
+        [[1, 2], [3, 4]],
+        [[5, 6], [7, 8]]
+    ]
+    
+    function transformer(number value, number i, number j, number k) returns number
+        return value * GOLDEN_RATIO + (i + j + k)
+    
+    Matrix3D processed = processMatrix(matrix, transformer)
+    
+    // Test event handling
+    function asyncHandler(any data)
+        print "Async event received: " + data
+    
+    EventHandler handler = createEventHandler("test", asyncHandler, true)
+    
+    print "All tests completed successfully" 

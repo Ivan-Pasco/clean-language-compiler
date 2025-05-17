@@ -1,0 +1,91 @@
+[package]
+name = "clean-language-compiler"
+version = "0.1.0"
+authors = ["CleanLanguage Team"]
+edition = "2021"
+
+[dependencies]
+# Parsing
+pest = "2.5.5"
+pest_derive = "2.5.5"
+lazy_static = "1.4"
+wasm-encoder = "0.20.0"
+wasmparser = "0.121"
+wasmtime = "0.35.2"
+thiserror = "1.0.40"
+anyhow = "1.0"
+wat = "1.0"
+regex = "1.10.2"
+parity-wasm = "0.42.2"
+byteorder = "1.4.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+[dev-dependencies]
+# Testing
+insta = "1.34"
+pretty_assertions = "1.4"
+tempfile = "3.8"
+
+[[bin]]
+name = "clean-language-compiler"
+path = "src/main.rs"
+
+[[bin]]
+name = "syntax-checker"
+path = "syntax_checker.rs"
+
+[[bin]]
+name = "cleanc"
+path = "src/bin/cleanc.rs"
+
+[[bin]]
+name = "advanced-parser-test"
+path = "advanced_parser_standalone_test.rs"
+
+[[bin]]
+name = "parser-test"
+path = "parser_test_standalone.rs"
+
+[[bin]]
+name = "minimal-parser-test"
+path = "minimal_parser_test.rs"
+
+[[bin]]
+name = "parser_test"
+path = "src/bin/parser_test.rs"
+
+[[bin]]
+name = "wat2wasm"
+path = "src/bin/wat2wasm.rs"
+
+[[bin]]
+name = "wasm2wat"
+path = "src/bin/wasm2wat.rs"
+
+[[bin]]
+name = "wasm_simple_test"
+path = "src/bin/wasm_simple_test.rs"
+
+[[bin]]
+name = "direct_compiler"
+path = "src/bin/direct_compiler.rs"
+
+[lib]
+name = "clean_language_compiler"
+path = "src/lib.rs"
+
+# Temporarily commenting out nonexistent workspace members
+#[workspace]
+#members = [
+#    "parser_test",
+#    "parser_fix_test"
+#]
+#resolver = "2"
+
+#[workspace.dependencies]
+#pest = "2.7"
+#pest_derive = "2.7" 

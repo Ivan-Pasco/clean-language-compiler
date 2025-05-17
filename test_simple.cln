@@ -1,0 +1,4 @@
+// Simple test program that returns 42
+start() {
+  return 42
+} 

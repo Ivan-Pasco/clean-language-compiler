@@ -1,0 +1,8 @@
+start() {
+    let a = 42
+    return a
+}
+
+add input integer x, integer y returns integer {
+    return x + y
+} 

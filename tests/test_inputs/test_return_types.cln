@@ -1,0 +1,13 @@
+function start() returns integer {
+    let x = return_integer();
+    let y = return_number();
+    return x + 1;
+}
+
+function return_integer() returns integer {
+    return 42;
+}
+
+function return_number() returns number {
+    return 3.14;
+} 

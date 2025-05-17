@@ -1,0 +1,5 @@
+// Minimal test file for the Clean Language compiler
+
+start() {
+    return 42
+} 

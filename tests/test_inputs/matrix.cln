@@ -1,0 +1,5 @@
+start() {
+    let m: Matrix = [[1, 2], [3, 4]]
+    let t: Matrix = @T m  // Transpose
+    print t
+} 

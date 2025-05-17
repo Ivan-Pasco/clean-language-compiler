@@ -1,0 +1,90 @@
+// Standard Library Test Suite in Clean Language
+
+test "Random Number Generation"
+    description: "Tests random number generation functions"
+    
+    // Test random float generation
+    float r = random()
+    assert r >= 0.0 and r < 1.0
+    
+    // Test random range
+    float r2 = random_range(10.0, 20.0)
+    assert r2 >= 10.0 and r2 < 20.0
+    
+    // Test random integer
+    int i = random_int(1, 100)
+    assert i >= 1 and i <= 100
+    
+    // Test random boolean
+    bool b = random_bool()
+    assert b == true or b == false
+
+test "DateTime Operations"
+    description: "Tests date and time functions"
+    
+    // Test current time
+    long now = now()
+    assert now > 0
+    
+    // Test date components
+    int year = year(now)
+    assert year >= 1970
+    
+    int month = month(now)
+    assert month >= 1 and month <= 12
+    
+    int day = day(now)
+    assert day >= 1 and day <= 31
+    
+    // Test date arithmetic
+    long tomorrow = add_days(now, 1)
+    assert tomorrow > now
+    assert tomorrow - now == 86400 // seconds in a day
+
+test "Type Conversions"
+    description: "Tests type conversion functions"
+    
+    // Test number conversions
+    float pi = 3.14159
+    int rounded = to_integer(pi)
+    assert rounded == 3
+    
+    int negative = -1
+    int unsigned = to_unsigned(negative)
+    assert unsigned == 4294967295 // 0xFFFFFFFF
+    
+    int large = 1000
+    int byte = to_byte(large)
+    assert byte == 232 // 1000 & 0xFF
+    
+    // Test boolean conversions
+    string true_str = "true"
+    bool parsed = parse_bool(true_str)
+    assert parsed == true
+    
+    string bool_str = bool_to_string(true)
+    assert bool_str == "true"
+
+test "String Operations"
+    description: "Tests string manipulation functions"
+    
+    string text = "Clean Language"
+    
+    // Test length
+    assert length(text) == 13
+    
+    // Test substring
+    assert substring(text, 0, 5) == "Clean"
+    
+    // Test concatenation
+    assert concat(text, " is awesome") == "Clean Language is awesome"
+    
+    // Test case conversion
+    assert to_upper(text) == "CLEAN LANGUAGE"
+    assert to_lower(text) == "clean language"
+
+// Run all tests
+start()
+    print "Running Standard Library Tests..."
+    run_tests()
+    print "Tests completed." 
