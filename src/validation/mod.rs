@@ -1,8 +1,8 @@
 use wasmparser::{Parser, Validator as WasmParserValidator, WasmFeatures, Payload};
-use crate::error::{CompilerError, ErrorContext, ErrorType};
+use crate::error::{CompilerError};
 use std::collections::HashSet;
-use crate::ast::{self, Program};
-use wasmtime::{Engine, Linker, Module, Store};
+
+use wasmtime::{Engine, Module};
 
 #[derive(Debug)]
 pub struct CleanValidator {
@@ -261,7 +261,7 @@ impl Validator {
         // A simple check to determine if WASM binary has functions
         // In a real implementation, this would use a WASM parser
         let engine = Engine::default();
-        if let Ok(module) = Module::new(&engine, wasm_bytes) {
+        if let Ok(_module) = Module::new(&engine, wasm_bytes) {
             // Check if module has any functions
             true // Simplified for now
         } else {
@@ -269,10 +269,10 @@ impl Validator {
         }
     }
     
-    fn has_import(wasm_bytes: &[u8], import_name: &str) -> bool {
+    fn has_import(wasm_bytes: &[u8], _import_name: &str) -> bool {
         // In a real implementation, this would use a WASM parser
         let engine = Engine::default();
-        if let Ok(module) = Module::new(&engine, wasm_bytes) {
+        if let Ok(_module) = Module::new(&engine, wasm_bytes) {
             // Check if module has the specified import
             true // Simplified for now
         } else {
@@ -280,10 +280,10 @@ impl Validator {
         }
     }
     
-    fn has_export(wasm_bytes: &[u8], export_name: &str) -> bool {
+    fn has_export(wasm_bytes: &[u8], _export_name: &str) -> bool {
         // In a real implementation, this would use a WASM parser
         let engine = Engine::default();
-        if let Ok(module) = Module::new(&engine, wasm_bytes) {
+        if let Ok(_module) = Module::new(&engine, wasm_bytes) {
             // Check if module has the specified export
             true // Simplified for now
         } else {

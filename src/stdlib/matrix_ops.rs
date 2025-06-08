@@ -1,7 +1,7 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use crate::stdlib::memory::MemoryManager;
+
 use crate::codegen::MATRIX_TYPE_ID;
 use wasm_encoder::{Instruction, MemArg, BlockType, ValType};
 use std::convert::TryInto;
@@ -1571,7 +1571,7 @@ mod tests {
     #[test]
     fn test_matrix_operations() {
         let mut codegen = CodeGenerator::new();
-        let memory = MemoryManager::new(16, Some(1024)); // 16 pages, heap starts at 1024
+        let mut memory = MemoryManager::new(16, Some(1024)); // 16 pages, heap starts at 1024
         let matrix_ops = MatrixOperations::new(1024);
 
         // Register matrix functions
@@ -1611,7 +1611,7 @@ mod tests {
     #[test]
     fn test_matrix_determinant() {
         let mut codegen = CodeGenerator::new();
-        let memory = MemoryManager::new(16, Some(1024));
+        let mut memory = MemoryManager::new(16, Some(1024));
         let matrix_ops = MatrixOperations::new(1024);
         matrix_ops.register_functions(&mut codegen).unwrap();
 
@@ -1647,7 +1647,7 @@ mod tests {
     #[test]
     fn test_matrix_inverse() {
         let mut codegen = CodeGenerator::new();
-        let memory = MemoryManager::new(16, Some(1024));
+        let mut memory = MemoryManager::new(16, Some(1024));
         let matrix_ops = MatrixOperations::new(1024);
         matrix_ops.register_functions(&mut codegen).unwrap();
 
@@ -1692,7 +1692,7 @@ mod tests {
     #[test]
     fn test_matrix_bounds_checking() {
         let mut codegen = CodeGenerator::new();
-        let memory = MemoryManager::new(16, Some(1024));
+        let mut memory = MemoryManager::new(16, Some(1024));
         let matrix_ops = MatrixOperations::new(1024);
         matrix_ops.register_functions(&mut codegen).unwrap();
 

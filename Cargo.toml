@@ -74,6 +74,14 @@ path = "src/bin/wasm_simple_test.rs"
 name = "direct_compiler"
 path = "src/bin/direct_compiler.rs"
 
+[[bin]]
+name = "debug_parser"
+path = "src/bin/debug_parser.rs"
+
+[[bin]]
+name = "debug_wasm"
+path = "src/bin/debug_wasm.rs"
+
 [lib]
 name = "clean_language_compiler"
 path = "src/lib.rs"

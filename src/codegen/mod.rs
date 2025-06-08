@@ -1,20 +1,17 @@
 //! Module for WebAssembly code generation.
 
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, DataSegment, DataSection, ExportKind, ExportSection,
-    Function, FunctionSection, GlobalSection, GlobalType, Instruction,
+    BlockType, CodeSection, DataSection, ExportKind, ExportSection,
+    Function, FunctionSection, GlobalSection, Instruction,
     MemorySection, Module, TypeSection, ValType,
     MemoryType, ImportSection, MemArg, ElementSection, TableSection,
 };
 use wasmparser::FuncType;
-use wasmtime::{Export, Store};
-use crate::ast::{self, Program, Expression, Statement, Type, Value, Function as AstFunction, 
-    MatrixOperator, BinaryOperator, SourceLocation};
-use crate::error::{CompilerError, ErrorContext, ErrorType};
-use crate::stdlib::memory::MemoryManager;
-use crate::parser::StringPart;
-use crate::stdlib::StdLib;
-use crate::types::{WasmType, ValTypeConverter};
+
+use crate::ast::{self, Program, Expression, Statement, Type, Value, Function as AstFunction, BinaryOperator, SourceLocation};
+use crate::error::{CompilerError};
+
+use crate::types::{WasmType};
 use std::collections::HashMap;
 
 // Declare the modules
@@ -47,32 +44,58 @@ pub const HEAP_START: usize = 65536;  // Start heap at 64KB
 const DEFAULT_ALIGN: u32 = 2;
 const DEFAULT_OFFSET: u32 = 0;
 
+/// Debug information for WebAssembly output
+#[derive(Debug, Clone)]
+pub struct DebugInfo {
+    pub source_map: HashMap<u32, SourceLocation>,
+    pub function_names: Vec<String>,
+    pub local_names: HashMap<u32, Vec<String>>,
+}
+
+impl DebugInfo {
+    pub fn new() -> Self {
+        Self {
+            source_map: HashMap::new(),
+            function_names: Vec::new(),
+            local_names: HashMap::new(),
+        }
+    }
+    
+    pub fn add_function_name(&mut self, index: u32, name: String) {
+        if index as usize >= self.function_names.len() {
+            self.function_names.resize(index as usize + 1, String::new());
+        }
+        self.function_names[index as usize] = name;
+    }
+    
+    pub fn add_source_location(&mut self, instruction_offset: u32, location: SourceLocation) {
+        self.source_map.insert(instruction_offset, location);
+    }
+    
+    pub fn add_local_names(&mut self, function_index: u32, names: Vec<String>) {
+        self.local_names.insert(function_index, names);
+    }
+}
+
 /// Code generator for Clean Language
 pub struct CodeGenerator {
     module: Module,
     function_section: FunctionSection,
     export_section: ExportSection,
     code_section: CodeSection,
-    import_section: ImportSection,
-    string_pool: StringPool,
     memory_section: MemorySection,
-    global_section: GlobalSection,
     type_section: TypeSection,
     data_section: DataSection,
-    element_section: ElementSection,
-    table_section: TableSection,
     type_manager: TypeManager,
     instruction_generator: InstructionGenerator,
     variable_map: HashMap<String, LocalVarInfo>,
     memory_utils: MemoryUtils,
-    stdlib_registered: bool,
-    next_function_index: u32,
-    next_type_index: u32,
     function_count: u32,
     current_locals: Vec<LocalVarInfo>,
     function_map: HashMap<String, u32>,
     function_types: Vec<FuncType>,
     function_names: Vec<String>,
+    debug_info: DebugInfo,
 }
 
 impl CodeGenerator {
@@ -86,140 +109,212 @@ impl CodeGenerator {
             function_section: FunctionSection::new(),
             export_section: ExportSection::new(),
             code_section: CodeSection::new(),
-            import_section: ImportSection::new(),
-            string_pool: StringPool::new(),
             memory_section: MemorySection::new(),
-            global_section: GlobalSection::new(),
             type_section: TypeSection::new(),
             data_section: DataSection::new(),
-            element_section: ElementSection::new(),
-            table_section: TableSection::new(),
             type_manager,
             instruction_generator,
             variable_map: HashMap::new(),
             memory_utils: MemoryUtils::new(HEAP_START),
-            stdlib_registered: false,
-            next_function_index: 0,
-            next_type_index: 0,
             function_count: 0,
             current_locals: Vec::new(),
             function_map: HashMap::new(),
             function_types: Vec::new(),
             function_names: Vec::new(),
+            debug_info: DebugInfo::new(),
         }
     }
 
+    /// Generate the complete program
     pub fn generate(&mut self, program: &Program) -> Result<Vec<u8>, CompilerError> {
-        // Register standard library functions (not used yet for minimal module)
-        // self.register_stdlib_functions()?;
+        // Clear previous state
+        self.function_count = 0;
+        self.function_map.clear();
+        self.function_names.clear();
+        self.function_types.clear();
+        self.debug_info = DebugInfo::new();
 
         // ------------------------------------------------------------------
-        // 1. Type section ---------------------------------------------------
+        // 1. Register standard library functions first
         // ------------------------------------------------------------------
-        let mut type_section = TypeSection::new();
-        
-        // First add the start function type
-        // Find the start function in the program
-        let start_fn_index = program.functions.iter()
-            .position(|f| f.name == "start")
-            .ok_or_else(|| CompilerError::codegen_error("No 'start' function found in the program", None, None))?;
-        
-        let start_function = &program.functions[start_fn_index];
-        
-        // Convert parameters to WasmType
-        let params: Vec<WasmType> = start_function.parameters.iter()
-                .map(|param| WasmType::from(&param.type_))
-                .collect();
-            
-        // Convert return_type safely
-        let return_type = WasmType::from(&start_function.return_type);
-        
-        // Convert WasmType to ValType for the encoder
-        let param_val_types: Vec<ValType> = params.iter().map(|t| (*t).into()).collect();
-        let return_val_types = if return_type == WasmType::Unit {
-            vec![]
-        } else {
-            vec![return_type.into()]
-        };
-        
-        // Add the start function type
-        type_section.function(param_val_types.clone(), return_val_types.clone());
-        
-        // Push type section first (id = 1)
-        self.module.section(&type_section);
+        self.register_stdlib_functions()?;
 
         // ------------------------------------------------------------------
-        // 2. Function section (id = 3) -------------------------------------
+        // 2. Analyze and prepare all functions (including start function)
         // ------------------------------------------------------------------
-        let mut function_section = FunctionSection::new();
+        for function in &program.functions {
+            self.prepare_function_type(function)?;
+        }
         
-        // Add the start function using type index 0
-        function_section.function(0);
-        
-        // Push function section
-        self.module.section(&function_section);
+        // Also process the start function if it exists
+        if let Some(start_function) = &program.start_function {
+            self.prepare_function_type(start_function)?;
+        }
 
         // ------------------------------------------------------------------
-        // 3. Memory section  (id = 5) --------------------------------------
+        // 3. Generate function code (including start function)
         // ------------------------------------------------------------------
-        // For now create a single 1-page memory so future code can store data
+        for function in &program.functions {
+            self.generate_function(function)?;
+        }
+        
+        // Also generate the start function if it exists
+        if let Some(start_function) = &program.start_function {
+            self.generate_function(start_function)?;
+        }
+
+        // ------------------------------------------------------------------
+        // 4. Setup memory (1 page minimum for basic operations)
+        // ------------------------------------------------------------------
         self.memory_section.memory(MemoryType {
             minimum: 1,
-            maximum: None,
+            maximum: Some(16), // Limit to 16 pages (1MB) for safety
             memory64: false,
             shared: false,
         });
 
-        self.module.section(&self.memory_section);
-
         // ------------------------------------------------------------------
-        // 4. Export section (id = 7) ---------------------------------------
+        // 5. Export the start function
         // ------------------------------------------------------------------
-        let mut export_section = ExportSection::new();
-
-        // Export ONLY the start function for now (index 0)
-        export_section.export("start", ExportKind::Func, 0);
-
-        // Push export section
-        self.module.section(&export_section);
-
-        // ------------------------------------------------------------------
-        // 5. Code section (id = 10) ----------------------------------------
-        // ------------------------------------------------------------------
-        let mut code_section = CodeSection::new();
-        
-        // Generate instructions for the start function
-        let mut instructions = Vec::new();
-        
-        // Generate code for the start function body
-        for stmt in &start_function.body {
-            self.generate_statement(stmt, &mut instructions)?;
+        if let Some(&start_index) = self.function_map.get("start") {
+            self.export_section.export("start", ExportKind::Func, start_index);
+            
+            // Also export memory for debugging/inspection
+            self.export_section.export("memory", ExportKind::Memory, 0);
+        } else {
+            return Err(CompilerError::codegen_error(
+                "No 'start' function found in the program", 
+                Some("Clean Language programs must have a 'start()' function as the entry point".to_string()), 
+                None
+            ));
         }
-        
-        // Create the function
-        let mut start_func = Function::new(vec![]);
-        
-        // Add all instructions
-        for instruction in instructions {
-            start_func.instruction(&instruction);
-        }
-        
-        // Add the End instruction
-        start_func.instruction(&Instruction::End);
-        
-        // Add function to code section
-        code_section.function(&start_func);
-        
-        // Add code section to module
-        self.module.section(&code_section);
-        
-        // Return the WebAssembly module
-        Ok(self.module.clone().finish())
+
+        // ------------------------------------------------------------------
+        // 6. Assemble the final module
+        // ------------------------------------------------------------------
+        self.assemble_module()
     }
 
-    /// Finalize and return the WebAssembly binary
-    pub fn finish(&self) -> Vec<u8> {
-        self.module.clone().finish()
+    /// Prepare function type information without generating code
+    fn prepare_function_type(&mut self, function: &AstFunction) -> Result<(), CompilerError> {
+        // Convert parameters to WasmType
+        let params: Vec<WasmType> = function.parameters.iter()
+            .map(|param| WasmType::from(&param.type_))
+            .collect();
+            
+        // Convert return_type safely
+        let return_type = if function.return_type == Type::Void {
+            None
+        } else {
+            Some(WasmType::from(&function.return_type))
+        };
+        
+        // Add function type
+        let type_index = self.add_function_type(&params, return_type)?;
+        
+        // Add to function section
+        self.function_section.function(type_index);
+        
+        // Track function index and name mapping
+        let func_index = self.function_count;
+        self.function_map.insert(function.name.clone(), func_index);
+        self.function_names.push(function.name.clone());
+        
+        // Add debug information
+        self.debug_info.add_function_name(func_index, function.name.clone());
+        
+        // Increment function count for next function
+        self.function_count += 1;
+
+        Ok(())
+    }
+
+    /// Assemble the final WebAssembly module
+    fn assemble_module(&mut self) -> Result<Vec<u8>, CompilerError> {
+        let mut module = Module::new();
+
+        // Add sections in the correct order
+        if !self.function_types.is_empty() {
+            // Use the type section that was already populated by the TypeManager
+            module.section(&self.type_manager.clone_type_section());
+        }
+        
+        if self.function_count > 0 {
+            module.section(&self.function_section);
+        }
+        
+        // Always add memory section
+        module.section(&self.memory_section);
+        
+        // Add exports if any
+        module.section(&self.export_section);
+        
+        // Add code section if we have functions
+        if self.function_count > 0 {
+            module.section(&self.code_section);
+        }
+        
+        // Add data section if we have any data
+        if !self.memory_utils.is_empty() {
+            module.section(&self.data_section);
+        }
+
+        // Add debug information as custom sections
+        self.add_debug_sections(&mut module)?;
+
+        Ok(module.finish())
+    }
+
+    /// Add debugging information as custom sections
+    fn add_debug_sections(&self, module: &mut Module) -> Result<(), CompilerError> {
+        // Add function names section
+        if !self.debug_info.function_names.is_empty() {
+            let mut names_data = Vec::new();
+            
+            // Write function count
+            names_data.extend_from_slice(&(self.debug_info.function_names.len() as u32).to_le_bytes());
+            
+            // Write each function name
+            for (index, name) in self.debug_info.function_names.iter().enumerate() {
+                names_data.extend_from_slice(&(index as u32).to_le_bytes());
+                names_data.extend_from_slice(&(name.len() as u32).to_le_bytes());
+                names_data.extend_from_slice(name.as_bytes());
+            }
+            
+            // Add as custom section
+            module.section(&wasm_encoder::CustomSection {
+                name: "name".into(),
+                data: names_data.as_slice().into(),
+            });
+        }
+
+        // Add source map information
+        if !self.debug_info.source_map.is_empty() {
+            let mut source_map_data = Vec::new();
+            
+            // Write source map count
+            source_map_data.extend_from_slice(&(self.debug_info.source_map.len() as u32).to_le_bytes());
+            
+            // Write each source location
+            for (offset, location) in &self.debug_info.source_map {
+                source_map_data.extend_from_slice(&offset.to_le_bytes());
+                source_map_data.extend_from_slice(&(location.line as u32).to_le_bytes());
+                source_map_data.extend_from_slice(&(location.column as u32).to_le_bytes());
+                
+                // Write filename
+                let filename = location.file.as_bytes();
+                source_map_data.extend_from_slice(&(filename.len() as u32).to_le_bytes());
+                source_map_data.extend_from_slice(filename);
+            }
+            
+            // Add as custom section
+            module.section(&wasm_encoder::CustomSection {
+                name: "sourceMappingURL".into(),
+                data: source_map_data.as_slice().into(),
+            });
+        }
+
+        Ok(())
     }
 
     fn add_function_type(&mut self, params: &[WasmType], return_type: Option<WasmType>) -> Result<u32, CompilerError> {
@@ -342,106 +437,125 @@ impl CodeGenerator {
     }
 
     pub fn generate_function(&mut self, function: &AstFunction) -> Result<(), CompilerError> {
+        // Reset locals for this function
         self.current_locals.clear();
         self.variable_map.clear();
         
-        // Convert parameters to WasmType
-        let params: Vec<WasmType> = function.parameters.iter()
-            .map(|param| WasmType::from(&param.type_))
-            .collect();
-            
-        // Convert return_type safely
-        let return_type = WasmType::from(&function.return_type);
-            
-        // Add function type using type manager
-        let type_index = self.add_function_type(&params, Some(return_type))?;
-        
-        // Add to function section
-        self.function_section.function(type_index);
-        
-        // Track function index and name mapping
-        let func_index = self.function_count;
-        self.function_map.insert(function.name.clone(), func_index);
-        self.function_names.push(function.name.clone());
-
-        // Export the function if it's the main 'start' function
-        if function.name == "start" {
-            self.export_section.export(
-                "start",
-                ExportKind::Func,
-                func_index
-            );
-        }
-        
-        // Increment function count for next function
-        self.function_count += 1;
-
-        // Add parameters to locals
+        // Add parameters as locals
         for param in &function.parameters {
-            let wasm_type = WasmType::from(&param.type_);
             let local_info = LocalVarInfo {
                 index: self.current_locals.len() as u32,
-                type_: wasm_type.into(),
+                type_: WasmType::from(&param.type_).into(),
             };
             self.current_locals.push(local_info.clone());
             self.variable_map.insert(param.name.clone(), local_info);
         }
-            
+        
+        // Generate function body
         let mut instructions = Vec::new();
         
-        // Generate code for function body
-        for statement in &function.body {
-            self.generate_statement(statement, &mut instructions)?;
-        }
+        // Check if the function has a non-void return type
+        let needs_return_value = function.return_type != Type::Void;
         
-        // Add implicit return if needed
-        if self.function_types.get(func_index as usize).map_or(true, |func_type| func_type.results().is_empty()) {
-            // If no explicit return or trap, we don't need to add an implicit return as the END instruction implies return void
-        }
-        
-        // Process locals for wasm_encoder::Function::new
-        // Group consecutive locals of the same type
-        let mut local_declarations: Vec<(u32, ValType)> = Vec::new();
-        if !self.current_locals.is_empty() {
-            let mut current_type: ValType = self.current_locals[0].type_;
-            let mut current_count: u32 = 0;
-
-            for local_info in &self.current_locals {
-                let val_type: ValType = local_info.type_;
-                if val_type == current_type {
-                    current_count += 1;
+        // Handle function body with implicit return logic
+        if !function.body.is_empty() {
+            // Generate all statements except the last one normally
+            for stmt in &function.body[..function.body.len().saturating_sub(1)] {
+                self.generate_statement(stmt, &mut instructions)?;
+            }
+            
+            // Handle the last statement specially for implicit returns
+            if let Some(last_stmt) = function.body.last() {
+                match last_stmt {
+                    Statement::Expression { expr, .. } => {
+                        // For expression statements as the last statement, treat as implicit return
+                        // unless the function return type is Void
+                        if function.return_type == Type::Void {
+                            // If function returns void, generate the expression but drop the value
+                            self.generate_expression(expr, &mut instructions)?;
+                            instructions.push(Instruction::Drop);
                 } else {
-                    if current_count > 0 {
-                        local_declarations.push((current_count, current_type));
+                            // If function has a return type, use the expression as return value
+                            self.generate_expression(expr, &mut instructions)?;
+                            // Don't add explicit return instruction - WASM functions implicitly return the top stack value
+                        }
+                    },
+                    Statement::Return { .. } => {
+                        // For explicit return statements, generate normally
+                        self.generate_statement(last_stmt, &mut instructions)?;
+                    },
+                    _ => {
+                        // For non-expression, non-return statements, generate normally
+                        self.generate_statement(last_stmt, &mut instructions)?;
+                        
+                        // If the function has a non-void return type and the last statement isn't a return,
+                        // we need to add a default return value
+                        if needs_return_value {
+                            match function.return_type {
+                                Type::Integer => instructions.push(Instruction::I32Const(0)),
+                                Type::Float => instructions.push(Instruction::F64Const(0.0)),
+                                Type::Boolean => instructions.push(Instruction::I32Const(0)),
+                                _ => instructions.push(Instruction::I32Const(0)), // Default for other types
+                            }
+                        }
                     }
-                    current_type = val_type;
-                    current_count = 1;
                 }
             }
-            // Add the last group
-            if current_count > 0 {
-                local_declarations.push((current_count, current_type));
+        } else {
+            // Empty function body - add default return if needed
+            if needs_return_value {
+                match function.return_type {
+                    Type::Integer => instructions.push(Instruction::I32Const(0)),
+                    Type::Float => instructions.push(Instruction::F64Const(0.0)),
+                    Type::Boolean => instructions.push(Instruction::I32Const(0)),
+                    _ => {
+                        return Err(CompilerError::codegen_error(
+                            format!("Cannot generate default return value for type {:?}", function.return_type),
+                            None, None
+                        ));
+                    }
+                }
             }
         }
-            
-        let mut func = Function::new(local_declarations); // Use the grouped locals
-        
-        // Add instructions using proper error handling
+
+        // Create function with locals and instructions
+        let locals = self.current_locals.iter()
+            .skip(function.parameters.len()) // Skip parameters, they're not locals
+            .map(|local| (1u32, local.type_))
+            .collect::<Vec<_>>();
+
+        let mut func = Function::new(locals);
         for instruction in instructions {
             func.instruction(&instruction);
         }
         
-        // Add END instruction with proper error handling
+        // Always add End instruction for user-defined functions
         func.instruction(&Instruction::End);
 
+        // Add to code section
         self.code_section.function(&func);
+
         Ok(())
+    }
+
+    /// Extract source location from a statement for debugging
+    fn get_statement_location(&self, stmt: &Statement) -> Option<SourceLocation> {
+        match stmt {
+            Statement::VariableDecl { location, .. } => location.clone(),
+            Statement::Assignment { location, .. } => location.clone(),
+            Statement::Print { location, .. } => location.clone(),
+            Statement::Return { location, .. } => location.clone(),
+            Statement::If { location, .. } => location.clone(),
+            Statement::Iterate { location, .. } => location.clone(),
+            Statement::Test { location, .. } => location.clone(),
+            _ => Some(SourceLocation::default()),
+        }
     }
 
     pub fn generate_statement(&mut self, stmt: &Statement, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         match stmt {
             Statement::VariableDecl { name, type_, initializer, location } => {
-                let specified_type = type_.as_ref().map(|t| WasmType::from(t));
+                let specified_type = Some(WasmType::from(type_));
                 
                 let (var_type, init_instructions) = if let Some(init_expr) = initializer {
                     let mut init_instr = Vec::new();
@@ -471,7 +585,7 @@ impl CodeGenerator {
                     type_: var_type.into(),
                 };
                 self.current_locals.push(local_info.clone()); 
-                self.variable_map.insert(name.clone(), local_info.clone()); 
+                self.variable_map.insert(name.clone(), local_info.clone());
                 
                 if let Some(init_instr) = init_instructions {
                     instructions.extend(init_instr);
@@ -498,7 +612,7 @@ impl CodeGenerator {
                     ));
                 }
             }
-            Statement::Print { expression, newline, location } => {
+            Statement::Print { expression, newline, location: _ } => {
                 self.generate_expression(expression, instructions)?;
                 instructions.push(Instruction::Call(
                     if *newline {
@@ -508,13 +622,13 @@ impl CodeGenerator {
                     }
                 ));
             }
-            Statement::Return { value, location } => {
+            Statement::Return { value, location: _ } => {
                 if let Some(expr) = value {
                 self.generate_expression(expr, instructions)?;
                 }
                 instructions.push(Instruction::Return);
             }
-            Statement::If { condition, then_branch, else_branch, location } => {
+            Statement::If { condition, then_branch, else_branch, location: _ } => {
                 self.generate_expression(condition, instructions)?;
                 
                 if let Some(else_) = else_branch {
@@ -541,7 +655,7 @@ impl CodeGenerator {
                     instructions.push(Instruction::End);
                 }
             }
-            Statement::Iterate { iterator, collection, body, location } => {
+            Statement::Iterate { iterator, collection, body, location: _ } => {
                 self.generate_expression(collection, instructions)?;
                 
                 let array_ptr_index = self.current_locals.len() as u32;
@@ -619,14 +733,24 @@ impl CodeGenerator {
                 
                 self.variable_map.remove(iterator);
             }
-            Statement::FromTo { start, end, step, body, location } => {
-                let counter_name = format!("_counter_{}", self.current_locals.len());
+            Statement::Test { name: _, body, location: _ } => {
+                #[cfg(test)]
+                for stmt in body {
+                    self.generate_statement(stmt, instructions)?;
+                }
+            }
+            Statement::Expression { expr, location: _ } => {
+                self.generate_expression(expr, instructions)?;
+                instructions.push(Instruction::Drop);
+            }
+            Statement::ApplyBlock { target: _, items: _, location: _ } => {
+                // Apply blocks are handled during parsing/semantic analysis
+                // No runtime code generation needed
+            }
+            Statement::RangeIterate { iterator, start, end, step, body, location: _ } => {
+                // Similar to regular iterate but with range
                 let counter_index = self.current_locals.len() as u32;
                 self.current_locals.push(LocalVarInfo {
-                    index: counter_index,
-                    type_: ValType::I32.into(),
-                });
-                self.variable_map.insert(counter_name.clone(), LocalVarInfo {
                     index: counter_index,
                     type_: ValType::I32.into(),
                 });
@@ -643,90 +767,54 @@ impl CodeGenerator {
                     type_: ValType::I32.into(),
                 });
                 
+                self.variable_map.insert(iterator.clone(), LocalVarInfo {
+                    index: counter_index,
+                    type_: ValType::I32.into(),
+                });
+                
+                // Generate start value
                 self.generate_expression(start, instructions)?;
                 instructions.push(Instruction::LocalSet(counter_index));
                 
+                // Generate end value
                 self.generate_expression(end, instructions)?;
                 instructions.push(Instruction::LocalSet(end_index));
                 
+                // Generate step value (default to 1 if None)
                 if let Some(step_expr) = step {
                     self.generate_expression(step_expr, instructions)?;
                 } else {
                     instructions.push(Instruction::I32Const(1));
                 }
-                instructions.push(Instruction::LocalTee(step_index));
-                
-                instructions.push(Instruction::I32Eqz);
-                instructions.push(Instruction::If(BlockType::Empty));
-                
-                instructions.push(Instruction::I32Const(1));
                 instructions.push(Instruction::LocalSet(step_index));
                 
-                instructions.push(Instruction::End);
-                
+                // Loop structure
                 instructions.push(Instruction::Block(BlockType::Empty));
                 instructions.push(Instruction::Loop(BlockType::Empty));
                 
-                instructions.push(Instruction::LocalGet(step_index));
-                instructions.push(Instruction::I32Const(0));
-                instructions.push(Instruction::I32GtS);
-                instructions.push(Instruction::If(BlockType::Empty));
-                
-                instructions.push(Instruction::LocalGet(counter_index));
-                instructions.push(Instruction::LocalGet(end_index));
-                instructions.push(Instruction::I32GtS);
-                instructions.push(Instruction::BrIf(2));
-                
-                instructions.push(Instruction::Else);
-                
+                // Check loop condition
                 instructions.push(Instruction::LocalGet(counter_index));
                 instructions.push(Instruction::LocalGet(end_index));
                 instructions.push(Instruction::I32LtS);
-                instructions.push(Instruction::BrIf(2));
+                instructions.push(Instruction::I32Eqz);
+                instructions.push(Instruction::BrIf(1));
                 
-                instructions.push(Instruction::End);
-                
+                // Execute loop body
                 for stmt in body {
                     self.generate_statement(stmt, instructions)?;
                 }
                 
+                // Increment counter
                 instructions.push(Instruction::LocalGet(counter_index));
                 instructions.push(Instruction::LocalGet(step_index));
                 instructions.push(Instruction::I32Add);
                 instructions.push(Instruction::LocalSet(counter_index));
                 
                 instructions.push(Instruction::Br(0));
-                
                 instructions.push(Instruction::End);
                 instructions.push(Instruction::End);
                 
-                self.variable_map.remove(&counter_name);
-            }
-            Statement::ErrorHandler { stmt, handler, location } => {
-                self.generate_error_handler(stmt, handler, location, instructions)?;
-            }
-            Statement::Test { name, description, body, location } => {
-                #[cfg(test)]
-                for stmt in body {
-                    self.generate_statement(stmt, instructions)?;
-                }
-            }
-            Statement::Expression { expr, location } => {
-                self.generate_expression(expr, instructions)?;
-                instructions.push(Instruction::Drop);
-            }
-            Statement::Constructor { params, body, location } => {
-                for param in params {
-                    let type_ = self.ast_type_to_wasm_type(&param.type_)?;
-                    self.current_locals.push(LocalVarInfo {
-                        index: self.current_locals.len() as u32,
-                        type_: type_.into(),
-                    });
-                }
-                
-                for stmt in body {
-                    self.generate_statement(stmt, instructions)?;
-                }
+                self.variable_map.remove(iterator);
             }
         }
         Ok(())
@@ -747,8 +835,8 @@ impl CodeGenerator {
             Expression::Variable(name) => {
                 // Check if variable exists to provide better error messages
                 if let Some(local) = self.find_local(name) {
-                instructions.push(Instruction::LocalGet(local.index));
-                Ok(WasmType::from(local.type_))
+                    instructions.push(Instruction::LocalGet(local.index));
+                    Ok(WasmType::from(local.type_))
                 } else {
                     // Collect all visible variables for better suggestions
                     let variables: Vec<&str> = self.variable_map.keys().map(|s| s.as_str()).collect();
@@ -756,7 +844,7 @@ impl CodeGenerator {
                     Err(CompilerError::function_not_found_error(
                         name,
                         &variables,
-                        loc
+                        loc.unwrap_or_default()
                     ))
                 }
             },
@@ -792,7 +880,7 @@ impl CodeGenerator {
                     Err(CompilerError::function_not_found_error(
                         func_name,
                         &functions,
-                        loc
+                        loc.unwrap_or_default()
                     ))
                 }
             },
@@ -812,13 +900,11 @@ impl CodeGenerator {
                 instructions.push(Instruction::Call(self.get_matrix_get())); 
                 Ok(WasmType::F64)
             },
-            Expression::StringConcat(parts) => {
-                // Assuming parts is Vec<Expression> as per AST error E0023
-                // self.generate_string_interpolation needs Vec<StringPart>
-                // Need to convert/handle this mismatch - placeholder error for now
-                Err(CompilerError::codegen_error("StringConcat codegen needs update for Vec<Expression>", None, loc.clone()))
-                // self.generate_string_interpolation(parts, instructions)?;
-                // Ok(WasmType::I32) 
+            Expression::StringInterpolation(_parts) => {
+                // Handle string interpolation
+                Err(CompilerError::codegen_error(
+                    "String interpolation not fully implemented", None, None
+                ))
             },
             // TODO: Add other expression variants based on ast::Expression definition
             // Expression::Unary(op, expr) => { ... }
@@ -839,7 +925,10 @@ impl CodeGenerator {
         // Special handling for division by zero
         if let BinaryOperator::Divide = op {
             match right {
-                Expression::Literal(Value::Integer(0)) | Expression::Literal(Value::Number(0.0)) => {
+                Expression::Literal(Value::Integer(0)) => {
+                    return Err(CompilerError::division_by_zero_error(None));
+                },
+                Expression::Literal(Value::Float(n)) if *n == 0.0 => {
                     return Err(CompilerError::division_by_zero_error(None));
                 },
                 _ => {
@@ -959,8 +1048,8 @@ impl CodeGenerator {
         match expr {
             // Correct patterns
             Expression::Literal(Value::String(_)) => true,
-            Expression::Variable(name) => { /* ... */ false } // Needs type lookup
-            Expression::StringConcat(_) => true,
+            Expression::Variable(_name) => { /* ... */ false } // Needs type lookup
+            Expression::StringInterpolation(_) => true,
             _ => false,
         }
     }
@@ -1004,14 +1093,14 @@ impl CodeGenerator {
 
     fn generate_value(&mut self, value: &Value, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
         match value {
-            Value::Number(n) => {
+            Value::Float(n) => {
                 instructions.push(Instruction::F64Const(*n));
                 Ok(WasmType::F64)
-            }
+            },
             Value::Integer(i) => {
-                instructions.push(Instruction::I32Const(*i));
+                instructions.push(Instruction::I32Const((*i).try_into().unwrap()));
                 Ok(WasmType::I32)
-            }
+            },
             Value::String(s) => {
                 let ptr = self.allocate_string(s)?;
                 instructions.push(Instruction::I32Const(ptr as i32));
@@ -1109,24 +1198,196 @@ impl CodeGenerator {
 
     // Helper to register stdlib functions
     fn register_stdlib_functions(&mut self) -> Result<(), CompilerError> {
-        // In a real implementation, this would register all standard library functions
-        // For now, just a placeholder
-        if !self.stdlib_registered {
-            // Register memory functions
-            self.add_memory_functions()?;
-            self.stdlib_registered = true;
+        // Re-enable stdlib functions using the same approach as user-defined functions
+        // This avoids the validation issues we had with the register_function approach
+        
+        // 1. Create stdlib function definitions using AstFunction
+        let stdlib_functions = self.create_stdlib_ast_functions()?;
+        
+        // 2. Process them like regular user functions
+        for function in &stdlib_functions {
+            self.prepare_function_type(function)?;
         }
+        
+        // 3. Generate their code
+        for function in &stdlib_functions {
+            self.generate_function(function)?;
+        }
+        
         Ok(())
+    }
+    
+    /// Create AST function definitions for stdlib functions
+    fn create_stdlib_ast_functions(&self) -> Result<Vec<ast::Function>, CompilerError> {
+        use crate::ast::{Function as AstFunction, Parameter, Statement, Expression, Value, Type, FunctionSyntax, Visibility};
+        
+        let mut functions = Vec::new();
+        
+        // abs(value: Integer) -> Integer
+        functions.push(AstFunction {
+            name: "abs".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "value".to_string(),
+                    type_: Type::Integer,
+                }
+            ],
+            return_type: Type::Integer,
+            body: vec![
+                // if value < 0 then -value else value
+                Statement::If {
+                    condition: Expression::Binary(
+                        Box::new(Expression::Variable("value".to_string())),
+                        ast::BinaryOperator::Less,
+                        Box::new(Expression::Literal(Value::Integer(0)))
+                    ),
+                    then_branch: vec![
+                        Statement::Return {
+                            value: Some(Expression::Binary(
+                                Box::new(Expression::Literal(Value::Integer(0))),
+                                ast::BinaryOperator::Subtract,
+                                Box::new(Expression::Variable("value".to_string()))
+                            )),
+                            location: None,
+                        }
+                    ],
+                    else_branch: Some(vec![
+                        Statement::Return {
+                            value: Some(Expression::Variable("value".to_string())),
+                            location: None,
+                        }
+                    ]),
+                    location: None,
+                }
+            ],
+            description: Some("Returns the absolute value of an integer".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        // print(value: Integer) -> Void  
+        functions.push(AstFunction {
+            name: "print".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "value".to_string(),
+                    type_: Type::Integer,
+                }
+            ],
+            return_type: Type::Void,
+            body: vec![
+                // This is a placeholder - actual printing would need host function import
+                // For now, just drop the value to make it a valid void function
+                Statement::Expression {
+                    expr: Expression::Variable("value".to_string()),
+                    location: None,
+                }
+            ],
+            description: Some("Prints an integer value".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        // printl(value: Integer) -> Void (print with newline)
+        functions.push(AstFunction {
+            name: "printl".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "value".to_string(),
+                    type_: Type::Integer,
+                }
+            ],
+            return_type: Type::Void,
+            body: vec![
+                // This is a placeholder - actual printing would need host function import
+                // For now, just drop the value to make it a valid void function
+                Statement::Expression {
+                    expr: Expression::Variable("value".to_string()),
+                    location: None,
+                }
+            ],
+            description: Some("Prints an integer value with newline".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        // array_get(array: Array, index: Integer) -> Integer
+        functions.push(AstFunction {
+            name: "array_get".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "array".to_string(),
+                    type_: Type::Array(Box::new(Type::Integer)),
+                },
+                Parameter {
+                    name: "index".to_string(),
+                    type_: Type::Integer,
+                }
+            ],
+            return_type: Type::Integer,
+            body: vec![
+                // Placeholder implementation - would need memory operations
+                // Return 0 for now
+                Statement::Return {
+                    value: Some(Expression::Literal(Value::Integer(0))),
+                    location: None,
+                }
+            ],
+            description: Some("Gets an element from an array".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        // array_length(array: Array) -> Integer
+        functions.push(AstFunction {
+            name: "array_length".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "array".to_string(),
+                    type_: Type::Array(Box::new(Type::Integer)),
+                }
+            ],
+            return_type: Type::Integer,
+            body: vec![
+                // Placeholder implementation - would need memory operations
+                // Return 0 for now
+                Statement::Return {
+                    value: Some(Expression::Literal(Value::Integer(0))),
+                    location: None,
+                }
+            ],
+            description: Some("Gets the length of an array".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        Ok(functions)
     }
 
     // Add delegate methods to use instruction_generator
     // These should be part of the CodeGenerator implementation
 
     pub fn find_local(&self, name: &str) -> Option<LocalVarInfo> {
-        self.instruction_generator.find_local(name).cloned()
+        self.variable_map.get(name).cloned()
     }
 
     pub fn get_function_index(&self, name: &str) -> Option<u32> {
+        // First check our function_map which contains stdlib functions
+        if let Some(&index) = self.function_map.get(name) {
+            return Some(index);
+        }
+        
+        // Fallback to instruction_generator for compatibility
         self.instruction_generator.get_function_index(name)
     }
 
@@ -1135,40 +1396,33 @@ impl CodeGenerator {
     }
 
     pub fn get_array_get(&self) -> u32 {
-        self.instruction_generator.get_array_get()
+        self.function_map.get("array_get").copied().unwrap_or(0)
     }
 
     pub fn get_array_length(&self) -> u32 {
-        self.instruction_generator.get_array_length()
+        self.function_map.get("array_length").copied().unwrap_or(0)
     }
 
     pub fn get_matrix_get(&self) -> u32 {
-        self.instruction_generator.get_matrix_get()
+        self.function_map.get("matrix_get").copied().unwrap_or(0)
     }
 
     pub fn get_print_function_index(&self) -> u32 {
-        self.instruction_generator.get_print_function_index()
+        self.function_map.get("print").copied().unwrap_or(0)
     }
 
     pub fn get_printl_function_index(&self) -> u32 {
-        self.instruction_generator.get_printl_function_index()
+        self.function_map.get("printl").copied().unwrap_or(0)
     }
 
     pub fn register_function(&mut self, name: &str, params: &[WasmType], return_type: Option<WasmType>, 
         instructions: &[Instruction]) -> Result<u32, CompilerError>
     {
-        // First, register with instruction_generator to get the function index
-        let function_index = self.instruction_generator.register_function(name, params, return_type, instructions)?;
+        // Get the current function index (this will be the index for the new function)
+        let function_index = self.function_count;
         
-        // Convert WasmType params to ValType
-        let val_type_params: Vec<ValType> = params.iter().map(|wt| (*wt).into()).collect();
-        
-        // Convert return_type to Vec<ValType> (empty for None, or single value for Some)
-        let val_type_results: Vec<ValType> = if let Some(rt) = return_type {
-            vec![rt.into()]
-                } else {
-            vec![]
-        };
+        // Register with instruction_generator for internal tracking
+        self.instruction_generator.register_function(name, params, return_type, instructions)?;
         
         // Add the function type to the type section
         let type_index = self.add_function_type(params, return_type)?;
@@ -1176,18 +1430,21 @@ impl CodeGenerator {
         // Add the function to the function section
         self.function_section.function(type_index);
         
-        // Create a Function with the instructions
-        let mut func = Function::new(vec![]); // No locals for stdlib functions
+        // Create a Function - parameters are automatically available as locals 0, 1, 2, ...
+        // No additional locals needed for simple stdlib functions
+        let mut func = Function::new(vec![]); 
         for inst in instructions {
             func.instruction(inst);
         }
+        
+        // Always add End instruction for stdlib functions (they don't include it in their definitions)
         func.instruction(&Instruction::End);
         
         // Add the function to the code section
         self.code_section.function(&func);
         
-        // Add an export for the function
-        self.export_section.export(name, wasm_encoder::ExportKind::Func, function_index);
+        // Do NOT add exports for stdlib functions - they are for internal use only
+        // self.export_section.export(name, wasm_encoder::ExportKind::Func, function_index);
         
         // Update other tracking data
         self.function_names.push(name.to_string());
@@ -1197,8 +1454,26 @@ impl CodeGenerator {
         Ok(function_index)
     }
 
-    pub fn generate_error_handler(&mut self, stmt: &Statement, handler: &[Statement], location: &Option<SourceLocation>, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
-        self.instruction_generator.generate_error_handler(stmt, handler, location, instructions)
+    pub fn generate_error_handler_blocks(&mut self, try_block: &[Statement], error_variable: Option<&str>, catch_block: &[Statement], _location: &Option<SourceLocation>, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
+        // For now, implement a simple try-catch mechanism using WASM's try-catch instructions
+        // Note: Full exception handling in WASM requires the exception handling proposal
+        
+        // Generate try block instructions
+        let mut try_instructions = Vec::new();
+        for stmt in try_block {
+            self.generate_statement(stmt, &mut try_instructions)?;
+        }
+        
+        // For now, we'll implement a simplified version without actual exception handling
+        // In a full implementation, this would use WASM's try-catch instructions
+        
+        // Add the try block instructions directly
+        instructions.extend(try_instructions);
+        
+        // TODO: Implement proper exception handling when WASM exception handling is stable
+        // For now, we just execute the try block and ignore the catch block
+        
+        Ok(())
     }
 
     pub fn ast_type_to_wasm_type(&self, ast_type: &Type) -> Result<WasmType, CompilerError> {
@@ -1215,7 +1490,7 @@ impl CodeGenerator {
         Ok(result as u32)
     }
 
-    pub fn allocate_matrix(&mut self, data: &[f64], rows: usize, cols: usize) -> Result<u32, CompilerError> {
+    pub fn allocate_matrix(&mut self, data: &[f64], _rows: usize, cols: usize) -> Result<u32, CompilerError> {
         // Create a matrix from the flat array data
         let matrix_data: Vec<Vec<f64>> = data
             .chunks(cols)
@@ -1235,5 +1510,13 @@ impl CodeGenerator {
 
     pub fn release_memory(&mut self, ptr: u32) -> Result<(), CompilerError> {
         self.memory_utils.release(ptr as usize)
+    }
+
+    /// Finalize and return the WebAssembly binary
+    pub fn finish(&self) -> Vec<u8> {
+        // This method is kept for compatibility, but the new approach
+        // generates the binary directly in the generate() method
+        // For now, return an empty vector as a placeholder
+        vec![]
     }
 } 

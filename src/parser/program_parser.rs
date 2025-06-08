@@ -1,5 +1,5 @@
 use pest::iterators::Pair;
-use crate::ast::{Program, Function};
+use crate::ast::{Program};
 use crate::error::CompilerError;
 use crate::parser::grammar::Rule;
 use crate::parser::parser_impl;
@@ -38,7 +38,8 @@ pub fn parse_program_ast(pair: Pair<Rule>) -> Result<Program, CompilerError> {
             // Create and return the Program
             Ok(Program { 
                 functions,
-                classes: Vec::new()
+                classes: Vec::new(),
+                start_function: None,
             })
         },
         _ => Err(CompilerError::parse_error(

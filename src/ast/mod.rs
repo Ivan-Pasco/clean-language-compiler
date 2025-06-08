@@ -1,8 +1,8 @@
 use std::fmt;
-use crate::parser::StringPart;
-use std::collections::HashMap;
-use crate::types::WasmType;
-use wasm_encoder::ValType;
+
+
+
+
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SourceLocation {
@@ -13,109 +13,50 @@ pub struct SourceLocation {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Number(f64),
-    String(String),
+    Integer(i64),        // Default integer (platform optimal)
+    Float(f64),          // Default float (platform optimal)
     Boolean(bool),
+    String(String),
     Array(Vec<Value>),
     Matrix(Vec<Vec<f64>>),
-    Integer(i32),
-    Byte(u8),
-    Unsigned(u32),
-    Long(i64),
-    ULong(u64),
-    Big(String),
-    UBig(String),
-    Float(f64),
-    Unit,
-    Null,
+    Void,
+    // Advanced sized types
+    Integer8(i8),
+    Integer8u(u8),
+    Integer16(i16),
+    Integer16u(u16),
+    Integer32(i32),
+    Integer64(i64),
+    Float32(f32),
+    Float64(f64),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    Integer,
-    Number,
+    // Core types from specification
     Boolean,
+    Integer,             // Default integer
+    Float,              // Default float
     String,
-    Byte,
-    Unsigned,
-    Long,
-    ULong,
-    Float,
+    Void,
+    
+    // Advanced sized types
+    IntegerSized { bits: u8, unsigned: bool },
+    FloatSized { bits: u8 },
+    
+    // Composite types
     Array(Box<Type>),
     Matrix(Box<Type>),
-    Unit,
-    Object(String),
-    Any,
-    TypeParameter(String),
-    Big,
-    UBig,
-    Generic(Box<Type>, Vec<Type>),
     Map(Box<Type>, Box<Type>),
+    
+    // Generic types
+    Generic(Box<Type>, Vec<Type>),
+    TypeParameter(String),
+    
+    // Object types
+    Object(String),
     Function(Vec<Type>, Box<Type>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Operator {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    LessThan,
-    LessEqual,
-    GreaterThan,
-    GreaterEqual,
-    Equal,
-    NotEqual,
-    And,
-    Or,
-    Not,
-}
-
-impl std::fmt::Display for Operator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Operator::Add => write!(f, "+"),
-            Operator::Subtract => write!(f, "-"),
-            Operator::Multiply => write!(f, "*"),
-            Operator::Divide => write!(f, "/"),
-            Operator::Modulo => write!(f, "%"),
-            Operator::LessThan => write!(f, "<"),
-            Operator::LessEqual => write!(f, "<="),
-            Operator::GreaterThan => write!(f, ">"),
-            Operator::GreaterEqual => write!(f, ">="),
-            Operator::Equal => write!(f, "=="),
-            Operator::NotEqual => write!(f, "!="),
-            Operator::And => write!(f, "&&"),
-            Operator::Or => write!(f, "||"),
-            Operator::Not => write!(f, "!"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum UnaryOperator {
-    Negate,
-    Not,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MatrixOperator {
-    Add,
-    Subtract,
-    Multiply,
-    Transpose,
-    Inverse,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ComparisonOperator {
-    Equal,
-    NotEqual,
-    Less,
-    Greater,
-    LessEquals,
-    GreaterEquals,
+    Any,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,27 +65,28 @@ pub enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
+    Power,
+    
+    // Comparison
     Equal,
     NotEqual,
     Less,
     Greater,
     LessEqual,
     GreaterEqual,
+    Is,
+    Not,
+    
+    // Logical
     And,
     Or,
 }
 
-impl From<ComparisonOperator> for BinaryOperator {
-    fn from(op: ComparisonOperator) -> Self {
-        match op {
-            ComparisonOperator::Equal => BinaryOperator::Equal,
-            ComparisonOperator::NotEqual => BinaryOperator::NotEqual,
-            ComparisonOperator::Less => BinaryOperator::Less,
-            ComparisonOperator::Greater => BinaryOperator::Greater,
-            ComparisonOperator::LessEquals => BinaryOperator::LessEqual,
-            ComparisonOperator::GreaterEquals => BinaryOperator::GreaterEqual,
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnaryOperator {
+    Negate,
+    Not,
 }
 
 #[derive(Debug, Clone)]
@@ -166,12 +108,11 @@ pub enum Expression {
     Binary(Box<Expression>, BinaryOperator, Box<Expression>),
     Unary(UnaryOperator, Box<Expression>),
     Call(String, Vec<Expression>),
-    ArrayAccess(Box<Expression>, Box<Expression>),
-    MatrixAccess(Box<Expression>, Box<Expression>, Box<Expression>),
-    StringConcat(Vec<Expression>),
-    FieldAccess {
+    
+    // Property and method access
+    PropertyAccess {
         object: Box<Expression>,
-        field: String,
+        property: String,
         location: SourceLocation,
     },
     MethodCall {
@@ -180,75 +121,130 @@ pub enum Expression {
         arguments: Vec<Expression>,
         location: SourceLocation,
     },
+    
+    // Array and Matrix access
+    ArrayAccess(Box<Expression>, Box<Expression>),
+    MatrixAccess(Box<Expression>, Box<Expression>, Box<Expression>),
+    
+    // String interpolation
+    StringInterpolation(Vec<StringPart>),
+    
+    // Object creation
     ObjectCreation {
         class_name: String,
         arguments: Vec<Expression>,
         location: SourceLocation,
     },
-    MatrixOperation(Box<Expression>, MatrixOperator, Box<Expression>, SourceLocation),
+    
+    // Error handling
+    OnError {
+        expression: Box<Expression>,
+        fallback: Box<Expression>,
+        location: SourceLocation,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringPart {
+    Text(String),
+    Interpolation(Expression),
 }
 
 #[derive(Debug, Clone)]
 pub enum Statement {
+    // Variable declarations (type-first)
     VariableDecl {
         name: String,
-        type_: Option<Type>,
+        type_: Type,
         initializer: Option<Expression>,
         location: Option<SourceLocation>,
     },
+    
+    // Apply blocks
+    ApplyBlock {
+        target: String,
+        items: Vec<ApplyItem>,
+        location: Option<SourceLocation>,
+    },
+    
+    // Assignment
     Assignment {
         target: String,
         value: Expression,
         location: Option<SourceLocation>,
     },
+    
+    // Print statements
     Print {
         expression: Expression,
         newline: bool,
         location: Option<SourceLocation>,
     },
+    
+    // Return
     Return {
         value: Option<Expression>,
         location: Option<SourceLocation>,
     },
+    
+    // Control flow
     If {
         condition: Expression,
         then_branch: Vec<Statement>,
         else_branch: Option<Vec<Statement>>,
         location: Option<SourceLocation>,
     },
+    
+    // Iteration
     Iterate {
         iterator: String,
         collection: Expression,
         body: Vec<Statement>,
         location: Option<SourceLocation>,
     },
-    FromTo {
+    
+    RangeIterate {
+        iterator: String,
         start: Expression,
         end: Expression,
         step: Option<Expression>,
         body: Vec<Statement>,
         location: Option<SourceLocation>,
     },
-    ErrorHandler {
-        stmt: Box<Statement>,
-        handler: Vec<Statement>,
-        location: Option<SourceLocation>,
-    },
+    
+    // Test
     Test {
         name: String,
-        description: Option<String>,
         body: Vec<Statement>,
         location: Option<SourceLocation>,
     },
+    
+    // Expression statement
     Expression {
         expr: Expression,
         location: Option<SourceLocation>,
     },
-    Constructor {
-        params: Vec<Parameter>,
-        body: Vec<Statement>,
-        location: Option<SourceLocation>,
-    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ApplyItem {
+    FunctionCall(Expression),
+    VariableDecl {
+        name: String,
+        initializer: Option<Expression>,
+    },
+    ConstantDecl {
+        type_: Type,
+        name: String,
+        value: Expression,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum FunctionSyntax {
+    Simple,      // function integer add() ...
+    Detailed,    // function integer add() with description/input blocks
+    Block,       // functions: block
 }
 
 #[derive(Debug, Clone)]
@@ -259,6 +255,8 @@ pub struct Function {
     pub return_type: Type,
     pub body: Vec<Statement>,
     pub description: Option<String>,
+    pub syntax: FunctionSyntax,
+    pub visibility: Visibility,
     pub location: Option<SourceLocation>,
 }
 
@@ -277,12 +275,14 @@ impl Function {
             return_type,
             body,
             description: None,
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
             location,
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Visibility {
     Public,
     Private,
@@ -318,7 +318,7 @@ pub struct Class {
     pub name: String,
     pub type_parameters: Vec<String>,
     pub description: Option<String>,
-    pub base_class: Option<String>,
+    pub base_class: Option<String>,  // Using "is" inheritance
     pub base_class_type_args: Vec<Type>,
     pub fields: Vec<Field>,
     pub methods: Vec<Function>,
@@ -330,11 +330,16 @@ pub struct Class {
 pub struct Program {
     pub functions: Vec<Function>,
     pub classes: Vec<Class>,
+    pub start_function: Option<Function>,
 }
 
 impl Program {
     pub fn new(functions: Vec<Function>, classes: Vec<Class>) -> Self {
-        Self { functions, classes }
+        Self { 
+            functions, 
+            classes,
+            start_function: None,
+        }
     }
 }
 
@@ -342,22 +347,31 @@ impl Program {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Type::Integer => f.write_str("integer"),
             Type::Boolean => f.write_str("boolean"),
-            Type::String => f.write_str("string"),
+            Type::Integer => f.write_str("integer"),
             Type::Float => f.write_str("float"),
-            Type::Array(inner) => write!(f, "array<{}>", inner),
-            Type::Matrix(inner) => write!(f, "matrix<{}>", inner),
-            Type::Map(key, value) => write!(f, "map<{}, {}>", key, value),
+            Type::String => f.write_str("string"),
+            Type::Void => f.write_str("void"),
+            Type::IntegerSized { bits, unsigned } => {
+                if *unsigned {
+                    write!(f, "integer:{}u", bits)
+                } else {
+                    write!(f, "integer:{}", bits)
+                }
+            },
+            Type::FloatSized { bits } => write!(f, "float:{}", bits),
+            Type::Array(inner) => write!(f, "Array<{}>", inner),
+            Type::Matrix(inner) => write!(f, "Matrix<{}>", inner),
+            Type::Map(key, value) => write!(f, "Map<{}, {}>", key, value),
             Type::Function(params, ret) => {
-                write!(f, "fn(")?;
+                write!(f, "function(")?;
                 for (i, param) in params.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
                     write!(f, "{}", param)?;
                 }
-                write!(f, ") -> {}", ret)
+                write!(f, ") returns {}", ret)
             },
             Type::Object(name) => write!(f, "{}", name),
             Type::Generic(base, args) => {
@@ -372,14 +386,6 @@ impl fmt::Display for Type {
             },
             Type::TypeParameter(name) => write!(f, "{}", name),
             Type::Any => f.write_str("any"),
-            Type::Unit => f.write_str("unit"),
-            Type::Number => f.write_str("number"),
-            Type::Byte => f.write_str("byte"),
-            Type::Unsigned => f.write_str("unsigned"),
-            Type::Long => f.write_str("long"),
-            Type::ULong => f.write_str("ulong"),
-            Type::Big => f.write_str("big"),
-            Type::UBig => f.write_str("ubig"),
         }
     }
 }
@@ -388,7 +394,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Value::Integer(i) => write!(f, "{}", i),
-            Value::Number(n) => write!(f, "{}", n),
+            Value::Float(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "\"{}\"", s),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Array(items) => {
@@ -418,15 +424,15 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             },
-            Value::Null => write!(f, "null"),
-            Value::Unit => write!(f, "()"),
-            Value::Byte(b) => write!(f, "{}b", b),
-            Value::Unsigned(u) => write!(f, "{}u", u),
-            Value::Long(l) => write!(f, "{}L", l),
-            Value::ULong(ul) => write!(f, "{}UL", ul),
-            Value::Big(s) => write!(f, "{}n", s),
-            Value::UBig(s) => write!(f, "{}un", s),
-            Value::Float(f_val) => write!(f, "{}f", f_val),
+            Value::Void => write!(f, "()"),
+            Value::Integer8(i) => write!(f, "{}:8", i),
+            Value::Integer8u(u) => write!(f, "{}:8u", u),
+            Value::Integer16(i) => write!(f, "{}:16", i),
+            Value::Integer16u(u) => write!(f, "{}:16u", u),
+            Value::Integer32(i) => write!(f, "{}:32", i),
+            Value::Integer64(i) => write!(f, "{}:64", i),
+            Value::Float32(f_val) => write!(f, "{}:32", f_val),
+            Value::Float64(f_val) => write!(f, "{}:64", f_val),
         }
     }
 }

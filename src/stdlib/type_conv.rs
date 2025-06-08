@@ -1,8 +1,9 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use wasm_encoder::{Instruction, MemArg, BlockType, ValType};
 use crate::stdlib::MemoryManager;
+use wasm_encoder::{Instruction, MemArg, BlockType, ValType};
+
 use crate::stdlib::register_stdlib_function;
 
 /// Type conversion operations implementation
@@ -585,7 +586,7 @@ mod tests {
         let mut results = vec![Val::F64(0)];
         conv.call(&mut store, &[Val::I32(value)], &mut results).unwrap();
         
-        let result = f64::from_bits(results[0].unwrap_f64());
+        let result = results[0].unwrap_f64();
         assert!((result - value as f64).abs() < f64::EPSILON);
     }
 

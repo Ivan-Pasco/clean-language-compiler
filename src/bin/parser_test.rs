@@ -1,13 +1,27 @@
 use clean_language_compiler::parser::{CleanParser, Rule};
 use pest::Parser;
 use clean_language_compiler::ast::{Statement, Value, Expression};
+use std::env;
+use std::fs;
 
 fn main() {
-    let source = "start() { return 42 }";
+    let args: Vec<String> = env::args().collect();
+    
+    let source = if args.len() > 1 {
+        // Load from file
+        let filename = &args[1];
+        fs::read_to_string(filename).unwrap_or_else(|e| {
+            panic!("Failed to read file {}: {}", filename, e);
+        })
+    } else {
+        // Use new specification syntax as fallback
+        "function start()\n    print 42".to_string()
+    };
+    
     println!("Source code: {}", source);
     
     // Parse using the pest parser directly to see the raw tokens
-    let pairs = CleanParser::parse(Rule::program, source).unwrap_or_else(|e| {
+    let pairs = CleanParser::parse(Rule::program, &source).unwrap_or_else(|e| {
         panic!("Parse error: {}", e);
     });
     
@@ -18,12 +32,12 @@ fn main() {
     }
     
     // Try to parse the program
-    match CleanParser::parse_program(source) {
+    match CleanParser::parse_program(&source) {
         Ok(program) => {
-            println!("\nSuccessfully parsed program with {} functions", program.functions.len());
+            println!("\nSuccessfully parsed program!");
+            println!("Functions: {}", program.functions.len());
             
-            // Check the start function
-            if let Some(start_func) = program.functions.iter().find(|f| f.name == "start") {
+            if let Some(start_func) = &program.start_function {
                 println!("Found start function with {} statements", start_func.body.len());
                 
                 // Analyze the statements
@@ -34,27 +48,25 @@ fn main() {
                     if let Statement::Return { value, .. } = stmt {
                         println!("  Return statement value: {:?}", value);
                         
-                        // Check if the value is an integer literal
                         if let Some(expr) = value {
-                            println!("  Return expr: {:?}", expr);
-                            
-                            // Print more detailed debugging information
                             match expr {
                                 Expression::Literal(val) => {
                                     println!("  Literal value: {:?}", val);
-                                    
-                                    // Check if it's an integer
                                     if let Value::Integer(i) = val {
                                         println!("  Integer value: {}", i);
                                     }
                                 },
-                                _ => println!("  Not a literal: {:?}", expr),
+                                _ => println!("  Expression: {:?}", expr),
                             }
                         }
                     }
                 }
             } else {
-                println!("Start function not found");
+                println!("No start function found");
+            }
+            
+            for func in &program.functions {
+                println!("Regular function: {} with {} statements", func.name, func.body.len());
             }
         },
         Err(e) => {

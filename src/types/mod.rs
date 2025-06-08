@@ -142,11 +142,21 @@ impl From<ValType> for WasmType {
 impl From<&AstType> for WasmType {
     fn from(ast_type: &AstType) -> Self {
         match ast_type {
-            AstType::Integer | AstType::Boolean | AstType::Byte | AstType::Unsigned => WasmType::I32,
-            AstType::Long | AstType::ULong => WasmType::I64,
-            AstType::Number => WasmType::F64,
-            AstType::String | AstType::Array(_) | AstType::Matrix(_) | AstType::Object(_) => WasmType::I32,
-            _ => WasmType::I32, // Default to I32 for other types
+            AstType::Integer | AstType::Boolean => WasmType::I32,
+            AstType::Float => WasmType::F64,
+            AstType::String => WasmType::I32, // String pointers
+            AstType::Void => WasmType::I32,   // Void represented as I32
+            AstType::Array(_) => WasmType::I32, // Array pointers
+            AstType::Matrix(_) => WasmType::I32, // Matrix pointers
+            AstType::Object(_) => WasmType::I32, // Object pointers
+            AstType::Generic(_, _) => WasmType::I32, // Generic type pointers
+            AstType::TypeParameter(_) => WasmType::I32, // Type parameter pointers
+            // Sized types
+            AstType::IntegerSized { bits: 8..=32, .. } => WasmType::I32,
+            AstType::IntegerSized { bits: 64, .. } => WasmType::I64,
+            AstType::FloatSized { bits: 32 } => WasmType::F32,
+            AstType::FloatSized { bits: 64 } => WasmType::F64,
+            _ => WasmType::I32, // Default for other types
         }
     }
 }

@@ -1,7 +1,7 @@
 //! Module for memory operations during code generation.
 
-use wasm_encoder::{DataSection, ConstExpr, Instruction, Function, ValType, MemArg, BlockType};
-use crate::error::{CompilerError, ErrorContext, ErrorType};
+use wasm_encoder::{DataSection, ConstExpr, Instruction, ValType, MemArg, BlockType};
+use crate::error::{CompilerError};
 use crate::ast::Value;
 use crate::types::WasmType;
 
@@ -191,6 +191,11 @@ impl MemoryUtils {
         instructions
     }
 
+    /// Check if the memory utils has any allocated data
+    pub(crate) fn is_empty(&self) -> bool {
+        self.memory_blocks.is_empty() && self.current_address == self.heap_start
+    }
+
     /// Allocates memory for a string and adds a data segment for it
     pub(crate) fn allocate_string(&mut self, s: &str) -> Result<usize, CompilerError> {
         let bytes = s.as_bytes();
@@ -225,10 +230,10 @@ impl MemoryUtils {
             WasmType::I32
         } else {
             match &elements[0] {
-                Value::Number(_) => WasmType::F64,
                 Value::Integer(_) => WasmType::I32,
                 Value::Boolean(_) => WasmType::I32,
                 Value::String(_) => WasmType::I32,
+                Value::Float(_) => WasmType::F64,
                 _ => WasmType::I32,
             }
         };
@@ -255,7 +260,7 @@ impl MemoryUtils {
             match (element, element_type) {
                 (Value::Integer(i), WasmType::I32) => 
                     data_bytes.extend_from_slice(&i.to_le_bytes()),
-                (Value::Number(n), WasmType::F64) => 
+                (Value::Float(n), WasmType::F64) => 
                     data_bytes.extend_from_slice(&n.to_le_bytes()),
                 (Value::Boolean(b), WasmType::I32) => 
                     data_bytes.extend_from_slice(&(if *b { 1i32 } else { 0i32 }).to_le_bytes()),

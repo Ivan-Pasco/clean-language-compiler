@@ -1,53 +1,52 @@
-// Complex test file using integer literals in various contexts
+// Complex test file demonstrating Clean Language features
 
 // Function that computes the factorial of a number
-factorial(n) {
-  if n <= 1 {
+function integer factorial()
+    input
+        integer n
+    if n <= 1
     return 1
-  } else {
+    else
     return n * factorial(n - 1)
-  }
-}
 
 // Function that sums all numbers from start to end
-sum_range(start, end) {
-  let total = 0
-  let i = start
+function integer sumRange()
+    input
+        integer start
+        integer end
+    integer total = 0
+    integer i = start
   
-  while i <= end {
+    iterate i in start to end
     total = total + i
-    i = i + 1
-  }
   
   return total
-}
 
 // Function to check if a number is prime
-is_prime(n) {
-  if n <= 1 {
+function boolean isPrime()
+    input
+        integer n
+    if n <= 1
     return false
-  }
-  
-  let i = 2
-  while i * i <= n {
-    if n % i == 0 {
+    
+    integer i = 2
+    while i * i <= n
+        if n % i == 0
       return false
-    }
     i = i + 1
-  }
   
   return true
-}
 
 // Main program entry point
-start() {
-  let a = 5
-  let b = 10
+function start()
+    integer a = 5
+    integer b = 10
   
-  let fact_a = factorial(a)
-  let range_sum = sum_range(a, b)
-  let is_b_prime = is_prime(b)
+    integer factA = factorial()
+    integer rangeSum = sumRange()
+    boolean isBPrime = isPrime()
   
-  // Return a value that combines our results
-  return fact_a + range_sum + (is_b_prime ? 1 : 0)
-} 
+    // Print results
+    println("Factorial of {a}: {factA}")
+    println("Sum from {a} to {b}: {rangeSum}")
+    println("Is {b} prime: {isBPrime}") 

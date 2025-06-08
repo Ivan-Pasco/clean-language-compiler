@@ -148,10 +148,8 @@ fn execute_file(input_file: &str) -> Result<(), CompilerError> {
 fn run_wasm_with_wasmtime(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     use wasmtime::{Config, Engine, Module, Store, Linker, Caller, Val};
     
-    // Configure the engine
-    let mut config = Config::new();
-    config.wasm_multi_value(true);
-    config.wasm_reference_types(true);
+    // Use default configuration - simpler and more compatible
+    let config = Config::default();
     
     // Create the engine
     let engine = Engine::new(&config)

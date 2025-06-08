@@ -1,301 +1,268 @@
 use pest::iterators::Pair;
-use crate::ast::{Statement, Expression, Type};
+use crate::ast::Statement;
 use crate::error::CompilerError;
-use super::{get_location, parse_expression, parse_type, convert_to_ast_location, SourceLocation};
+use super::{get_location, convert_to_ast_location};
+use super::expression_parser::parse_expression;
+use super::type_parser::parse_type;
 use super::Rule;
 
 pub fn parse_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
-    let parser_location = get_location(&pair);
-    let ast_location = convert_to_ast_location(&parser_location);
-    
-    let inner = pair.into_inner().next().ok_or_else(|| CompilerError::parse_error(
-        "Empty statement".to_string(),
-        Some(ast_location.clone()),
-        Some("Statement must contain content".to_string())
-    ))?;
+    let ast_location = convert_to_ast_location(&get_location(&pair));
+    let inner = pair.into_inner().next().unwrap();
 
     match inner.as_rule() {
         Rule::variable_decl => parse_variable_declaration(inner, ast_location),
+        Rule::assignment => parse_assignment_statement(inner, ast_location),
         Rule::print_stmt => parse_print_statement(inner, ast_location),
-        Rule::printl_stmt => parse_printl_statement(inner, ast_location),
+        Rule::println_stmt => parse_println_statement(inner, ast_location),
         Rule::if_stmt => parse_if_statement(inner, ast_location),
         Rule::iterate_stmt => parse_iterate_statement(inner, ast_location),
-        Rule::from_to_stmt => parse_from_to_statement(inner, ast_location),
+        Rule::range_iterate_stmt => parse_range_iterate_statement(inner, ast_location),
         Rule::test => parse_test_statement(inner, ast_location),
         Rule::return_stmt => parse_return_statement(inner, ast_location),
-        Rule::expression => parse_expression_statement(inner, ast_location),
+        Rule::apply_block => parse_apply_block_statement(inner, ast_location),
+        Rule::expression => {
+            let expr = parse_expression(inner)?;
+            Ok(Statement::Expression {
+                expr,
+                location: Some(ast_location),
+            })
+        },
         _ => Err(CompilerError::parse_error(
-            format!("Invalid statement type: {:?}", inner.as_rule()),
-            Some(ast_location.clone()),
+            format!("Unexpected statement: {:?}", inner.as_rule()),
+            Some(ast_location),
             Some("Expected a valid statement".to_string())
         )),
     }
 }
 
-fn parse_variable_declaration(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let mut name = String::new();
-    let mut type_ = None;
-    let mut initializer = None;
+fn parse_variable_declaration(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let type_part = parts.next().unwrap();
+    let name_part = parts.next().unwrap();
+    let initializer = parts.next().map(|expr_part| parse_expression(expr_part)).transpose()?;
 
-    for item in pair.into_inner() {
-        match item.as_rule() {
-            Rule::identifier => name = item.as_str().to_string(),
-            Rule::type_ => type_ = Some(parse_type(item)?),
-            Rule::expression => initializer = Some(parse_expression(item)?),
-            _ => {}
-        }
-    }
-
-    if name.is_empty() {
-        return Err(CompilerError::parse_error(
-            "Variable declaration is missing variable name".to_string(),
-            Some(location.clone()),
-            Some("Variable declarations must have a variable name".to_string())
-        ));
-    }
+    let type_ = parse_type(type_part)?;
+    let name = name_part.as_str().to_string();
 
     Ok(Statement::VariableDecl {
         name,
         type_,
         initializer,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_print_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let expression_pair = pair.into_inner().next().ok_or_else(|| CompilerError::parse_error(
-        "Print statement is missing expression".to_string(),
-        Some(location.clone()),
-        Some("Print statements must have an expression to print".to_string())
-    ))?;
-    
-    let expression = parse_expression(expression_pair)?;
-    
+fn parse_assignment_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let target = parts.next().unwrap().as_str().to_string();
+    let value = parse_expression(parts.next().unwrap())?;
+
+    Ok(Statement::Assignment {
+        target,
+        value,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_print_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let expr = parse_expression(pair.into_inner().next().unwrap())?;
     Ok(Statement::Print {
-        expression,
+        expression: expr,
         newline: false,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_printl_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let expression_pair = pair.into_inner().next().ok_or_else(|| CompilerError::parse_error(
-        "Print statement is missing expression".to_string(),
-        Some(location.clone()),
-        Some("Print statements must have an expression to print".to_string())
-    ))?;
-    
-    let expression = parse_expression(expression_pair)?;
-    
+fn parse_println_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let expr = parse_expression(pair.into_inner().next().unwrap())?;
     Ok(Statement::Print {
-        expression,
+        expression: expr,
         newline: true,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_if_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let mut condition = None;
+fn parse_if_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let condition = parse_expression(parts.next().unwrap())?;
+    
     let mut then_branch = Vec::new();
     let mut else_branch = None;
 
-    for item in pair.into_inner() {
-        match item.as_rule() {
-            Rule::expression => condition = Some(parse_expression(item)?),
-            Rule::block => {
-                let mut statements = Vec::new();
-                for stmt in item.into_inner() {
-                    if stmt.as_rule() == Rule::statement {
-                        statements.push(parse_statement(stmt)?);
+    for part in parts {
+        match part.as_rule() {
+            Rule::indented_block => {
+                if then_branch.is_empty() {
+                    // This is the then branch
+                    for stmt_pair in part.into_inner() {
+                        match stmt_pair.as_rule() {
+                            Rule::statement => {
+                                then_branch.push(parse_statement(stmt_pair)?);
+                            },
+                            _ => {}
+                        }
                     }
-                }
-                if condition.is_some() && then_branch.is_empty() {
-                    then_branch = statements;
                 } else {
-                    else_branch = Some(statements);
+                    // This is the else branch
+                    let mut else_stmts = Vec::new();
+                    for stmt_pair in part.into_inner() {
+                        match stmt_pair.as_rule() {
+                            Rule::statement => {
+                                else_stmts.push(parse_statement(stmt_pair)?);
+                            },
+                            _ => {}
+                        }
+                    }
+                    else_branch = Some(else_stmts);
                 }
-            }
+            },
             _ => {}
         }
     }
-
-    let condition = condition.ok_or_else(|| CompilerError::parse_error(
-        "If statement is missing condition".to_string(),
-        Some(location.clone()),
-        Some("If statements must have a condition".to_string())
-    ))?;
 
     Ok(Statement::If {
         condition,
         then_branch,
         else_branch,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_iterate_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let mut iterator = String::new();
-    let mut collection = None;
+fn parse_iterate_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let iterator = parts.next().unwrap().as_str().to_string();
+    let collection = parse_expression(parts.next().unwrap())?;
+    
     let mut body = Vec::new();
-
-    for item in pair.into_inner() {
-        match item.as_rule() {
-            Rule::identifier => iterator = item.as_str().to_string(),
-            Rule::expression => collection = Some(parse_expression(item)?),
-            Rule::block => {
-                for stmt in item.into_inner() {
-                    if stmt.as_rule() == Rule::statement {
-                        body.push(parse_statement(stmt)?);
-                    }
-                }
+    for part in parts {
+        match part.as_rule() {
+            Rule::indented_block => {
+                for stmt_pair in part.into_inner() {
+                    match stmt_pair.as_rule() {
+                        Rule::statement => {
+                            body.push(parse_statement(stmt_pair)?);
+                        },
+                        _ => {}
             }
+                }
+            },
             _ => {}
         }
     }
-
-    if iterator.is_empty() {
-        return Err(CompilerError::parse_error(
-            "Iterate statement is missing iterator variable".to_string(),
-            Some(location.clone()),
-            Some("Iterate statements must declare an iterator variable".to_string())
-        ));
-    }
-
-    let collection = collection.ok_or_else(|| CompilerError::parse_error(
-        "Iterate statement is missing collection expression".to_string(),
-        Some(location.clone()),
-        Some("Iterate statements must specify a collection to iterate over".to_string())
-    ))?;
 
     Ok(Statement::Iterate {
         iterator,
         collection,
         body,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_from_to_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let mut start = None;
-    let mut end = None;
+fn parse_range_iterate_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let iterator = parts.next().unwrap().as_str().to_string();
+    let start = parse_expression(parts.next().unwrap())?;
+    let end = parse_expression(parts.next().unwrap())?;
+    
     let mut step = None;
     let mut body = Vec::new();
 
-    for item in pair.into_inner() {
-        match item.as_rule() {
+    for part in parts {
+        match part.as_rule() {
             Rule::expression => {
-                if start.is_none() {
-                    start = Some(parse_expression(item)?);
-                } else if end.is_none() {
-                    end = Some(parse_expression(item)?);
-                } else {
-                    step = Some(parse_expression(item)?);
-                }
+                step = Some(parse_expression(part)?);
+            },
+            Rule::indented_block => {
+                for stmt_pair in part.into_inner() {
+                    match stmt_pair.as_rule() {
+                        Rule::statement => {
+                            body.push(parse_statement(stmt_pair)?);
+                        },
+                        _ => {}
             }
-            Rule::block => {
-                for stmt in item.into_inner() {
-                    if stmt.as_rule() == Rule::statement {
-                        body.push(parse_statement(stmt)?);
-                    }
                 }
-            }
+            },
             _ => {}
         }
     }
 
-    let start_expr = start.ok_or_else(|| CompilerError::parse_error(
-        "From-to statement is missing 'from' expression".to_string(),
-        Some(location.clone()),
-        Some("From-to statements must specify a 'from' value".to_string())
-    ))?;
-
-    let end_expr = end.ok_or_else(|| CompilerError::parse_error(
-        "From-to statement is missing 'to' expression".to_string(),
-        Some(location.clone()),
-        Some("From-to statements must specify a 'to' value".to_string())
-    ))?;
-
-    Ok(Statement::FromTo {
-        start: start_expr,
-        end: end_expr,
+    Ok(Statement::RangeIterate {
+        iterator,
+        start,
+        end,
         step,
         body,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_test_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let mut name = String::new();
-    let mut description = None;
+fn parse_test_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let name = parts.next().unwrap().as_str().trim_matches('"').to_string();
+    
     let mut body = Vec::new();
-
-    for item in pair.into_inner() {
-        match item.as_rule() {
-            Rule::string => {
-                let str_content = item.as_str().to_string();
-                // Remove quotes from the string
-                let unquoted = if str_content.starts_with('"') && str_content.ends_with('"') {
-                    str_content[1..str_content.len()-1].to_string()
-                } else {
-                    str_content
-                };
-                
-                if name.is_empty() {
-                    name = unquoted.clone();
-                    description = Some(unquoted);
-                } else {
-                    description = Some(unquoted);
+    for part in parts {
+        match part.as_rule() {
+            Rule::indented_block => {
+                for stmt_pair in part.into_inner() {
+                    match stmt_pair.as_rule() {
+                        Rule::statement => {
+                            body.push(parse_statement(stmt_pair)?);
+                        },
+                        _ => {}
+            }
                 }
             },
-            Rule::block => {
-                for stmt in item.into_inner() {
-                    if stmt.as_rule() == Rule::statement {
-                        body.push(parse_statement(stmt)?);
-                    }
-                }
-            }
             _ => {}
         }
-    }
-
-    if name.is_empty() {
-        return Err(CompilerError::parse_error(
-            "Test statement is missing name".to_string(),
-            Some(location.clone()),
-            Some("Test statements must have a name".to_string())
-        ));
     }
 
     Ok(Statement::Test {
         name,
-        description,
         body,
-        location: Some(location),
+        location: Some(ast_location),
     })
 }
 
-fn parse_return_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let mut value = None;
+fn parse_return_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let value = pair.into_inner().next().map(|expr_part| parse_expression(expr_part)).transpose()?;
+
+    Ok(Statement::Return {
+        value,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let target = parts.next().unwrap().as_str().to_string();
     
-    for item in pair.into_inner() {
-        match item.as_rule() {
-            Rule::expression => {
-                value = Some(parse_expression(item)?);
+    let mut items = Vec::new();
+    for part in parts {
+        match part.as_rule() {
+            Rule::indented_block => {
+                // Handle apply block items - for now just treat as expressions
+                for item_pair in part.into_inner() {
+                    match item_pair.as_rule() {
+                        Rule::statement => {
+                            // Convert statement to apply item if it's an expression
+                            let stmt = parse_statement(item_pair)?;
+                            if let Statement::Expression { expr, .. } = stmt {
+                                items.push(crate::ast::ApplyItem::FunctionCall(expr));
+                            }
+                        },
+                        _ => {}
+                    }
+                }
             },
             _ => {}
         }
     }
     
-    Ok(Statement::Return {
-        value,
-        location: Some(location),
-    })
-}
-
-fn parse_expression_statement(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let expression = parse_expression(pair)?;
-    Ok(Statement::Expression { 
-        expr: expression, 
-        location: Some(location) 
+    Ok(Statement::ApplyBlock {
+        target,
+        items,
+        location: Some(ast_location),
     })
 } 

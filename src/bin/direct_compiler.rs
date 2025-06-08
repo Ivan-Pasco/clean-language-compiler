@@ -70,9 +70,11 @@ fn generate_wasm(program: &Program) -> Result<Vec<u8>, CompilerError> {
     let mut exports = ExportSection::new();
     
     // Find the start function in the program
-    let start_fn_index = program.functions.iter()
-        .position(|f| f.name == "start")
-        .ok_or_else(|| CompilerError::codegen_error("No 'start' function found in the program", None, None))?;
+    let start_function = if let Some(ref start_fn) = program.start_function {
+        start_fn
+    } else {
+        return Err(CompilerError::codegen_error("No 'start' function found in the program", None, None));
+    };
     
     // Export function 0 as "start"
     exports.export("start", ExportKind::Func, 0);
@@ -87,15 +89,13 @@ fn generate_wasm(program: &Program) -> Result<Vec<u8>, CompilerError> {
     let mut start_fn = Function::new(vec![]);
     
     // Generate instructions for the start function
-    let start_function = &program.functions[start_fn_index];
-    
     for stmt in &start_function.body {
         match stmt {
             Statement::Return { value, .. } => {
                 if let Some(expr) = value {
                     match expr {
                         Expression::Literal(Value::Integer(n)) => {
-                            start_fn.instruction(&Instruction::I32Const(*n));
+                            start_fn.instruction(&Instruction::I32Const((*n) as i32));
                         },
                         _ => {
                             return Err(CompilerError::codegen_error(
@@ -109,11 +109,30 @@ fn generate_wasm(program: &Program) -> Result<Vec<u8>, CompilerError> {
                 }
                 start_fn.instruction(&Instruction::Return);
             },
+            Statement::Expression { expr, .. } => {
+                // Handle expression statements - these could be implicit returns
+                match expr {
+                    Expression::Literal(Value::Integer(n)) => {
+                        start_fn.instruction(&Instruction::I32Const((*n) as i32));
+                        // Don't add explicit return - WASM functions implicitly return the top stack value
+                    },
+                    _ => {
+                        return Err(CompilerError::codegen_error(
+                            "Only integer literal expressions are supported", None, None
+                        ));
+                    }
+                }
+            },
             _ => {
                 // For simplicity, we're ignoring other statement types
                 // In a real implementation, you'd handle all statement types
             }
         }
+    }
+    
+    // If no statements generated a return value, add a default
+    if start_function.body.is_empty() {
+        start_fn.instruction(&Instruction::I32Const(0));
     }
     
     // End the function definition

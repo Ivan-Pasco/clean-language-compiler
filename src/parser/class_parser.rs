@@ -1,5 +1,5 @@
 use pest::iterators::Pair;
-use crate::ast::{Class, Constructor, Field, Visibility};
+use crate::ast::{Class, Constructor, Field, Visibility, Parameter};
 use crate::error::CompilerError;
 use super::{get_location, convert_to_ast_location};
 use super::Rule;
@@ -56,7 +56,7 @@ pub fn parse_class(pair: Pair<Rule>) -> Result<Class, CompilerError> {
                         },
                         Rule::input_block => {
                             for param_decl in setup_item.into_inner() {
-                                if param_decl.as_rule() == Rule::type_declaration {
+                                if param_decl.as_rule() == Rule::input_declaration {
                                     // Convert type declarations to class fields
                                     let field = parse_field_from_type_decl(param_decl, ast_location.clone())?;
                                     fields.push(field);
@@ -134,17 +134,14 @@ fn parse_constructor(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> 
                 for setup_item in item.into_inner() {
                     if setup_item.as_rule() == Rule::input_block {
                         for param_decl in setup_item.into_inner() {
-                            if param_decl.as_rule() == Rule::type_declaration {
-                                // We need a function to parse parameters from type declarations
-                                // This could be adapted from parser_impl.rs
-                                // For now, using a placeholder
-                                // parameters.push(parse_parameter_from_type_decl(param_decl)?);
+                            if param_decl.as_rule() == Rule::input_declaration {
+                                parameters.push(parse_parameter(param_decl)?);
                             }
                         }
                     }
                 }
             },
-            Rule::block => {
+            Rule::indented_block => {
                 for stmt in item.into_inner() {
                     if stmt.as_rule() == Rule::statement {
                         body.push(parse_statement(stmt)?);
@@ -160,4 +157,33 @@ fn parse_constructor(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> 
         body,
         location: Some(location),
     })
+}
+
+fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
+    let mut parts = pair.into_inner();
+    
+    let type_part = parts.next().ok_or_else(|| CompilerError::parse_error(
+        "Parameter missing type".to_string(),
+        None,
+        Some("Parameters must have a type".to_string())
+    ))?;
+    
+    let name_part = parts.next().ok_or_else(|| CompilerError::parse_error(
+        "Parameter missing name".to_string(),
+        None,
+        Some("Parameters must have a name".to_string())
+    ))?;
+    
+    if name_part.as_rule() != Rule::identifier {
+        return Err(CompilerError::parse_error(
+            "Expected identifier for parameter name".to_string(),
+            None,
+            Some("Parameters must have valid identifiers".to_string())
+        ));
+    }
+    
+    let name = name_part.as_str().to_string();
+    let type_ = parse_type(type_part)?;
+    
+    Ok(Parameter::new(name, type_))
 } 

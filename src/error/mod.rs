@@ -1,6 +1,6 @@
 use std::fmt;
 use std::error::Error;
-use thiserror::Error;
+
 use crate::ast::SourceLocation;
 
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ impl StackFrame {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ErrorContext {
     pub message: String,
     pub help: Option<String>,
@@ -35,6 +35,18 @@ pub enum ErrorType {
     IO,
     Runtime,
     Validation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WarningType {
+    UnusedVariable,
+    UnusedFunction,
+    UnusedImport,
+    DeadCode,
+    TypeInference,
+    Performance,
+    Style,
+    Deprecation,
 }
 
 impl ErrorContext {
@@ -72,11 +84,11 @@ impl ErrorContext {
         self
     }
 
-    pub fn add_stack_frame(&mut self, frame: StackFrame) {
+    pub fn add_stack_frame(&mut self, _frame: StackFrame) {
         // Implementation needed
     }
 
-    pub fn with_stack_frame(mut self, frame: StackFrame) -> Self {
+    pub fn with_stack_frame(self, _frame: StackFrame) -> Self {
         // Implementation needed
         self
     }
@@ -133,7 +145,18 @@ impl fmt::Display for ErrorContext {
     }
 }
 
-#[derive(Debug)]
+impl Default for ErrorContext {
+    fn default() -> Self {
+        Self {
+            message: String::new(),
+            help: None,
+            error_type: ErrorType::Syntax,
+            location: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum CompilerError {
     Syntax {
         context: ErrorContext,
@@ -465,44 +488,48 @@ impl CompilerError {
     }
     
     /// Create a function not found error with suggestions
-    pub fn function_not_found_error(
-        function_name: &str,
+    pub fn function_not_found_error<T: Into<String>>(
+        name: T,
         available_functions: &[&str],
-        location: Option<SourceLocation>,
+        location: SourceLocation
     ) -> Self {
-        let mut suggestions = Vec::new();
+        let name_str = name.into();
+        let mut message = format!("Function '{}' not found", name_str);
         
-        // Find similar function names using Levenshtein distance
-        for &available in available_functions {
-            let distance = levenshtein_distance(function_name, available);
-            if distance <= 3 || (function_name.len() > 3 && available.contains(function_name)) {
-                suggestions.push(available);
-            }
+        if !available_functions.is_empty() {
+            message.push_str(&format!("\nAvailable functions: {}", available_functions.join(", ")));
         }
         
-        let mut message = format!("Function '{}' not found", function_name);
-        
-        if !suggestions.is_empty() {
-            message.push_str("\nDid you mean one of these?");
-            for suggestion in &suggestions {
-                message.push_str(&format!("\n- {}", suggestion));
+        CompilerError::Type {
+            context: ErrorContext {
+                message,
+                error_type: ErrorType::Type,
+                location: Some(location),
+                help: Some("Check if the function name is correct and the function is defined".to_string()),
             }
         }
+    }
+
+    pub fn variable_not_found_error<T: Into<String>>(
+        name: T,
+        available_variables: &[&str],
+        location: SourceLocation
+    ) -> Self {
+        let name_str = name.into();
+        let mut message = format!("Variable '{}' not found", name_str);
         
-        let help = if suggestions.is_empty() {
-            Some(format!("Check for typos or make sure the function is defined before use."))
-        } else {
-            None
-        };
+        if !available_variables.is_empty() {
+            message.push_str(&format!("\nAvailable variables: {}", available_variables.join(", ")));
+        }
         
-        let context = ErrorContext {
-            message,
-            error_type: ErrorType::Type,
-            location,
-            help,
-        };
-        
-        CompilerError::Type { context }
+        CompilerError::Type {
+            context: ErrorContext {
+                message,
+                error_type: ErrorType::Type,
+                location: Some(location),
+                help: Some("Check if the variable name is correct and the variable is defined".to_string()),
+            }
+        }
     }
 }
 
@@ -551,15 +578,50 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 
 impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CompilerError::Syntax { context } => write!(f, "Syntax error: {}", context.message),
-            CompilerError::Type { context } => write!(f, "Type error: {}", context.message),
-            CompilerError::Memory { context } => write!(f, "Memory error: {}", context.message),
-            CompilerError::Codegen { context } => write!(f, "Code generation error: {}", context.message),
-            CompilerError::IO { context } => write!(f, "IO error: {}", context.message),
-            CompilerError::Runtime { context } => write!(f, "Runtime error: {}", context.message),
-            CompilerError::Validation { context } => write!(f, "Validation error: {}", context.message),
+        let context = match self {
+            CompilerError::Syntax { context } => {
+                write!(f, "Syntax error: {}", context.message)?;
+                context
+            },
+            CompilerError::Type { context } => {
+                write!(f, "Type error: {}", context.message)?;
+                context
+            },
+            CompilerError::Memory { context } => {
+                write!(f, "Memory error: {}", context.message)?;
+                context
+            },
+            CompilerError::Codegen { context } => {
+                write!(f, "Code generation error: {}", context.message)?;
+                context
+            },
+            CompilerError::IO { context } => {
+                write!(f, "IO error: {}", context.message)?;
+                context
+            },
+            CompilerError::Runtime { context } => {
+                write!(f, "Runtime error: {}", context.message)?;
+                context
+            },
+            CompilerError::Validation { context } => {
+                write!(f, "Validation error: {}", context.message)?;
+                context
+            },
+        };
+
+        // Add location information if available
+        if let Some(location) = &context.location {
+            if !location.file.is_empty() && location.file != "<unknown>" {
+                write!(f, "\n  at {}:{}:{}", location.file, location.line, location.column)?;
+            }
         }
+
+        // Add help information if available
+        if let Some(help) = &context.help {
+            write!(f, "\n  Help: {}", help)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -578,6 +640,100 @@ impl From<wasmtime::MemoryAccessError> for CompilerError {
 
 /// Result type alias for compiler operations
 pub type CompilerResult<T> = Result<T, CompilerError>;
+
+#[derive(Debug, Clone)]
+pub struct CompilerWarning {
+    pub message: String,
+    pub warning_type: WarningType,
+    pub location: Option<SourceLocation>,
+    pub help: Option<String>,
+    pub suggestion: Option<String>,
+}
+
+impl CompilerWarning {
+    pub fn new<T: Into<String>>(
+        message: T, 
+        warning_type: WarningType, 
+        location: Option<SourceLocation>
+    ) -> Self {
+        Self {
+            message: message.into(),
+            warning_type,
+            location,
+            help: None,
+            suggestion: None,
+        }
+    }
+
+    pub fn with_help<T: Into<String>>(mut self, help: T) -> Self {
+        self.help = Some(help.into());
+        self
+    }
+
+    pub fn with_suggestion<T: Into<String>>(mut self, suggestion: T) -> Self {
+        self.suggestion = Some(suggestion.into());
+        self
+    }
+
+    pub fn unused_variable(name: &str, location: Option<SourceLocation>) -> Self {
+        Self::new(
+            format!("Variable '{}' is declared but never used", name),
+            WarningType::UnusedVariable,
+            location
+        ).with_help("Consider removing the variable or using it in your code")
+         .with_suggestion(format!("Remove 'let {}' or use the variable", name))
+    }
+
+    pub fn unused_function(name: &str, location: Option<SourceLocation>) -> Self {
+        Self::new(
+            format!("Function '{}' is defined but never called", name),
+            WarningType::UnusedFunction,
+            location
+        ).with_help("Consider removing the function or calling it")
+         .with_suggestion(format!("Remove function '{}' or add a call to it", name))
+    }
+
+    pub fn dead_code(location: Option<SourceLocation>) -> Self {
+        Self::new(
+            "This code is unreachable",
+            WarningType::DeadCode,
+            location
+        ).with_help("Code after a return statement or in an impossible branch will never execute")
+         .with_suggestion("Remove the unreachable code or fix the control flow")
+    }
+
+    pub fn type_inference_warning(inferred_type: &str, location: Option<SourceLocation>) -> Self {
+        Self::new(
+            format!("Type inferred as '{}' - consider adding explicit type annotation", inferred_type),
+            WarningType::TypeInference,
+            location
+        ).with_help("Explicit type annotations improve code readability and catch type errors early")
+         .with_suggestion(format!("Add ': {}' to specify the type explicitly", inferred_type))
+    }
+}
+
+impl fmt::Display for CompilerWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Warning: {}", self.message)?;
+        
+        if let Some(location) = &self.location {
+            writeln!(f)?;
+            write!(f, "  --> {}:{}:{}", location.file, location.line, location.column)?;
+        }
+        
+        if let Some(help) = &self.help {
+            writeln!(f)?;
+            write!(f, "  = help: {}", help)?;
+        }
+        
+        if let Some(suggestion) = &self.suggestion {
+            writeln!(f)?;
+            write!(f, "  = suggestion: {}", suggestion)?;
+        }
+        
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {

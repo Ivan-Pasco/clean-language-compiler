@@ -1,8 +1,8 @@
 use wasm_encoder::{
-    BlockType, CodeSection, Function, FunctionSection,
-    Instruction, MemArg, ValType, MemorySection, MemoryType, Module,
+    BlockType,
+    Instruction, MemArg, MemorySection, MemoryType,
 };
-use crate::error::{CompilerError, ErrorContext, ErrorType};
+use crate::error::{CompilerError};
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use std::collections::HashMap;

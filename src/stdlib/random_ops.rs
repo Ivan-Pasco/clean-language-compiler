@@ -1,7 +1,7 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use wasmtime::Val;
+
 use wasm_encoder::Instruction;
 use crate::stdlib::register_stdlib_function;
 

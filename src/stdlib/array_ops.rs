@@ -1,9 +1,9 @@
-use crate::error::{CompilerError, ErrorContext, ErrorType};
+use crate::error::{CompilerError};
 use wasm_encoder::{
-    BlockType, Instruction, MemArg, ValType,
+    BlockType, Instruction, MemArg,
 };
 use crate::codegen::CodeGenerator;
-use crate::types::{WasmType, wasm_type_to_tuple, wasm_types_to_tuples};
+use crate::types::{WasmType};
 use crate::stdlib::memory::MemoryManager;
 use crate::stdlib::register_stdlib_function;
 
@@ -470,13 +470,13 @@ mod tests {
     fn test_array_length() {
         let engine = Engine::default();
         let memory_manager = MemoryManager::new(1, Some(10));
-        let array_manager = ArrayManager::new(memory_manager.clone());
+        let mut array_manager = ArrayManager::new(memory_manager.clone());
         
         let mut codegen = CodeGenerator::new();
         array_manager.register_functions(&mut codegen).unwrap();
         
         // Generate WebAssembly module
-        let wasm_bytes = codegen.build();
+        let wasm_bytes = codegen.finish();
         let module = Module::new(&engine, &wasm_bytes).unwrap();
         let mut store = Store::new(&engine, ());
         let instance = Instance::new(&mut store, &module, &[]).unwrap();

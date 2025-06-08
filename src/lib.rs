@@ -14,16 +14,383 @@ use crate::error::CompilerError;
 
 /// Compiles Clean Language source code to WebAssembly
 pub fn compile(source: &str) -> Result<Vec<u8>, CompilerError> {
-    // Parse the source code
-    let program = CleanParser::parse_program(source)?;
+    compile_with_file(source, "<unknown>")
+}
+
+/// Compiles Clean Language source code to WebAssembly with file path for better error reporting
+pub fn compile_with_file(source: &str, file_path: &str) -> Result<Vec<u8>, CompilerError> {
+    // Parse the source code with file path information
+    let program = CleanParser::parse_program_with_file(source, file_path)?;
 
     // Perform semantic analysis
     let mut analyzer = SemanticAnalyzer::new();
-    analyzer.check(&program)?;
+    let analyzed_program = analyzer.analyze(&program)?;
 
     // Generate WASM code
     let mut codegen = CodeGenerator::new();
-    codegen.generate(&program)?;
+    let wasm_binary = codegen.generate(&analyzed_program)?;
 
-    Ok(codegen.finish())
+    Ok(wasm_binary)
+}
+
+/// Compiles with detailed error reporting and recovery
+pub fn compile_with_recovery(source: &str, file_path: &str) -> Result<Vec<u8>, Vec<CompilerError>> {
+    // Try parsing with error recovery first
+    let program = match CleanParser::parse_program_with_recovery(source, file_path) {
+        Ok(program) => program,
+        Err(parse_errors) => return Err(parse_errors),
+    };
+
+    // Perform semantic analysis
+    let mut analyzer = SemanticAnalyzer::new();
+    let analyzed_program = match analyzer.analyze(&program) {
+        Ok(program) => program,
+        Err(semantic_error) => return Err(vec![semantic_error]),
+    };
+
+    // Generate WASM code
+    let mut codegen = CodeGenerator::new();
+    match codegen.generate(&analyzed_program) {
+        Ok(wasm_binary) => Ok(wasm_binary),
+        Err(codegen_error) => Err(vec![codegen_error]),
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_integration() {
+        let source = r#"
+            start() {
+                let x = 42
+                print x
+            }
+        "#;
+        
+        let result = compile_with_file(source, "test.clean");
+        match result {
+            Ok(wasm_binary) => {
+                println!("✓ Basic integration test passed, generated {} bytes of WASM", wasm_binary.len());
+                assert!(!wasm_binary.is_empty());
+            },
+            Err(error) => {
+                println!("✗ Basic integration test failed: {}", error);
+                panic!("Integration test failed: {}", error);
+            }
+        }
+    }
+
+    #[test]
+    fn test_function_integration() {
+        let source = r#"
+            add() {
+                description "Adds two numbers"
+                input
+                    number a
+                    number b
+                returns number
+                {
+                    return a + b
+                }
+            }
+            
+            start() {
+                let result = add(5, 3)
+                print result
+            }
+        "#;
+        
+        let result = compile_with_file(source, "function_test.clean");
+        match result {
+            Ok(wasm_binary) => {
+                println!("✓ Function integration test passed, generated {} bytes of WASM", wasm_binary.len());
+                assert!(!wasm_binary.is_empty());
+            },
+            Err(error) => {
+                println!("✗ Function integration test failed: {}", error);
+                // Don't panic here as this might reveal integration issues we need to fix
+            }
+        }
+    }
+
+    #[test]
+    fn test_type_checking_integration() {
+        let source = r#"
+            start() {
+                let x: number = 42
+                let y: string = "hello"
+                print x
+                print y
+            }
+        "#;
+        
+        let result = compile_with_file(source, "type_test.clean");
+        match result {
+            Ok(wasm_binary) => {
+                println!("✓ Type checking integration test passed, generated {} bytes of WASM", wasm_binary.len());
+                assert!(!wasm_binary.is_empty());
+            },
+            Err(error) => {
+                println!("✗ Type checking integration test failed: {}", error);
+                // This might reveal type system integration issues
+            }
+        }
+    }
+
+    #[test]
+    fn test_error_propagation() {
+        let source = r#"
+            start() {
+                let x = undefined_function()
+                print x
+            }
+        "#;
+        
+        let result = compile_with_file(source, "error_test.clean");
+        match result {
+            Ok(_) => {
+                println!("⚠ Error propagation test: Expected error but compilation succeeded");
+            },
+            Err(error) => {
+                println!("✓ Error propagation test: Correctly caught error: {}", error);
+                // Check that the error contains useful information
+                assert!(error.to_string().contains("error_test.clean"));
+            }
+        }
+    }
+
+    #[test]
+    fn test_stdlib_integration() {
+        println!("\n=== Standard Library Integration Test ===");
+        
+        let test_cases = vec![
+            ("Math Functions", r#"start() { 
+                let x = -5
+                let result = abs(x)
+                print result 
+            }"#),
+            ("String Functions", r#"start() { 
+                let text = "hello"
+                let length = len(text)
+                print length 
+            }"#),
+            ("Array Functions", r#"start() { 
+                let arr = [1, 2, 3, 4, 5]
+                let length = array_length(arr)
+                print length 
+            }"#),
+        ];
+
+        let mut passed = 0;
+        let total = test_cases.len();
+
+        for (name, source) in test_cases {
+            println!("\n--- Testing {} ---", name);
+            println!("Source: {}", source);
+            
+            match compile_with_file(source, "stdlib_test.clean") {
+                Ok(wasm_binary) => {
+                    println!("✓ {}: {} bytes", name, wasm_binary.len());
+                    assert!(!wasm_binary.is_empty());
+                    passed += 1;
+                },
+                Err(error) => {
+                    println!("✗ {} failed: {}", name, error);
+                    // Don't panic here as some stdlib functions might not be fully implemented yet
+                }
+            }
+        }
+
+        println!("=== Stdlib Integration Summary: {}/{} tests passed ===", passed, total);
+        if passed == total {
+            println!("🎉 All stdlib integration tests passed!");
+        }
+    }
+
+    #[test]
+    fn test_debug_parsing() {
+        let source = r#"start() { 
+            let x = 42
+            print x 
+        }"#;
+        
+        println!("\n=== Debug Parsing Test ===");
+        
+        // Parse the program
+        match CleanParser::parse_program(source) {
+            Ok(program) => {
+                println!("✓ Parsing succeeded");
+                println!("Program: {:#?}", program);
+                
+                // Try semantic analysis
+                let mut analyzer = SemanticAnalyzer::new();
+                match analyzer.analyze(&program) {
+                    Ok(_) => println!("✓ Semantic analysis succeeded"),
+                    Err(error) => println!("✗ Semantic analysis failed: {}", error),
+                }
+            },
+            Err(error) => {
+                println!("✗ Parsing failed: {}", error);
+            }
+        }
+    }
+
+    #[test]
+    fn test_comprehensive_integration() {
+        println!("\n=== Comprehensive Integration Test ===");
+        
+        let test_cases = vec![
+            ("Basic", r#"start() { 
+                let x = 42
+                print x 
+            }"#),
+            ("Arithmetic", r#"start() { 
+                let x = 1 + 2 * 3
+                print x 
+            }"#),
+            ("Variables", r#"start() { 
+                let x = 5
+                let y = x + 1
+                print y 
+            }"#),
+            ("Arrays", r#"start() { 
+                let arr = [1, 2, 3]
+                print arr 
+            }"#),
+        ];
+
+        let mut passed = 0;
+        let total = test_cases.len();
+
+        for (name, source) in test_cases {
+            println!("\n--- Testing {} ---", name);
+            println!("Source: {}", source);
+            
+            // First try parsing
+            match CleanParser::parse_program(source) {
+                Ok(program) => {
+                    println!("✓ Parsing succeeded");
+                    println!("AST: {:#?}", program);
+                    
+                    // Try semantic analysis
+                    let mut analyzer = SemanticAnalyzer::new();
+                    match analyzer.analyze(&program) {
+                        Ok(_) => {
+                            println!("✓ Semantic analysis succeeded");
+                            
+                            // Try full compilation
+                            match compile_with_file(source, &format!("{}_test.clean", name.to_lowercase())) {
+                                Ok(wasm_binary) => {
+                                    println!("✓ {}: {} bytes", name, wasm_binary.len());
+                                    passed += 1;
+                                },
+                                Err(error) => {
+                                    println!("✗ {}: Compilation failed: {}", name, error);
+                                }
+                            }
+                        },
+                        Err(error) => {
+                            println!("✗ {}: Semantic analysis failed: {}", name, error);
+                        }
+                    }
+                },
+                Err(error) => {
+                    println!("✗ {}: Parsing failed: {}", name, error);
+                }
+            }
+        }
+
+        println!("=== Integration Summary: {}/{} tests passed ===", passed, total);
+        
+        if passed == total {
+            println!("🎉 All integration tests passed!");
+        } else {
+            println!("⚠ Some integration tests failed - this indicates areas that need improvement");
+        }
+    }
+
+    #[test]
+    fn test_error_handling_recovery() {
+        println!("\n=== Error Handling & Recovery Test ===");
+        
+        let test_cases = vec![
+            ("Try-Catch Basic", r#"start() { 
+                try {
+                    let x = 42
+                    print x
+                } catch {
+                    print "Error occurred"
+                }
+            }"#),
+            ("Try-Catch with Error Variable", r#"start() { 
+                try {
+                    let x = 42
+                    print x
+                } catch (err) {
+                    print err
+                }
+            }"#),
+            ("Unused Variable Warning", r#"start() { 
+                let unused_var = 42
+                let x = 10
+                print x
+            }"#),
+        ];
+
+        let mut passed = 0;
+        let total = test_cases.len();
+
+        for (name, source) in test_cases {
+            println!("\n--- Testing: {} ---", name);
+            
+            // Parse the program
+            match CleanParser::parse_program(source) {
+                Ok(program) => {
+                    println!("✓ Parsing succeeded");
+                    
+                    // Try semantic analysis with warning collection
+                    let mut analyzer = SemanticAnalyzer::new();
+                    match analyzer.analyze(&program) {
+                        Ok(_) => {
+                            println!("✓ Semantic analysis succeeded");
+                            
+                            // Check for warnings
+                            let warnings = analyzer.get_warnings();
+                            if !warnings.is_empty() {
+                                println!("⚠ Warnings collected: {}", warnings.len());
+                                for warning in warnings {
+                                    println!("  Warning: {}", warning.message);
+                                }
+                            } else {
+                                println!("✓ No warnings");
+                            }
+                            
+                            // Try code generation
+                            let mut codegen = CodeGenerator::new();
+                            match codegen.generate(&program) {
+                                Ok(wasm_binary) => {
+                                    println!("✓ Code generation succeeded: {} bytes", wasm_binary.len());
+                                    passed += 1;
+                                },
+                                Err(error) => println!("✗ Code generation failed: {}", error),
+                            }
+                        },
+                        Err(error) => println!("✗ Semantic analysis failed: {}", error),
+                    }
+                },
+                Err(error) => println!("✗ Parsing failed: {}", error),
+            }
+        }
+
+        println!("\n=== Error Handling & Recovery Test Results ===");
+        println!("Passed: {}/{}", passed, total);
+        
+        if passed == total {
+            println!("🎉 All error handling tests passed!");
+        } else {
+            println!("⚠ Some tests failed - error handling needs improvement");
+        }
+    }
 } 

@@ -1,12 +1,11 @@
 //! Module for generating WebAssembly instructions.
 
-use wasm_encoder::{Instruction, BlockType, MemArg, Function, ValType};
-use crate::ast::{self, Expression, BinaryOperator, Value, Statement, SourceLocation, MatrixOperator};
+use wasm_encoder::{Instruction, BlockType, MemArg, ValType};
+use crate::ast::{self, Expression, BinaryOperator, Value, Statement, SourceLocation, StringPart};
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use crate::parser::StringPart;
 
-use super::memory::{DEFAULT_ALIGN, DEFAULT_OFFSET};
+use super::memory::{DEFAULT_ALIGN};
 use super::type_manager::TypeManager;
 
 /// Represents a local variable in a function
@@ -204,9 +203,8 @@ impl InstructionGenerator {
     /// Generate instructions for a statement
     pub(crate) fn generate_statement(&mut self, stmt: &Statement, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         match stmt {
-            Statement::VariableDecl { name, type_, initializer, location } => {
-                let specified_type = type_.as_ref().map(|t| self.type_manager.ast_type_to_wasm_type(t))
-                    .transpose()?;
+            Statement::VariableDecl { name, type_, initializer, location: _ } => {
+                let specified_type = Some(self.type_manager.ast_type_to_wasm_type(type_)?);
                 
                 let (var_type, init_instructions) = if let Some(init_expr) = initializer {
                     let mut init_instr = Vec::new();
@@ -275,7 +273,7 @@ impl InstructionGenerator {
                     ));
                 }
             },
-            Statement::Print { expression, newline, location } => {
+            Statement::Print { expression, newline, location: _ } => {
                 self.generate_expression(expression, instructions)?;
                 
                 let function_name = if *newline { "printl" } else { "print" };
@@ -289,13 +287,13 @@ impl InstructionGenerator {
                     ));
                 }
             },
-            Statement::Return { value, location } => {
+            Statement::Return { value, location: _ } => {
                 if let Some(expr) = value {
                     self.generate_expression(expr, instructions)?;
                 }
                 instructions.push(Instruction::Return);
             },
-            Statement::If { condition, then_branch, else_branch, location } => {
+            Statement::If { condition, then_branch, else_branch, location: _ } => {
                 self.generate_expression(condition, instructions)?;
                 
                 instructions.push(Instruction::I32Eqz);
@@ -320,7 +318,7 @@ impl InstructionGenerator {
                 instructions.push(Instruction::End);
                 
             },
-            Statement::Iterate { iterator, collection, body, location } => {
+            Statement::Iterate { iterator, collection, body, location: _ } => {
                 self.generate_expression(collection, instructions)?;
                 
                 let array_ptr_index = self.current_locals.len() as u32;
@@ -407,97 +405,11 @@ impl InstructionGenerator {
                     return Err(CompilerError::codegen_error("array_length function not found", None, None));
                 }
             },
-            Statement::FromTo { start, end, step, body, location } => {
-                let counter_name = format!("_counter_{}", self.current_locals.len());
-                let counter_index = self.current_locals.len() as u32;
-                self.current_locals.push(LocalVarInfo {
-                    index: counter_index,
-                    type_: wasm_encoder::ValType::I32,
-                });
-                self.variable_map.insert(counter_name.clone(), LocalVarInfo {
-                    index: counter_index,
-                    type_: wasm_encoder::ValType::I32,
-                });
-                
-                let end_index = self.current_locals.len() as u32;
-                self.current_locals.push(LocalVarInfo {
-                    index: end_index,
-                    type_: wasm_encoder::ValType::I32,
-                });
-                
-                let step_index = self.current_locals.len() as u32;
-                self.current_locals.push(LocalVarInfo {
-                    index: step_index,
-                    type_: wasm_encoder::ValType::I32,
-                });
-                
-                self.generate_expression(start, instructions)?;
-                instructions.push(Instruction::LocalSet(counter_index));
-                
-                self.generate_expression(end, instructions)?;
-                instructions.push(Instruction::LocalSet(end_index));
-                
-                if let Some(step_expr) = step {
-                    self.generate_expression(step_expr, instructions)?;
-                } else {
-                    instructions.push(Instruction::I32Const(1));
-                }
-                instructions.push(Instruction::LocalTee(step_index));
-                
-                instructions.push(Instruction::I32Eqz);
-                instructions.push(Instruction::If(BlockType::Empty));
-                
-                instructions.push(Instruction::I32Const(1));
-                instructions.push(Instruction::LocalSet(step_index));
-                
-                instructions.push(Instruction::End);
-                
-                instructions.push(Instruction::Block(BlockType::Empty));
-                instructions.push(Instruction::Loop(BlockType::Empty));
-                
-                instructions.push(Instruction::LocalGet(step_index));
-                instructions.push(Instruction::I32Const(0));
-                instructions.push(Instruction::I32GtS);
-                instructions.push(Instruction::If(BlockType::Empty));
-                
-                instructions.push(Instruction::LocalGet(counter_index));
-                instructions.push(Instruction::LocalGet(end_index));
-                instructions.push(Instruction::I32GtS);
-                instructions.push(Instruction::BrIf(2));
-                
-                instructions.push(Instruction::Else);
-                
-                instructions.push(Instruction::LocalGet(counter_index));
-                instructions.push(Instruction::LocalGet(end_index));
-                instructions.push(Instruction::I32LtS);
-                instructions.push(Instruction::BrIf(2));
-                
-                instructions.push(Instruction::End);
-                
-                for stmt in body {
-                    self.generate_statement(stmt, instructions)?;
-                }
-                
-                instructions.push(Instruction::LocalGet(counter_index));
-                instructions.push(Instruction::LocalGet(step_index));
-                instructions.push(Instruction::I32Add);
-                instructions.push(Instruction::LocalSet(counter_index));
-                
-                instructions.push(Instruction::Br(0));
-                
-                instructions.push(Instruction::End);
-                instructions.push(Instruction::End);
-                
-                self.variable_map.remove(&counter_name);
-            },
-            Statement::Expression { expr, location } => {
+            Statement::Expression { expr, location: _ } => {
                 self.generate_expression(expr, instructions)?;
                 instructions.push(Instruction::Drop);
             },
-            Statement::ErrorHandler { stmt, handler, location } => {
-                self.generate_error_handler(stmt, handler, location, instructions)?;
-            },
-            Statement::Test { name, description, body, location } => {
+            Statement::Test { name: _, body, location: _ } => {
                 #[cfg(test)]
                 for stmt in body {
                     self.generate_statement(stmt, instructions)?;
@@ -599,14 +511,26 @@ impl InstructionGenerator {
                     Err(CompilerError::codegen_error("matrix_get function not found", None, loc.clone()))
                 }
             },
-            Expression::MatrixOperation(left, op, right, location) => {
-                self.generate_matrix_operation(left, op, right, instructions)
-            },
-            Expression::StringConcat(parts) => {
-                // This would need a proper implementation to handle string parts
+            Expression::MethodCall { object, method, arguments, location: _ } => {
+                // Handle matrix methods like transpose(), inverse(), etc.
+                self.generate_expression(object, instructions)?;
+                
+                for arg in arguments {
+                    self.generate_expression(arg, instructions)?;
+                }
+                
+                if let Some(method_index) = self.get_function_index(&format!("matrix_{}", method)) {
+                    instructions.push(Instruction::Call(method_index));
+                    Ok(WasmType::I32) // Method calls return appropriate type
+                } else {
                 Err(CompilerError::codegen_error(
-                    "StringConcat not fully implemented", None, loc.clone()
+                        &format!("Method '{}' not found", method), None, None
                 ))
+                }
+            },
+            Expression::StringInterpolation(parts) => {
+                self.generate_string_interpolation(parts, instructions)?;
+                Ok(WasmType::I32) // String interpolation returns a string pointer
             },
             _ => {
                 return Err(CompilerError::codegen_error(
@@ -621,15 +545,15 @@ impl InstructionGenerator {
     /// Generate instructions for a value
     pub(crate) fn generate_value(&mut self, value: &Value, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
         match value {
-            Value::Number(n) => {
-                instructions.push(Instruction::F64Const(*n));
+            Value::Float(f) => {
+                instructions.push(Instruction::F64Const(*f));
                 Ok(WasmType::F64)
             },
             Value::Integer(i) => {
-                instructions.push(Instruction::I32Const(*i));
+                instructions.push(Instruction::I32Const((*i).try_into().unwrap()));
                 Ok(WasmType::I32)
             },
-            Value::String(s) => {
+            Value::String(_s) => {
                 // This should use memory.allocate_string
                 // For now, just return a placeholder pointing to "empty string"
                 instructions.push(Instruction::I32Const(0));
@@ -651,35 +575,43 @@ impl InstructionGenerator {
                 instructions.push(Instruction::I32Const(0));
                 Ok(WasmType::I32)
             },
-            Value::Byte(b) => {
-                instructions.push(Instruction::I32Const(*b as i32));
+            Value::Void => { 
+                instructions.push(Instruction::I32Const(0));
                 Ok(WasmType::I32)
             },
-            Value::Unsigned(u) => {
+            // Sized integer types
+            Value::Integer8(i) => {
+                instructions.push(Instruction::I32Const(*i as i32));
+                Ok(WasmType::I32)
+            },
+            Value::Integer8u(u) => {
                 instructions.push(Instruction::I32Const(*u as i32));
                 Ok(WasmType::I32)
             },
-            Value::Long(l) => {
+            Value::Integer16(i) => {
+                instructions.push(Instruction::I32Const(*i as i32));
+                Ok(WasmType::I32)
+            },
+            Value::Integer16u(u) => {
+                instructions.push(Instruction::I32Const(*u as i32));
+                Ok(WasmType::I32)
+            },
+            Value::Integer32(i) => {
+                instructions.push(Instruction::I32Const(*i));
+                Ok(WasmType::I32)
+            },
+            Value::Integer64(l) => {
                 instructions.push(Instruction::I64Const(*l));
                 Ok(WasmType::I64)
             },
-            Value::ULong(ul) => {
-                instructions.push(Instruction::I64Const(*ul as i64));
-                Ok(WasmType::I64)
-            },
-            Value::Big(_) | Value::UBig(_) => {
-                // These would need custom big integer handling
-                // For now, return a placeholder
-                instructions.push(Instruction::I32Const(0));
-                Ok(WasmType::I32)
-            },
-            Value::Float(f) => {
-                instructions.push(Instruction::F32Const(*f as f32));
+            // Sized float types
+            Value::Float32(f) => {
+                instructions.push(Instruction::F32Const(*f));
                 Ok(WasmType::F32)
             },
-            Value::Null | Value::Unit => { 
-                instructions.push(Instruction::I32Const(0));
-                Ok(WasmType::I32)
+            Value::Float64(f) => {
+                instructions.push(Instruction::F64Const(*f));
+                Ok(WasmType::F64)
             },
         }
     }
@@ -695,7 +627,7 @@ impl InstructionGenerator {
             
             for part in parts {
                 match part {
-                    StringPart::Text(text) => {
+                    StringPart::Text(_text) => {
                         // This would allocate string and then call append
                         instructions.push(Instruction::I32Const(0)); // placeholder
                         
@@ -707,7 +639,7 @@ impl InstructionGenerator {
                             ));
                         }
                     },
-                    StringPart::Expression(expr) => {
+                    StringPart::Interpolation(expr) => {
                         self.generate_expression(expr, instructions)?;
                         
                         if let Some(append_value) = self.get_function_index("string_builder_append_value") {
@@ -733,30 +665,34 @@ impl InstructionGenerator {
     }
     
     /// Generate error handler instructions
-    pub(crate) fn generate_error_handler(
+    pub(crate) fn generate_error_handler_blocks(
         &mut self,
-        stmt: &Statement,
-        handler: &[Statement],
-        location: &Option<SourceLocation>,
+        try_block: &[Statement],
+        error_variable: Option<&str>,
+        catch_block: &[Statement],
+        _location: &Option<SourceLocation>,
         instructions: &mut Vec<Instruction>
     ) -> Result<(), CompilerError> {
-        instructions.push(Instruction::Try(BlockType::Empty));
+        // For now, implement a simple try-catch mechanism
+        // In a full implementation, this would use WASM's exception handling proposal
         
-        self.generate_statement(stmt, instructions)?;
-        
-        instructions.push(Instruction::Catch(0));
-        
-        for handler_stmt in handler {
-            self.generate_statement(handler_stmt, instructions)?;
+        // Generate try block instructions
+        for stmt in try_block {
+            self.generate_statement(stmt, instructions)?;
         }
         
-        instructions.push(Instruction::End);
+        // TODO: Implement proper exception handling when WASM exception handling is stable
+        // For now, we just execute the try block and ignore the catch block
+        // In the future, this would:
+        // 1. Wrap try_block in a try instruction
+        // 2. Add catch handlers for different exception types
+        // 3. Bind the error variable in the catch scope
         
         Ok(())
     }
     
     /// Get the function type for a given function index
-    pub fn get_function_type(&self, index: u32) -> Option<FuncType> {
+    pub fn get_function_type(&self, _index: u32) -> Option<FuncType> {
         // Create a simplified version that returns a new FuncType each time
         Some(FuncType::new(
             vec![ValType::I32], // Just assume parameters are I32
@@ -780,7 +716,7 @@ impl InstructionGenerator {
     pub(crate) fn generate_matrix_operation(
         &mut self,
         left: &Expression,
-        op: &MatrixOperator,
+        op: &str,
         right: &Expression,
         instructions: &mut Vec<Instruction>
     ) -> Result<WasmType, CompilerError> {
@@ -792,11 +728,16 @@ impl InstructionGenerator {
         
         // Call the appropriate matrix operation function based on the operator
         let function_name = match op {
-            MatrixOperator::Add => "matrix_add",
-            MatrixOperator::Subtract => "matrix_subtract",
-            MatrixOperator::Multiply => "matrix_multiply",
-            MatrixOperator::Transpose => "matrix_transpose",
-            MatrixOperator::Inverse => "matrix_inverse",
+            "add" => "matrix_add",
+            "subtract" => "matrix_subtract",
+            "multiply" => "matrix_multiply",
+            "transpose" => "matrix_transpose",
+            "inverse" => "matrix_inverse",
+            _ => return Err(CompilerError::codegen_error(
+                &format!("Unknown matrix operation: {}", op),
+                Some("Use valid matrix operations".to_string()),
+                None
+            ))
         };
         
         // Find the function index for the matrix operation
@@ -813,8 +754,8 @@ impl InstructionGenerator {
     }
 
     /// Register a function with the instruction generator
-    pub(crate) fn register_function(&mut self, name: &str, params: &[WasmType], return_type: Option<WasmType>, 
-        instructions: &[Instruction]) -> Result<u32, CompilerError>
+    pub(crate) fn register_function(&mut self, name: &str, _params: &[WasmType], _return_type: Option<WasmType>, 
+        _instructions: &[Instruction]) -> Result<u32, CompilerError>
     {
         // Check if the function already exists
         if let Some(index) = self.get_function_index(name) {
@@ -841,7 +782,7 @@ impl InstructionGenerator {
         Ok(index)
     }
 
-    pub(crate) fn get_function_return_type(&self, index: u32) -> Result<WasmType, CompilerError> {
+    pub(crate) fn get_function_return_type(&self, _index: u32) -> Result<WasmType, CompilerError> {
         // For now, just return a default return type
         Ok(WasmType::I32)
     }

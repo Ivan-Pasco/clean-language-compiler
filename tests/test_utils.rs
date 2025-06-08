@@ -1,24 +1,13 @@
 use clean_language_compiler::{
-    ast::{self, Program},
+    ast::{Program},
     parser::CleanParser,
     semantic::SemanticAnalyzer,
     codegen::CodeGenerator,
-    validation::WasmValidator,
-    CompilerError,
+    validation::Validator,
+    error::CompilerError,
 };
 use std::fs;
 use std::path::Path;
-use std::fmt;
-
-impl fmt::Display for CompilerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CompilerError::ParseError(msg) => write!(f, "Parse error: {}", msg),
-            CompilerError::SemanticError(msg) => write!(f, "Semantic error: {}", msg),
-            CompilerError::CodegenError(msg) => write!(f, "Code generation error: {}", msg),
-        }
-    }
-}
 
 /// Reads a test file from the test_inputs directory
 pub fn read_test_file(filename: &str) -> String {
@@ -36,20 +25,21 @@ pub fn parse_source(source: &str) -> Program {
 /// Runs semantic analysis on a program
 pub fn analyze_program(program: &Program) -> Result<(), String> {
     let mut analyzer = SemanticAnalyzer::new();
-    analyzer.analyze(program).map_err(|e| e.to_string())
+    analyzer.analyze(program).map_err(|e| e.to_string()).map(|_| ())
 }
 
 /// Generates WebAssembly from a program
 pub fn generate_wasm(program: &Program) -> Vec<u8> {
     let mut generator = CodeGenerator::new();
     generator.generate(program)
-        .unwrap_or_else(|e| panic!("Failed to generate WASM: {}", e))
+        .unwrap_or_else(|e| panic!("Failed to generate WASM: {}", e));
+    generator.finish()
 }
 
 /// Validates generated WebAssembly
 pub fn validate_wasm(wasm_binary: &[u8]) -> bool {
-    let validator = WasmValidator::new();
-    validator.validate_and_analyze(wasm_binary).is_ok()
+    let validator = Validator::new();
+    validator.validate(wasm_binary).is_ok()
 }
 
 /// Helper to create the test_inputs directory if it doesn't exist
@@ -83,6 +73,6 @@ pub fn compile_program(program: &Program) -> Result<Vec<u8>, String> {
     
     // Generate WASM
     codegen.generate(program)
-        .map_err(|e| e.to_string())
-        .map(|wasm| wasm.to_vec())
+        .map_err(|e| e.to_string())?;
+    Ok(codegen.finish())
 } 

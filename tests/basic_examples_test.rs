@@ -1,7 +1,7 @@
-use clean_language::{
+use clean_language_compiler::{
     parser::CleanParser,
     codegen::CodeGenerator,
-    validation::WasmValidator,
+    validation::Validator,
 };
 use std::fs;
 
@@ -18,9 +18,9 @@ fn test_arithmetic_program() {
     let wasm_result = codegen.generate(&program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
-    let wasm_binary = wasm_result.unwrap();
-    let validator = WasmValidator::new();
-    assert!(validator.validate_and_analyze(&wasm_binary).is_ok());
+    let wasm_binary = codegen.finish();
+    let validator = Validator::new();
+    assert!(validator.validate(&wasm_binary).is_ok());
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();
@@ -46,9 +46,9 @@ fn test_matrix_program() {
     let wasm_result = codegen.generate(&program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
-    let wasm_binary = wasm_result.unwrap();
-    let validator = WasmValidator::new();
-    assert!(validator.validate_and_analyze(&wasm_binary).is_ok());
+    let wasm_binary = codegen.finish();
+    let validator = Validator::new();
+    assert!(validator.validate(&wasm_binary).is_ok());
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();
@@ -90,9 +90,9 @@ fn test_function_program() {
     let wasm_result = codegen.generate(&program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
-    let wasm_binary = wasm_result.unwrap();
-    let validator = WasmValidator::new();
-    assert!(validator.validate_and_analyze(&wasm_binary).is_ok());
+    let wasm_binary = codegen.finish();
+    let validator = Validator::new();
+    assert!(validator.validate(&wasm_binary).is_ok());
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();

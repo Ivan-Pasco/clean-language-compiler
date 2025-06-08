@@ -1,7 +1,7 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use wasmtime::Val;
+
 use wasm_encoder::Instruction;
 use crate::stdlib::register_stdlib_function;
 
@@ -152,7 +152,7 @@ mod tests {
             Val::F64(f64::to_bits(3.7))
         ], &mut results).unwrap();
         
-        let result = f64::from_bits(results[0].unwrap_f64());
+        let result = results[0].unwrap_f64();
         assert!((result - 6.2).abs() < f64::EPSILON);
     }
 
@@ -167,7 +167,7 @@ mod tests {
             Val::F64(f64::to_bits(2.5))
         ], &mut results).unwrap();
         
-        let result = f64::from_bits(results[0].unwrap_f64());
+        let result = results[0].unwrap_f64();
         assert!((result - 2.5).abs() < f64::EPSILON);
     }
 

@@ -1,19 +1,14 @@
 use std::collections::{HashMap, HashSet};
-use crate::ast::{self, Program, Function, Statement, Expression, Type, Value, MatrixOperator, UnaryOperator, BinaryOperator, SourceLocation, Visibility, Class};
-use crate::error::{CompilerError, ErrorContext, ErrorType};
-use std::convert::TryFrom;
+use crate::ast::*;
+use crate::error::{CompilerError, CompilerWarning};
+
 mod scope;
+
 use scope::Scope;
 
-// Fix for the "no method 'is_public' on Visibility" error
-// Add an extension implementation for Visibility
 impl Visibility {
-    /// Returns true if the visibility is Public
     pub fn is_public(&self) -> bool {
-        match self {
-            Visibility::Public => true,
-            Visibility::Private => false,
-        }
+        matches!(self, Visibility::Public)
     }
 }
 
@@ -30,11 +25,14 @@ pub struct SemanticAnalyzer {
     class_environment: HashSet<String>,
     current_scope: Scope,
     current_function_return_type: Option<Type>,
+    warnings: Vec<CompilerWarning>,
+    used_variables: HashSet<String>,
+    used_functions: HashSet<String>,
 }
 
 impl SemanticAnalyzer {
     pub fn new() -> Self {
-        Self {
+        let mut analyzer = Self {
             symbol_table: HashMap::new(),
             function_table: HashMap::new(),
             class_table: HashMap::new(),
@@ -47,57 +45,119 @@ impl SemanticAnalyzer {
             class_environment: HashSet::new(),
             current_scope: Scope::new(),
             current_function_return_type: None,
-        }
+            warnings: Vec::new(),
+            used_variables: HashSet::new(),
+            used_functions: HashSet::new(),
+        };
+        
+        analyzer.register_builtin_functions();
+        analyzer
+    }
+    
+    // Register built-in functions like print, println, etc.
+    fn register_builtin_functions(&mut self) {
+        // print function
+        self.function_table.insert(
+            "print".to_string(),
+            (vec![Type::Any], Type::Void)
+        );
+        
+        // println function
+        self.function_table.insert(
+            "println".to_string(),
+            (vec![Type::Any], Type::Void)
+        );
+        
+        // printl function (print with newline)
+        self.function_table.insert(
+            "printl".to_string(),
+            (vec![Type::Any], Type::Void)
+        );
+        
+        // abs function (absolute value)
+        self.function_table.insert(
+            "abs".to_string(),
+            (vec![Type::Integer], Type::Integer)
+        );
+        
+        // array_get function
+        self.function_table.insert(
+            "array_get".to_string(),
+            (vec![Type::Array(Box::new(Type::Integer)), Type::Integer], Type::Integer)
+        );
+        
+        // array_length function
+        self.function_table.insert(
+            "array_length".to_string(),
+            (vec![Type::Array(Box::new(Type::Integer))], Type::Integer)
+        );
     }
 
-    /// Analyze a program for semantic correctness
     pub fn analyze(&mut self, program: &Program) -> Result<Program, CompilerError> {
-        // We'll just do a check for now and return the program unchanged
         self.check(program)?;
         Ok(program.clone())
     }
 
     pub fn check(&mut self, program: &Program) -> Result<(), CompilerError> {
-        // First pass: collect all class definitions
+        // First pass: register all classes and functions
         for class in &program.classes {
             self.class_table.insert(class.name.clone(), class.clone());
         }
 
-        // Check class inheritance hierarchy for cycles
+        for function in &program.functions {
+            let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
+            self.function_table.insert(
+                function.name.clone(),
+                (param_types, function.return_type.clone())
+            );
+        }
+
+        if let Some(start_fn) = &program.start_function {
+            let param_types = start_fn.parameters.iter().map(|p| p.type_.clone()).collect();
+            self.function_table.insert(
+                start_fn.name.clone(),
+                (param_types, start_fn.return_type.clone())
+            );
+        }
+
+        // Check for inheritance cycles
         self.check_inheritance_cycles()?;
 
-        // Second pass: check all classes
+        // Second pass: check all items
         for class in &program.classes {
-            self.current_class = Some(class.name.clone());
             self.check_class(class)?;
-            self.current_class = None;
         }
 
-        // Third pass: check all functions
         for function in &program.functions {
-            self.current_function = Some(function.name.clone());
             self.check_function(function)?;
-            self.current_function = None;
         }
+
+        if let Some(start_fn) = &program.start_function {
+            self.check_function(start_fn)?;
+        }
+
+        // Third pass: check for unused variables and functions
+        self.check_unused_items();
 
         Ok(())
     }
 
     fn check_inheritance_cycles(&self) -> Result<(), CompilerError> {
-        for class_name in self.class_table.keys() {
+        for class in self.class_table.values() {
             let mut visited = HashSet::new();
-            let mut current = Some(class_name.clone());
+            let mut current = Some(class.name.clone());
 
-            while let Some(class) = current {
-                if !visited.insert(class.clone()) {
+            while let Some(class_name) = current {
+                if visited.contains(&class_name) {
                     return Err(CompilerError::type_error(
-                        "Cyclic inheritance detected",
-                        Some("Remove the inheritance cycle".to_string()),
-                        None
+                        &format!("Inheritance cycle detected involving class '{}'", class_name),
+                        Some("Remove circular inheritance relationships".to_string()),
+                        class.location.clone()
                     ));
                 }
 
-                current = self.class_table.get(&class)
+                visited.insert(class_name.clone());
+                current = self.class_table.get(&class_name)
                     .and_then(|c| c.base_class.clone());
             }
         }
@@ -105,38 +165,31 @@ impl SemanticAnalyzer {
     }
 
     fn check_class(&mut self, class: &Class) -> Result<(), CompilerError> {
-        let old_class = self.current_class.clone();
         self.current_class = Some(class.name.clone());
 
-        // Check base class exists if specified
-        if let Some(ref base) = class.base_class {
-            if !self.class_table.contains_key(base) {
-                return Err(CompilerError::type_error(
-                    &format!("Base class not found: {}", base),
-                    Some("Check if the base class is correct and the class is defined".to_string()),
-                    Some(class.location.clone().unwrap_or_default())
-                ));
-            }
+        // Check type parameters
+        for type_param in &class.type_parameters {
+            self.type_environment.insert(type_param.clone());
         }
 
         // Check fields
-        let mut field_types = HashMap::new();
         for field in &class.fields {
-            // Check field type
             self.check_type(&field.type_)?;
+        }
             
-            // Check field name uniqueness
-            if field_types.insert(field.name.clone(), field.type_.clone()).is_some() {
+        // Check base class if it exists
+        if let Some(base_class_name) = &class.base_class {
+            if !self.class_table.contains_key(base_class_name) {
                 return Err(CompilerError::type_error(
-                    &format!("Duplicate field name: {}", field.name),
-                    Some("Use unique field names within a class".to_string()),
-                    Some(class.location.clone().unwrap_or_default())
+                    &format!("Base class '{}' not found", base_class_name),
+                    Some("Check if the base class name is correct and defined".to_string()),
+                    class.location.clone()
                 ));
             }
         }
 
         // Check constructor
-        if let Some(ref constructor) = class.constructor {
+        if let Some(constructor) = &class.constructor {
             self.check_constructor(constructor, class)?;
         }
 
@@ -145,227 +198,524 @@ impl SemanticAnalyzer {
             self.check_method(method, class)?;
         }
 
-        self.current_class = old_class;
+        // Clear type parameters
+        for type_param in &class.type_parameters {
+            self.type_environment.remove(type_param);
+        }
+
+        self.current_class = None;
         Ok(())
     }
 
-    fn check_constructor(&mut self, constructor: &ast::Constructor, class: &Class) -> Result<(), CompilerError> {
-        // Create new scope for constructor parameters
-        let mut old_symbols = HashMap::new();
-        for param in &constructor.parameters {
-            if let Some(old_type) = self.symbol_table.insert(param.name.clone(), param.type_.clone()) {
-                old_symbols.insert(param.name.clone(), old_type);
-            }
-        }
+    fn check_constructor(&mut self, constructor: &Constructor, class: &Class) -> Result<(), CompilerError> {
+        // Enter constructor scope
+        self.current_scope.enter();
 
-        // Add 'this' to symbol table
-        self.symbol_table.insert("this".to_string(), Type::Object(class.name.clone()));
+        // Add constructor parameters to scope
+        for param in &constructor.parameters {
+            self.check_type(&param.type_)?;
+            self.current_scope.define_variable(param.name.clone(), param.type_.clone());
+            }
+
+        // Add class fields to scope (accessible in constructor)
+        for field in &class.fields {
+            self.current_scope.define_variable(field.name.clone(), field.type_.clone());
+        }
 
         // Check constructor body
-        for statement in &constructor.body {
-            self.check_statement(statement)?;
+        for stmt in &constructor.body {
+            self.check_statement(stmt)?;
         }
 
-        // Restore old scope
-        for (name, type_) in old_symbols {
-            self.symbol_table.insert(name, type_);
-        }
-        self.symbol_table.remove("this");
-
+        // Exit constructor scope
+        self.current_scope.exit();
         Ok(())
     }
 
     fn check_method(&mut self, method: &Function, class: &Class) -> Result<(), CompilerError> {
-        // Add method to function table with class prefix
-        let method_key = format!("{}.{}", class.name, method.name);
-        let param_types: Vec<Type> = method.parameters.iter()
-            .map(|p| p.type_.clone())
-            .collect();
-        self.function_table.insert(
-            method_key,
-            (param_types, method.return_type.clone()),
-        );
+        self.current_function = Some(method.name.clone());
+        self.current_function_return_type = Some(method.return_type.clone());
 
-        // Create new scope for method
-        let mut old_symbols = HashMap::new();
+        // Enter method scope
+        self.current_scope.enter();
+
+        // Add method parameters to scope
         for param in &method.parameters {
-            if let Some(old_type) = self.symbol_table.insert(param.name.clone(), param.type_.clone()) {
-                old_symbols.insert(param.name.clone(), old_type);
+            self.check_type(&param.type_)?;
+            self.current_scope.define_variable(param.name.clone(), param.type_.clone());
+        }
+
+        // Add class fields to scope (accessible in methods)
+        for field in &class.fields {
+            if field.visibility == Visibility::Public || self.current_class == Some(class.name.clone()) {
+                self.current_scope.define_variable(field.name.clone(), field.type_.clone());
             }
         }
 
-        // Add 'this' to symbol table
-        self.symbol_table.insert("this".to_string(), Type::Object(class.name.clone()));
-
         // Check method body
-        for statement in &method.body {
-            self.check_statement(statement)?;
+        for stmt in &method.body {
+            self.check_statement(stmt)?;
         }
 
-        // Restore old scope
-        for (name, type_) in old_symbols {
-            self.symbol_table.insert(name, type_);
-        }
-        self.symbol_table.remove("this");
+        // Exit method scope
+        self.current_scope.exit();
 
+        self.current_function = None;
+        self.current_function_return_type = None;
         Ok(())
     }
 
     fn check_function(&mut self, function: &Function) -> Result<(), CompilerError> {
-        let mut function_scope = Scope::new();
-        let mut old_scope = Scope::new();
-        std::mem::swap(&mut old_scope, &mut self.current_scope);
-        
-        let old_return_type = self.current_function_return_type.clone();
+        self.current_function = Some(function.name.clone());
         self.current_function_return_type = Some(function.return_type.clone());
 
-        // Add parameters to scope
+        // Enter function scope
+        self.current_scope.enter();
+
+        // Add function parameters to scope
         for param in &function.parameters {
-            function_scope.add_variable(param.name.clone(), param.type_.clone());
+            self.check_type(&param.type_)?;
+            self.current_scope.define_variable(param.name.clone(), param.type_.clone());
         }
-        
-        // Set the current scope to the function scope
-        self.current_scope = function_scope;
 
         // Check function body
         for stmt in &function.body {
             self.check_statement(stmt)?;
         }
 
-        std::mem::swap(&mut old_scope, &mut self.current_scope);
-        self.current_function_return_type = old_return_type;
+        // Exit function scope
+        self.current_scope.exit();
+
+        self.current_function = None;
+        self.current_function_return_type = None;
         Ok(())
     }
 
     fn check_statement(&mut self, stmt: &Statement) -> Result<(), CompilerError> {
         match stmt {
             Statement::VariableDecl { name, type_, initializer, location } => {
-                if let Some(init) = initializer {
-                    self.check_expression(init)?;
+                self.check_type(type_)?;
+                
+                if let Some(init_expr) = initializer {
+                    let init_type = self.check_expression(init_expr)?;
+                    if !self.types_compatible(type_, &init_type) {
+                        return Err(CompilerError::type_error(
+                            &format!("Cannot assign {:?} to variable of type {:?}", init_type, type_),
+                            Some("Change the initializer expression to match the variable type".to_string()),
+                            location.clone()
+                        ));
+                    }
                 }
+                
+                self.current_scope.define_variable(name.clone(), type_.clone());
                 Ok(())
-            }
-            Statement::Assignment { target, value, location } => {
-                self.check_expression(value)?;
-                Ok(())
-            }
-            Statement::Print { expression, newline, location } => {
-                self.check_expression(expression)?;
-                Ok(())
-            }
-            Statement::Return { value, location } => {
-                if let Some(expr) = value {
-                    self.check_expression(expr)?;
-                }
-                Ok(())
-            }
-            Statement::If { condition, then_branch, else_branch, location } => {
-                self.check_expression(condition)?;
-                for stmt in then_branch {
-                    self.check_statement(stmt)?;
-                }
-                if let Some(else_stmts) = else_branch {
-                    for stmt in else_stmts {
-                        self.check_statement(stmt)?;
+            },
+
+            Statement::ApplyBlock { target, items, location: _ } => {
+                // Check apply block - for now just check the items
+                for item in items {
+                    match item {
+                        ApplyItem::FunctionCall(expr) => {
+                            self.check_expression(expr)?;
+                        },
+                        ApplyItem::VariableDecl { name, initializer } => {
+                            if let Some(init_expr) = initializer {
+                                let init_type = self.check_expression(init_expr)?;
+                                // For apply blocks, we might not have explicit type information
+                                self.current_scope.define_variable(name.clone(), init_type);
+                            }
+                        },
+                        ApplyItem::ConstantDecl { type_, name, value } => {
+                            self.check_type(type_)?;
+                            let value_type = self.check_expression(value)?;
+                            if !self.types_compatible(type_, &value_type) {
+                    return Err(CompilerError::type_error(
+                                    &format!("Constant value type {:?} doesn't match declared type {:?}", value_type, type_),
+                                    Some("Ensure the constant value matches the declared type".to_string()),
+                        None
+                    ));
+                            }
+                            self.current_scope.define_variable(name.clone(), type_.clone());
+                        }
                     }
                 }
                 Ok(())
-            }
-            Statement::Iterate { iterator, collection, body, location } => {
-                self.check_expression(collection)?;
+            },
+
+            Statement::Assignment { target, value, location } => {
+                let value_type = self.check_expression(value)?;
                 
-                // Create a new scope for the iterate body
-                let mut body_scope = Scope::new();
-                body_scope.set_parent(Box::new(self.current_scope.clone()));
+                if let Some(var_type) = self.current_scope.lookup_variable(target) {
+                    if !self.types_compatible(&var_type, &value_type) {
+                        return Err(CompilerError::type_error(
+                            &format!("Cannot assign {:?} to variable of type {:?}", value_type, var_type),
+                            Some("Ensure the assignment value matches the variable type".to_string()),
+                            location.clone()
+                        ));
+                    }
+                    self.used_variables.insert(target.clone());
+                Ok(())
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Variable '{}' not found", target),
+                        Some("Check if the variable name is correct and the variable is declared".to_string()),
+                        location.clone()
+                    ))
+                }
+            },
+
+            Statement::Print { expression, newline: _, location: _ } => {
+                self.check_expression(expression)?;
+                Ok(())
+            },
+
+            Statement::Return { value, location } => {
+                if let Some(return_type) = &self.current_function_return_type {
+                if let Some(expr) = value {
+                        let return_type_clone = return_type.clone();
+                        let expr_type = self.check_expression(expr)?;
+                        if !self.types_compatible(&return_type_clone, &expr_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("Return type {:?} doesn't match expected return type {:?}", expr_type, return_type_clone),
+                                Some("Ensure the return value matches the function's return type".to_string()),
+                                location.clone()
+                            ));
+                        }
+                    } else if *return_type != Type::Void {
+                        return Err(CompilerError::type_error(
+                            &format!("Function expects return type {:?}, but no value returned", return_type),
+                            Some("Return a value of the expected type".to_string()),
+                            location.clone()
+                        ));
+                    }
+                } else {
+                    return Err(CompilerError::type_error(
+                        "Return statement outside of function".to_string(),
+                        Some("Return statements can only be used inside functions".to_string()),
+                        location.clone()
+                    ));
+                }
+                Ok(())
+            },
+
+            Statement::If { condition, then_branch, else_branch, location: _ } => {
+                let condition_type = self.check_expression(condition)?;
+                if condition_type != Type::Boolean {
+                    return Err(CompilerError::type_error(
+                        &format!("If condition must be boolean, found {:?}", condition_type),
+                        Some("Use a boolean expression in the if condition".to_string()),
+                        None
+                    ));
+                }
+
+                self.current_scope.enter();
+                for stmt in then_branch {
+                    self.check_statement(stmt)?;
+                }
+                self.current_scope.exit();
+
+                if let Some(else_stmts) = else_branch {
+                    self.current_scope.enter();
+                    for stmt in else_stmts {
+                        self.check_statement(stmt)?;
+                    }
+                    self.current_scope.exit();
+                }
+
+                Ok(())
+            },
+
+            Statement::Iterate { iterator, collection, body, location: _ } => {
+                let collection_type = self.check_expression(collection)?;
                 
-                // Add iterator variable
-                body_scope.add_variable(iterator.clone(), Type::Any);
-                
-                let old_scope = std::mem::replace(&mut self.current_scope, body_scope);
+                let element_type = match collection_type {
+                    Type::Array(element_type) => *element_type,
+                    Type::String => Type::String, // Iterating over characters
+                    _ => return Err(CompilerError::type_error(
+                        &format!("Cannot iterate over type {:?}", collection_type),
+                        Some("Use an array or string in iterate statements".to_string()),
+                        None
+                    ))
+                };
+
+                self.current_scope.enter();
+                self.current_scope.define_variable(iterator.clone(), element_type);
+                self.loop_depth += 1;
                 
                 for stmt in body {
                     self.check_statement(stmt)?;
                 }
                 
-                self.current_scope = old_scope;
+                self.loop_depth -= 1;
+                self.current_scope.exit();
                 Ok(())
-            }
-            Statement::FromTo { start, end, step, body, location } => {
-                self.check_expression(start)?;
-                self.check_expression(end)?;
-                if let Some(step_expr) = step {
-                    self.check_expression(step_expr)?;
+            },
+
+            Statement::RangeIterate { iterator, start, end, step: _, body, location: _ } => {
+                let start_type = self.check_expression(start)?;
+                let end_type = self.check_expression(end)?;
+
+                if start_type != Type::Integer || end_type != Type::Integer {
+                    return Err(CompilerError::type_error(
+                        "Range iterate requires integer start and end values".to_string(),
+                        Some("Use integer expressions for range bounds".to_string()),
+                        None
+                    ));
                 }
+
+                self.current_scope.enter();
+                self.current_scope.define_variable(iterator.clone(), Type::Integer);
+                self.loop_depth += 1;
                 
                 for stmt in body {
                     self.check_statement(stmt)?;
                 }
                 
+                self.loop_depth -= 1;
+                self.current_scope.exit();
                 Ok(())
-            }
-            Statement::ErrorHandler { stmt, handler, location } => {
-                // Use the check_try_catch method to check error handler statements
-                self.check_try_catch(stmt, handler, location.as_ref().unwrap_or(&SourceLocation::default()))
-            }
-            Statement::Expression { expr, location } => {
+            },
+
+            Statement::Test { name: _, body, location: _ } => {
+                self.current_scope.enter();
+                for stmt in body {
+                    self.check_statement(stmt)?;
+                }
+                self.current_scope.exit();
+                Ok(())
+            },
+
+            Statement::Expression { expr, location: _ } => {
                 self.check_expression(expr)?;
                 Ok(())
-            }
-            _ => Ok(())
+            },
         }
     }
 
     fn check_expression(&mut self, expr: &Expression) -> Result<Type, CompilerError> {
-        let location = self.get_expr_location(expr);
-        
         match expr {
-            Expression::Literal(value) => {
-                Ok(self.check_literal(value))
-            },
+            Expression::Literal(value) => Ok(self.check_literal(value)),
+            
             Expression::Variable(name) => {
-                self.check_variable(name, &location)
+                if let Some(var_type) = self.current_scope.lookup_variable(name) {
+                    self.used_variables.insert(name.clone());
+                    Ok(var_type)
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Variable '{}' not found", name),
+                        Some("Check if the variable name is correct and the variable is declared".to_string()),
+                        None
+                    ))
+                }
             },
+
             Expression::Binary(left, op, right) => {
-                let loc_opt = Some(location.clone());
-                self.check_binary_operation(op, left, right, &loc_opt)
+                self.check_binary_operation(op, left, right, &None)
             },
-            Expression::Call(name, args) => { 
-                self.check_function_call(name, args, &location)
+
+            Expression::Unary(op, expr) => {
+                let expr_type = self.check_expression(expr)?;
+        match op {
+                    UnaryOperator::Negate => {
+                        if expr_type == Type::Integer || expr_type == Type::Float {
+                            Ok(expr_type)
+                        } else {
+                            Err(CompilerError::type_error(
+                                &format!("Cannot negate type {:?}", expr_type),
+                                Some("Use numeric types for negation".to_string()),
+                                None
+                    ))
+                }
             },
-            Expression::ArrayAccess(array, index) => {
-                self.check_array_access(array, index, &location)
+                    UnaryOperator::Not => {
+                        if expr_type == Type::Boolean {
+                    Ok(Type::Boolean)
+                } else {
+                            Err(CompilerError::type_error(
+                                &format!("Cannot apply logical NOT to type {:?}", expr_type),
+                                Some("Use boolean expressions with NOT operator".to_string()),
+                                None
+                            ))
+                        }
+                    }
+                }
             },
-            Expression::MatrixAccess(matrix, row, col) => {
-                self.check_matrix_access(matrix, row, col, &location)
-            },
-            Expression::FieldAccess { object, field, location } => {
-                self.check_field_access(object, field, location)
-            },
-            Expression::MethodCall { object, method, arguments, location } => {
-                self.check_method_call(object, method, arguments, location)
-            },
-            Expression::ObjectCreation { class_name, arguments, location } => {
-                self.check_constructor_call(class_name, arguments, location)
-            },
-            Expression::MatrixOperation(left, op, right, location) => {
-                self.check_matrix_operation(left, op, right, location)
-            },
-            Expression::StringConcat(parts) => {
-                // Check all parts are strings
-                for part in parts {
-                    let part_type = self.check_expression(part)?;
-                    if part_type != Type::String {
-                        return Err(CompilerError::type_error(
-                            &format!("String concatenation requires string parts, found {:?}", part_type),
-                            Some("All parts of a string concatenation must evaluate to strings".to_string()),
-                            Some(location.clone())
+
+            Expression::Call(name, args) => {
+                self.used_functions.insert(name.clone());
+                if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
+                    if args.len() != param_types.len() {
+                    return Err(CompilerError::type_error(
+                            &format!("Function '{}' expects {} arguments, but {} were provided", 
+                                name, param_types.len(), args.len()),
+                            Some("Provide the correct number of arguments".to_string()),
+                            None
                         ));
+                    }
+
+                    for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
+                        let arg_type = self.check_expression(arg)?;
+                        if !self.types_compatible(&param_type, &arg_type) {
+                    return Err(CompilerError::type_error(
+                                &format!("Argument {} has type {:?}, but parameter expects {:?}", 
+                                    i + 1, arg_type, param_type),
+                                Some("Provide arguments of the correct type".to_string()),
+                                None
+                            ));
+                        }
+                    }
+
+                    Ok(return_type)
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Function '{}' not found", name),
+                        Some("Check if the function name is correct and the function is defined".to_string()),
+                        None
+                    ))
+                }
+            },
+
+            Expression::PropertyAccess { object, property, location: _ } => {
+                let object_type = self.check_expression(object)?;
+                match object_type {
+                    Type::Object(class_name) => {
+                        if let Some(class) = self.class_table.get(&class_name) {
+                            for field in &class.fields {
+                                if field.name == *property {
+                                    return Ok(field.type_.clone());
+                                }
+                            }
+                            Err(CompilerError::type_error(
+                                &format!("Property '{}' not found in class '{}'", property, class_name),
+                                Some("Check if the property name is correct".to_string()),
+                                None
+                            ))
+                } else {
+                            Err(CompilerError::type_error(
+                                &format!("Class '{}' not found", class_name),
+                                Some("Check if the class name is correct".to_string()),
+                                None
+                            ))
+                        }
+                    },
+                    _ => Err(CompilerError::type_error(
+                        &format!("Cannot access property '{}' on type {:?}", property, object_type),
+                        Some("Properties can only be accessed on objects".to_string()),
+                        None
+                    ))
+                }
+            },
+
+            Expression::MethodCall { object, method, arguments, location } => {
+                let object_type = self.check_expression(object)?;
+                match object_type {
+                    Type::Object(class_name) => {
+                        self.check_method_call(object, method, arguments, location)
+                    },
+                    Type::Matrix(_) => {
+                        // Handle matrix methods like transpose, inverse
+                        match method.as_str() {
+                            "transpose" | "inverse" | "determinant" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        &format!("Matrix method '{}' takes no arguments", method),
+                                        Some("Remove arguments from matrix method call".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                if method == "determinant" {
+                                    Ok(Type::Float)
+                                } else {
+                                    Ok(object_type)
+                                }
+                            },
+                            _ => Err(CompilerError::type_error(
+                                &format!("Method '{}' not found for matrix type", method),
+                                Some("Use valid matrix methods like transpose, inverse, determinant".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    _ => Err(CompilerError::type_error(
+                        &format!("Cannot call method '{}' on type {:?}", method, object_type),
+                        Some("Methods can only be called on objects and matrices".to_string()),
+                        Some(location.clone())
+                    ))
+                }
+            },
+
+            Expression::ArrayAccess(array, index) => {
+        let array_type = self.check_expression(array)?;
+        let index_type = self.check_expression(index)?;
+
+                if index_type != Type::Integer {
+            return Err(CompilerError::type_error(
+                        &format!("Array index must be integer, found {:?}", index_type),
+                        Some("Use integer expressions for array indices".to_string()),
+                        None
+                    ));
+                }
+
+        match array_type {
+            Type::Array(element_type) => Ok(*element_type),
+            _ => Err(CompilerError::type_error(
+                        &format!("Cannot index into type {:?}", array_type),
+                        Some("Array access can only be used on array types".to_string()),
+                        None
+                    ))
+                }
+            },
+
+            Expression::MatrixAccess(matrix, row, col) => {
+        let matrix_type = self.check_expression(matrix)?;
+        let row_type = self.check_expression(row)?;
+        let col_type = self.check_expression(col)?;
+
+                if row_type != Type::Integer || col_type != Type::Integer {
+            return Err(CompilerError::type_error(
+                        "Matrix indices must be integers".to_string(),
+                        Some("Use integer expressions for matrix indices".to_string()),
+                        None
+                    ));
+                }
+
+        match matrix_type {
+            Type::Matrix(element_type) => Ok(*element_type),
+            _ => Err(CompilerError::type_error(
+                        &format!("Cannot index into type {:?}", matrix_type),
+                        Some("Matrix access can only be used on matrix types".to_string()),
+                        None
+                    ))
+                }
+            },
+
+            Expression::StringInterpolation(parts) => {
+                // Check each interpolated expression
+                for part in parts {
+                    if let StringPart::Interpolation(expr) = part {
+                        self.check_expression(expr)?;
                     }
                 }
                 Ok(Type::String)
             },
-            Expression::Unary(op, expr) => {
-                self.check_unary_operation(op, expr, &location)
+
+            Expression::ObjectCreation { class_name, arguments, location } => {
+                self.check_constructor_call(class_name, arguments, location)
+            },
+
+            Expression::OnError { expression, fallback, location: _ } => {
+                let expr_type = self.check_expression(expression)?;
+                let fallback_type = self.check_expression(fallback)?;
+                
+                if !self.types_compatible(&expr_type, &fallback_type) {
+                                return Err(CompilerError::type_error(
+                        &format!("onError fallback type {:?} doesn't match expression type {:?}", fallback_type, expr_type),
+                        Some("Ensure the fallback value has the same type as the main expression".to_string()),
+                        None
+                    ));
+                }
+                
+                Ok(expr_type)
             },
         }
     }
@@ -373,537 +723,116 @@ impl SemanticAnalyzer {
     fn check_binary_operation(&mut self, op: &BinaryOperator, left: &Expression, right: &Expression, location: &Option<SourceLocation>) -> Result<Type, CompilerError> {
         let left_type = self.check_expression(left)?;
         let right_type = self.check_expression(right)?;
-        
-        match op {
-            BinaryOperator::Add => {
-                match (&left_type, &right_type) {
-                    (Type::Integer, Type::Integer) => Ok(Type::Integer),
-                    (Type::Float, Type::Float) => Ok(Type::Float),
-                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
-                    (Type::String, Type::String) => Ok(Type::String),
-                    // Allow concatenation with any type and string
-                    (Type::String, _) | (_, Type::String) => Ok(Type::String),
-                    _ => Err(CompilerError::detailed_type_error(
-                        &format!("Cannot add values of types {:?} and {:?}", left_type, right_type),
-                        format!("numeric or string types"),
-                        format!("{:?} and {:?}", left_type, right_type),
-                        location.clone(),
-                        Some("Addition is only supported for numeric types or string concatenation".to_string())
-                    ))
-                }
-            },
-            BinaryOperator::Subtract => {
-                match (&left_type, &right_type) {
-                    (Type::Integer, Type::Integer) => Ok(Type::Integer),
-                    (Type::Float, Type::Float) => Ok(Type::Float),
-                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
-                    _ => Err(CompilerError::detailed_type_error(
-                        &format!("Cannot subtract values of types {:?} and {:?}", left_type, right_type),
-                        format!("numeric types"),
-                        format!("{:?} and {:?}", left_type, right_type),
-                        location.clone(),
-                        Some("Subtraction is only supported for numeric types".to_string())
-                    ))
-                }
-            },
-            BinaryOperator::Multiply => {
-                match (&left_type, &right_type) {
-                    (Type::Integer, Type::Integer) => Ok(Type::Integer),
-                    (Type::Float, Type::Float) => Ok(Type::Float),
-                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
-                    _ => Err(CompilerError::detailed_type_error(
-                        &format!("Cannot multiply values of types {:?} and {:?}", left_type, right_type),
-                        format!("numeric types"),
-                        format!("{:?} and {:?}", left_type, right_type),
-                        location.clone(),
-                        Some("Multiplication is only supported for numeric types".to_string())
-                    ))
-                }
-            },
-            BinaryOperator::Divide => {
-                match (&left_type, &right_type) {
-                    (Type::Integer, Type::Integer) => Ok(Type::Integer),
-                    (Type::Float, Type::Float) => Ok(Type::Float),
-                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
-                    _ => Err(CompilerError::detailed_type_error(
-                        &format!("Cannot divide values of types {:?} and {:?}", left_type, right_type),
-                        format!("numeric types"),
-                        format!("{:?} and {:?}", left_type, right_type),
-                        location.clone(),
-                        Some("Division is only supported for numeric types".to_string())
-                    ))
-                }
-            },
-            BinaryOperator::Equal | BinaryOperator::NotEqual => {
-                // Most types can be compared for equality
-                if left_type == right_type || left_type == Type::Any || right_type == Type::Any {
-                    Ok(Type::Boolean)
-                } else {
-                    // Incompatible types for equality comparison, but might work at runtime
-                    // For now just warn but allow it, returning Boolean
-                    Ok(Type::Boolean)
-                }
-            },
-            BinaryOperator::Less | BinaryOperator::LessEqual | 
-            BinaryOperator::Greater | BinaryOperator::GreaterEqual => {
-                match (&left_type, &right_type) {
-                    (Type::Integer, Type::Integer) | (Type::Float, Type::Float) |
-                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Boolean),
-                    (Type::String, Type::String) => Ok(Type::Boolean), // String comparisons are allowed
-                    _ => Err(CompilerError::detailed_type_error(
-                        &format!("Cannot compare values of types {:?} and {:?}", left_type, right_type),
-                        format!("comparable types (numbers or strings)"),
-                        format!("{:?} and {:?}", left_type, right_type),
-                        location.clone(),
-                        Some("Comparison operations are only supported for numeric types or strings".to_string())
-                    ))
-                }
-            },
-            _ => Err(CompilerError::type_error(
-                &format!("Unsupported binary operator: {:?}", op),
-                Some("Check the operator is supported in this context".to_string()),
-                location.clone()
-            ))
-        }
-    }
 
-    fn check_unary_operation(&mut self, op: &UnaryOperator, expr: &Expression, location: &SourceLocation) -> Result<Type, CompilerError> {
-        let expr_type = self.check_expression(expr)?;
         match op {
-            UnaryOperator::Negate => {
-                match expr_type {
-                    Type::Integer | Type::Float => Ok(expr_type),
+            BinaryOperator::Add | BinaryOperator::Subtract | BinaryOperator::Multiply | BinaryOperator::Divide | BinaryOperator::Modulo | BinaryOperator::Power => {
+                // Type-based overloading for matrices
+                match (&left_type, &right_type) {
+                    (Type::Matrix(element_type1), Type::Matrix(element_type2)) => {
+                        if self.types_compatible(element_type1, element_type2) {
+                            Ok(left_type)
+                } else {
+                            Err(CompilerError::type_error(
+                                &format!("Matrix operation requires same element types, found {:?} and {:?}", element_type1, element_type2),
+                                Some("Ensure both matrices have the same element type".to_string()),
+                                location.clone()
+                            ))
+                        }
+                    },
+                    (Type::Integer, Type::Integer) => Ok(Type::Integer),
+                    (Type::Float, Type::Float) => Ok(Type::Float),
+                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
+                    (Type::String, Type::String) if matches!(op, BinaryOperator::Add) => Ok(Type::String),
+            _ => Err(CompilerError::type_error(
+                        &format!("Cannot apply {:?} to types {:?} and {:?}", op, left_type, right_type),
+                        Some("Ensure both operands have compatible types".to_string()),
+                        location.clone()
+                    ))
+                }
+            },
+
+            BinaryOperator::Equal | BinaryOperator::NotEqual => {
+                if self.types_compatible(&left_type, &right_type) {
+                    Ok(Type::Boolean)
+        } else {
+                    Err(CompilerError::type_error(
+                        &format!("Cannot compare types {:?} and {:?}", left_type, right_type),
+                        Some("Ensure both operands have compatible types".to_string()),
+                        location.clone()
+                    ))
+                }
+            },
+
+            BinaryOperator::Less | BinaryOperator::Greater | BinaryOperator::LessEqual | BinaryOperator::GreaterEqual => {
+                match (&left_type, &right_type) {
+                    (Type::Integer, Type::Integer) | (Type::Float, Type::Float) | 
+                    (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Boolean),
                     _ => Err(CompilerError::type_error(
-                        "Cannot negate non-numeric type",
-                        Some("Use numeric types for negation".to_string()),
-                        Some(location.clone())
-                    )),
+                        &format!("Cannot compare types {:?} and {:?}", left_type, right_type),
+                        Some("Comparison operators require numeric types".to_string()),
+                        location.clone()
+                    ))
                 }
-            }
-            UnaryOperator::Not => {
-                if expr_type != Type::Boolean {
-                    return Err(CompilerError::type_error(
-                        "Logical not requires boolean operand",
-                        Some("Use boolean values for logical not".to_string()),
-                        Some(location.clone())
-                    ));
+            },
+
+            BinaryOperator::And | BinaryOperator::Or => {
+                if left_type == Type::Boolean && right_type == Type::Boolean {
+                    Ok(Type::Boolean)
+            } else {
+                    Err(CompilerError::type_error(
+                        &format!("Logical operators require boolean operands, found {:?} and {:?}", left_type, right_type),
+                        Some("Use boolean expressions with logical operators".to_string()),
+                        location.clone()
+                    ))
                 }
+            },
+
+            BinaryOperator::Is | BinaryOperator::Not => {
+                // Identity comparison - can compare any types
                 Ok(Type::Boolean)
             }
         }
     }
 
-    fn check_matrix_operation(&mut self, left: &Expression, op: &MatrixOperator, right: &Expression, location: &SourceLocation) -> Result<Type, CompilerError> {
-        let left_type = self.check_expression(left)?;
-        let right_type = self.check_expression(right)?;
-
-        match op {
-            MatrixOperator::Add | MatrixOperator::Subtract | MatrixOperator::Multiply => {
-                if !matches!(left_type, Type::Matrix(_)) || !matches!(right_type, Type::Matrix(_)) {
-                    return Err(CompilerError::type_error(
-                        "Matrix operation requires matrix operands",
-                        Some("Use matrix types for matrix operations".to_string()),
-                        Some(location.clone())
-                    ));
-                }
-                Ok(Type::Matrix(Box::new(Type::Number)))
-            }
-            MatrixOperator::Transpose => {
-                if !matches!(left_type, Type::Matrix(_)) {
-                    return Err(CompilerError::type_error(
-                        "Matrix transpose requires a matrix operand",
-                        Some("Use a matrix type for transpose operation".to_string()),
-                        Some(location.clone())
-                    ));
-                }
-                Ok(Type::Matrix(Box::new(Type::Number)))
-            }
-            MatrixOperator::Inverse => {
-                if !matches!(left_type, Type::Matrix(_)) {
-                    return Err(CompilerError::type_error(
-                        "Matrix inverse requires a matrix operand",
-                        Some("Use a matrix type for inverse operation".to_string()),
-                        Some(location.clone())
-                    ));
-                }
-                Ok(Type::Matrix(Box::new(Type::Number)))
-            }
-        }
-    }
-
     fn types_compatible(&self, t1: &Type, t2: &Type) -> bool {
-        match (t1, t2) {
-            (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => true,
-            (Type::Array(t1), Type::Array(t2)) | (Type::Matrix(t1), Type::Matrix(t2)) => self.types_compatible(t1, t2),
-            _ => t1 == t2,
-        }
+        t1 == t2 || (matches!((t1, t2), (Type::Integer, Type::Float) | (Type::Float, Type::Integer)))
     }
 
     fn value_to_type(value: &Value) -> Type {
         match value {
-            Value::Boolean(_) => Type::Boolean,
-            Value::String(_) => Type::String,
             Value::Integer(_) => Type::Integer,
             Value::Float(_) => Type::Float,
-            Value::Number(_) => Type::Float,
-            Value::Byte(_) => Type::Byte,
-            Value::Unsigned(_) => Type::Unsigned,
-            Value::Long(_) => Type::Long,
-            Value::ULong(_) => Type::ULong,
-            Value::Big(_) => Type::Big,
-            Value::UBig(_) => Type::UBig,
-            Value::Array(values) => {
-                if values.is_empty() {
-                    Type::Array(Box::new(Type::Unit))
-                } else {
-                    Type::Array(Box::new(Self::value_to_type(&values[0])))
-                }
-            }
-            Value::Matrix(rows) => {
-                if rows.is_empty() || rows[0].is_empty() {
-                    Type::Matrix(Box::new(Type::Unit))
-                } else {
-                    Type::Matrix(Box::new(Type::Float))
-                }
-            }
-            Value::Null => Type::Any,
-            Value::Unit => Type::Unit,
-        }
-    }
-
-    // Helper method to safely get location from expression
-    fn get_expr_location(&self, expr: &Expression) -> SourceLocation {
-        match expr {
-            Expression::Literal(_) => SourceLocation::default(),
-            Expression::Variable(_) => SourceLocation::default(),
-            Expression::Binary(_, _, _) => SourceLocation::default(),
-            Expression::Unary(_, _) => SourceLocation::default(),
-            Expression::Call(_, _) => SourceLocation::default(),
-            Expression::ArrayAccess(_, _) => SourceLocation::default(),
-            Expression::MatrixAccess(_, _, _) => SourceLocation::default(),
-            Expression::FieldAccess { location, .. } => location.clone(),
-            Expression::MethodCall { location, .. } => location.clone(),
-            Expression::ObjectCreation { location, .. } => location.clone(),
-            Expression::MatrixOperation(_, _, _, location) => location.clone(),
-            Expression::StringConcat(_) => SourceLocation::default(),
-            // Add a default case to handle any new variants
-            _ => SourceLocation::default(),
-        }
-    }
-
-    fn check_array_access(&mut self, array: &Expression, index: &Expression, location: &SourceLocation) -> Result<Type, CompilerError> {
-        let array_type = self.check_expression(array)?;
-        let index_type = self.check_expression(index)?;
-
-        // Check index is integer
-        if !matches!(index_type, Type::Integer) {
-            return Err(CompilerError::type_error(
-                "Array index must be an integer",
-                Some("Use an integer value for array indexing".to_string()),
-                Some(location.clone())
-            ));
-        }
-
-        // Check array is an array type
-        match array_type {
-            Type::Array(element_type) => Ok(*element_type),
-            _ => Err(CompilerError::type_error(
-                "Cannot index a non-array type",
-                Some("Only arrays can be indexed".to_string()),
-                Some(location.clone())
-            )),
-        }
-    }
-
-    fn check_matrix_access(&mut self, matrix: &Expression, row: &Expression, col: &Expression, location: &SourceLocation) -> Result<Type, CompilerError> {
-        let matrix_type = self.check_expression(matrix)?;
-        let row_type = self.check_expression(row)?;
-        let col_type = self.check_expression(col)?;
-
-        // Check row and column indices are integers
-        if !matches!(row_type, Type::Integer) || !matches!(col_type, Type::Integer) {
-            return Err(CompilerError::type_error(
-                "Matrix indices must be integers",
-                Some("Use integer values for matrix row and column indexing".to_string()),
-                Some(location.clone())
-            ));
-        }
-
-        // Check matrix is a matrix type
-        match matrix_type {
-            Type::Matrix(element_type) => Ok(*element_type),
-            _ => Err(CompilerError::type_error(
-                "Cannot index a non-matrix type",
-                Some("Only matrices can be indexed with two indices".to_string()),
-                Some(location.clone())
-            )),
-        }
-    }
-
-    fn check_class_lookup(&mut self, class_name: &str, location: &SourceLocation) -> Result<(), CompilerError> {
-        if !self.class_table.contains_key(class_name) {
-            return Err(CompilerError::type_error(
-                &format!("Class '{}' not found", class_name),
-                Some("Check if the class name is correct and the class is defined".to_string()),
-                Some(location.clone())
-            ));
-        }
-        Ok(())
-    }
-
-    fn check_method_lookup(&mut self, class_name: &str, method_name: &str, location: &SourceLocation) -> Result<Type, CompilerError> {
-        let class = self.class_table.get(class_name).ok_or_else(|| {
-            CompilerError::type_error(
-                &format!("Class '{}' not found", class_name),
-                Some("Check if the class name is correct and the class is defined".to_string()),
-                Some(location.clone())
-            )
-        })?;
-
-        // Loop through methods to find one with the matching name
-        for method in &class.methods {
-            if method.name == method_name {
-                return Ok(method.return_type.clone());
-            }
-        }
-        
-        // If not found, return error
-        Err(CompilerError::type_error(
-            &format!("Method '{}' not found in class '{}'", method_name, class_name),
-            Some("Check if the method name is correct and the method is defined in the class".to_string()),
-            Some(location.clone())
-        ))
-    }
-
-    fn check_field_access(&mut self, object: &Expression, field: &str, location: &SourceLocation) -> Result<Type, CompilerError> {
-        let object_type = self.check_expression(object)?;
-        
-        match object_type {
-            Type::Object(class_name) => {
-                let class = self.class_table.get(&class_name).ok_or_else(|| {
-                    CompilerError::type_error(
-                        &format!("Class '{}' not found", class_name),
-                        Some("Check if the class name is correct and the class is defined".to_string()),
-                        Some(location.clone())
-                    )
-                })?;
-
-                let field_type = class.fields.iter().find(|f| f.name == *field).ok_or_else(|| {
-                    CompilerError::type_error(
-                        &format!("Field '{}' not found in class '{}'", field, class_name),
-                        Some("Check if the field name is correct and the field is defined in the class".to_string()),
-                        Some(location.clone())
-                    )
-                })?;
-
-                if !field_type.visibility.is_public() {
-                    return Err(CompilerError::type_error(
-                        &format!("Field '{}' is private in class '{}'", field, class_name),
-                        Some("Access only public fields or use appropriate getter methods".to_string()),
-                        Some(location.clone())
-                    ));
-                }
-
-                Ok(field_type.type_.clone())
-            }
-            _ => Err(CompilerError::type_error(
-                "Cannot access field on non-object type",
-                Some("Only objects can have fields".to_string()),
-                Some(location.clone())
-            )),
-        }
-    }
-
-    fn check_method_call(&mut self, object: &Expression, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
-        let object_type = self.check_expression(object)?;
-        
-        match object_type {
-            Type::Object(class_name) => {
-                // Clone class to avoid borrow issues
-                let class_opt = self.class_table.get(&class_name).cloned();
-                
-                if let Some(class) = class_opt {
-                    // Find method with matching name
-                    for method_info in &class.methods {
-                        if method_info.name == method {
-                            if args.len() != method_info.parameters.len() {
-                                return Err(CompilerError::type_error(
-                                    &format!("Method '{}' expects {} arguments, but {} were provided",
-                                        method, method_info.parameters.len(), args.len()),
-                                    Some("Provide the correct number of arguments".to_string()),
-                                    Some(location.clone())
-                                ));
-                            }
-                            
-                            // Make a copy of parameter types to avoid borrow issues
-                            let param_types: Vec<Type> = method_info.parameters.iter()
-                                .map(|p| p.type_.clone())
-                                .collect();
-                            
-                            // Check arguments against parameter types
-                            for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
-                                let arg_type = self.check_expression(arg)?;
-                                if arg_type != *param_type {
-                                    return Err(CompilerError::type_error(
-                                        &format!("Argument {} has type {:?}, but method parameter expects {:?}",
-                                            i + 1, arg_type, param_type),
-                                        Some("Provide arguments of the correct type".to_string()),
-                                        Some(self.get_expr_location(arg))
-                                    ));
-                                }
-                            }
-                            
-                            return Ok(method_info.return_type.clone());
-                        }
-                    }
-                    
-                    return Err(CompilerError::type_error(
-                        &format!("Method '{}' not found in class '{}'", method, class_name),
-                        Some("Check if the method name is correct and the method is defined in the class".to_string()),
-                        Some(location.clone())
-                    ));
-                } else {
-                    return Err(CompilerError::type_error(
-                        &format!("Class '{}' not found", class_name),
-                        Some("Check if the class name is correct and the class is defined".to_string()),
-                        Some(location.clone())
-                    ));
+            Value::Boolean(_) => Type::Boolean,
+            Value::String(_) => Type::String,
+            Value::Array(elements) => {
+                if elements.is_empty() {
+                    Type::Array(Box::new(Type::Any))
+                    } else {
+                    let element_type = Self::value_to_type(&elements[0]);
+                    Type::Array(Box::new(element_type))
                 }
             },
-            _ => Err(CompilerError::type_error(
-                "Cannot call method on non-object type",
-                Some("Only objects can have methods".to_string()),
-                Some(location.clone())
-            )),
+            Value::Matrix(_) => Type::Matrix(Box::new(Type::Float)),
+            Value::Void => Type::Void,
+            Value::Integer8(_) => Type::IntegerSized { bits: 8, unsigned: false },
+            Value::Integer8u(_) => Type::IntegerSized { bits: 8, unsigned: true },
+            Value::Integer16(_) => Type::IntegerSized { bits: 16, unsigned: false },
+            Value::Integer16u(_) => Type::IntegerSized { bits: 16, unsigned: true },
+            Value::Integer32(_) => Type::IntegerSized { bits: 32, unsigned: false },
+            Value::Integer64(_) => Type::IntegerSized { bits: 64, unsigned: false },
+            Value::Float32(_) => Type::FloatSized { bits: 32 },
+            Value::Float64(_) => Type::FloatSized { bits: 64 },
         }
     }
 
-    fn check_function_call(&mut self, name: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
-        // Clone function information to avoid borrow issues
-        let function_opt = self.function_table.get(name).cloned();
-        
-        let function = function_opt.ok_or_else(|| {
-            CompilerError::type_error(
-                &format!("Function '{}' not found", name),
-                Some("Check if the function name is correct and the function is defined".to_string()),
-                Some(location.clone())
-            )
-        })?;
-
-        if args.len() != function.0.len() {
-            return Err(CompilerError::type_error(
-                &format!("Function '{}' expects {} arguments, but {} were provided",
-                    name, function.0.len(), args.len()),
-                Some("Provide the correct number of arguments".to_string()),
-                Some(location.clone())
-            ));
+    fn get_expr_location(&self, expr: &Expression) -> SourceLocation {
+        match expr {
+            Expression::PropertyAccess { location, .. } |
+            Expression::MethodCall { location, .. } |
+            Expression::ObjectCreation { location, .. } |
+            Expression::OnError { location, .. } => location.clone(),
+            _ => SourceLocation::default()
         }
-
-        // Clone parameter types to avoid borrow issues
-        let param_types = function.0.clone();
-        
-        for (i, (arg, param)) in args.iter().zip(param_types.iter()).enumerate() {
-            let arg_type = self.check_expression(arg)?;
-            if arg_type != *param {
-                return Err(CompilerError::type_error(
-                    &format!("Argument {} has type {:?}, but function parameter expects {:?}",
-                        i + 1, arg_type, param),
-                    Some("Provide arguments of the correct type".to_string()),
-                    Some(self.get_expr_location(arg))
-                ));
-            }
-        }
-
-        Ok(function.1.clone())
-    }
-
-    fn check_try_catch(&mut self, try_block: &Statement, catch_block: &[Statement], location: &SourceLocation) -> Result<(), CompilerError> {
-        // Check the try block statement
-        self.check_statement(try_block)?;
-
-        // Create a new scope for the catch block
-        let mut catch_scope = Scope::new();
-        catch_scope.set_parent(Box::new(self.current_scope.clone()));
-        
-        // Add 'error' variable to catch block scope
-        catch_scope.add_variable("error", Type::Integer);
-        
-        let old_scope = std::mem::replace(&mut self.current_scope, catch_scope);
-
-        // Check catch block statements
-        for stmt in catch_block {
-            self.check_statement(stmt)?;
-        }
-
-        // Restore original scope
-        self.current_scope = old_scope;
-        Ok(())
-    }
-
-    fn check_variable(&mut self, name: &str, location: &SourceLocation) -> Result<Type, CompilerError> {
-        if let Some(var_type) = self.current_scope.get_variable(name) {
-            Ok(var_type)
-        } else {
-            Err(CompilerError::type_error(
-                &format!("Variable '{}' not found", name),
-                Some("Check if the variable name is correct and the variable is defined".to_string()),
-                Some(location.clone())
-            ))
-        }
-    }
-
-    /// Analyze a try-catch statement semantically
-    fn analyze_try_catch(&mut self, try_block: &[Statement], variable: &str, catch_block: &[Statement], location: &SourceLocation) -> Result<Type, CompilerError> {
-        let try_result = self.analyze_block(try_block)?;
-        
-        // Save the current scope
-        let mut parent_scope = Scope::new();
-        std::mem::swap(&mut parent_scope, &mut self.current_scope);
-        
-        // Create new scope for catch block with "error" variable
-        let mut catch_scope = Scope::new();
-        catch_scope.set_parent(Box::new(parent_scope.clone()));
-        
-        // Add the error variable to the catch scope
-        catch_scope.add_variable(variable.to_string(), Type::Integer);
-        
-        // Set the current scope to the catch scope for analyzing the catch block
-        self.current_scope = catch_scope;
-        
-        // Analyze the catch block
-        let catch_result = self.analyze_block(catch_block);
-        
-        // Restore the original scope
-        std::mem::swap(&mut parent_scope, &mut self.current_scope);
-        
-        // Return the try block's result type (ignoring the catch block's type)
-        catch_result?;
-        Ok(try_result)
-    }
-
-    /// Analyze a block of statements and return the type of the last expression
-    fn analyze_block(&mut self, statements: &[Statement]) -> Result<Type, CompilerError> {
-        let mut result_type = Type::Unit;
-        
-        for statement in statements {
-            match statement {
-                Statement::Return { value, location } => {
-                    if let Some(expr) = value {
-                        return self.check_expression(expr);
-                    } else {
-                        return Ok(Type::Unit);
-                    }
-                },
-                Statement::Expression { expr, location } => {
-                    result_type = self.check_expression(expr)?;
-                },
-                _ => {
-                    self.check_statement(statement)?;
-                }
-            }
-        }
-        
-        Ok(result_type)
     }
 
     fn check_constructor_call(&mut self, class_name: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
@@ -942,7 +871,7 @@ impl SemanticAnalyzer {
             
         for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
             let arg_type = self.check_expression(arg)?;
-            if arg_type != *param_type {
+            if !self.types_compatible(&arg_type, param_type) {
                 return Err(CompilerError::type_error(
                     &format!("Argument {} has type {:?}, but constructor parameter expects {:?}",
                         i + 1, arg_type, param_type),
@@ -1002,16 +931,16 @@ impl SemanticAnalyzer {
                     Type::Matrix(Box::new(Type::Float))
                 }
             },
-            Value::Number(_) => Type::Float,
-            Value::Byte(_) => Type::Byte,
-            Value::Unsigned(_) => Type::Unsigned,
-            Value::Long(_) => Type::Long,
-            Value::ULong(_) => Type::ULong,
-            Value::Big(_) => Type::Big,
-            Value::UBig(_) => Type::UBig,
             Value::Float(_) => Type::Float,
-            Value::Null => Type::Any,
-            Value::Unit => Type::Unit,
+            Value::Void => Type::Void,
+            Value::Integer8(_) => Type::IntegerSized { bits: 8, unsigned: false },
+            Value::Integer8u(_) => Type::IntegerSized { bits: 8, unsigned: true },
+            Value::Integer16(_) => Type::IntegerSized { bits: 16, unsigned: false },
+            Value::Integer16u(_) => Type::IntegerSized { bits: 16, unsigned: true },
+            Value::Integer32(_) => Type::IntegerSized { bits: 32, unsigned: false },
+            Value::Integer64(_) => Type::IntegerSized { bits: 64, unsigned: false },
+            Value::Float32(_) => Type::FloatSized { bits: 32 },
+            Value::Float64(_) => Type::FloatSized { bits: 64 },
         }
     }
 
@@ -1022,16 +951,110 @@ impl SemanticAnalyzer {
             Value::String(_) => Type::String,
             Value::Array(_) => Type::Array(Box::new(Type::Any)),
             Value::Matrix(_) => Type::Matrix(Box::new(Type::Float)),
-            Value::Number(_) => Type::Float,
-            Value::Byte(_) => Type::Byte,
-            Value::Unsigned(_) => Type::Unsigned,
-            Value::Long(_) => Type::Long,
-            Value::ULong(_) => Type::ULong,
-            Value::Big(_) => Type::Big,
-            Value::UBig(_) => Type::UBig,
             Value::Float(_) => Type::Float,
-            Value::Null => Type::Any,
-            Value::Unit => Type::Unit,
+            Value::Void => Type::Void,
+            Value::Integer8(_) => Type::IntegerSized { bits: 8, unsigned: false },
+            Value::Integer8u(_) => Type::IntegerSized { bits: 8, unsigned: true },
+            Value::Integer16(_) => Type::IntegerSized { bits: 16, unsigned: false },
+            Value::Integer16u(_) => Type::IntegerSized { bits: 16, unsigned: true },
+            Value::Integer32(_) => Type::IntegerSized { bits: 32, unsigned: false },
+            Value::Integer64(_) => Type::IntegerSized { bits: 64, unsigned: false },
+            Value::Float32(_) => Type::FloatSized { bits: 32 },
+            Value::Float64(_) => Type::FloatSized { bits: 64 },
+        }
+    }
+
+    fn check_method_call(&mut self, object: &Expression, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
+        let object_type = self.check_expression(object)?;
+        
+        match object_type {
+            Type::Object(class_name) => {
+                if let Some(class) = self.class_table.get(&class_name).cloned() {
+                    for method_def in &class.methods {
+                        if method_def.name == method {
+                            if args.len() != method_def.parameters.len() {
+                                return Err(CompilerError::type_error(
+                                    &format!("Method '{}' expects {} arguments, but {} were provided", 
+                                        method, method_def.parameters.len(), args.len()),
+                                    Some("Provide the correct number of arguments".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
+
+                            for (i, (arg, param)) in args.iter().zip(method_def.parameters.iter()).enumerate() {
+                                let arg_type = self.check_expression(arg)?;
+                                if !self.types_compatible(&param.type_, &arg_type) {
+                                    return Err(CompilerError::type_error(
+                                        &format!("Argument {} has type {:?}, but method parameter expects {:?}", 
+                                            i + 1, arg_type, param.type_),
+                                        Some("Provide arguments of the correct type".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                            }
+
+                            return Ok(method_def.return_type.clone());
+                        }
+                    }
+                    
+                    Err(CompilerError::type_error(
+                        &format!("Method '{}' not found in class '{}'", method, class_name),
+                        Some("Check if the method name is correct".to_string()),
+                        Some(location.clone())
+                    ))
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Class '{}' not found", class_name),
+                        Some("Check if the class name is correct".to_string()),
+                        Some(location.clone())
+                    ))
+                }
+            },
+            _ => Err(CompilerError::type_error(
+                &format!("Cannot call method '{}' on type {:?}", method, object_type),
+                Some("Methods can only be called on objects".to_string()),
+                Some(location.clone())
+            ))
+        }
+    }
+
+    /// Get all collected warnings
+    pub fn get_warnings(&self) -> &[CompilerWarning] {
+        &self.warnings
+    }
+
+    /// Clear all collected warnings
+    pub fn clear_warnings(&mut self) {
+        self.warnings.clear();
+    }
+
+    /// Add a warning to the collection
+    fn add_warning(&mut self, warning: CompilerWarning) {
+        self.warnings.push(warning);
+    }
+
+    /// Check for unused variables and functions after analysis
+    fn check_unused_items(&mut self) {
+        let mut warnings_to_add = Vec::new();
+        
+        // Check for unused variables
+        for (var_name, _) in &self.symbol_table {
+            if !self.used_variables.contains(var_name) {
+                warnings_to_add.push(CompilerWarning::unused_variable(var_name, None));
+            }
+        }
+
+        // Check for unused functions (except main/start functions)
+        for (func_name, _) in &self.function_table {
+            if !self.used_functions.contains(func_name) && 
+               func_name != "main" && func_name != "start" {
+                warnings_to_add.push(CompilerWarning::unused_function(func_name, None));
+            }
+        }
+        
+        // Add all warnings at once
+        for warning in warnings_to_add {
+            self.add_warning(warning);
         }
     }
 } 

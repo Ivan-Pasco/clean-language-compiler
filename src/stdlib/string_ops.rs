@@ -1,10 +1,10 @@
-use crate::error::{CompilerError, ErrorContext, ErrorType};
+use crate::error::{CompilerError};
 use wasm_encoder::{
-    BlockType, Function, Instruction, MemArg, ValType,
+    BlockType, Instruction, MemArg, ValType,
 };
 use crate::codegen::CodeGenerator;
-use crate::types::{WasmType, to_tuple, from_tuple, wasm_type_to_tuple, wasm_types_to_tuples};
-use std::collections::HashMap;
+use crate::types::{WasmType};
+
 use crate::stdlib::memory::MemoryManager;
 use crate::stdlib::register_stdlib_function;
 

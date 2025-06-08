@@ -1,5 +1,5 @@
-use crate::error::{CompilerError, ErrorContext, ErrorType};
-use wasm_encoder::{Instruction, ValType};
+use crate::error::{CompilerError};
+use wasm_encoder::{Instruction};
 
 pub mod basic_ops {
     use super::*;

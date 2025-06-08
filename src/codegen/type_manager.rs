@@ -4,7 +4,7 @@ use wasmparser::FuncType;
 use wasm_encoder::{ValType, TypeSection};
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use crate::ast::{self, Type, Expression, Value};
+use crate::ast::{Type, Expression, Value};
 
 /// Manages type information and conversions during code generation
 #[derive(Clone)]
@@ -27,6 +27,11 @@ impl TypeManager {
         &self.type_section
     }
 
+    /// Get a cloned type section for module assembly
+    pub(crate) fn clone_type_section(&self) -> TypeSection {
+        self.type_section.clone()
+    }
+
     /// Add a function type to the type section
     pub(crate) fn add_function_type(
         &mut self, 
@@ -37,7 +42,7 @@ impl TypeManager {
         let return_val_type: Vec<ValType> = return_type.map(|t| vec![t.into()]).unwrap_or_default();
 
         self.type_section.function(param_val_types.clone(), return_val_type.clone());
-        let type_index = self.type_section.len() - 1;
+        let type_index = self.function_types.len() as u32;
 
         let parser_param_types: Vec<wasmparser::ValType> = param_val_types.iter()
             .map(|vt| WasmType::from(*vt).to_parser_val_type())
@@ -68,7 +73,7 @@ impl TypeManager {
     pub(crate) fn is_string_type(&self, expr: &Expression) -> bool {
         match expr {
             Expression::Literal(Value::String(_)) => true,
-            Expression::StringConcat(_) => true,
+            Expression::StringInterpolation(_) => true,
             // For variables, ideally this would check the variable's type
             _ => false,
         }
@@ -83,38 +88,42 @@ impl TypeManager {
     pub(crate) fn infer_type(&self, value: &Value) -> Result<WasmType, CompilerError> {
         Ok(match value {
             Value::Integer(_) => WasmType::I32,
-            Value::Number(_) => WasmType::F64,
-            Value::String(_) => WasmType::I32, // Pointer to string
-            Value::Boolean(_) => WasmType::I32, // 0 or 1
-            Value::Array(_) => WasmType::I32, // Pointer to array
-            Value::Matrix(_) => WasmType::I32, // Pointer to matrix
-            Value::Byte(_) => WasmType::I32,
-            Value::Unsigned(_) => WasmType::I32,
-            Value::Long(_) => WasmType::I64,
-            Value::ULong(_) => WasmType::I64,
-            Value::Big(_) => WasmType::I32, // Pointer to big integer
-            Value::UBig(_) => WasmType::I32, // Pointer to unsigned big integer
-            Value::Float(_) => WasmType::F32,
-            Value::Null | Value::Unit => WasmType::I32, // Null pointer or unit value
+            Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
+            Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
+            Value::Float(_) => WasmType::F64,
+            Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
+            Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
+            Value::Void => WasmType::I32,       // Void represented as I32
+            // Sized types
+            Value::Integer8(_) => WasmType::I32,
+            Value::Integer8u(_) => WasmType::I32,
+            Value::Integer16(_) => WasmType::I32,
+            Value::Integer16u(_) => WasmType::I32,
+            Value::Integer32(_) => WasmType::I32,
+            Value::Integer64(_) => WasmType::I64,
+            Value::Float32(_) => WasmType::F32,
+            Value::Float64(_) => WasmType::F64,
         })
     }
 
     pub fn convert_value_to_wasm_type(&self, value: &Value) -> Result<WasmType, CompilerError> {
         Ok(match value {
             Value::Integer(_) => WasmType::I32,
-            Value::Number(_) => WasmType::F64,
-            Value::String(_) => WasmType::I32, // Pointer to string
-            Value::Boolean(_) => WasmType::I32, // 0 or 1
-            Value::Array(_) => WasmType::I32, // Pointer to array
-            Value::Matrix(_) => WasmType::I32, // Pointer to matrix
-            Value::Byte(_) => WasmType::I32,
-            Value::Unsigned(_) => WasmType::I32,
-            Value::Long(_) => WasmType::I64,
-            Value::ULong(_) => WasmType::I64,
-            Value::Big(_) => WasmType::I32, // Pointer to big integer
-            Value::UBig(_) => WasmType::I32, // Pointer to unsigned big integer
-            Value::Float(_) => WasmType::F32,
-            Value::Null | Value::Unit => WasmType::I32, // Null pointer or unit value
+            Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
+            Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
+            Value::Float(_) => WasmType::F64,
+            Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
+            Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
+            Value::Void => WasmType::I32,       // Void represented as I32
+            // Sized types
+            Value::Integer8(_) => WasmType::I32,
+            Value::Integer8u(_) => WasmType::I32,
+            Value::Integer16(_) => WasmType::I32,
+            Value::Integer16u(_) => WasmType::I32,
+            Value::Integer32(_) => WasmType::I32,
+            Value::Integer64(_) => WasmType::I64,
+            Value::Float32(_) => WasmType::F32,
+            Value::Float64(_) => WasmType::F64,
         })
     }
 } 

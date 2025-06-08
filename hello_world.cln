@@ -1,4 +1,4 @@
 // Hello World program in Clean Language
 
-start()
-    print("Hello, World!") 
+function start()
+    println("Hello, World!") 

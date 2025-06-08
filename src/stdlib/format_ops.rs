@@ -172,7 +172,7 @@ mod tests {
             let format_ops = FormatOperations::new();
             format_ops.register_functions(&mut codegen)?;
 
-            let wasm = codegen.build();
+            let wasm = codegen.finish();
             let engine = wasmtime::Engine::default();
             let module = Module::new(&engine, &wasm)?;
             let mut store = Store::new(&engine, ());
@@ -189,10 +189,10 @@ mod tests {
             let mut results = vec![Val::I32(0)];
             self.instance
                 .get_func(&mut self.store, name)
-                .ok_or_else(|| CompilerError::RuntimeError(format!("Function {} not found", name)))?
+                .ok_or_else(|| CompilerError::runtime_error(format!("Function {} not found", name), None, None))?
                 .call(&mut self.store, params, &mut results)
-                .map_err(|e| CompilerError::RuntimeError(e.to_string()))?;
-            Ok(results[0])
+                .map_err(|e| CompilerError::runtime_error(e.to_string(), None, None))?;
+            Ok(results[0].clone())
         }
     }
 

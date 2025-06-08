@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::fs;
 use std::path::Path;
-use clean_language_compiler::compile;
+use clean_language_compiler::compile_with_file;
 
 /// Clean Language Compiler
 #[derive(Parser, Debug)]
@@ -27,8 +27,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Read the input file
     let source = fs::read_to_string(&args.input)?;
     
-    // Compile the source code to WebAssembly
-    let wasm_binary = compile(&source)?;
+    // Compile the source code to WebAssembly with file path for better error reporting
+    let wasm_binary = compile_with_file(&source, &args.input)?;
     
     // Create output directory if it doesn't exist
     if let Some(parent) = Path::new(&args.output).parent() {

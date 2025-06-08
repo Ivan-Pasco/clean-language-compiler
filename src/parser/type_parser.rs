@@ -8,7 +8,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     let parser_location = get_location(&pair);
     let ast_location = convert_to_ast_location(&parser_location);
     
-    let inner = pair.into_inner().next().ok_or_else(|| CompilerError::parse_error(
+    let inner = pair.clone().into_inner().next().ok_or_else(|| CompilerError::parse_error(
         "Empty type declaration".to_string(),
         Some(convert_to_ast_location(&parser_location)),
         Some("Type declarations must specify a type".to_string())
@@ -21,6 +21,59 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         Rule::matrix_type => parse_matrix_type(inner),
         Rule::array_type => parse_array_type(inner),
         Rule::map_type => parse_map_type(inner),
+        Rule::core_type => {
+            let type_str = inner.as_str();
+            match type_str {
+                "boolean" => Ok(Type::Boolean),
+                "integer" => Ok(Type::Integer),
+                "float" => Ok(Type::Float),
+                "string" => Ok(Type::String),
+                "void" => Ok(Type::Void),
+                _ => Err(CompilerError::parse_error(
+                    format!("Unknown core type: {}", type_str),
+                    None,
+                    Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                ))
+            }
+        },
+        Rule::sized_type => {
+            let mut inner_parts = inner.into_inner();
+            let core_type_pair = inner_parts.next().unwrap();
+            let size_spec = inner_parts.next().unwrap().as_str();
+            
+            // Parse the core type directly (it's not a type_ rule, so we can't use parse_type)
+            let base_type = match core_type_pair.as_str() {
+                "boolean" => Type::Boolean,
+                "integer" => Type::Integer,
+                "float" => Type::Float,
+                "string" => Type::String,
+                "void" => Type::Void,
+                _ => return Err(CompilerError::parse_error(
+                    format!("Unknown core type in sized type: {}", core_type_pair.as_str()),
+                    None,
+                    Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                ))
+            };
+            
+            // Parse size specifier like ":8" or ":8u"
+            let size_str = &size_spec[1..].trim(); // Remove the ':' and trim whitespace
+            let (bits, unsigned) = if size_str.ends_with('u') {
+                let bits_str = &size_str[..size_str.len()-1];
+                (bits_str.parse::<u8>().unwrap_or(32), true)
+            } else {
+                (size_str.parse::<u8>().unwrap_or(32), false)
+            };
+            
+            match base_type {
+                Type::Integer => Ok(Type::IntegerSized { bits, unsigned }),
+                Type::Float => Ok(Type::FloatSized { bits }),
+                _ => Err(CompilerError::parse_error(
+                    "Size specifiers can only be used with integer and float types".to_string(),
+                    None,
+                    Some("Use size specifiers like :8, :16, :32, :64, or :8u for unsigned".to_string())
+                ))
+            }
+        },
         _ => Err(CompilerError::parse_error(
             format!("Unexpected type: {:?}", inner.as_rule()),
             Some(ast_location),
@@ -58,7 +111,7 @@ fn parse_generic_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
 
 fn parse_basic_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     let parser_location = get_location(&pair);
-    let ast_location = convert_to_ast_location(&parser_location);
+    let _ast_location = convert_to_ast_location(&parser_location);
     
     let type_name = pair.as_str();
     match type_name {
@@ -66,7 +119,7 @@ fn parse_basic_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         "float" => Ok(Type::Float),
         "bool" => Ok(Type::Boolean),
         "string" => Ok(Type::String),
-        "unit" => Ok(Type::Unit),
+        "void" => Ok(Type::Void),
         _ => Ok(Type::Object(type_name.to_string()))
     }
 }

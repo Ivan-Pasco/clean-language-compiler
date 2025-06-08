@@ -1,106 +1,101 @@
-use pest::iterators::Pair;
-use crate::ast::{Program, Function, Parameter, Type, Statement};
+use pest::{Parser, iterators::Pair};
+use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value};
 use crate::error::CompilerError;
-use super::{CleanParser, convert_to_ast_location, SourceLocation};
-use super::Rule;
+use super::{CleanParser, convert_to_ast_location};
 use super::statement_parser::parse_statement;
-use super::expression_parser::parse_expression;
 use super::type_parser::parse_type;
-use super::class_parser::parse_class;
-use pest::Parser;
+use super::Rule;
 
-pub fn parse(source: &str) -> Result<Program, CompilerError> {
-    let pairs = CleanParser::parse(Rule::program, source)
-        .map_err(|e| CompilerError::parse_error(
-            format!("Parse error: {}", e),
-            None,
-            None
-        ))?;
+/// Parse context to track file information and improve error reporting
+#[derive(Clone)]
+pub struct ParseContext {
+    pub file_path: String,
+}
 
-    let mut program = Program {
-        functions: Vec::new(),
-        classes: Vec::new(),
-    };
+impl ParseContext {
+    pub fn new(file_path: String) -> Self {
+        Self { file_path }
+    }
+}
 
-    for pair in pairs {
-        if pair.as_rule() == Rule::program {
-            for item in pair.into_inner() {
-                match item.as_rule() {
-                    Rule::function_decl => program.functions.push(parse_function(item)?),
-                    Rule::class_decl => program.classes.push(parse_class(item)?),
-                    Rule::start_function => program.functions.push(parse_start_function(item)?),
-                    Rule::EOI => {}, // End of input, ignore
-                    _ => {} // Ignore other rules for now
-                }
-            }
+/// Enhanced parser with error recovery capabilities
+pub struct ErrorRecoveringParser {
+    pub source: String,
+    pub file_path: String,
+    pub errors: Vec<CompilerError>,
+}
+
+impl ErrorRecoveringParser {
+    pub fn new(source: &str, file_path: &str) -> Self {
+        Self {
+            source: source.to_string(),
+            file_path: file_path.to_string(),
+            errors: Vec::new(),
         }
     }
 
-    Ok(program)
+    /// Parse with error recovery - collects multiple errors instead of stopping at the first one
+    pub fn parse_with_recovery(&mut self, source: &str) -> Result<Program, Vec<CompilerError>> {
+        match parse_with_file(source, &self.file_path) {
+            Ok(program) => Ok(program),
+            Err(error) => {
+                self.errors.push(error);
+                Err(self.errors.clone())
+            }
+        }
+    }
 }
 
-pub fn parse_function(pair: Pair<Rule>) -> Result<Function, CompilerError> {
-    let mut name = String::new();
-    let mut parameters = Vec::new();
-    let mut return_type = None;
-    let mut body = Vec::new();
-    let mut description = None;
-    let mut type_parameters = Vec::new();
-    let location = get_location(&pair);
-    let ast_location = convert_to_ast_location(&location);
+pub fn parse(source: &str) -> Result<Program, CompilerError> {
+    let trimmed_source = source.trim();
+    let pairs = CleanParser::parse(Rule::program, trimmed_source)
+        .map_err(|e| CompilerError::parse_error(e.to_string(), None, None))?;
 
-    // Find the function_def within function_decl
-    let function_def = pair.into_inner().next().ok_or_else(|| CompilerError::parse_error(
-        "Empty function declaration".to_string(),
-        Some(ast_location.clone()),
-        Some("Function declarations must have a definition".to_string())
-    ))?;
+    parse_program_ast(pairs)
+}
 
-    if function_def.as_rule() != Rule::function_def {
-        return Err(CompilerError::parse_error(
-            format!("Expected function_def, found {:?}", function_def.as_rule()),
-            Some(ast_location.clone()),
-            Some("Check function declaration syntax".to_string())
-        ));
-    }
+pub fn parse_with_file(source: &str, file_path: &str) -> Result<Program, CompilerError> {
+    let trimmed_source = source.trim();
+    let pairs = CleanParser::parse(Rule::program, trimmed_source)
+        .map_err(|e| CompilerError::parse_error(
+            format!("Parse error in {}: {}", file_path, e),
+            None,
+            Some(format!("Check syntax in file: {}", file_path))
+        ))?;
 
-    for item in function_def.into_inner() {
-        match item.as_rule() {
-            Rule::identifier => name = item.as_str().to_string(),
-            Rule::type_parameters => {
-                for param in item.into_inner() {
-                    if param.as_rule() == Rule::type_parameter {
-                        type_parameters.push(param.as_str().to_string());
-                    }
-                }
-            },
-            Rule::setup_block => {
-                for setup_item in item.into_inner() {
-                    match setup_item.as_rule() {
-                        Rule::description_block => {
-                            let desc_str = setup_item.into_inner().next().unwrap();
-                            if desc_str.as_rule() == Rule::string {
-                                description = Some(desc_str.as_str().to_string());
+    parse_program_ast(pairs)
+}
+
+pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program, CompilerError> {
+    let mut functions = Vec::new();
+    let mut classes = Vec::new();
+    let mut start_function = None;
+
+    for pair in pairs {
+        match pair.as_rule() {
+            Rule::program => {
+                for inner in pair.into_inner() {
+                    match inner.as_rule() {
+                        Rule::function_decl => {
+                            let func = parse_function(inner)?;
+                            if func.name == "start" {
+                                start_function = Some(func);
+                            } else {
+                                functions.push(func);
                             }
                         },
-                        Rule::input_block => {
-                            for param_decl in setup_item.into_inner() {
-                                if param_decl.as_rule() == Rule::type_declaration {
-                                    parameters.push(parse_parameter(param_decl)?);
-                                }
-                            }
+                        Rule::start_function => {
+                            let func = parse_start_function(inner)?;
+                            start_function = Some(func);
                         },
+                        Rule::class_decl => {
+                            // Handle class declarations when implemented
+                        },
+                        Rule::apply_block => {
+                            // Handle top-level apply blocks when implemented
+                        },
+                        Rule::EOI => {}, // End of input
                         _ => {}
-                    }
-                }
-            },
-            Rule::type_ => {
-                return_type = Some(parse_type(item)?);
-            },
-            Rule::block => {
-                for stmt in item.into_inner() {
-                    if stmt.as_rule() == Rule::statement {
-                        body.push(parse_statement(stmt)?);
                     }
                 }
             },
@@ -108,94 +103,174 @@ pub fn parse_function(pair: Pair<Rule>) -> Result<Function, CompilerError> {
         }
     }
 
-    if name.is_empty() {
-        return Err(CompilerError::parse_error(
-            "Function is missing name".to_string(),
-            Some(ast_location),
-            Some("Functions must have a name".to_string())
-        ));
-    }
+    let mut program = Program {
+        functions,
+        classes,
+        start_function,
+    };
 
-    // Use a default return type of Type::Unit if none is specified
-    let return_type = return_type.unwrap_or(Type::Unit);
-
-    Ok(Function {
-        name,
-        parameters,
-        return_type,
-        body,
-        location: Some(ast_location),
-        description,
-        type_parameters,
-    })
-}
-
-pub fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
-    let location = get_location(&pair);
-    let ast_location = convert_to_ast_location(&location);
-    
-    // The pair should be a type_declaration
-    let mut parts = pair.into_inner();
-    
-    let type_part = parts.next().ok_or_else(|| CompilerError::parse_error(
-        "Parameter missing type".to_string(),
-        Some(ast_location.clone()),
-        Some("Parameters must have a type".to_string())
-    ))?;
-    
-    let name_part = parts.next().ok_or_else(|| CompilerError::parse_error(
-        "Parameter missing name".to_string(),
-        Some(ast_location.clone()),
-        Some("Parameters must have a name".to_string())
-    ))?;
-    
-    if name_part.as_rule() != Rule::identifier {
-        return Err(CompilerError::parse_error(
-            "Expected identifier for parameter name".to_string(),
-            Some(ast_location),
-            Some("Parameters must have valid identifiers".to_string())
-        ));
-    }
-    
-    let name = name_part.as_str().to_string();
-    let type_ = parse_type(type_part)?;
-    
-    Ok(Parameter {
-        name,
-        type_,
-    })
-}
-
-pub fn get_location(pair: &Pair<Rule>) -> SourceLocation {
-    let span = pair.as_span();
-    SourceLocation {
-        start: span.start(),
-        end: span.end(),
-    }
+    Ok(program)
 }
 
 pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError> {
+    let mut name = "start".to_string();
     let mut body = Vec::new();
-    let location = get_location(&pair);
-    let ast_location = convert_to_ast_location(&location);
+    let location = Some(convert_to_ast_location(&get_location(&pair)));
 
-    for item in pair.into_inner() {
-        if item.as_rule() == Rule::block {
-            for stmt in item.into_inner() {
-                if stmt.as_rule() == Rule::statement {
-                    body.push(parse_statement(stmt)?);
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::indented_block => {
+                for stmt_pair in inner.into_inner() {
+                    match stmt_pair.as_rule() {
+                        Rule::statement => {
+                            body.push(parse_statement(stmt_pair)?);
+                        },
+                        _ => {}
+                    }
                 }
-            }
+            },
+            _ => {}
         }
     }
 
+    // Infer return type from the function body
+    let return_type = if let Some(last_stmt) = body.last() {
+        match last_stmt {
+            Statement::Expression { expr, .. } => {
+                // Infer type from the expression
+                match expr {
+                    Expression::Literal(Value::Integer(_)) => Type::Integer,
+                    Expression::Literal(Value::Float(_)) => Type::Float,
+                    Expression::Literal(Value::Boolean(_)) => Type::Boolean,
+                    Expression::Literal(Value::String(_)) => Type::String,
+                    _ => Type::Integer, // Default to integer for other expressions
+                }
+            },
+            Statement::Return { value: Some(expr), .. } => {
+                // Infer type from the return expression
+                match expr {
+                    Expression::Literal(Value::Integer(_)) => Type::Integer,
+                    Expression::Literal(Value::Float(_)) => Type::Float,
+                    Expression::Literal(Value::Boolean(_)) => Type::Boolean,
+                    Expression::Literal(Value::String(_)) => Type::String,
+                    _ => Type::Integer, // Default to integer for other expressions
+                }
+            },
+            _ => Type::Void, // For other statement types, assume void
+        }
+    } else {
+        Type::Void // Empty function body
+    };
+
     Ok(Function {
-        name: "start".to_string(),
-        parameters: Vec::new(),
-        return_type: Type::Unit,
-        body,
-        location: Some(ast_location),
-        description: None,
+        name,
         type_parameters: Vec::new(),
+        parameters: Vec::new(),
+        return_type,
+        body,
+        description: None,
+        syntax: FunctionSyntax::Simple,
+        visibility: Visibility::Public,
+        location,
     })
+}
+
+pub fn parse_function(function_def: Pair<Rule>) -> Result<Function, CompilerError> {
+    let mut func_name = String::new();
+    let mut return_type: Option<Type> = None;
+    let mut parameters = Vec::new();
+    let mut body = Vec::new();
+    let mut description: Option<String> = None;
+    let location = Some(convert_to_ast_location(&get_location(&function_def)));
+
+    if function_def.as_rule() != Rule::function_decl {
+        return Err(CompilerError::parse_error(
+            format!("Expected function declaration, got {:?}", function_def.as_rule()),
+            Some(convert_to_ast_location(&get_location(&function_def))),
+            None
+        ));
+    }
+
+    for item in function_def.into_inner() {
+        match item.as_rule() {
+            Rule::simple_function | Rule::detailed_function => {
+                for inner in item.into_inner() {
+                    match inner.as_rule() {
+                        Rule::type_ => {
+                            return_type = Some(parse_type(inner)?);
+                        },
+                        Rule::identifier => {
+                            func_name = inner.as_str().to_string();
+                        },
+                        Rule::setup_block => {
+                            for setup_item in inner.into_inner() {
+                                match setup_item.as_rule() {
+                                    Rule::description_block => {
+                                        for desc_inner in setup_item.into_inner() {
+                                            if desc_inner.as_rule() == Rule::string {
+                                                description = Some(desc_inner.as_str().trim_matches('"').to_string());
+                                            }
+                                        }
+                                    },
+                                    Rule::input_block => {
+                                        for input_inner in setup_item.into_inner() {
+                                            if input_inner.as_rule() == Rule::input_declaration {
+                                                let mut param_type = None;
+                                                let mut param_name = String::new();
+                                                for param_decl in input_inner.into_inner() {
+                                                    match param_decl.as_rule() {
+                                                        Rule::type_ => param_type = Some(parse_type(param_decl)?),
+                                                        Rule::identifier => param_name = param_decl.as_str().to_string(),
+                                                        _ => {}
+                                                    }
+                                                }
+                                                if let Some(pt) = param_type {
+                                                    parameters.push(Parameter::new(param_name, pt));
+                                                }
+                                            }
+                                        }
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        },
+                        Rule::indented_block => {
+                            for stmt_pair in inner.into_inner() {
+                                match stmt_pair.as_rule() {
+                                    Rule::statement => {
+                                        body.push(parse_statement(stmt_pair)?);
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+
+    let return_type = return_type.unwrap_or(Type::Void);
+
+    Ok(Function {
+        name: func_name,
+        type_parameters: Vec::new(),
+        parameters,
+        return_type,
+        body,
+        description,
+        syntax: FunctionSyntax::Simple,
+        visibility: Visibility::Public,
+        location,
+    })
+}
+
+pub fn get_location(pair: &Pair<Rule>) -> super::SourceLocation {
+    let span = pair.as_span();
+    super::SourceLocation {
+        start: span.start(),
+        end: span.end(),
+    }
 } 

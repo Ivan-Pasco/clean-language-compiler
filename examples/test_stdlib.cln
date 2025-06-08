@@ -1,0 +1,2 @@
+function start()
+	abs(-42) 
