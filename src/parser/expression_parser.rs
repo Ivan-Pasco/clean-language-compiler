@@ -35,6 +35,36 @@ impl ParsedOperator {
 }
 
 pub fn parse_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    match pair.as_rule() {
+        Rule::expression => {
+            // Handle the top-level expression rule
+            let inner = pair.into_inner().next().unwrap();
+            parse_expression(inner)
+        }
+        Rule::on_error_expr => {
+            // Handle onError expression
+            let mut inner = pair.into_inner();
+            let expression = parse_expression(inner.next().unwrap())?;
+            let fallback = parse_expression(inner.next().unwrap())?;
+            
+            let location = crate::ast::SourceLocation::default();
+            Ok(Expression::OnError {
+                expression: Box::new(expression),
+                fallback: Box::new(fallback),
+                location,
+            })
+        }
+        Rule::base_expression => {
+            parse_base_expression(pair)
+        }
+        _ => {
+            // For backward compatibility, try parsing as base_expression
+            parse_base_expression(pair)
+        }
+    }
+}
+
+pub fn parse_base_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let mut expr_stack = Vec::new();
     let mut op_stack = Vec::new();
 
@@ -78,19 +108,6 @@ pub fn parse_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
                     )),
                 };
                 op_stack.push(ParsedOperator::Binary(op));
-            }
-            Rule::on_error_expr => {
-                // Handle onError expression
-                let mut inner = item.into_inner();
-                let expression = parse_expression(inner.next().unwrap())?;
-                let fallback = parse_expression(inner.next().unwrap())?;
-                
-                let location = crate::ast::SourceLocation::default();
-                return Ok(Expression::OnError {
-                    expression: Box::new(expression),
-                    fallback: Box::new(fallback),
-                    location,
-                });
             }
             _ => {}
         }
@@ -205,8 +222,13 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::function_call => parse_function_call(inner),
         Rule::method_call => parse_method_call(inner),
         Rule::property_access => parse_property_access(inner),
+        Rule::array_access => parse_array_access(inner),
         Rule::identifier => {
             Ok(Expression::Variable(inner.as_str().to_string()))
+        },
+        Rule::expression => {
+            // Handle parenthesized expressions: (expression)
+            parse_expression(inner)
         },
         _ => Err(CompilerError::parse_error(
             format!("Unexpected primary expression: {}", inner.as_str()),
@@ -247,11 +269,47 @@ pub fn parse_string(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     
     for part in pair.into_inner() {
         match part.as_rule() {
+            Rule::string_part => {
+                // Handle string_part which contains either string_content or string_interpolation
+                for inner_part in part.into_inner() {
+                    match inner_part.as_rule() {
+                        Rule::string_content => {
+                            parts.push(StringPart::Text(inner_part.as_str().to_string()));
+                        },
+                        Rule::string_interpolation => {
+                            // Handle {variable} or {object.property}
+                            let mut inner = inner_part.into_inner();
+                            let expr_str = inner.next().unwrap().as_str();
+                            
+                            // Parse simple property access
+                            if expr_str.contains('.') {
+                                let parts_split: Vec<&str> = expr_str.split('.').collect();
+                                let object = Expression::Variable(parts_split[0].to_string());
+                                let property = parts_split[1].to_string();
+                                
+                                let location = crate::ast::SourceLocation::default();
+                                let property_access = Expression::PropertyAccess {
+                                    object: Box::new(object),
+                                    property,
+                                    location,
+                                };
+                                parts.push(StringPart::Interpolation(property_access));
+                            } else {
+                                // Simple variable
+                                let variable = Expression::Variable(expr_str.to_string());
+                                parts.push(StringPart::Interpolation(variable));
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+            },
             Rule::string_content => {
+                // Direct string_content (shouldn't happen with current grammar, but keeping for safety)
                 parts.push(StringPart::Text(part.as_str().to_string()));
             },
             Rule::string_interpolation => {
-                // Handle {variable} or {object.property}
+                // Direct string_interpolation (shouldn't happen with current grammar, but keeping for safety)
                 let mut inner = part.into_inner();
                 let expr_str = inner.next().unwrap().as_str();
                 
@@ -272,12 +330,24 @@ pub fn parse_string(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
                     // Simple variable
                     let variable = Expression::Variable(expr_str.to_string());
                     parts.push(StringPart::Interpolation(variable));
-            }
+                }
             },
             _ => {}
         }
     }
     
+    // Check if this is a simple string (no interpolation)
+    if parts.len() == 1 {
+        if let StringPart::Text(text) = &parts[0] {
+            // This is a simple string literal, return it as a literal value
+            return Ok(Expression::Literal(Value::String(text.clone())));
+        }
+    } else if parts.is_empty() {
+        // Empty string
+        return Ok(Expression::Literal(Value::String(String::new())));
+    }
+    
+    // This has interpolation parts, return as StringInterpolation
     Ok(Expression::StringInterpolation(parts))
 }
 
@@ -308,23 +378,27 @@ pub fn parse_array_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError
 pub fn parse_matrix_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let mut rows = Vec::new();
     
-    for row_pair in pair.into_inner() {
-        let mut row = Vec::new();
-        for element in row_pair.into_inner() {
-            if let Rule::expression = element.as_rule() {
-                let expr = parse_expression(element)?;
-                match expr {
-                    Expression::Literal(Value::Float(f)) => row.push(f),
-                    Expression::Literal(Value::Integer(i)) => row.push(i as f64),
-                    _ => return Err(CompilerError::parse_error(
-                        "Matrix literals can only contain numeric values".to_string(),
-                        None,
-                        Some("Use numeric literals in matrix definitions".to_string())
-                    ))
+    for matrix_row_pair in pair.into_inner() {
+        if let Rule::matrix_row = matrix_row_pair.as_rule() {
+            let mut row = Vec::new();
+            
+            for element in matrix_row_pair.into_inner() {
+                if let Rule::expression = element.as_rule() {
+                    let expr = parse_expression(element)?;
+                    match expr {
+                        Expression::Literal(Value::Float(f)) => row.push(f),
+                        Expression::Literal(Value::Integer(i)) => row.push(i as f64),
+                        _ => return Err(CompilerError::parse_error(
+                            "Matrix literals can only contain numeric values".to_string(),
+                            None,
+                            Some("Use numeric literals in matrix definitions".to_string())
+                        ))
+                    }
                 }
             }
+            
+            rows.push(row);
         }
-        rows.push(row);
     }
     
     Ok(Expression::Literal(Value::Matrix(rows)))
@@ -346,7 +420,29 @@ pub fn parse_function_call(pair: Pair<Rule>) -> Result<Expression, CompilerError
 
 pub fn parse_method_call(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let mut inner = pair.into_inner();
-    let object_expr = parse_expression(inner.next().unwrap())?;
+    
+    // Parse method_call_base
+    let base_pair = inner.next().unwrap();
+    let object_expr = match base_pair.as_rule() {
+        Rule::method_call_base => {
+            let mut base_inner = base_pair.into_inner();
+            let first = base_inner.next().unwrap();
+            match first.as_rule() {
+                Rule::identifier => Expression::Variable(first.as_str().to_string()),
+                Rule::expression => parse_expression(first)?,
+                _ => return Err(CompilerError::parse_error(
+                    "Invalid method call base".to_string(),
+                    None,
+                    None
+                ))
+            }
+        },
+        _ => return Err(CompilerError::parse_error(
+            "Expected method_call_base".to_string(),
+            None,
+            None
+        ))
+    };
     
     let mut current_expr = object_expr;
     
@@ -360,7 +456,7 @@ pub fn parse_method_call(pair: Pair<Rule>) -> Result<Expression, CompilerError> 
                 if let Rule::expression = arg.as_rule() {
                     arguments.push(parse_expression(arg)?);
                 }
-        }
+            }
             
             let location = crate::ast::SourceLocation::default();
             current_expr = Expression::MethodCall {
@@ -391,4 +487,18 @@ pub fn parse_property_access(pair: Pair<Rule>) -> Result<Expression, CompilerErr
     }
     
     Ok(current_expr)
+}
+
+pub fn parse_array_access(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let mut inner = pair.into_inner();
+    
+    // First element is the array identifier
+    let array_name = inner.next().unwrap().as_str().to_string();
+    let array_expr = Expression::Variable(array_name);
+    
+    // Second element is the index expression
+    let index_pair = inner.next().unwrap();
+    let index_expr = parse_expression(index_pair)?;
+    
+    Ok(Expression::ArrayAccess(Box::new(array_expr), Box::new(index_expr)))
 } 

@@ -2,8 +2,11 @@
 WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
+// Keywords that should not be parsed as identifiers
+keyword = { "return" | "if" | "else" | "iterate" | "in" | "to" | "step" | "test" | "print" | "println" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" }
+
 // Identifiers and literals
-identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 number = _{ float | integer }
@@ -33,7 +36,7 @@ sized_type = { core_type ~ size_specifier }
 // Composite types
 matrix_type = { "Matrix" ~ "<" ~ type_ ~ ">" }
 array_type = { "Array" ~ "<" ~ type_ ~ ">" }
-map_type = { "Map" ~ "<" ~ type_ ~ "," ~ type_ ~ ">" }
+pairs_type = { "pairs" ~ "<" ~ type_ ~ "," ~ type_ ~ ">" }
 
 // Generic types
 generic_type = { identifier ~ "<" ~ type_arguments ~ ">" }
@@ -47,7 +50,7 @@ type_ = {
     core_type |
     matrix_type |
     array_type |
-    map_type |
+    pairs_type |
     generic_type |
     type_parameter |
     identifier
@@ -56,21 +59,29 @@ type_ = {
 // Indentation-based blocks
 INDENT = _{ "\t" }
 NEWLINE = _{ "\n" | "\r\n" }
-indented_block = { NEWLINE ~ INDENT+ ~ statement ~ (NEWLINE ~ INDENT+ ~ statement)* }
+empty_line = _{ INDENT* ~ NEWLINE }
+indented_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement)* }
 
 // Apply-blocks (core language feature)
 apply_block = { identifier ~ ":" ~ indented_block }
 
 // Setup blocks for functions
 description_block = { "description" ~ string }
-input_declaration = { type_ ~ identifier }
-input_block = { "input" ~ indented_block_with_declarations }
+input_type = { 
+    sized_type |
+    core_type |
+    matrix_type |
+    array_type |
+    pairs_type |
+    generic_type |
+    type_parameter
+}
+input_declaration = { input_type ~ identifier }
+input_block = { "input" ~ indented_input_block }
+indented_input_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ input_declaration ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ input_declaration)* }
 indented_block_with_declarations = { NEWLINE ~ INDENT+ ~ input_declaration ~ (NEWLINE ~ INDENT+ ~ input_declaration)* }
 
-setup_block = {
-    (description_block ~ NEWLINE)? ~
-    (input_block ~ NEWLINE)?
-}
+setup_block = { (description_block ~ NEWLINE ~ input_block) | (input_block ~ NEWLINE ~ description_block) | input_block | description_block }
 
 // Object access and method calls
 function_call = { identifier ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
@@ -78,14 +89,16 @@ method_call_base = { identifier | "(" ~ expression ~ ")" }
 method_call_segment = { "." ~ (identifier ~ ("(" ~ (expression ~ ("," ~ expression)*)? ~ ")")? | identifier) }
 method_call = { method_call_base ~ method_call_segment+ }
 property_access = { identifier ~ ("." ~ identifier)+ }
+array_access = { identifier ~ "[" ~ expression ~ "]" }
 
 // Primary expressions
 primary = { 
     number |
     boolean |
     string |
-    array_literal |
     matrix_literal |
+    array_literal |
+    array_access |
     method_call |
     function_call |
     property_access |
@@ -93,11 +106,12 @@ primary = {
     "(" ~ expression ~ ")"
 }
 
-// Expression with operator precedence (updated per specification)
-expression = { primary ~ (operator ~ primary)* }
-
 // Error handling with onError
-on_error_expr = { expression ~ "onError" ~ expression }
+on_error_expr = { base_expression ~ "onError" ~ base_expression }
+
+// Expression with operator precedence (updated per specification)
+base_expression = { primary ~ (operator ~ primary)* }
+expression = { on_error_expr | base_expression }
 
 // Operators (removed matrix @ operators as they're now type-based)
 operator = _{ binary_op | comparison_op }
@@ -106,21 +120,22 @@ comparison_op = { "==" | "!=" | "<" | "<=" | ">" | ">=" | "is" | "not" }
 
 // Arrays and Matrices
 array_literal = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
-matrix_literal = { "[" ~ "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" ~ ("," ~ "[" ~ (expression ~ ("," ~ expression)*)? ~ "]")* ~ "]" }
+matrix_row = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
+matrix_literal = { "[" ~ matrix_row ~ ("," ~ matrix_row)* ~ "]" }
 
 // Statements
 statement = {
-    variable_decl |
-    apply_block |
+    return_stmt |
     print_stmt |
     println_stmt |
+    error_stmt |
     if_stmt |
     iterate_stmt |
     range_iterate_stmt |
     test |
-    return_stmt |
+    variable_decl |
+    apply_block |
     assignment |
-    on_error_expr |
     expression
 }
 
@@ -140,9 +155,16 @@ indented_block_with_constant_assignments = { NEWLINE ~ INDENT+ ~ constant_assign
 // Assignment
 assignment = { identifier ~ "=" ~ expression }
 
-// Print statements (function call syntax)
-print_stmt = { "print" ~ "(" ~ expression ~ ")" }
-println_stmt = { "println" ~ "(" ~ expression ~ ")" }
+// Print statements (both simple and block syntax)
+print_stmt = { "print" ~ ((":" ~ indented_print_block) | ("(" ~ expression ~ ")" | expression)) }
+println_stmt = { "println" ~ ((":" ~ indented_print_block) | ("(" ~ expression ~ ")" | expression)) }
+
+// Print block for multiple values
+indented_print_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ print_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ print_item)* }
+print_item = { expression }
+
+// Error statement (function call syntax)
+error_stmt = { "error" ~ "(" ~ expression ~ ")" }
 
 // Control flow with indentation
 if_stmt = { "if" ~ expression ~ indented_block ~ ("else" ~ indented_block)? }
@@ -157,38 +179,48 @@ test = { "test" ~ string ~ indented_block }
 // Return
 return_stmt = { "return" ~ expression? }
 
-// Function declarations - Three syntaxes from specification
+// Function declarations - Only functions block syntax supported
 
-// Syntax A: Simple function
-simple_function = { "function" ~ type_? ~ identifier ~ "(" ~ ")" ~ NEWLINE? ~ setup_block? ~ indented_block }
-
-// Syntax B: Detailed function
-detailed_function = { "function" ~ type_? ~ identifier ~ "(" ~ ")" ~ NEWLINE? ~ setup_block ~ indented_block }
-
-// Syntax C: Functions block
+// Functions block (the only supported syntax for function declarations)
 functions_block = { "functions" ~ ":" ~ indented_functions_block }
 indented_functions_block = { NEWLINE ~ INDENT+ ~ function_in_block ~ (NEWLINE ~ INDENT+ ~ function_in_block)* }
-function_in_block = { type_? ~ identifier ~ "(" ~ ")" ~ (NEWLINE ~ INDENT+ ~ "input" ~ input_declaration ~ (NEWLINE ~ INDENT+ ~ input_declaration)*)? ~ NEWLINE ~ INDENT+ ~ expression }
+function_in_block = { function_type? ~ identifier ~ "(" ~ ")" ~ function_body }
+// Function body statements (similar to indented_block but without initial NEWLINE/INDENT)
+function_statements = { statement ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement)* }
+
+function_body = { (NEWLINE ~ INDENT+ ~ setup_block ~ (empty_line)* ~ INDENT+ ~ function_statements) | (NEWLINE ~ INDENT+ ~ function_statements) }
+
+// Function return type (excludes generic identifiers)
+function_type = { 
+    sized_type |
+    core_type |
+    matrix_type |
+    array_type |
+    pairs_type |
+    generic_type |
+    type_parameter
+}
 
 // Private blocks
 private_block = { "private" ~ ":" ~ indented_functions_block }
 
-// Function declaration (any of the three syntaxes)
-function_decl = { simple_function | detailed_function | functions_block }
-
 // Class definition with "is" inheritance
+class_field = { type_ ~ identifier }
+class_body_item = { class_field | constructor | functions_block }
+indented_class_body = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item)* }
+
 class_decl = { 
     "class" ~ identifier ~ type_parameters? ~ 
-    ("is" ~ generic_type)? ~ NEWLINE ~
-    setup_block? ~ 
-    constructor? ~ 
-    function_decl*
+    ("is" ~ generic_type)? ~ 
+    indented_class_body?
 }
 
-constructor = { "constructor" ~ "(" ~ parameter_list? ~ ")" ~ indented_block }
-parameter_list = { identifier ~ ("," ~ identifier)* }
+constructor = { "constructor" ~ "(" ~ constructor_parameter_list? ~ ")" ~ indented_block? }
+constructor_parameter_list = { constructor_parameter ~ ("," ~ constructor_parameter)* }
+constructor_parameter = { type_? ~ identifier }
 
-// Program
-program = { SOI ~ (start_function | function_decl | class_decl | apply_block)* ~ EOI }
+// Program with proper newline handling
+program_item = { start_function | functions_block | class_decl | statement }
+program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
 start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block } 

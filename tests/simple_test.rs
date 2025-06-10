@@ -1,26 +1,30 @@
-use clean_language::{compile, error::CompilerError};
+use clean_language_compiler::{
+    parser::CleanParser,
+    semantic::SemanticAnalyzer,
+    codegen::CodeGenerator,
+    error::CompilerError,
+};
 
 #[test]
 fn test_simple_program() -> Result<(), CompilerError> {
     let source = r#"
-        // Simple program to test basic functionality
-        number x = 42
-        number y = 10
-        
-        // Test arithmetic
-        number result = x + y
-        
-        // Test print
-        print "Result is: "
-        printl result
-        
-        // Test error handling
-        onError:
-            printl "An error occurred"
-            x = 0
+        function start()
+            integer x = 42
+            integer y = 10
+            
+            integer result = x + y
+            
+            print(result)
     "#;
 
-    let wasm_binary = compile(source)?;
+    let program = CleanParser::parse_program(source)?;
+    let mut analyzer = SemanticAnalyzer::new();
+    analyzer.analyze(&program)?;
+    
+    let mut codegen = CodeGenerator::new();
+    codegen.generate(&program)?;
+    let wasm_binary = codegen.finish();
+    
     assert!(!wasm_binary.is_empty());
     Ok(())
 }
@@ -28,18 +32,22 @@ fn test_simple_program() -> Result<(), CompilerError> {
 #[test]
 fn test_error_handling() -> Result<(), CompilerError> {
     let source = r#"
-        number x = 10
-        number y = 0
-        
-        onError:
-            printl "Division by zero error"
-            x = 42
-        
-        // This should trigger the error handler
-        number result = x / y
+        function start()
+            integer x = 10
+            integer y = 0
+            
+            integer result = x / y onError 42
+            print(result)
     "#;
 
-    let wasm_binary = compile(source)?;
+    let program = CleanParser::parse_program(source)?;
+    let mut analyzer = SemanticAnalyzer::new();
+    analyzer.analyze(&program)?;
+    
+    let mut codegen = CodeGenerator::new();
+    codegen.generate(&program)?;
+    let wasm_binary = codegen.finish();
+    
     assert!(!wasm_binary.is_empty());
     Ok(())
 }
@@ -47,12 +55,20 @@ fn test_error_handling() -> Result<(), CompilerError> {
 #[test]
 fn test_string_operations() -> Result<(), CompilerError> {
     let source = r#"
-        string name = "World"
-        string message = "Hello, " + name + "!"
-        printl message
+        function start()
+            string name = "World"
+            string message = "Hello, " + name + "!"
+            print(message)
     "#;
 
-    let wasm_binary = compile(source)?;
+    let program = CleanParser::parse_program(source)?;
+    let mut analyzer = SemanticAnalyzer::new();
+    analyzer.analyze(&program)?;
+    
+    let mut codegen = CodeGenerator::new();
+    codegen.generate(&program)?;
+    let wasm_binary = codegen.finish();
+    
     assert!(!wasm_binary.is_empty());
     Ok(())
 } 

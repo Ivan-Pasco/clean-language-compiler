@@ -76,23 +76,27 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
             Rule::program => {
                 for inner in pair.into_inner() {
                     match inner.as_rule() {
-                        Rule::function_decl => {
-                            let func = parse_function(inner)?;
-                            if func.name == "start" {
-                                start_function = Some(func);
-                            } else {
-                                functions.push(func);
+                        Rule::program_item => {
+                            for program_item_inner in inner.into_inner() {
+                                match program_item_inner.as_rule() {
+                                    Rule::functions_block => {
+                                        let block_functions = parse_functions_block(program_item_inner)?;
+                                        functions.extend(block_functions);
+                                    },
+                                    Rule::start_function => {
+                                        let func = parse_start_function(program_item_inner)?;
+                                        start_function = Some(func);
+                                    },
+                                    Rule::class_decl => {
+                                        // Handle class declarations when implemented
+                                    },
+                                    Rule::statement => {
+                                        // Handle top-level statements - these should be added to the start function
+                                        // For now, we'll ignore them as the codegen expects a start function
+                                    },
+                                    _ => {}
+                                }
                             }
-                        },
-                        Rule::start_function => {
-                            let func = parse_start_function(inner)?;
-                            start_function = Some(func);
-                        },
-                        Rule::class_decl => {
-                            // Handle class declarations when implemented
-                        },
-                        Rule::apply_block => {
-                            // Handle top-level apply blocks when implemented
                         },
                         Rule::EOI => {}, // End of input
                         _ => {}
@@ -175,35 +179,117 @@ pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError>
     })
 }
 
-pub fn parse_function(function_def: Pair<Rule>) -> Result<Function, CompilerError> {
+pub fn get_location(pair: &Pair<Rule>) -> super::SourceLocation {
+    let span = pair.as_span();
+    super::SourceLocation {
+        start: span.start(),
+        end: span.end(),
+    }
+}
+
+pub fn parse_functions_block(functions_block: Pair<Rule>) -> Result<Vec<Function>, CompilerError> {
+    let mut functions = Vec::new();
+    
+    for item in functions_block.into_inner() {
+        match item.as_rule() {
+            Rule::indented_functions_block => {
+                for func_item in item.into_inner() {
+                    if func_item.as_rule() == Rule::function_in_block {
+                        let func = parse_function_in_block(func_item)?;
+                        functions.push(func);
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Ok(functions)
+}
+
+/// Helper to parse parameters from an input_block
+///
+/// Expects a Pair<Rule> for input_block, which contains an indented_input_block.
+/// Each input_declaration is parsed as a parameter (type and name).
+/// Returns a Vec<Parameter>.
+fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Parameter>, CompilerError> {
+    let mut parameters = Vec::new();
+    let mut seen_names = std::collections::HashSet::new();
+    for input_inner in input_block.into_inner() {
+        if input_inner.as_rule() == Rule::indented_input_block {
+            for input_decl in input_inner.into_inner() {
+                if input_decl.as_rule() == Rule::input_declaration {
+                    let mut param_type = None;
+                    let mut param_name = String::new();
+                    for param_decl in input_decl.into_inner() {
+                        match param_decl.as_rule() {
+                            Rule::input_type => param_type = Some(parse_type(param_decl)?),
+                            Rule::identifier => param_name = param_decl.as_str().to_string(),
+                            _ => {}
+                        }
+                    }
+                    // TODO: Support default values or annotations for parameters in the future
+                    if let Some(pt) = param_type {
+                        if !seen_names.insert(param_name.clone()) {
+                            return Err(CompilerError::parse_error(
+                                format!("Duplicate parameter name '{}' in input block", param_name),
+                                None,
+                                None,
+                            ));
+                        }
+                        parameters.push(Parameter::new(param_name, pt));
+                    } else {
+                        return Err(CompilerError::parse_error(
+                            "Missing type in input parameter declaration",
+                            None,
+                            None,
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    Ok(parameters)
+}
+
+/// Parses a function declared inside a functions block.
+///
+/// According to the grammar, a function_in_block has the following structure:
+///   function_in_block = { function_type? ~ identifier ~ "(" ~ ")" ~ function_body }
+///   function_body = { (setup_block ~ indented_block) | indented_block }
+///
+/// - setup_block may contain a description_block and/or input_block (for parameters)
+/// - indented_block contains the function body statements
+///
+/// This function extracts the function name, return type, parameters, description, and body.
+/// It returns a Function AST node.
+pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, CompilerError> {
     let mut func_name = String::new();
     let mut return_type: Option<Type> = None;
     let mut parameters = Vec::new();
     let mut body = Vec::new();
     let mut description: Option<String> = None;
-    let location = Some(convert_to_ast_location(&get_location(&function_def)));
+    let location = Some(convert_to_ast_location(&get_location(&func_pair)));
 
-    if function_def.as_rule() != Rule::function_decl {
-        return Err(CompilerError::parse_error(
-            format!("Expected function declaration, got {:?}", function_def.as_rule()),
-            Some(convert_to_ast_location(&get_location(&function_def))),
-            None
-        ));
-    }
-
-    for item in function_def.into_inner() {
+    // Parse the function signature and body
+    for item in func_pair.into_inner() {
         match item.as_rule() {
-            Rule::simple_function | Rule::detailed_function => {
-                for inner in item.into_inner() {
-                    match inner.as_rule() {
-                        Rule::type_ => {
-                            return_type = Some(parse_type(inner)?);
-                        },
-                        Rule::identifier => {
-                            func_name = inner.as_str().to_string();
-                        },
+            Rule::function_type => {
+                return_type = Some(parse_type(item)?);
+            },
+            Rule::identifier => {
+                func_name = item.as_str().to_string();
+            },
+            Rule::function_body => {
+                // function_body = (setup_block ~ indented_block) | indented_block
+                let mut found_body = false;
+                let mut found_setup = false;
+                for body_item in item.into_inner() {
+                    match body_item.as_rule() {
                         Rule::setup_block => {
-                            for setup_item in inner.into_inner() {
+                            found_setup = true;
+                            // setup_block may contain description_block and/or input_block
+                            for setup_item in body_item.into_inner() {
                                 match setup_item.as_rule() {
                                     Rule::description_block => {
                                         for desc_inner in setup_item.into_inner() {
@@ -213,43 +299,43 @@ pub fn parse_function(function_def: Pair<Rule>) -> Result<Function, CompilerErro
                                         }
                                     },
                                     Rule::input_block => {
-                                        for input_inner in setup_item.into_inner() {
-                                            if input_inner.as_rule() == Rule::input_declaration {
-                                                let mut param_type = None;
-                                                let mut param_name = String::new();
-                                                for param_decl in input_inner.into_inner() {
-                                                    match param_decl.as_rule() {
-                                                        Rule::type_ => param_type = Some(parse_type(param_decl)?),
-                                                        Rule::identifier => param_name = param_decl.as_str().to_string(),
-                                                        _ => {}
-                                                    }
-                                                }
-                                                if let Some(pt) = param_type {
-                                                    parameters.push(Parameter::new(param_name, pt));
-                                                }
-                                            }
-                                        }
+                                        let params = parse_parameters_from_input_block(setup_item)?;
+                                        parameters.extend(params);
                                     },
                                     _ => {}
                                 }
                             }
                         },
-                        Rule::indented_block => {
-                            for stmt_pair in inner.into_inner() {
-                                match stmt_pair.as_rule() {
-                                    Rule::statement => {
-                                        body.push(parse_statement(stmt_pair)?);
-                                    },
-                                    _ => {}
+                        Rule::function_statements => {
+                            found_body = true;
+                            // Only add statements from the function_statements to the function body
+                            for stmt_pair in body_item.into_inner() {
+                                if stmt_pair.as_rule() == Rule::statement {
+                                    body.push(parse_statement(stmt_pair)?);
                                 }
                             }
                         },
                         _ => {}
                     }
                 }
+                if !found_body {
+                    return Err(CompilerError::parse_error(
+                        format!("Function '{}' is missing a body.", func_name),
+                        location.clone(),
+                        None,
+                    ));
+                }
             },
             _ => {}
         }
+    }
+
+    if func_name.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Function is missing a name.",
+            location.clone(),
+            None,
+        ));
     }
 
     let return_type = return_type.unwrap_or(Type::Void);
@@ -261,16 +347,54 @@ pub fn parse_function(function_def: Pair<Rule>) -> Result<Function, CompilerErro
         return_type,
         body,
         description,
-        syntax: FunctionSyntax::Simple,
+        syntax: FunctionSyntax::Block,
         visibility: Visibility::Public,
         location,
     })
 }
 
-pub fn get_location(pair: &Pair<Rule>) -> super::SourceLocation {
-    let span = pair.as_span();
-    super::SourceLocation {
-        start: span.start(),
-        end: span.end(),
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pest::Parser;
+    use crate::CleanParser;
+
+    #[test]
+    fn test_parse_function_in_block_valid() {
+        let source = "integer add()\n\tinput\n\t\tinteger a\n\t\tinteger b\n\treturn a + b";
+        let mut pairs = CleanParser::parse(Rule::function_in_block, source).unwrap();
+        let pair = pairs.next().unwrap();
+        let func = parse_function_in_block(pair).unwrap();
+        assert_eq!(func.name, "add");
+        assert_eq!(func.parameters.len(), 2);
+        assert_eq!(func.parameters[0].name, "a");
+        assert_eq!(func.parameters[1].name, "b");
+        assert_eq!(func.body.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_function_in_block_duplicate_param() {
+        let source = "integer add()\n\tinput\n\t\tinteger a\n\t\tinteger a\n\treturn a + a";
+        let mut pairs = CleanParser::parse(Rule::function_in_block, source).unwrap();
+        let pair = pairs.next().unwrap();
+        let err = parse_function_in_block(pair).unwrap_err();
+        assert!(err.to_string().contains("Duplicate parameter name"));
+    }
+
+    #[test]
+    fn test_parse_function_in_block_missing_name() {
+        let source = "integer ()\n\treturn 42";
+        let mut pairs = CleanParser::parse(Rule::function_in_block, source).unwrap();
+        let pair = pairs.next().unwrap();
+        let err = parse_function_in_block(pair).unwrap_err();
+        assert!(err.to_string().contains("missing a name"));
+    }
+
+    #[test]
+    fn debug_parse_tree_for_function_in_block() {
+        let source = "integer add()\n\tinput\n\t\tinteger a\n\t\tinteger b\n\t\n\treturn a + b";
+        let mut pairs = CleanParser::parse(Rule::function_in_block, source).unwrap();
+        let pair = pairs.next().unwrap();
+        println!("Parse tree: {:#?}", pair);
     }
 } 

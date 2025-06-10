@@ -1,0 +1,10 @@
+functions:
+	integer add()
+		input
+			integer a
+			integer b
+		return a + b
+
+function start()
+	integer result = add(5, 3)
+	println(result) 

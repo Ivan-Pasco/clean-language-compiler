@@ -1,8 +1,6 @@
-use std::io::{self, Write};
 use clean_language_compiler::{
     parser::CleanParser,
     codegen::CodeGenerator,
-    error::CompilerError,
 };
 
 #[test]

@@ -1,29 +1,3 @@
-// Simple test using new Clean Language specification
-
 function start()
-    integer x = 5
-    float y = 3.14
-    string name = "Clean"
-    
-    println("Hello from {name}!")
-    println("x = {x}, y = {y}")
-    
-    integer result = add()
-    println("Result: {result}")
-
-function integer add()
-    input
-        integer a = 10
-        integer b = 20
-    return a + b
-
-functions:
-    integer square()
-        input integer x
-        x * x
-    
-    float divide()
-        input
-            float a
-            float b
-        return a / b onError 0.0 
+	float x = 3.14
+	print(x) 

@@ -1,7 +1,7 @@
 //! End-to-end tests for the Clean Language compiler
 
 use std::process::Command;
-git add .
+use tempfile::tempdir;
 
 #[test]
 fn test_simple_return() {

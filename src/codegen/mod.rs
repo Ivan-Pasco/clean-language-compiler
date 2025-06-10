@@ -220,6 +220,11 @@ impl CodeGenerator {
         self.function_map.insert(function.name.clone(), func_index);
         self.function_names.push(function.name.clone());
         
+        // Register function type with instruction generator
+        let param_val_types: Vec<ValType> = params.iter().map(|t| (*t).into()).collect();
+        let result_val_types: Vec<ValType> = return_type.map(|t| vec![t.into()]).unwrap_or_default();
+        self.instruction_generator.add_function_type(func_index, param_val_types, result_val_types);
+        
         // Add debug information
         self.debug_info.add_function_name(func_index, function.name.clone());
         
@@ -544,6 +549,7 @@ impl CodeGenerator {
             Statement::VariableDecl { location, .. } => location.clone(),
             Statement::Assignment { location, .. } => location.clone(),
             Statement::Print { location, .. } => location.clone(),
+            Statement::PrintBlock { location, .. } => location.clone(),
             Statement::Return { location, .. } => location.clone(),
             Statement::If { location, .. } => location.clone(),
             Statement::Iterate { location, .. } => location.clone(),
@@ -621,6 +627,18 @@ impl CodeGenerator {
                         self.get_print_function_index()
                     }
                 ));
+            }
+            Statement::PrintBlock { expressions, newline, location: _ } => {
+                for expression in expressions {
+                    self.generate_expression(expression, instructions)?;
+                    instructions.push(Instruction::Call(
+                        if *newline {
+                            self.get_printl_function_index()
+                        } else {
+                            self.get_print_function_index()
+                        }
+                    ));
+                }
             }
             Statement::Return { value, location: _ } => {
                 if let Some(expr) = value {
@@ -893,6 +911,45 @@ impl CodeGenerator {
                 instructions.push(Instruction::Call(self.get_array_get())); 
                 Ok(WasmType::I32)
             },
+            Expression::MethodCall { object, method, arguments, location: _ } => {
+                // Handle method calls on different types
+                self.generate_expression(&*object, instructions)?;
+                
+                // Generate arguments
+                for arg in arguments {
+                    self.generate_expression(arg, instructions)?;
+                }
+                
+                // Handle specific methods based on method name
+                match method.as_str() {
+                    "at" => {
+                        // Array.at(index) - 1-indexed access
+                        // Convert 1-indexed to 0-indexed by subtracting 1
+                        instructions.push(Instruction::I32Const(1));
+                        instructions.push(Instruction::I32Sub);
+                        instructions.push(Instruction::Call(self.get_array_get()));
+                        Ok(WasmType::I32)
+                    },
+                    "length" => {
+                        // Array.length() - get array length
+                        instructions.push(Instruction::Call(self.get_array_length()));
+                        Ok(WasmType::I32)
+                    },
+                    _ => {
+                        // Try to find a function with the method name
+                        if let Some(method_index) = self.get_function_index(&format!("{}_{}", "array", method)) {
+                            instructions.push(Instruction::Call(method_index));
+                            Ok(WasmType::I32) // Default return type
+                        } else {
+                            Err(CompilerError::codegen_error(
+                                &format!("Method '{}' not found", method), 
+                                None, 
+                                None
+                            ))
+                        }
+                    }
+                }
+            },
             Expression::MatrixAccess(matrix, row, col) => {
                 self.generate_expression(&*matrix, instructions)?;
                 self.generate_expression(&*row, instructions)?;
@@ -900,11 +957,64 @@ impl CodeGenerator {
                 instructions.push(Instruction::Call(self.get_matrix_get())); 
                 Ok(WasmType::F64)
             },
-            Expression::StringInterpolation(_parts) => {
-                // Handle string interpolation
-                Err(CompilerError::codegen_error(
-                    "String interpolation not fully implemented", None, None
-                ))
+            Expression::StringInterpolation(parts) => {
+                // Handle string interpolation by concatenating parts
+                if parts.is_empty() {
+                    // Empty interpolation, return empty string
+                    let string_ptr = self.allocate_string("")?;
+                    instructions.push(Instruction::I32Const(string_ptr as i32));
+                    return Ok(WasmType::I32);
+                }
+                
+                // Start with the first part
+                let mut first = true;
+                for part in parts {
+                    match part {
+                        ast::StringPart::Text(text) => {
+                            // Allocate string literal
+                            let string_ptr = self.allocate_string(text)?;
+                            instructions.push(Instruction::I32Const(string_ptr as i32));
+                        },
+                        ast::StringPart::Interpolation(expr) => {
+                            // Generate the expression and convert to string if needed
+                            let expr_type = self.generate_expression(expr, instructions)?;
+                            
+                            // Convert to string if not already a string
+                            match expr_type {
+                                WasmType::I32 => {
+                                    // If it's an integer, convert to string
+                                    // For now, assume it's already a string pointer
+                                    // TODO: Add proper type checking and conversion
+                                },
+                                WasmType::F64 => {
+                                    // Convert float to string
+                                    // TODO: Add float to string conversion
+                                    return Err(CompilerError::codegen_error(
+                                        "Float to string conversion in interpolation not yet implemented", 
+                                        None, 
+                                        None
+                                    ));
+                                },
+                                _ => {
+                                    return Err(CompilerError::codegen_error(
+                                        "Unsupported type in string interpolation", 
+                                        None, 
+                                        None
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Concatenate with previous parts (except for the first)
+                    if !first {
+                        // Call string concatenation function
+                        instructions.push(Instruction::Call(self.get_string_concat_index()?));
+                    }
+                    first = false;
+                }
+                
+                Ok(WasmType::I32) // String type is represented as I32 pointer
             },
             // TODO: Add other expression variants based on ast::Expression definition
             // Expression::Unary(op, expr) => { ... }
@@ -1366,6 +1476,64 @@ impl CodeGenerator {
                 }
             ],
             description: Some("Gets the length of an array".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        // string_concat(str1: String, str2: String) -> String
+        functions.push(AstFunction {
+            name: "string_concat".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "str1".to_string(),
+                    type_: Type::String,
+                },
+                Parameter {
+                    name: "str2".to_string(),
+                    type_: Type::String,
+                }
+            ],
+            return_type: Type::String,
+            body: vec![
+                // Placeholder implementation - would need memory operations
+                // Return first string for now
+                Statement::Return {
+                    value: Some(Expression::Variable("str1".to_string())),
+                    location: None,
+                }
+            ],
+            description: Some("Concatenates two strings".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            location: None,
+        });
+        
+        // string_compare(str1: String, str2: String) -> Integer
+        functions.push(AstFunction {
+            name: "string_compare".to_string(),
+            type_parameters: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "str1".to_string(),
+                    type_: Type::String,
+                },
+                Parameter {
+                    name: "str2".to_string(),
+                    type_: Type::String,
+                }
+            ],
+            return_type: Type::Integer,
+            body: vec![
+                // Placeholder implementation - would need memory operations
+                // Return 0 (equal) for now
+                Statement::Return {
+                    value: Some(Expression::Literal(Value::Integer(0))),
+                    location: None,
+                }
+            ],
+            description: Some("Compares two strings".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
             location: None,

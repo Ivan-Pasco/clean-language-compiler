@@ -20,7 +20,79 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         Rule::identifier => parse_basic_type(inner),
         Rule::matrix_type => parse_matrix_type(inner),
         Rule::array_type => parse_array_type(inner),
-        Rule::map_type => parse_map_type(inner),
+        Rule::pairs_type => parse_pairs_type(inner),
+        Rule::function_type => {
+            // function_type contains one of: sized_type, core_type, matrix_type, array_type, pairs_type, generic_type, type_parameter
+            let inner_type = inner.into_inner().next().ok_or_else(|| CompilerError::parse_error(
+                "Empty function type declaration".to_string(),
+                Some(convert_to_ast_location(&parser_location)),
+                Some("Function type declarations must specify a type".to_string())
+            ))?;
+            
+            match inner_type.as_rule() {
+                Rule::core_type => {
+                    let type_str = inner_type.as_str();
+                    match type_str {
+                        "boolean" => Ok(Type::Boolean),
+                        "integer" => Ok(Type::Integer),
+                        "float" => Ok(Type::Float),
+                        "string" => Ok(Type::String),
+                        "void" => Ok(Type::Void),
+                        _ => Err(CompilerError::parse_error(
+                            format!("Unknown core type: {}", type_str),
+                            None,
+                            Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                        ))
+                    }
+                },
+                Rule::sized_type => {
+                    let mut inner_parts = inner_type.into_inner();
+                    let core_type_pair = inner_parts.next().unwrap();
+                    let size_spec = inner_parts.next().unwrap().as_str();
+                    
+                    let base_type = match core_type_pair.as_str() {
+                        "boolean" => Type::Boolean,
+                        "integer" => Type::Integer,
+                        "float" => Type::Float,
+                        "string" => Type::String,
+                        "void" => Type::Void,
+                        _ => return Err(CompilerError::parse_error(
+                            format!("Unknown core type in sized type: {}", core_type_pair.as_str()),
+                            None,
+                            Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                        ))
+                    };
+                    
+                    let size_str = &size_spec[1..].trim();
+                    let (bits, unsigned) = if size_str.ends_with('u') {
+                        let bits_str = &size_str[..size_str.len()-1];
+                        (bits_str.parse::<u8>().unwrap_or(32), true)
+                    } else {
+                        (size_str.parse::<u8>().unwrap_or(32), false)
+                    };
+                    
+                    match base_type {
+                        Type::Integer => Ok(Type::IntegerSized { bits, unsigned }),
+                        Type::Float => Ok(Type::FloatSized { bits }),
+                        _ => Err(CompilerError::parse_error(
+                            "Size specifiers can only be used with integer and float types".to_string(),
+                            None,
+                            Some("Use size specifiers like :8, :16, :32, :64, or :8u for unsigned".to_string())
+                        ))
+                    }
+                },
+                Rule::matrix_type => parse_matrix_type(inner_type),
+                Rule::array_type => parse_array_type(inner_type),
+                Rule::pairs_type => parse_pairs_type(inner_type),
+                Rule::generic_type => parse_generic_type(inner_type),
+                Rule::type_parameter => Ok(Type::TypeParameter(inner_type.as_str().to_string())),
+                _ => Err(CompilerError::parse_error(
+                    format!("Unexpected function type: {:?}", inner_type.as_rule()),
+                    Some(ast_location),
+                    Some("Function type declarations must specify a valid type".to_string())
+                ))
+            }
+        },
         Rule::core_type => {
             let type_str = inner.as_str();
             match type_str {
@@ -154,7 +226,7 @@ fn parse_array_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     Ok(Type::Array(Box::new(element_type)))
 }
 
-fn parse_map_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
+fn parse_pairs_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     let parser_location = get_location(&pair);
     let ast_location = convert_to_ast_location(&parser_location);
     
@@ -172,18 +244,16 @@ fn parse_map_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     }
     
     let key_type = key_type.ok_or_else(|| CompilerError::parse_error(
-        "Map type must specify key type".to_string(),
+        "pairs type must specify key type".to_string(),
         Some(ast_location.clone()),
-        Some("Map types must be in the form Map<K, V>".to_string())
+        Some("pairs types must be in the form pairs<K, V>".to_string())
     ))?;
     
     let value_type = value_type.ok_or_else(|| CompilerError::parse_error(
-        "Map type must specify value type".to_string(),
+        "pairs type must specify value type".to_string(),
         Some(ast_location),
-        Some("Map types must be in the form Map<K, V>".to_string())
+        Some("pairs types must be in the form pairs<K, V>".to_string())
     ))?;
     
-    let boxed_base_type = Box::new(Type::Object("Map".to_string()));
-    let type_args = vec![key_type, value_type];
-    Ok(Type::Generic(boxed_base_type, type_args))
+    Ok(Type::Pairs(Box::new(key_type), Box::new(value_type)))
 } 

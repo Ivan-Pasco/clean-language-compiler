@@ -368,6 +368,13 @@ impl SemanticAnalyzer {
                 self.check_expression(expression)?;
                 Ok(())
             },
+            
+            Statement::PrintBlock { expressions, newline: _, location: _ } => {
+                for expression in expressions {
+                    self.check_expression(expression)?;
+                }
+                Ok(())
+            },
 
             Statement::Return { value, location } => {
                 if let Some(return_type) = &self.current_function_return_type {
@@ -543,12 +550,13 @@ impl SemanticAnalyzer {
 
             Expression::Call(name, args) => {
                 self.used_functions.insert(name.clone());
+                
                 if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
                     if args.len() != param_types.len() {
                     return Err(CompilerError::type_error(
-                            &format!("Function '{}' expects {} arguments, but {} were provided", 
+                            &format!("Function '{}' called with wrong number of arguments\nExpected type: {}\nActual type: {}", 
                                 name, param_types.len(), args.len()),
-                            Some("Provide the correct number of arguments".to_string()),
+                            Some(format!("Function '{}' expects {} arguments, but {} were provided", name, param_types.len(), args.len())),
                             None
                         ));
                     }
@@ -636,9 +644,47 @@ impl SemanticAnalyzer {
                             ))
                         }
                     },
+                    Type::Array(element_type) => {
+                        // Handle array methods like at, length
+                        match method.as_str() {
+                            "at" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        &format!("Array method 'at' takes exactly 1 argument, found {}", arguments.len()),
+                                        Some("Use array.at(index) with a single integer argument".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                let index_type = self.check_expression(&arguments[0])?;
+                                if index_type != Type::Integer {
+                                    return Err(CompilerError::type_error(
+                                        &format!("Array.at() index must be integer, found {:?}", index_type),
+                                        Some("Use integer expressions for array indices".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                Ok(*element_type)
+                            },
+                            "length" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        &format!("Array method 'length' takes no arguments, found {}", arguments.len()),
+                                        Some("Use array.length() without arguments".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                Ok(Type::Integer)
+                            },
+                            _ => Err(CompilerError::type_error(
+                                &format!("Method '{}' not found for array type", method),
+                                Some("Use valid array methods like at(index), length()".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
                     _ => Err(CompilerError::type_error(
                         &format!("Cannot call method '{}' on type {:?}", method, object_type),
-                        Some("Methods can only be called on objects and matrices".to_string()),
+                        Some("Methods can only be called on objects, matrices, and arrays".to_string()),
                         Some(location.clone())
                     ))
                 }

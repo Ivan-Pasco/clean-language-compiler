@@ -4,7 +4,6 @@ use clean_language_compiler::{
     semantic::SemanticAnalyzer,
     codegen::CodeGenerator,
     validation::Validator,
-    error::CompilerError,
 };
 use std::fs;
 use std::path::Path;
@@ -32,14 +31,12 @@ pub fn analyze_program(program: &Program) -> Result<(), String> {
 pub fn generate_wasm(program: &Program) -> Vec<u8> {
     let mut generator = CodeGenerator::new();
     generator.generate(program)
-        .unwrap_or_else(|e| panic!("Failed to generate WASM: {}", e));
-    generator.finish()
+        .unwrap_or_else(|e| panic!("Failed to generate WASM: {}", e))
 }
 
 /// Validates generated WebAssembly
 pub fn validate_wasm(wasm_binary: &[u8]) -> bool {
-    let validator = Validator::new();
-    validator.validate(wasm_binary).is_ok()
+    Validator::validate_wasm(wasm_binary).is_ok()
 }
 
 /// Helper to create the test_inputs directory if it doesn't exist
@@ -73,6 +70,5 @@ pub fn compile_program(program: &Program) -> Result<Vec<u8>, String> {
     
     // Generate WASM
     codegen.generate(program)
-        .map_err(|e| e.to_string())?;
-    Ok(codegen.finish())
+        .map_err(|e| e.to_string())
 } 

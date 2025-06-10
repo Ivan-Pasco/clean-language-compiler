@@ -16,6 +16,7 @@ pub struct LocalVarInfo {
 }
 
 /// Define a simple FuncType struct for our purposes
+#[derive(Clone)]
 pub struct FuncType {
     params: Vec<ValType>,
     results: Vec<ValType>,
@@ -41,6 +42,7 @@ pub(crate) struct InstructionGenerator {
     variable_map: std::collections::HashMap<String, LocalVarInfo>,
     current_locals: Vec<LocalVarInfo>,
     function_map: std::collections::HashMap<String, u32>,
+    function_types: std::collections::HashMap<u32, FuncType>,
 }
 
 impl InstructionGenerator {
@@ -51,6 +53,7 @@ impl InstructionGenerator {
             variable_map: std::collections::HashMap::new(),
             current_locals: Vec::new(),
             function_map: std::collections::HashMap::new(),
+            function_types: std::collections::HashMap::new(),
         }
     }
     
@@ -691,13 +694,14 @@ impl InstructionGenerator {
         Ok(())
     }
     
+    /// Add function type mapping
+    pub(crate) fn add_function_type(&mut self, index: u32, params: Vec<ValType>, results: Vec<ValType>) {
+        self.function_types.insert(index, FuncType::new(params, results));
+    }
+
     /// Get the function type for a given function index
-    pub fn get_function_type(&self, _index: u32) -> Option<FuncType> {
-        // Create a simplified version that returns a new FuncType each time
-        Some(FuncType::new(
-            vec![ValType::I32], // Just assume parameters are I32
-            vec![ValType::I32]  // Just assume return type is I32
-        ))
+    pub fn get_function_type(&self, index: u32) -> Option<FuncType> {
+        self.function_types.get(&index).cloned()
     }
 
     /// Convert a parser ValType to a WasmType

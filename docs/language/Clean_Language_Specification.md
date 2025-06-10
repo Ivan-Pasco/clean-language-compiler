@@ -188,8 +188,14 @@ false
 |-------------|------------|---------|
 | `Array<T>`  | Homogeneous resizable list | `Array<integer>`, `[1, 2, 3]` |
 | `Matrix<T>` | 2-D array (array of arrays) | `Matrix<float>`, `[[1.0, 2.0], [3.0, 4.0]]` |
-| `Map<K,V>`  | Key-value associative container | `Map<string, integer>` |
+| `pairs<K,V>`  | Key-value associative container | `pairs<string, integer>` |
 | `T`         | Generic type parameter | Used in function definitions |
+
+Arrays in Clean are zero-indexed by default (array[0] is the first element).
+For readability, you can access elements starting from 1 using:
+
+array.at(index)
+This returns the element at position index - 1.
 
 ### Type Annotations and Variable Declaration
 
@@ -276,6 +282,76 @@ From highest to lowest precedence:
 7. **Logical AND** - `and`
 8. **Logical OR** - `or`
 9. **Assignment** - `=`
+
+### Multi-Line Expressions
+
+**Rule**: If an expression spans multiple lines, it must be wrapped in parentheses.
+
+**Parsing Logic**: The expression continues until all parentheses are properly balanced and closed. The parser will consume tokens across multiple lines until the opening parenthesis has its matching closing parenthesis.
+
+**Syntax**:
+```clean
+// Single line expressions (no parentheses required)
+result = a + b + c
+value = functionCall(arg1, arg2)
+
+// Multi-line expressions (parentheses required)
+result = (a + b + c +
+          d + e + f)
+
+complex = (functionCall(arg1, arg2) +
+           anotherFunction(arg3) *
+           (nested + expression))
+
+calculation = (matrix1 * matrix2 +
+               matrix3.transpose() *
+               scalar_value)
+```
+
+**Application Logic**:
+1. **Single Line**: Expressions on a single line do not require parentheses
+2. **Multi-Line Detection**: When the parser encounters an expression that continues to the next line, parentheses are mandatory
+3. **Balanced Parsing**: The parser tracks parentheses depth and continues reading until:
+   - All opening parentheses have matching closing parentheses
+   - No unmatched parentheses remain
+4. **Nested Support**: Multi-line expressions can contain nested parentheses for sub-expressions
+5. **Error Handling**: Unmatched parentheses result in compilation errors with clear error messages
+
+**Examples**:
+
+```clean
+// ✅ Valid: Single line, no parentheses needed
+total = price + tax + shipping
+
+// ✅ Valid: Multi-line with parentheses
+total = (price + tax + 
+         shipping + handling)
+
+// ✅ Valid: Complex multi-line expression
+result = (calculateBase(width, height) +
+          calculateTax(subtotal) +
+          (shippingCost * quantity))
+
+// ✅ Valid: Multi-line function call
+value = functionCall(
+    (arg1 + arg2),
+    (arg3 * arg4),
+    defaultValue
+)
+
+// ❌ Invalid: Multi-line without parentheses
+total = price + tax + 
+        shipping         // Compilation error
+
+// ❌ Invalid: Unmatched parentheses
+result = (a + b + c      // Compilation error: missing closing parenthesis
+```
+
+**Benefits**:
+- **Clarity**: Explicit parentheses make multi-line expressions unambiguous
+- **Consistency**: Clear rules for when parentheses are required vs. optional
+- **Readability**: Developers can format complex expressions across multiple lines
+- **Error Prevention**: Prevents accidental statement termination in multi-line expressions
 
 ### Arithmetic Operators
 
@@ -366,12 +442,45 @@ obj.property = val  // Property assignment
 
 ### Print Statements
 
+Clean Language supports two print syntaxes: simple inline syntax and block syntax with colon.
+
+#### Simple Syntax
+The print statement does not require parentheses. Write `print value` for simple cases. Parentheses are optional for grouping expressions.
+
 ```clean
-print("Hello")      // Print without newline
-println("Hello")    // Print with newline
-print(variable)     // Print variable
-println(expression) // Print expression result
+print "Hello"           // Print without newline (preferred syntax)
+println "Hello"         // Print with newline (preferred syntax)
+print variable          // Print variable
+println expression      // Print expression result
+
+// Parentheses optional for expression grouping
+print (a + b * c)
+println (complex_expression)
+
+// Function call syntax also supported (backwards compatibility)
+print("Hello")          // Also valid
+println("Hello")        // Also valid
+print(variable)         // Also valid
 ```
+
+#### Block Syntax
+For multiple values or complex formatting, use the block syntax with colon (consistent with Clean Language's block patterns):
+
+```clean
+print:
+    "First line"
+    variable_name
+    (complex + expression)
+    result.toString()
+
+println:
+    "Header:"
+    value1
+    value2
+    "Footer"
+```
+
+The block syntax allows for cleaner formatting when printing multiple values sequentially, maintaining consistency with other Clean Language block constructs like `functions:`, `string:`, etc.
 
 ### Return Statement
 
@@ -383,47 +492,38 @@ return expression   // Return expression result
 
 ## Functions
 
-Clean Language supports **three function declaration syntaxes**:
+Clean Language uses a **functions block syntax** for all function declarations. Functions must be declared within a `functions:` block and cannot be declared as standalone statements.
 
-### Syntax A: Simple Function
-
-```clean
-function integer add()
-    input
-        integer a
-        integer b
-    return a + b
-
-function printMessage()
-    println("Hello World")
-```
-
-### Syntax B: Detailed Function with Description
-
-```clean
-function integer multiply()
-    description "Multiplies two integers"
-    input
-        integer a
-        integer b
-    return a * b
-```
-
-### Syntax C: Functions Block
+### Function Declaration Syntax
 
 ```clean
 functions:
+    integer add()
+        input
+            integer a
+            integer b
+        return a + b
+
+    integer multiply()
+        description "Multiplies two integers"
+        input
+            integer a
+            integer b
+        return a * b
+    
     integer square()
         input integer x
         return x * x
     
-    integer cube()
-        input integer x
-        return x * x * x
-    
-    printGreeting()
-        println("Hello!")
+    printMessage()
+        println("Hello World")
 ```
+
+**Key Rules:**
+- All functions (except `start()`) must be declared within a `functions:` block
+- Each function follows standard signature and body format within the block
+- Functions can have optional `description` and `input` blocks
+- Clean does not support standalone function declarations outside the `functions:` block
 
 ### Function Calls
 
@@ -440,9 +540,10 @@ Implicit return is best for short, single-expression functions.
 ### Generic Functions
 
 ```clean
-function T identity()
-    input T value
-    return value
+functions:
+    T identity()
+        input T value
+        return value
 
 // Usage
 string result = identity("hello")
@@ -525,24 +626,27 @@ iterate idx in 0 to 100 step 5
 ### Raising Errors
 
 ```clean
-function integer divide()
-    input
-        integer a
-        integer b
-    if b == 0
-        error("Cannot divide by zero")
-    return a / b
+functions:
+    integer divide()
+        input
+            integer a
+            integer b
+        if b == 0
+            error("Cannot divide by zero")
+        return a / b
 ```
 
 ### Error Handling with onError
 
 ```clean
-result = divide(10, 0) onError 0
-data = loadFile("config.txt") onError defaultConfig
-user = findUser(id) onError guestUser
+value = riskyCall() onError 0
+data = readFile("file") onError print(error)
+
 ```
 
-The `onError` operator evaluates the first expression, and if it fails, returns the value after `onError`.
+If an expression fails, onError runs the next line or block.
+The error is available as error.
+
 
 ## Classes and Objects
 

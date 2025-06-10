@@ -13,10 +13,10 @@ pub fn parse_program_ast(pair: Pair<Rule>) -> Result<Program, CompilerError> {
             // Extract all functions
             for inner_pair in pair.into_inner() {
                 match inner_pair.as_rule() {
-                    Rule::function_decl => {
-                        // Parse function using the existing parser_impl
-                        let function = parser_impl::parse_function(inner_pair)?;
-                        functions.push(function);
+                    Rule::functions_block => {
+                        // Parse functions block using the existing parser_impl
+                        let block_functions = parser_impl::parse_functions_block(inner_pair)?;
+                        functions.extend(block_functions);
                     },
                     Rule::start_function => {
                         // Parse start function using the existing parser_impl

@@ -19,8 +19,7 @@ fn test_arithmetic_program() {
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = codegen.finish();
-    let validator = Validator::new();
-    assert!(validator.validate(&wasm_binary).is_ok());
+    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();
@@ -47,8 +46,7 @@ fn test_matrix_program() {
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = codegen.finish();
-    let validator = Validator::new();
-    assert!(validator.validate(&wasm_binary).is_ok());
+    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();
@@ -91,8 +89,7 @@ fn test_function_program() {
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = codegen.finish();
-    let validator = Validator::new();
-    assert!(validator.validate(&wasm_binary).is_ok());
+    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();

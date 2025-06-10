@@ -47,7 +47,7 @@ pub enum Type {
     // Composite types
     Array(Box<Type>),
     Matrix(Box<Type>),
-    Map(Box<Type>, Box<Type>),
+    Pairs(Box<Type>, Box<Type>),
     
     // Generic types
     Generic(Box<Type>, Vec<Type>),
@@ -177,6 +177,13 @@ pub enum Statement {
     // Print statements
     Print {
         expression: Expression,
+        newline: bool,
+        location: Option<SourceLocation>,
+    },
+    
+    // Print block (multiple expressions)
+    PrintBlock {
+        expressions: Vec<Expression>,
         newline: bool,
         location: Option<SourceLocation>,
     },
@@ -362,7 +369,7 @@ impl fmt::Display for Type {
             Type::FloatSized { bits } => write!(f, "float:{}", bits),
             Type::Array(inner) => write!(f, "Array<{}>", inner),
             Type::Matrix(inner) => write!(f, "Matrix<{}>", inner),
-            Type::Map(key, value) => write!(f, "Map<{}, {}>", key, value),
+            Type::Pairs(key, value) => write!(f, "pairs<{}, {}>", key, value),
             Type::Function(params, ret) => {
                 write!(f, "function(")?;
                 for (i, param) in params.iter().enumerate() {

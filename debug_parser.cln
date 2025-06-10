@@ -1,0 +1,9 @@
+functions:
+	float add()
+		input
+			float x
+			float y
+		return x + y
+
+function start()
+	println(42) 

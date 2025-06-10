@@ -1,0 +1,9 @@
+function integer add()
+	input
+		integer a
+		integer b
+	return a + b
+
+function start()
+	integer result = add()
+	print(result) 

@@ -211,11 +211,11 @@ fn test_parser_complex_types() -> Result<(), CompilerError> {
         let optional_int: integer? = 5
         let null_value: string? = null
         
-        // Map types
-        let string_map: map<string, integer> = {"a": 1, "b": 2}
+        // Pairs types
+        let string_pairs: pairs<string, integer> = {"a": 1, "b": 2}
         
         // Nested complex types
-        let complex: map<string, integer[]>[] = [{"a": [1, 2]}, {"b": [3, 4]}]
+        let complex: pairs<string, integer[]>[] = [{"a": [1, 2]}, {"b": [3, 4]}]
         
         return complex
     }

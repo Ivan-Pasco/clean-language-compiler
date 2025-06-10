@@ -66,21 +66,83 @@ fn parse_assignment_statement(pair: Pair<Rule>, ast_location: crate::ast::Source
 }
 
 fn parse_print_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let expr = parse_expression(pair.into_inner().next().unwrap())?;
-    Ok(Statement::Print {
-        expression: expr,
-        newline: false,
-        location: Some(ast_location),
-    })
+    let inner = pair.into_inner().next().unwrap();
+    
+    match inner.as_rule() {
+        Rule::indented_print_block => {
+            // Block syntax: print: followed by indented expressions
+            let mut expressions = Vec::new();
+            for item_pair in inner.into_inner() {
+                if item_pair.as_rule() == Rule::print_item {
+                    let expr_pair = item_pair.into_inner().next().unwrap();
+                    expressions.push(parse_expression(expr_pair)?);
+                }
+            }
+            Ok(Statement::PrintBlock {
+                expressions,
+                newline: false,
+                location: Some(ast_location),
+            })
+        },
+        Rule::expression => {
+            // Simple syntax: print expression
+            let expr = parse_expression(inner)?;
+            Ok(Statement::Print {
+                expression: expr,
+                newline: false,
+                location: Some(ast_location),
+            })
+        },
+        _ => {
+            // Handle parenthesized expressions or other cases
+            let expr = parse_expression(inner)?;
+            Ok(Statement::Print {
+                expression: expr,
+                newline: false,
+                location: Some(ast_location),
+            })
+        }
+    }
 }
 
 fn parse_println_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let expr = parse_expression(pair.into_inner().next().unwrap())?;
-    Ok(Statement::Print {
-        expression: expr,
-        newline: true,
-        location: Some(ast_location),
-    })
+    let inner = pair.into_inner().next().unwrap();
+    
+    match inner.as_rule() {
+        Rule::indented_print_block => {
+            // Block syntax: println: followed by indented expressions
+            let mut expressions = Vec::new();
+            for item_pair in inner.into_inner() {
+                if item_pair.as_rule() == Rule::print_item {
+                    let expr_pair = item_pair.into_inner().next().unwrap();
+                    expressions.push(parse_expression(expr_pair)?);
+                }
+            }
+            Ok(Statement::PrintBlock {
+                expressions,
+                newline: true,
+                location: Some(ast_location),
+            })
+        },
+        Rule::expression => {
+            // Simple syntax: println expression
+            let expr = parse_expression(inner)?;
+            Ok(Statement::Print {
+                expression: expr,
+                newline: true,
+                location: Some(ast_location),
+            })
+        },
+        _ => {
+            // Handle parenthesized expressions or other cases
+            let expr = parse_expression(inner)?;
+            Ok(Statement::Print {
+                expression: expr,
+                newline: true,
+                location: Some(ast_location),
+            })
+        }
+    }
 }
 
 fn parse_if_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {

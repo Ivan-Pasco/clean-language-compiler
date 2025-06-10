@@ -1,0 +1,6 @@
+functions:
+	integer add()
+		return 42
+
+function start()
+	println(42) 

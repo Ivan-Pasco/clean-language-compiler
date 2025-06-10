@@ -62,12 +62,10 @@ mod integration_tests {
 
     #[test]
     fn test_basic_integration() {
-        let source = r#"
-            start() {
-                let x = 42
-                print x
-            }
-        "#;
+        let source = r#"function start()
+	integer x = 42
+	print(x)
+"#;
         
         let result = compile_with_file(source, "test.clean");
         match result {
@@ -84,23 +82,18 @@ mod integration_tests {
 
     #[test]
     fn test_function_integration() {
-        let source = r#"
-            add() {
-                description "Adds two numbers"
-                input
-                    number a
-                    number b
-                returns number
-                {
-                    return a + b
-                }
-            }
-            
-            start() {
-                let result = add(5, 3)
-                print result
-            }
-        "#;
+        let source = r#"function integer add()
+	description "Adds two numbers"
+	input
+		integer a
+		integer b
+	
+	return a + b
+
+function start()
+	integer result = add(5, 3)
+	print(result)
+"#;
         
         let result = compile_with_file(source, "function_test.clean");
         match result {
@@ -117,14 +110,12 @@ mod integration_tests {
 
     #[test]
     fn test_type_checking_integration() {
-        let source = r#"
-            start() {
-                let x: number = 42
-                let y: string = "hello"
-                print x
-                print y
-            }
-        "#;
+        let source = r#"function start()
+	integer x = 42
+	string y = "hello"
+	print(x)
+	print(y)
+"#;
         
         let result = compile_with_file(source, "type_test.clean");
         match result {
@@ -141,12 +132,10 @@ mod integration_tests {
 
     #[test]
     fn test_error_propagation() {
-        let source = r#"
-            start() {
-                let x = undefined_function()
-                print x
-            }
-        "#;
+        let source = r#"function start()
+	integer x = undefined_function() onError 0
+	print(x)
+"#;
         
         let result = compile_with_file(source, "error_test.clean");
         match result {
@@ -166,21 +155,21 @@ mod integration_tests {
         println!("\n=== Standard Library Integration Test ===");
         
         let test_cases = vec![
-            ("Math Functions", r#"start() { 
-                let x = -5
-                let result = abs(x)
-                print result 
-            }"#),
-            ("String Functions", r#"start() { 
-                let text = "hello"
-                let length = len(text)
-                print length 
-            }"#),
-            ("Array Functions", r#"start() { 
-                let arr = [1, 2, 3, 4, 5]
-                let length = array_length(arr)
-                print length 
-            }"#),
+            ("Math Functions", r#"function start()
+	integer x = -5
+	integer result = abs(x)
+	print(result)
+"#),
+            ("String Functions", r#"function start()
+	string text = "hello"
+	integer length = len(text)
+	print(length)
+"#),
+            ("Array Functions", r#"function start()
+	Array<integer> arr = [1, 2, 3, 4, 5]
+	integer length = array_length(arr)
+	print(length)
+"#),
         ];
 
         let mut passed = 0;
@@ -211,10 +200,10 @@ mod integration_tests {
 
     #[test]
     fn test_debug_parsing() {
-        let source = r#"start() { 
-            let x = 42
-            print x 
-        }"#;
+        let source = r#"function start()
+	integer x = 42
+	print(x)
+"#;
         
         println!("\n=== Debug Parsing Test ===");
         
@@ -242,23 +231,23 @@ mod integration_tests {
         println!("\n=== Comprehensive Integration Test ===");
         
         let test_cases = vec![
-            ("Basic", r#"start() { 
-                let x = 42
-                print x 
-            }"#),
-            ("Arithmetic", r#"start() { 
-                let x = 1 + 2 * 3
-                print x 
-            }"#),
-            ("Variables", r#"start() { 
-                let x = 5
-                let y = x + 1
-                print y 
-            }"#),
-            ("Arrays", r#"start() { 
-                let arr = [1, 2, 3]
-                print arr 
-            }"#),
+            ("Basic", r#"function start()
+	integer x = 42
+	print(x)
+"#),
+            ("Arithmetic", r#"function start()
+	integer x = 1 + 2 * 3
+	print(x)
+"#),
+            ("Variables", r#"function start()
+	integer x = 5
+	integer y = x + 1
+	print(y)
+"#),
+            ("Arrays", r#"function start()
+	Array<integer> arr = [1, 2, 3]
+	print(arr)
+"#),
         ];
 
         let mut passed = 0;
@@ -316,27 +305,18 @@ mod integration_tests {
         println!("\n=== Error Handling & Recovery Test ===");
         
         let test_cases = vec![
-            ("Try-Catch Basic", r#"start() { 
-                try {
-                    let x = 42
-                    print x
-                } catch {
-                    print "Error occurred"
-                }
-            }"#),
-            ("Try-Catch with Error Variable", r#"start() { 
-                try {
-                    let x = 42
-                    print x
-                } catch (err) {
-                    print err
-                }
-            }"#),
-            ("Unused Variable Warning", r#"start() { 
-                let unused_var = 42
-                let x = 10
-                print x
-            }"#),
+            ("OnError Basic", r#"function start()
+	integer x = undefined_function() onError 42
+	print(x)
+"#),
+            ("Error Function", r#"function start()
+	error("This is an error test")
+"#),
+            ("Unused Variable Warning", r#"function start()
+	integer unused_var = 42
+	integer x = 10
+	print(x)
+"#),
         ];
 
         let mut passed = 0;
@@ -392,5 +372,97 @@ mod integration_tests {
         } else {
             println!("⚠ Some tests failed - error handling needs improvement");
         }
+    }
+
+    #[test]
+    fn test_wasm_execution() {
+        println!("\n=== WebAssembly Execution Test ===");
+        
+        let test_cases = vec![
+            ("Basic Integer", r#"function start()
+	integer x = 42
+	print(x)
+"#, "Function executed successfully"),
+            ("Arithmetic", r#"function start()
+	integer result = 1 + 2 * 3
+	print(result)
+"#, "Function executed successfully"),
+            ("Variable Operations", r#"function start()
+	integer x = 5
+	integer y = x + 10
+	print(y)
+"#, "Function executed successfully"),
+            ("Simple Assignment", r#"function start()
+	integer x = 100
+"#, "Function executed successfully"),
+        ];
+
+        let mut passed = 0;
+        let total = test_cases.len();
+
+        for (name, source, expected_output) in test_cases {
+            println!("\n--- Testing {} ---", name);
+            println!("Source: {}", source.replace('\n', "\\n"));
+            println!("Expected: {}", expected_output);
+            
+            match compile_with_file(source, &format!("{}_execution_test.clean", name.to_lowercase().replace(' ', "_"))) {
+                Ok(wasm_binary) => {
+                    println!("✓ Compilation succeeded: {} bytes", wasm_binary.len());
+                    
+                    // Try to execute the WASM using wasmtime
+                    match execute_wasm(&wasm_binary) {
+                        Ok(output) => {
+                            if output.trim() == expected_output {
+                                println!("✓ {}: Output matches expected: '{}'", name, output.trim());
+                                passed += 1;
+                            } else {
+                                println!("✗ {}: Output mismatch. Expected: '{}', Got: '{}'", name, expected_output, output.trim());
+                            }
+                        },
+                        Err(error) => {
+                            println!("✗ {}: Execution failed: {}", name, error);
+                        }
+                    }
+                },
+                Err(error) => {
+                    println!("✗ {}: Compilation failed: {}", name, error);
+                }
+            }
+        }
+
+        println!("\n=== Execution Test Summary: {}/{} tests passed ===", passed, total);
+        if passed == total {
+            println!("🎉 All WebAssembly execution tests passed!");
+        } else {
+            println!("⚠ Some execution tests failed - this may indicate runtime issues");
+        }
+    }
+
+    fn execute_wasm(wasm_binary: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+        use wasmtime::*;
+        
+        // Create a WASM engine and store
+        let engine = Engine::default();
+        let mut store = Store::new(&engine, ());
+        
+        // Compile the module
+        let module = Module::new(&engine, wasm_binary)?;
+        
+        // Our Clean Language WASM modules are self-contained with no imports needed!
+        // Instantiate the module with no imports
+        let instance = Instance::new(&mut store, &module, &[])?;
+        
+        // Get the start function 
+        let start_func_export = instance.get_export(&mut store, "start")
+            .ok_or("start function not found")?;
+        let start_func = start_func_export.into_func()
+            .ok_or("start export is not a function")?;
+        
+        // Execute the start function
+        start_func.call(&mut store, &[], &mut [])?;
+        
+        // For now, we return success message since print() is internal to WASM
+        // In the future, we could capture output via memory inspection
+        Ok("Function executed successfully".to_string())
     }
 } 

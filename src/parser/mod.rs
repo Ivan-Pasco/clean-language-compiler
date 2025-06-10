@@ -36,7 +36,7 @@ mod program_parser;
 mod grammar;
 
 // Re-export just what's needed
-pub use parser_impl::{parse, parse_start_function, get_location, parse_function, parse_with_file, ParseContext, ErrorRecoveringParser};
+pub use parser_impl::{parse, parse_start_function, get_location, parse_with_file, ParseContext, ErrorRecoveringParser, parse_functions_block, parse_function_in_block};
 pub use expression_parser::{parse_expression, parse_primary, parse_string, parse_array_literal, parse_matrix_literal, parse_function_call};
 pub use statement_parser::parse_statement;
 pub use type_parser::parse_type;
@@ -292,69 +292,6 @@ function start()
     }
 
     #[test]
-    fn test_debug_sized_in_function() {
-        // Test regular integer in function (should work)
-        let source1 = r#"
-function start()
-	integer x = 5
-        "#;
-        let result1 = CleanParser::parse_program(source1);
-        println!("Regular integer in function: {:?}", result1);
-        
-        // Test sized integer in function (currently failing)
-        let source2 = r#"
-function start()
-	integer:8 smallNum = 100
-        "#;
-        let result2 = CleanParser::parse_program(source2);
-        println!("Sized integer in function: {:?}", result2);
-        
-        // Let's also test if the issue is with the variable name or assignment
-        let source3 = r#"
-function start()
-	integer:8 x
-        "#;
-        let result3 = CleanParser::parse_program(source3);
-        println!("Sized integer without assignment: {:?}", result3);
-    }
-
-    #[test]
-    fn test_direct_grammar_parsing() {
-        use pest::Parser;
-        
-        // Test if the grammar can parse sized_type directly
-        let result1 = CleanParser::parse(Rule::sized_type, "integer:8");
-        println!("Direct sized_type parsing: {:?}", result1);
-        
-        // Test if the grammar can parse type_ with sized_type
-        let result2 = CleanParser::parse(Rule::type_, "integer:8");
-        println!("Direct type_ parsing: {:?}", result2);
-        
-        // Test if the grammar can parse variable_decl
-        let result3 = CleanParser::parse(Rule::variable_decl, "integer:8 x");
-        println!("Direct variable_decl parsing: {:?}", result3);
-    }
-
-    #[test]
-    fn test_debug_sized_types() {
-        // Test just the type parsing
-        let source1 = r#"
-function start()
-	integer x = 5
-        "#;
-        let result1 = CleanParser::parse_program(source1);
-        println!("Regular integer result: {:?}", result1);
-        
-        // Test sized type
-        let source2 = r#"
-function start()
-	integer:8 x = 5
-        "#;
-        let result2 = CleanParser::parse_program(source2);
-        println!("Sized integer result: {:?}", result2);
-    }
-
-    #[test]
     fn test_advanced_types() {
         let source = r#"
 function start()
@@ -408,34 +345,5 @@ function start()
         "#;
         let result3 = CleanParser::parse_program(source3);
         println!("Variable + print result: {:?}", result3);
-    }
-
-    #[test]
-    fn test_pest_tokens_debug() {
-        use pest::Parser;
-        
-        // Let's see what tokens PEST generates for the failing case
-        let source = r#"
-function start()
-	integer:8 smallNum = 100
-        "#;
-        
-        // Parse the full program and see what we get
-        let pairs = CleanParser::parse(Rule::program, source.trim()).unwrap();
-        
-        println!("=== PEST Token Analysis ===");
-        for pair in pairs {
-            print_pair(&pair, 0);
-        }
-    }
-    
-    // Helper function to recursively print PEST pairs with indentation
-    fn print_pair(pair: &pest::iterators::Pair<Rule>, depth: usize) {
-        let indent = "  ".repeat(depth);
-        println!("{}Rule::{:?} -> \"{}\"", indent, pair.as_rule(), pair.as_str());
-        
-        for inner_pair in pair.clone().into_inner() {
-            print_pair(&inner_pair, depth + 1);
-        }
     }
 }

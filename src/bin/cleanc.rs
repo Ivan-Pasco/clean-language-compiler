@@ -80,7 +80,16 @@ fn compile_file(input_file: &str, output_file: &str) -> Result<(), CompilerError
     println!("Source code:\n{}", source);
     
     // Parse the program
-    let program = CleanParser::parse_program(&source)?;
+    let program = match CleanParser::parse_program(&source) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    };
+    
+    // Debug print the parsed AST
+    println!("Parsed AST: {:#?}", program);
     
     // Semantic analysis
     let mut semantic_analyzer = SemanticAnalyzer::new();

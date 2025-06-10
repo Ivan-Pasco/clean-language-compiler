@@ -82,6 +82,10 @@ path = "src/bin/debug_parser.rs"
 name = "debug_wasm"
 path = "src/bin/debug_wasm.rs"
 
+[[bin]]
+name = "debug_parse_tree"
+path = "debug_parse_tree.rs"
+
 [lib]
 name = "clean_language_compiler"
 path = "src/lib.rs"

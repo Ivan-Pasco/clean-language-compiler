@@ -5,7 +5,7 @@ use super::{get_location, convert_to_ast_location};
 use super::Rule;
 use super::statement_parser::parse_statement;
 use super::type_parser::parse_type;
-use super::parser_impl::parse_function;
+use super::parser_impl::parse_functions_block;
 
 pub fn parse_class(pair: Pair<Rule>) -> Result<Class, CompilerError> {
     let mut name = String::new();
@@ -70,8 +70,9 @@ pub fn parse_class(pair: Pair<Rule>) -> Result<Class, CompilerError> {
             Rule::constructor => {
                 constructor = Some(parse_constructor(item, ast_location.clone())?);
             },
-            Rule::function_decl => {
-                methods.push(parse_function(item)?);
+            Rule::functions_block => {
+                let class_methods = parse_functions_block(item)?;
+                methods.extend(class_methods);
             },
             _ => {}
         }
@@ -130,6 +131,13 @@ fn parse_constructor(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> 
 
     for item in pair.into_inner() {
         match item.as_rule() {
+            Rule::constructor_parameter_list => {
+                for param in item.into_inner() {
+                    if param.as_rule() == Rule::constructor_parameter {
+                        parameters.push(parse_constructor_parameter(param)?);
+                    }
+                }
+            },
             Rule::setup_block => {
                 for setup_item in item.into_inner() {
                     if setup_item.as_rule() == Rule::input_block {
@@ -157,6 +165,43 @@ fn parse_constructor(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> 
         body,
         location: Some(location),
     })
+}
+
+fn parse_constructor_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
+    let mut parts = pair.into_inner();
+    
+    // Check if we have a type or just an identifier
+    let first_part = parts.next().ok_or_else(|| CompilerError::parse_error(
+        "Constructor parameter missing identifier".to_string(),
+        None,
+        Some("Constructor parameters must have an identifier".to_string())
+    ))?;
+    
+    if let Some(second_part) = parts.next() {
+        // We have both type and identifier
+        let type_ = parse_type(first_part)?;
+        if second_part.as_rule() != Rule::identifier {
+            return Err(CompilerError::parse_error(
+                "Expected identifier for parameter name".to_string(),
+                None,
+                Some("Parameters must have valid identifiers".to_string())
+            ));
+        }
+        let name = second_part.as_str().to_string();
+        Ok(Parameter::new(name, type_))
+    } else {
+        // We have just an identifier, infer type as string for now
+        if first_part.as_rule() != Rule::identifier {
+            return Err(CompilerError::parse_error(
+                "Expected identifier for parameter name".to_string(),
+                None,
+                Some("Parameters must have valid identifiers".to_string())
+            ));
+        }
+        let name = first_part.as_str().to_string();
+        let type_ = crate::ast::Type::String; // Default type for untyped constructor parameters
+        Ok(Parameter::new(name, type_))
+    }
 }
 
 fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
