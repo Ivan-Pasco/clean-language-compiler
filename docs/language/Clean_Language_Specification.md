@@ -492,6 +492,8 @@ return expression   // Return expression result
 
 ## Functions
 
+> **Note:** Clean Language encourages organizing functionality into classes with static methods rather than standalone functions. See [Class-Based Organization](#design-philosophy-class-based-organization) for the recommended approach.
+
 Clean Language uses a **functions block syntax** for all function declarations. Functions must be declared within a `functions:` block and cannot be declared as standalone statements.
 
 ### Function Declaration Syntax
@@ -524,6 +526,25 @@ functions:
 - Each function follows standard signature and body format within the block
 - Functions can have optional `description` and `input` blocks
 - Clean does not support standalone function declarations outside the `functions:` block
+
+**Standalone functions are deprecated:**
+- Use built-in system classes (MathUtils, StringUtils, etc.) for utilities
+- Organize your application logic in classes with static/instance methods
+- Standalone functions are only for internal compiler use
+
+**System provides built-in utility classes:**
+```clean
+// Built-in classes - available automatically:
+result = MathUtils.add(5, 3)
+text = StringUtils.toUpper("hello")
+count = ArrayUtils.length([1, 2, 3])
+
+// Your application code - must use classes:
+class BusinessLogic
+    functions:
+        integer calculateTotal(integer items)
+            return MathUtils.multiply(items, 10)
+```
 
 ### Function Calls
 
@@ -723,6 +744,92 @@ xCoord = point.x
 color = circle.color
 ```
 
+### Static Methods
+
+You can call class methods directly on the class name if they don't use instance fields:
+
+```clean
+class MathUtils
+    float add(float a, float b)
+        return a + b
+    
+    float max(float a, float b)
+        return if a > b then a else b
+
+class DatabaseService
+    boolean connect(string url)
+        // implementation that doesn't use instance fields
+        return true
+    
+    User findUser(integer id)
+        // implementation that doesn't use instance fields
+        return User.loadFromDatabase(id)
+
+// Static method calls - ClassName.method()
+result = MathUtils.add(5.0, 3.0)
+maximum = MathUtils.max(10.0, 7.5)
+connected = DatabaseService.connect("mysql://localhost")
+user = DatabaseService.findUser(42)
+```
+
+**Rules for Static Methods:**
+- Use `ClassName.method()` syntax for static calls
+- Only allowed if the method doesn't access instance fields (`this.field`)
+- Ideal for helpers, services, utilities, and database access functions
+- To access instance fields, call methods on object instances instead
+
+**Example - Mixed Static and Instance Methods:**
+```clean
+class User
+    string name
+    integer age
+    
+    constructor(name, age)
+    
+    // Instance method - accesses fields
+    string getInfo()
+        return "User: {name}, Age: {age}"
+    
+    // Static method - no field access
+    boolean isValidAge(integer age)
+        return age >= 0 and age <= 150
+
+// Usage
+user = User("Alice", 25)
+info = user.getInfo()                    // Instance method call
+valid = User.isValidAge(30)              // Static method call
+```
+
+### Design Philosophy: Class-Based Organization
+
+Clean Language encourages organizing all functionality into classes rather than standalone functions. This promotes:
+
+- **Better code organization**: Related functionality is grouped together
+- **Namespace management**: No global function name conflicts  
+- **Consistent syntax**: All method calls use the same `Class.method()` or `object.method()` pattern
+- **Extensibility**: Easy to add related methods to existing classes
+
+**System provides built-in utility classes:**
+```clean
+// Built-in classes available automatically:
+result = MathUtils.add(5.0, 3.0)           // Math operations
+length = StringUtils.length("hello")        // String operations  
+size = ArrayUtils.length([1, 2, 3])        // Array operations
+data = FileUtils.readText("file.txt")      // File operations
+response = HttpUtils.get("api/users")      // HTTP requests
+
+// User code must use classes:
+class Calculator
+    functions:
+        float calculateTax(float amount)
+            return MathUtils.multiply(amount, 0.15)
+        
+        string formatResult(float value)
+            return StringUtils.concat("Result: ", value)
+```
+
+**Exception:** The `start()` function remains as the program entry point.
+
 ## Modules and Imports
 
 ### Visibility Model
@@ -756,55 +863,74 @@ import:
 
 ## Standard Library
 
-### String Module
+### StringUtils Class
 
 ```clean
-string.length                     // Get string length
-string.compare(s1, s2)            // Compare strings (-1, 0, 1)
-string.substring(s, start, len)   // Extract substring
-string.toUpper(s)                 // Convert to uppercase
-string.toLower(s)                 // Convert to lowercase
-string.trim(s)                    // Remove whitespace
-string.split(s, delimiter)        // Split into array
+StringUtils.length(str)                        // Get string length
+StringUtils.compare(s1, s2)                    // Compare strings (-1, 0, 1)
+StringUtils.substring(str, start, len)         // Extract substring
+StringUtils.toUpper(str)                       // Convert to uppercase
+StringUtils.toLower(str)                       // Convert to lowercase
+StringUtils.trim(str)                          // Remove whitespace
+StringUtils.split(str, delimiter)              // Split into array
+StringUtils.concat(s1, s2)                     // Concatenate strings
+StringUtils.contains(str, substring)           // Check if contains substring
+StringUtils.startsWith(str, prefix)            // Check if starts with prefix
+StringUtils.endsWith(str, suffix)              // Check if ends with suffix
 ```
 
 **Note:** String concatenation uses `+` only when both operands are strings.
 
-### Array Module
+### ArrayUtils Class
 
 ```clean
-array.length                      // Get array length
-item = array.get(index)           // Get element at index
-array.set(index, value)           // Set element at index
+ArrayUtils.length(arr)                       // Get array length
+ArrayUtils.get(arr, index)                   // Get element at index
+ArrayUtils.set(arr, index, value)            // Set element at index
 
-array.push(value)                 // Add element to end
-last = array.pop()                // Remove and return last element
+ArrayUtils.push(arr, value)                  // Add element to end
+ArrayUtils.pop(arr)                          // Remove and return last element
+ArrayUtils.insert(arr, index, value)         // Insert element at index
+ArrayUtils.remove(arr, index)                // Remove element at index
 
-array.iterate(callback)           // Apply function to each element
-mapped = array.map(callback)      // Transform each element
-filtered = array.filter(predicate) // Keep elements that pass predicate
-result = array.reduce(callback, initial) // Reduce to single value
+ArrayUtils.contains(arr, value)              // Check if array contains value
+ArrayUtils.indexOf(arr, value)               // Get index of first occurrence
+ArrayUtils.lastIndexOf(arr, value)           // Get index of last occurrence
 
-array.sort()                      // Sort array in place
-array.reverse()                   // Reverse array in place
+ArrayUtils.sort(arr)                         // Sort array in place
+ArrayUtils.reverse(arr)                      // Reverse array in place
+ArrayUtils.slice(arr, start, end)            // Get subarray
+ArrayUtils.join(arr, separator)              // Join elements into string
 ```
 
-### Math Module
+### MathUtils Class
 
 ```clean
-sqrt(x)        // Square root
-pow(x, y)      // Power
-abs(x)         // Absolute value
-floor(x)       // Floor
-ceil(x)        // Ceiling
-round(x)       // Round to nearest integer
-sin(x)         // Sine
-cos(x)         // Cosine
-tan(x)         // Tangent
-log(x)         // Natural logarithm
-exp(x)         // e^x
-pi             // Pi constant
-e              // Euler's number
+MathUtils.add(a, b)                // Addition
+MathUtils.subtract(a, b)           // Subtraction  
+MathUtils.multiply(a, b)           // Multiplication
+MathUtils.divide(a, b)             // Division
+MathUtils.modulo(a, b)             // Modulo
+
+MathUtils.sqrt(x)                  // Square root
+MathUtils.pow(x, y)                // Power
+MathUtils.abs(x)                   // Absolute value
+MathUtils.floor(x)                 // Floor
+MathUtils.ceil(x)                  // Ceiling
+MathUtils.round(x)                 // Round to nearest integer
+
+MathUtils.sin(x)                   // Sine
+MathUtils.cos(x)                   // Cosine
+MathUtils.tan(x)                   // Tangent
+MathUtils.log(x)                   // Natural logarithm
+MathUtils.exp(x)                   // e^x
+
+MathUtils.min(a, b)                // Minimum of two numbers
+MathUtils.max(a, b)                // Maximum of two numbers
+MathUtils.clamp(value, min, max)   // Clamp value between min and max
+
+MathUtils.PI                       // Pi constant
+MathUtils.E                        // Euler's number
 ```
 
 ### Matrix Module

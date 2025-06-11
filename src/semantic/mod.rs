@@ -294,20 +294,22 @@ impl SemanticAnalyzer {
     fn check_statement(&mut self, stmt: &Statement) -> Result<(), CompilerError> {
         match stmt {
             Statement::VariableDecl { name, type_, initializer, location } => {
-                self.check_type(type_)?;
+                // Resolve type parameters that might be class names
+                let resolved_type = self.resolve_type(type_);
+                self.check_type(&resolved_type)?;
                 
                 if let Some(init_expr) = initializer {
                     let init_type = self.check_expression(init_expr)?;
-                    if !self.types_compatible(type_, &init_type) {
+                    if !self.types_compatible(&resolved_type, &init_type) {
                         return Err(CompilerError::type_error(
-                            &format!("Cannot assign {:?} to variable of type {:?}", init_type, type_),
+                            &format!("Cannot assign {:?} to variable of type {:?}", init_type, resolved_type),
                             Some("Change the initializer expression to match the variable type".to_string()),
                             location.clone()
                         ));
                     }
                 }
                 
-                self.current_scope.define_variable(name.clone(), type_.clone());
+                self.current_scope.define_variable(name.clone(), resolved_type);
                 Ok(())
             },
 
@@ -548,7 +550,14 @@ impl SemanticAnalyzer {
                 }
             },
 
-            Expression::Call(name, args) => {
+                        Expression::Call(name, args) => {
+                // Check if this is actually a constructor call (class name)
+                if self.class_table.contains_key(name) {
+                    // Convert function call to object creation
+                    let location = SourceLocation { line: 0, column: 0, file: "unknown".to_string() };
+                    return self.check_constructor_call(name, args, &location);
+                }
+
                 self.used_functions.insert(name.clone());
                 
                 if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
@@ -615,6 +624,14 @@ impl SemanticAnalyzer {
             },
 
             Expression::MethodCall { object, method, arguments, location } => {
+                // Check if this is a static method call (ClassName.method())
+                if let Expression::Variable(class_name) = object.as_ref() {
+                    if self.class_table.contains_key(class_name) {
+                        // This is a static method call
+                        return self.check_static_method_call(class_name, method, arguments, location);
+                    }
+                }
+                
                 let object_type = self.check_expression(object)?;
                 match object_type {
                     Type::Object(class_name) => {
@@ -747,6 +764,10 @@ impl SemanticAnalyzer {
 
             Expression::ObjectCreation { class_name, arguments, location } => {
                 self.check_constructor_call(class_name, arguments, location)
+            },
+
+            Expression::StaticMethodCall { class_name, method, arguments, location } => {
+                self.check_static_method_call(class_name, method, arguments, location)
             },
 
             Expression::OnError { expression, fallback, location: _ } => {
@@ -910,9 +931,19 @@ impl SemanticAnalyzer {
             ));
         }
 
-        // Clone parameter types to avoid borrow issues
+        // Infer parameter types from class fields and clone to avoid borrow issues
         let param_types: Vec<Type> = constructor.parameters.iter()
-            .map(|p| p.type_.clone())
+            .map(|param| {
+                if matches!(param.type_, Type::Any) {
+                    // Try to infer type from class field with matching name
+                    class.fields.iter()
+                        .find(|field| field.name == param.name)
+                        .map(|field| field.type_.clone())
+                        .unwrap_or(Type::Any)
+                } else {
+                    param.type_.clone()
+                }
+            })
             .collect();
             
         for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
@@ -953,6 +984,31 @@ impl SemanticAnalyzer {
                 Ok(())
             },
             _ => Ok(()) // Other primitives types are always valid
+        }
+    }
+
+    /// Resolve type parameters that might actually be class names
+    fn resolve_type(&self, type_: &Type) -> Type {
+        match type_ {
+            Type::TypeParameter(name) => {
+                if self.class_table.contains_key(name) {
+                    Type::Object(name.clone())
+                } else {
+                    type_.clone()
+                }
+            },
+            Type::Array(element_type) => {
+                Type::Array(Box::new(self.resolve_type(element_type)))
+            },
+            Type::Matrix(element_type) => {
+                Type::Matrix(Box::new(self.resolve_type(element_type)))
+            },
+            Type::Generic(base_type, type_args) => {
+                let resolved_base = Box::new(self.resolve_type(base_type));
+                let resolved_args = type_args.iter().map(|arg| self.resolve_type(arg)).collect();
+                Type::Generic(resolved_base, resolved_args)
+            },
+            _ => type_.clone()
         }
     }
 
@@ -1061,6 +1117,266 @@ impl SemanticAnalyzer {
                 Some("Methods can only be called on objects".to_string()),
                 Some(location.clone())
             ))
+        }
+    }
+
+    fn check_static_method_call(&mut self, class_name: &str, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
+        // Check if this is a built-in system class first
+        if let Some(return_type) = self.check_builtin_static_method(class_name, method, args, location)? {
+            return Ok(return_type);
+        }
+        
+        // Get the class from the user-defined class table
+        let class = self.class_table.get(class_name).cloned().ok_or_else(|| {
+            CompilerError::type_error(
+                &format!("Class '{}' not found", class_name),
+                Some("Check if the class name is correct and the class is defined".to_string()),
+                Some(location.clone())
+            )
+        })?;
+
+        // Find the method in the class
+        let class_method = class.methods.iter().find(|m| m.name == method).ok_or_else(|| {
+            CompilerError::type_error(
+                &format!("Static method '{}' not found in class '{}'", method, class_name),
+                Some("Check if the method name is correct and the method is defined in the class".to_string()),
+                Some(location.clone())
+            )
+        })?;
+
+        // Check that the method doesn't access instance fields (validation for static call)
+        // This would require analyzing the method body to ensure it doesn't use 'this' or instance fields
+        // For now, we'll allow all methods to be called statically and warn the user about the restriction
+
+        // Check argument count
+        if args.len() != class_method.parameters.len() {
+            return Err(CompilerError::type_error(
+                &format!("Static method '{}' expects {} arguments, but {} were provided", 
+                    method, class_method.parameters.len(), args.len()),
+                Some("Provide the correct number of arguments".to_string()),
+                Some(location.clone())
+            ));
+        }
+
+        // Check argument types
+        for (i, (arg, param)) in args.iter().zip(class_method.parameters.iter()).enumerate() {
+            let arg_type = self.check_expression(arg)?;
+            if !self.types_compatible(&arg_type, &param.type_) {
+                return Err(CompilerError::type_error(
+                    &format!("Argument {} has type {:?}, but parameter '{}' expects {:?}", 
+                        i + 1, arg_type, param.name, param.type_),
+                    Some("Provide arguments of the correct type".to_string()),
+                    Some(location.clone())
+                ));
+            }
+        }
+
+        Ok(class_method.return_type.clone())
+    }
+
+    fn check_builtin_static_method(&mut self, class_name: &str, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Option<Type>, CompilerError> {
+        match class_name {
+            "MathUtils" => {
+                match method {
+                    "add" | "subtract" | "multiply" | "divide" | "modulo" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.{} expects 2 arguments, but {} were provided", method, args.len()),
+                                Some("Provide exactly 2 numeric arguments".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        
+                        // Both arguments should be numeric
+                        let numeric_types = [Type::Integer, Type::Float];
+                        if !numeric_types.contains(&arg1_type) || !numeric_types.contains(&arg2_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.{} requires numeric arguments", method),
+                                Some("Use integer or float values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        
+                        // Return float if any argument is float, otherwise integer
+                        if arg1_type == Type::Float || arg2_type == Type::Float {
+                            Ok(Some(Type::Float))
+                        } else {
+                            Ok(Some(Type::Integer))
+                        }
+                    },
+                    "abs" | "sqrt" | "floor" | "ceil" | "round" | "sin" | "cos" | "tan" | "log" | "exp" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.{} expects 1 argument, but {} were provided", method, args.len()),
+                                Some("Provide exactly 1 numeric argument".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        let numeric_types = [Type::Integer, Type::Float];
+                        if !numeric_types.contains(&arg_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.{} requires a numeric argument", method),
+                                Some("Use integer or float values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        
+                        // Most math functions return float
+                        if method == "abs" && arg_type == Type::Integer {
+                            Ok(Some(Type::Integer))
+                        } else {
+                            Ok(Some(Type::Float))
+                        }
+                    },
+                    "min" | "max" | "pow" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.{} expects 2 arguments, but {} were provided", method, args.len()),
+                                Some("Provide exactly 2 numeric arguments".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        
+                        let numeric_types = [Type::Integer, Type::Float];
+                        if !numeric_types.contains(&arg1_type) || !numeric_types.contains(&arg2_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.{} requires numeric arguments", method),
+                                Some("Use integer or float values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        
+                        // Return the more general type
+                        if arg1_type == Type::Float || arg2_type == Type::Float {
+                            Ok(Some(Type::Float))
+                        } else {
+                            Ok(Some(Type::Integer))
+                        }
+                    },
+                    "clamp" => {
+                        if args.len() != 3 {
+                            return Err(CompilerError::type_error(
+                                &format!("MathUtils.clamp expects 3 arguments, but {} were provided", args.len()),
+                                Some("Provide exactly 3 numeric arguments (value, min, max)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        // Check all arguments are numeric
+                        for (i, arg) in args.iter().enumerate() {
+                            let arg_type = self.check_expression(arg)?;
+                            let numeric_types = [Type::Integer, Type::Float];
+                            if !numeric_types.contains(&arg_type) {
+                                return Err(CompilerError::type_error(
+                                    &format!("MathUtils.clamp argument {} must be numeric", i + 1),
+                                    Some("Use integer or float values".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
+                        }
+                        // Return float if any argument is float
+                        let mut result_type = Type::Integer;
+                        for arg in args {
+                            let arg_type = self.check_expression(arg)?;
+                            if arg_type == Type::Float {
+                                result_type = Type::Float;
+                                break;
+                            }
+                        }
+                        Ok(Some(result_type))
+                    },
+                    _ => Ok(None), // Method not found in MathUtils
+                }
+            },
+            "StringUtils" => {
+                match method {
+                    "length" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.length expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.length requires a string argument".to_string(),
+                                Some("Use a string value".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Integer))
+                    },
+                    "concat" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.concat expects 2 arguments, but {} were provided", args.len()),
+                                Some("Provide exactly 2 string arguments".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        if arg1_type != Type::String || arg2_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.concat requires string arguments".to_string(),
+                                Some("Use string values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    "toUpper" | "toLower" | "trim" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.{} expects 1 argument, but {} were provided", method, args.len()),
+                                Some("Provide exactly 1 string argument".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.{} requires a string argument", method),
+                                Some("Use a string value".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    _ => Ok(None), // Method not found in StringUtils
+                }
+            },
+            "ArrayUtils" => {
+                match method {
+                    "length" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("ArrayUtils.length expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 array argument".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if let Type::Array(_) = arg_type {
+                            Ok(Some(Type::Integer))
+                        } else {
+                            Err(CompilerError::type_error(
+                                "ArrayUtils.length requires an array argument".to_string(),
+                                Some("Use an array value".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    _ => Ok(None), // Method not found in ArrayUtils
+                }
+            },
+            _ => Ok(None), // Class not found in built-ins
         }
     }
 

@@ -1,0 +1,3 @@
+start()
+	integer result = MathUtils.add(5, 3)
+	print result 

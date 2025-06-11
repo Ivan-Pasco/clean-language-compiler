@@ -140,10 +140,34 @@ impl CodeGenerator {
         self.register_stdlib_functions()?;
 
         // ------------------------------------------------------------------
-        // 2. Analyze and prepare all functions (including start function)
+        // 2. Analyze and prepare all functions (including start function and class methods)
         // ------------------------------------------------------------------
         for function in &program.functions {
             self.prepare_function_type(function)?;
+        }
+        
+        // Prepare class methods as static functions and constructors
+        for class in &program.classes {
+            // Prepare constructor if it exists
+            if let Some(constructor) = &class.constructor {
+                let constructor_function_name = format!("{}_constructor", class.name);
+                let constructor_function = ast::Function::new(
+                    constructor_function_name,
+                    constructor.parameters.clone(),
+                    Type::Object(class.name.clone()), // Constructor returns an object of this class
+                    constructor.body.clone(),
+                    constructor.location.clone(),
+                );
+                self.prepare_function_type(&constructor_function)?;
+            }
+            
+            // Prepare class methods as static functions
+            for method in &class.methods {
+                let static_function_name = format!("{}_{}", class.name, method.name);
+                let mut static_function = method.clone();
+                static_function.name = static_function_name;
+                self.prepare_function_type(&static_function)?;
+            }
         }
         
         // Also process the start function if it exists
@@ -152,10 +176,34 @@ impl CodeGenerator {
         }
 
         // ------------------------------------------------------------------
-        // 3. Generate function code (including start function)
+        // 3. Generate function code (including start function and class methods)
         // ------------------------------------------------------------------
         for function in &program.functions {
             self.generate_function(function)?;
+        }
+        
+        // Generate class methods as static functions and constructors
+        for class in &program.classes {
+            // Generate constructor if it exists
+            if let Some(constructor) = &class.constructor {
+                let constructor_function_name = format!("{}_constructor", class.name);
+                let constructor_function = ast::Function::new(
+                    constructor_function_name,
+                    constructor.parameters.clone(),
+                    Type::Object(class.name.clone()), // Constructor returns an object of this class
+                    constructor.body.clone(),
+                    constructor.location.clone(),
+                );
+                self.generate_function(&constructor_function)?;
+            }
+            
+            // Generate class methods as static functions
+            for method in &class.methods {
+                let static_function_name = format!("{}_{}", class.name, method.name);
+                let mut static_function = method.clone();
+                static_function.name = static_function_name;
+                self.generate_function(&static_function)?;
+            }
         }
         
         // Also generate the start function if it exists
@@ -440,6 +488,8 @@ impl CodeGenerator {
 
         Ok(())
     }
+
+
 
     pub fn generate_function(&mut self, function: &AstFunction) -> Result<(), CompilerError> {
         // Reset locals for this function
@@ -1015,6 +1065,59 @@ impl CodeGenerator {
                 }
                 
                 Ok(WasmType::I32) // String type is represented as I32 pointer
+            },
+            Expression::ObjectCreation { class_name, arguments, location: _ } => {
+                // Handle object creation (constructor calls)
+                
+                // Generate arguments
+                for arg in arguments {
+                    self.generate_expression(arg, instructions)?;
+                }
+                
+                // Create constructor function name
+                let constructor_name = format!("{}_constructor", class_name);
+                
+                // Find the constructor function index
+                if let Some(constructor_index) = self.get_function_index(&constructor_name) {
+                    instructions.push(Instruction::Call(constructor_index));
+                    // Constructor returns an object (represented as I32 pointer)
+                    Ok(WasmType::I32)
+                } else {
+                    Err(CompilerError::codegen_error(
+                        &format!("Constructor for class '{}' not found", class_name), 
+                        Some("Make sure the class has a constructor defined".to_string()), 
+                        None
+                    ))
+                }
+            },
+            Expression::StaticMethodCall { class_name, method, arguments, location: _ } => {
+                // Handle static method calls - ClassName.method()
+                
+                // Check if this is a built-in system class first
+                if let Some(return_type) = self.generate_builtin_static_method_call(class_name, method, arguments, instructions)? {
+                    return Ok(return_type);
+                }
+                
+                // Generate arguments for user-defined static methods
+                for arg in arguments {
+                    self.generate_expression(arg, instructions)?;
+                }
+                
+                // Create function name from class and method
+                let function_name = format!("{}_{}", class_name, method);
+                
+                // Find the function index
+                if let Some(method_index) = self.get_function_index(&function_name) {
+                    instructions.push(Instruction::Call(method_index));
+                    // Get the return type from the function
+                    self.get_function_return_type(method_index)
+                } else {
+                    Err(CompilerError::codegen_error(
+                        &format!("Static method '{}' in class '{}' not found", method, class_name), 
+                        Some("Make sure the method is defined in the class".to_string()), 
+                        None
+                    ))
+                }
             },
             // TODO: Add other expression variants based on ast::Expression definition
             // Expression::Unary(op, expr) => { ... }
@@ -1678,6 +1781,132 @@ impl CodeGenerator {
 
     pub fn release_memory(&mut self, ptr: u32) -> Result<(), CompilerError> {
         self.memory_utils.release(ptr as usize)
+    }
+
+    fn generate_builtin_static_method_call(
+        &mut self,
+        class_name: &str,
+        method: &str,
+        arguments: &[Expression],
+        instructions: &mut Vec<Instruction>
+    ) -> Result<Option<WasmType>, CompilerError> {
+        match class_name {
+            "MathUtils" => {
+                match method {
+                    "add" => {
+                        // Generate arguments
+                        let arg1_type = self.generate_expression(&arguments[0], instructions)?;
+                        let arg2_type = self.generate_expression(&arguments[1], instructions)?;
+                        
+                        // Add based on types
+                        match (arg1_type, arg2_type) {
+                            (WasmType::I32, WasmType::I32) => {
+                                instructions.push(Instruction::I32Add);
+                                Ok(Some(WasmType::I32))
+                            },
+                            (WasmType::F64, WasmType::F64) => {
+                                instructions.push(Instruction::F64Add);
+                                Ok(Some(WasmType::F64))
+                            },
+                            (WasmType::I32, WasmType::F64) => {
+                                // Convert first argument to float
+                                instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                                instructions.push(Instruction::F64Add);
+                                Ok(Some(WasmType::F64))
+                            },
+                            (WasmType::F64, WasmType::I32) => {
+                                // Convert second argument to float
+                                instructions.push(Instruction::F64ConvertI32S);
+                                instructions.push(Instruction::F64Add);
+                                Ok(Some(WasmType::F64))
+                            },
+                            _ => Err(CompilerError::codegen_error(
+                                "MathUtils.add requires numeric arguments".to_string(),
+                                None,
+                                None
+                            ))
+                        }
+                    },
+                    "subtract" => {
+                        let arg1_type = self.generate_expression(&arguments[0], instructions)?;
+                        let arg2_type = self.generate_expression(&arguments[1], instructions)?;
+                        
+                        match (arg1_type, arg2_type) {
+                            (WasmType::I32, WasmType::I32) => {
+                                instructions.push(Instruction::I32Sub);
+                                Ok(Some(WasmType::I32))
+                            },
+                            (WasmType::F64, WasmType::F64) => {
+                                instructions.push(Instruction::F64Sub);
+                                Ok(Some(WasmType::F64))
+                            },
+                            (WasmType::I32, WasmType::F64) => {
+                                instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                                instructions.push(Instruction::F64Sub);
+                                Ok(Some(WasmType::F64))
+                            },
+                            (WasmType::F64, WasmType::I32) => {
+                                instructions.push(Instruction::F64ConvertI32S);
+                                instructions.push(Instruction::F64Sub);
+                                Ok(Some(WasmType::F64))
+                            },
+                            _ => Err(CompilerError::codegen_error(
+                                "MathUtils.subtract requires numeric arguments".to_string(),
+                                None,
+                                None
+                            ))
+                        }
+                    },
+                    "multiply" => {
+                        let arg1_type = self.generate_expression(&arguments[0], instructions)?;
+                        let arg2_type = self.generate_expression(&arguments[1], instructions)?;
+                        
+                        match (arg1_type, arg2_type) {
+                            (WasmType::I32, WasmType::I32) => {
+                                instructions.push(Instruction::I32Mul);
+                                Ok(Some(WasmType::I32))
+                            },
+                            (WasmType::F64, WasmType::F64) => {
+                                instructions.push(Instruction::F64Mul);
+                                Ok(Some(WasmType::F64))
+                            },
+                            (WasmType::I32, WasmType::F64) => {
+                                instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                                instructions.push(Instruction::F64Mul);
+                                Ok(Some(WasmType::F64))
+                            },
+                            (WasmType::F64, WasmType::I32) => {
+                                instructions.push(Instruction::F64ConvertI32S);
+                                instructions.push(Instruction::F64Mul);
+                                Ok(Some(WasmType::F64))
+                            },
+                            _ => Err(CompilerError::codegen_error(
+                                "MathUtils.multiply requires numeric arguments".to_string(),
+                                None,
+                                None
+                            ))
+                        }
+                    },
+                    _ => Ok(None), // Method not found in MathUtils
+                }
+            },
+            "StringUtils" => {
+                match method {
+                    "concat" => {
+                        // Generate arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        
+                        // Call string concatenation function
+                        let string_concat_index = self.get_string_concat_index()?;
+                        instructions.push(Instruction::Call(string_concat_index));
+                        Ok(Some(WasmType::I32)) // String is represented as I32 pointer
+                    },
+                    _ => Ok(None), // Method not found in StringUtils
+                }
+            },
+            _ => Ok(None), // Class not found in built-ins
+        }
     }
 
     /// Finalize and return the WebAssembly binary

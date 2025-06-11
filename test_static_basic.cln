@@ -1,0 +1,15 @@
+class Person
+	string name
+	integer age
+	
+	constructor(name, age)
+	
+	functions:
+		getInfo()
+			return "Person: " + name
+
+start()
+	// Test static method call
+	person = Person("Alice", 25)
+	info = person.getInfo()  // Instance method call
+	print info 

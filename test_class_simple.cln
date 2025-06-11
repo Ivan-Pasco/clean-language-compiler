@@ -1,0 +1,6 @@
+class Person
+	string name
+	integer age
+
+start()
+	print "Testing class creation" 

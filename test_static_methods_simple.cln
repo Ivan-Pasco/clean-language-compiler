@@ -1,0 +1,47 @@
+class MathUtils
+	functions:
+		add()
+			input
+				float a
+				float b
+			return a + b
+			
+		multiply()
+			input
+				float a
+				float b
+			return a * b
+
+class Person
+	string name
+	integer age
+	
+	constructor(name, age)
+	
+	functions:
+		getInfo()
+			return "Person: " + name
+		
+		isValidAge()
+			input
+				integer age
+			return age >= 0
+
+start()
+	// Test static method calls
+	result1 = MathUtils.add(5.0, 3.0)
+	result2 = MathUtils.multiply(4.0, 2.0)
+	
+	// Test mixed static and instance calls
+	person = Person("Alice", 25)
+	info = person.getInfo()
+	valid = Person.isValidAge(30)
+	
+	print "Math result 1: "
+	print result1
+	print "Math result 2: "
+	print result2
+	print "Person info: "
+	print info
+	print "Valid age: "
+	print valid 

@@ -122,6 +122,14 @@ pub enum Expression {
         location: SourceLocation,
     },
     
+    // Static method call (ClassName.method())
+    StaticMethodCall {
+        class_name: String,
+        method: String,
+        arguments: Vec<Expression>,
+        location: SourceLocation,
+    },
+    
     // Array and Matrix access
     ArrayAccess(Box<Expression>, Box<Expression>),
     MatrixAccess(Box<Expression>, Box<Expression>, Box<Expression>),

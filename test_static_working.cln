@@ -1,0 +1,15 @@
+class Person
+	string name
+	integer age
+	
+	constructor(name, age)
+	
+	functions:
+		getInfo()
+			input
+			return "Person: " + name
+
+start()
+	person = Person("Alice", 25)
+	info = person.getInfo()
+	print info 

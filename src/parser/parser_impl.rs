@@ -1,5 +1,5 @@
 use pest::{Parser, iterators::Pair};
-use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value};
+use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value, Class, Field, Constructor};
 use crate::error::CompilerError;
 use super::{CleanParser, convert_to_ast_location};
 use super::statement_parser::parse_statement;
@@ -87,8 +87,13 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
                                         let func = parse_start_function(program_item_inner)?;
                                         start_function = Some(func);
                                     },
+                                    Rule::implicit_start_function => {
+                                        let func = parse_start_function(program_item_inner)?;
+                                        start_function = Some(func);
+                                    },
                                     Rule::class_decl => {
-                                        // Handle class declarations when implemented
+                                        let class = parse_class_decl(program_item_inner)?;
+                                        classes.push(class);
                                     },
                                     Rule::statement => {
                                         // Handle top-level statements - these should be added to the start function
@@ -205,6 +210,209 @@ pub fn parse_functions_block(functions_block: Pair<Rule>) -> Result<Vec<Function
     }
     
     Ok(functions)
+}
+
+/// Parse a class declaration
+pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> {
+    let mut class_name = String::new();
+    let mut type_parameters = Vec::new();
+    let mut base_class = None;
+    let mut base_class_type_args = Vec::new();
+    let mut fields = Vec::new();
+    let mut methods = Vec::new();
+    let mut constructor = None;
+    let location = Some(convert_to_ast_location(&get_location(&class_pair)));
+
+    for item in class_pair.into_inner() {
+        match item.as_rule() {
+            Rule::identifier => {
+                class_name = item.as_str().to_string();
+            },
+            Rule::type_parameters => {
+                // Parse type parameters like <T, U>
+                for type_param in item.into_inner() {
+                    if type_param.as_rule() == Rule::type_parameter {
+                        type_parameters.push(type_param.as_str().to_string());
+                    }
+                }
+            },
+            Rule::generic_type => {
+                // Parse "is BaseClass<Args>" inheritance
+                let mut base_name = String::new();
+                let mut args = Vec::new();
+                for generic_item in item.into_inner() {
+                    match generic_item.as_rule() {
+                        Rule::identifier => {
+                            base_name = generic_item.as_str().to_string();
+                        },
+                        Rule::type_arguments => {
+                            for type_arg in generic_item.into_inner() {
+                                if type_arg.as_rule() == Rule::type_ {
+                                    args.push(parse_type(type_arg)?);
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+                base_class = Some(base_name);
+                base_class_type_args = args;
+            },
+            Rule::indented_class_body => {
+                // Parse the class body containing field declarations, constructors, methods
+                for body_item in item.into_inner() {
+                    match body_item.as_rule() {
+                        Rule::class_body_item => {
+                            for class_item in body_item.into_inner() {
+                                match class_item.as_rule() {
+                                    Rule::class_field => {
+                                        let field = parse_class_field(class_item)?;
+                                        fields.push(field);
+                                    },
+                                    Rule::constructor => {
+                                        constructor = Some(parse_constructor(class_item)?);
+                                    },
+                                    Rule::functions_block => {
+                                        let block_methods = parse_functions_block(class_item)?;
+                                        methods.extend(block_methods);
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+
+    if class_name.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Class is missing a name".to_string(),
+            location.clone(),
+            None,
+        ));
+    }
+
+    Ok(Class {
+        name: class_name,
+        type_parameters,
+        description: None,
+        base_class,
+        base_class_type_args,
+        fields,
+        methods,
+        constructor,
+        location,
+    })
+}
+
+/// Parse a field declaration within a class
+fn parse_class_field(field_pair: Pair<Rule>) -> Result<Field, CompilerError> {
+    let mut field_name = String::new();
+    let mut field_type = None;
+
+    for item in field_pair.into_inner() {
+        match item.as_rule() {
+            Rule::type_ => {
+                field_type = Some(parse_type(item)?);
+            },
+            Rule::identifier => {
+                field_name = item.as_str().to_string();
+            },
+            _ => {}
+        }
+    }
+
+    if field_name.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Field is missing a name".to_string(),
+            None,
+            None,
+        ));
+    }
+
+    let field_type = field_type.ok_or_else(|| {
+        CompilerError::parse_error(
+            "Field is missing a type".to_string(),
+            None,
+            None,
+        )
+    })?;
+
+    Ok(Field {
+        name: field_name,
+        type_: field_type,
+        visibility: Visibility::Public,
+        is_static: false,
+    })
+}
+
+/// Parse a constructor within a class
+fn parse_constructor(constructor_pair: Pair<Rule>) -> Result<Constructor, CompilerError> {
+    let mut parameters = Vec::new();
+    let mut body = Vec::new();
+    let location = Some(convert_to_ast_location(&get_location(&constructor_pair)));
+
+    for item in constructor_pair.into_inner() {
+        match item.as_rule() {
+            Rule::constructor_parameter_list => {
+                for param_item in item.into_inner() {
+                    if param_item.as_rule() == Rule::constructor_parameter {
+                        let param = parse_constructor_parameter(param_item)?;
+                        parameters.push(param);
+                    }
+                }
+            },
+            Rule::indented_block => {
+                for stmt_pair in item.into_inner() {
+                    match stmt_pair.as_rule() {
+                        Rule::statement => {
+                            body.push(parse_statement(stmt_pair)?);
+                        },
+                        _ => {}
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+
+    Ok(Constructor::new(parameters, body, location))
+}
+
+/// Parse a constructor parameter
+fn parse_constructor_parameter(param_pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
+    let mut param_name = String::new();
+    let mut param_type = None;
+
+    for item in param_pair.into_inner() {
+        match item.as_rule() {
+            Rule::constructor_type => {
+                param_type = Some(parse_type(item)?);
+            },
+            Rule::identifier => {
+                param_name = item.as_str().to_string();
+            },
+            _ => {}
+        }
+    }
+
+    if param_name.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Constructor parameter is missing a name".to_string(),
+            None,
+            None,
+        ));
+    }
+
+    // If no type is specified, we'll infer it from class fields later in semantic analysis
+    // For now, mark it as unresolved with a special marker
+    let param_type = param_type.unwrap_or(Type::Any);
+
+    Ok(Parameter::new(param_name, param_type))
 }
 
 /// Helper to parse parameters from an input_block

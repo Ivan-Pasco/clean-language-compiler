@@ -217,10 +217,19 @@ class_decl = {
 
 constructor = { "constructor" ~ "(" ~ constructor_parameter_list? ~ ")" ~ indented_block? }
 constructor_parameter_list = { constructor_parameter ~ ("," ~ constructor_parameter)* }
-constructor_parameter = { type_? ~ identifier }
+constructor_parameter = { (constructor_type ~ identifier) | identifier }
+constructor_type = { 
+    sized_type |
+    core_type |
+    matrix_type |
+    array_type |
+    pairs_type |
+    generic_type
+}
 
 // Program with proper newline handling
-program_item = { start_function | functions_block | class_decl | statement }
+program_item = { start_function | implicit_start_function | functions_block | class_decl | statement }
 program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
-start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block } 
+start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block }
+implicit_start_function = { "start" ~ "(" ~ ")" ~ indented_block } 
