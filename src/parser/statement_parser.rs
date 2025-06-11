@@ -13,14 +13,15 @@ pub fn parse_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
     match inner.as_rule() {
         Rule::variable_decl => parse_variable_declaration(inner, ast_location),
         Rule::assignment => parse_assignment_statement(inner, ast_location),
-        Rule::print_stmt => parse_print_statement(inner, ast_location),
-        Rule::println_stmt => parse_println_statement(inner, ast_location),
         Rule::if_stmt => parse_if_statement(inner, ast_location),
         Rule::iterate_stmt => parse_iterate_statement(inner, ast_location),
         Rule::range_iterate_stmt => parse_range_iterate_statement(inner, ast_location),
         Rule::test => parse_test_statement(inner, ast_location),
         Rule::return_stmt => parse_return_statement(inner, ast_location),
         Rule::apply_block => parse_apply_block_statement(inner, ast_location),
+        Rule::type_apply_block => parse_type_apply_block_statement(inner, ast_location),
+        Rule::function_apply_block => parse_function_apply_block_statement(inner, ast_location),
+        Rule::constant_apply_block => parse_constant_apply_block_statement(inner, ast_location),
         Rule::expression => {
             let expr = parse_expression(inner)?;
             Ok(Statement::Expression {
@@ -63,86 +64,6 @@ fn parse_assignment_statement(pair: Pair<Rule>, ast_location: crate::ast::Source
         value,
         location: Some(ast_location),
     })
-}
-
-fn parse_print_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let inner = pair.into_inner().next().unwrap();
-    
-    match inner.as_rule() {
-        Rule::indented_print_block => {
-            // Block syntax: print: followed by indented expressions
-            let mut expressions = Vec::new();
-            for item_pair in inner.into_inner() {
-                if item_pair.as_rule() == Rule::print_item {
-                    let expr_pair = item_pair.into_inner().next().unwrap();
-                    expressions.push(parse_expression(expr_pair)?);
-                }
-            }
-            Ok(Statement::PrintBlock {
-                expressions,
-                newline: false,
-                location: Some(ast_location),
-            })
-        },
-        Rule::expression => {
-            // Simple syntax: print expression
-            let expr = parse_expression(inner)?;
-            Ok(Statement::Print {
-                expression: expr,
-                newline: false,
-                location: Some(ast_location),
-            })
-        },
-        _ => {
-            // Handle parenthesized expressions or other cases
-            let expr = parse_expression(inner)?;
-            Ok(Statement::Print {
-                expression: expr,
-                newline: false,
-                location: Some(ast_location),
-            })
-        }
-    }
-}
-
-fn parse_println_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
-    let inner = pair.into_inner().next().unwrap();
-    
-    match inner.as_rule() {
-        Rule::indented_print_block => {
-            // Block syntax: println: followed by indented expressions
-            let mut expressions = Vec::new();
-            for item_pair in inner.into_inner() {
-                if item_pair.as_rule() == Rule::print_item {
-                    let expr_pair = item_pair.into_inner().next().unwrap();
-                    expressions.push(parse_expression(expr_pair)?);
-                }
-            }
-            Ok(Statement::PrintBlock {
-                expressions,
-                newline: true,
-                location: Some(ast_location),
-            })
-        },
-        Rule::expression => {
-            // Simple syntax: println expression
-            let expr = parse_expression(inner)?;
-            Ok(Statement::Print {
-                expression: expr,
-                newline: true,
-                location: Some(ast_location),
-            })
-        },
-        _ => {
-            // Handle parenthesized expressions or other cases
-            let expr = parse_expression(inner)?;
-            Ok(Statement::Print {
-                expression: expr,
-                newline: true,
-                location: Some(ast_location),
-            })
-        }
-    }
 }
 
 fn parse_if_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
@@ -297,24 +218,63 @@ fn parse_return_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLoca
 }
 
 fn parse_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    // apply_block is a choice rule, so we need to dispatch to the specific type
+    let inner = pair.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::type_apply_block => parse_type_apply_block_statement(inner, ast_location),
+        Rule::function_apply_block => parse_function_apply_block_statement(inner, ast_location),
+        Rule::constant_apply_block => parse_constant_apply_block_statement(inner, ast_location),
+        _ => Err(CompilerError::parse_error(
+            format!("Unexpected apply block type: {:?}", inner.as_rule()),
+            Some(ast_location),
+            Some("Expected type, function, or constant apply block".to_string())
+        )),
+    }
+}
+
+fn parse_type_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
     let mut parts = pair.into_inner();
-    let target = parts.next().unwrap().as_str().to_string();
+    let type_part = parts.next().unwrap();
     
-    let mut items = Vec::new();
+    // Parse the specific type allowed in type_apply_block: core_type | sized_type | matrix_type | array_type | pairs_type
+    let type_ = match type_part.as_rule() {
+        Rule::core_type => {
+            let type_str = type_part.as_str();
+            match type_str {
+                "boolean" => crate::ast::Type::Boolean,
+                "integer" => crate::ast::Type::Integer,
+                "float" => crate::ast::Type::Float,
+                "string" => crate::ast::Type::String,
+                "void" => crate::ast::Type::Void,
+                _ => return Err(CompilerError::parse_error(
+                    format!("Unknown core type: {}", type_str),
+                    Some(ast_location),
+                    Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                ))
+            }
+        },
+        Rule::sized_type => parse_type(type_part)?,
+        Rule::matrix_type => parse_type(type_part)?,
+        Rule::array_type => parse_type(type_part)?,
+        Rule::pairs_type => parse_type(type_part)?,
+        _ => return Err(CompilerError::parse_error(
+            format!("Unexpected type in type apply block: {:?}", type_part.as_rule()),
+            Some(ast_location),
+            Some("Type apply blocks only support core types, sized types, matrix types, array types, and pairs types".to_string())
+        ))
+    };
+    
+    let mut assignments = Vec::new();
     for part in parts {
         match part.as_rule() {
-            Rule::indented_block => {
-                // Handle apply block items - for now just treat as expressions
-                for item_pair in part.into_inner() {
-                    match item_pair.as_rule() {
-                        Rule::statement => {
-                            // Convert statement to apply item if it's an expression
-                            let stmt = parse_statement(item_pair)?;
-                            if let Statement::Expression { expr, .. } = stmt {
-                                items.push(crate::ast::ApplyItem::FunctionCall(expr));
-                            }
-                        },
-                        _ => {}
+            Rule::indented_variable_assignments => {
+                for assignment_pair in part.into_inner() {
+                    if assignment_pair.as_rule() == Rule::variable_assignment {
+                        let mut assignment_parts = assignment_pair.into_inner();
+                        let name = assignment_parts.next().unwrap().as_str().to_string();
+                        let initializer = assignment_parts.next().map(|expr_pair| parse_expression(expr_pair)).transpose()?;
+                        
+                        assignments.push(crate::ast::VariableAssignment { name, initializer });
                     }
                 }
             },
@@ -322,9 +282,61 @@ fn parse_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::Sourc
         }
     }
     
-    Ok(Statement::ApplyBlock {
-        target,
-        items,
+    Ok(Statement::TypeApplyBlock {
+        type_,
+        assignments,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_function_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let function_name = parts.next().unwrap().as_str().to_string();
+    
+    let mut expressions = Vec::new();
+    for part in parts {
+        match part.as_rule() {
+            Rule::indented_expressions => {
+                for expr_pair in part.into_inner() {
+                    if expr_pair.as_rule() == Rule::expression {
+                        expressions.push(parse_expression(expr_pair)?);
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Ok(Statement::FunctionApplyBlock {
+        function_name,
+        expressions,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_constant_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut constants = Vec::new();
+    
+    for part in pair.into_inner() {
+        match part.as_rule() {
+            Rule::indented_constant_assignments => {
+                for constant_pair in part.into_inner() {
+                    if constant_pair.as_rule() == Rule::constant_assignment {
+                        let mut constant_parts = constant_pair.into_inner();
+                        let type_ = parse_type(constant_parts.next().unwrap())?;
+                        let name = constant_parts.next().unwrap().as_str().to_string();
+                        let value = parse_expression(constant_parts.next().unwrap())?;
+                        
+                        constants.push(crate::ast::ConstantAssignment { type_, name, value });
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Ok(Statement::ConstantApplyBlock {
+        constants,
         location: Some(ast_location),
     })
 } 

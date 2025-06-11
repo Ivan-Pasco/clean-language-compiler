@@ -1,0 +1,17 @@
+// Test Function Apply-Blocks - Using non-print functions
+
+start()
+	// Type apply-blocks work correctly
+	integer:
+		count = 0
+		maxSize = 100
+		
+	// Function apply-blocks with custom function names
+	myFunction:
+		"First arg"
+		"Second arg"
+		count
+		
+	processData:
+		count
+		maxSize 

@@ -1,0 +1,6 @@
+// Test Custom Function Apply-Block
+
+start()
+	myCustomFunction:
+		"arg1"
+		"arg2" 

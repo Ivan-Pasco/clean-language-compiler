@@ -1,0 +1,29 @@
+// Test Apply-Blocks - Specification Compliant Syntax (Direct Indentation with TABS)
+
+start()
+	// Variable apply-blocks (specification syntax)
+	integer:
+		count = 0
+		maxSize = 100
+		currentIndex = -1
+	
+	string:
+		message = "Hello"
+		name = "World"
+		version = "1.0"
+		
+	// Function apply-blocks (specification syntax)
+	println:
+		"First line"
+		"Second line"
+		message
+		
+	print:
+		"Value: "
+		count
+		
+	// Constants apply-blocks (specification syntax)
+	constant:
+		integer MAX_SIZE = 100
+		float PI = 3.14159
+		string VERSION = "1.0.0" 

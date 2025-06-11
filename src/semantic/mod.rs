@@ -313,33 +313,55 @@ impl SemanticAnalyzer {
                 Ok(())
             },
 
-            Statement::ApplyBlock { target, items, location: _ } => {
-                // Check apply block - for now just check the items
-                for item in items {
-                    match item {
-                        ApplyItem::FunctionCall(expr) => {
-                            self.check_expression(expr)?;
-                        },
-                        ApplyItem::VariableDecl { name, initializer } => {
-                            if let Some(init_expr) = initializer {
-                                let init_type = self.check_expression(init_expr)?;
-                                // For apply blocks, we might not have explicit type information
-                                self.current_scope.define_variable(name.clone(), init_type);
-                            }
-                        },
-                        ApplyItem::ConstantDecl { type_, name, value } => {
-                            self.check_type(type_)?;
-                            let value_type = self.check_expression(value)?;
-                            if !self.types_compatible(type_, &value_type) {
-                    return Err(CompilerError::type_error(
-                                    &format!("Constant value type {:?} doesn't match declared type {:?}", value_type, type_),
-                                    Some("Ensure the constant value matches the declared type".to_string()),
-                        None
-                    ));
-                            }
-                            self.current_scope.define_variable(name.clone(), type_.clone());
+            Statement::TypeApplyBlock { type_, assignments, location: _ } => {
+                self.check_type(type_)?;
+                for assignment in assignments {
+                    if let Some(init_expr) = &assignment.initializer {
+                        let init_type = self.check_expression(init_expr)?;
+                        if !self.types_compatible(type_, &init_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("Variable '{}' initializer type {:?} doesn't match declared type {:?}", 
+                                         assignment.name, init_type, type_),
+                                Some("Ensure the initializer matches the declared type".to_string()),
+                                None
+                            ));
                         }
                     }
+                    self.current_scope.define_variable(assignment.name.clone(), type_.clone());
+                }
+                Ok(())
+            },
+
+            Statement::FunctionApplyBlock { function_name, expressions, location: _ } => {
+                // Check that the function exists
+                if !self.function_table.contains_key(function_name) && !self.is_builtin_function(function_name) {
+                    return Err(CompilerError::type_error(
+                        &format!("Function '{}' not found", function_name),
+                        Some("Check if the function name is correct and the function is declared".to_string()),
+                        None
+                    ));
+                }
+                
+                // Check all expressions
+                for expr in expressions {
+                    self.check_expression(expr)?;
+                }
+                Ok(())
+            },
+
+            Statement::ConstantApplyBlock { constants, location: _ } => {
+                for constant in constants {
+                    self.check_type(&constant.type_)?;
+                    let value_type = self.check_expression(&constant.value)?;
+                    if !self.types_compatible(&constant.type_, &value_type) {
+                        return Err(CompilerError::type_error(
+                            &format!("Constant '{}' value type {:?} doesn't match declared type {:?}", 
+                                     constant.name, value_type, constant.type_),
+                            Some("Ensure the constant value matches the declared type".to_string()),
+                            None
+                        ));
+                    }
+                    self.current_scope.define_variable(constant.name.clone(), constant.type_.clone());
                 }
                 Ok(())
             },
@@ -558,6 +580,15 @@ impl SemanticAnalyzer {
                     return self.check_constructor_call(name, args, &location);
                 }
 
+                // Check if this is a built-in class being called (should be a static method call instead)
+                if self.is_builtin_class(name) {
+                    return Err(CompilerError::type_error(
+                        &format!("Built-in class '{}' cannot be called as a function", name),
+                        Some("Use static method syntax like MathUtils.add(a, b) instead".to_string()),
+                        None
+                    ));
+                }
+
                 self.used_functions.insert(name.clone());
                 
                 if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
@@ -626,84 +657,117 @@ impl SemanticAnalyzer {
             Expression::MethodCall { object, method, arguments, location } => {
                 // Check if this is a static method call (ClassName.method())
                 if let Expression::Variable(class_name) = object.as_ref() {
-                    if self.class_table.contains_key(class_name) {
+                    if self.class_table.contains_key(class_name) || self.is_builtin_class(class_name) {
                         // This is a static method call
                         return self.check_static_method_call(class_name, method, arguments, location);
                     }
                 }
                 
+                // This is a regular method call - check object type first
                 let object_type = self.check_expression(object)?;
-                match object_type {
-                    Type::Object(class_name) => {
-                        self.check_method_call(object, method, arguments, location)
-                    },
-                    Type::Matrix(_) => {
-                        // Handle matrix methods like transpose, inverse
-                        match method.as_str() {
-                            "transpose" | "inverse" | "determinant" => {
-                                if !arguments.is_empty() {
-                                    return Err(CompilerError::type_error(
-                                        &format!("Matrix method '{}' takes no arguments", method),
-                                        Some("Remove arguments from matrix method call".to_string()),
-                                        Some(location.clone())
-                                    ));
-                                }
-                                if method == "determinant" {
-                                    Ok(Type::Float)
-                                } else {
-                                    Ok(object_type)
-                                }
-                            },
-                            _ => Err(CompilerError::type_error(
-                                &format!("Method '{}' not found for matrix type", method),
-                                Some("Use valid matrix methods like transpose, inverse, determinant".to_string()),
-                                Some(location.clone())
-                            ))
-                        }
-                    },
-                    Type::Array(element_type) => {
-                        // Handle array methods like at, length
+                
+                // Check each argument type
+                let mut arg_types = Vec::new();
+                for arg in arguments {
+                    arg_types.push(self.check_expression(arg)?);
+                }
+                
+                // Handle method calls based on object type
+                match &object_type {
+                    Type::Array(_element_type) => {
                         match method.as_str() {
                             "at" => {
                                 if arguments.len() != 1 {
                                     return Err(CompilerError::type_error(
-                                        &format!("Array method 'at' takes exactly 1 argument, found {}", arguments.len()),
-                                        Some("Use array.at(index) with a single integer argument".to_string()),
-                                        Some(location.clone())
+                                        "Array.at() expects exactly 1 argument",
+                                        Some("Array.at(index) requires one index argument".to_string()),
+                                        None
                                     ));
                                 }
-                                let index_type = self.check_expression(&arguments[0])?;
-                                if index_type != Type::Integer {
+                                if !matches!(arg_types[0], Type::Integer) {
                                     return Err(CompilerError::type_error(
-                                        &format!("Array.at() index must be integer, found {:?}", index_type),
-                                        Some("Use integer expressions for array indices".to_string()),
-                                        Some(location.clone())
+                                        "Array.at() requires an integer index",
+                                        Some("Array indices must be integers".to_string()),
+                                        None
                                     ));
                                 }
-                                Ok(*element_type)
+                                // Return the element type - for now assume Integer
+                                Ok(Type::Integer)
                             },
                             "length" => {
                                 if !arguments.is_empty() {
                                     return Err(CompilerError::type_error(
-                                        &format!("Array method 'length' takes no arguments, found {}", arguments.len()),
-                                        Some("Use array.length() without arguments".to_string()),
-                                        Some(location.clone())
+                                        "Array.length() takes no arguments",
+                                        Some("Array.length() is a property access with no parameters".to_string()),
+                                        None
                                     ));
                                 }
                                 Ok(Type::Integer)
                             },
-                            _ => Err(CompilerError::type_error(
-                                &format!("Method '{}' not found for array type", method),
-                                Some("Use valid array methods like at(index), length()".to_string()),
-                                Some(location.clone())
+                            _ => {
+                                Err(CompilerError::type_error(
+                                    &format!("Method '{}' not found on Array type", method),
+                                    Some("Available methods: at(index), length()".to_string()),
+                                    None
+                                ))
+                            }
+                        }
+                    },
+                    Type::Object(class_name) => {
+                        // Check if the class exists and has this method
+                        if let Some(class_def) = self.class_table.get(class_name) {
+                            // Look for the method in the class
+                            for method_def in &class_def.methods {
+                                if method_def.name == *method {
+                                    // Found the method - check parameter types
+                                    if arguments.len() != method_def.parameters.len() {
+                                        return Err(CompilerError::type_error(
+                                            &format!("Method '{}' expects {} arguments, but {} were provided", 
+                                                method, method_def.parameters.len(), arguments.len()),
+                                            Some("Check the method signature".to_string()),
+                                            None
+                                        ));
+                                    }
+                                    
+                                    // Check parameter types match
+                                    for (i, (arg_type, param)) in arg_types.iter().zip(method_def.parameters.iter()).enumerate() {
+                                        if !self.types_compatible(&param.type_, arg_type) {
+                                            return Err(CompilerError::type_error(
+                                                &format!("Argument {} has type {:?}, but parameter '{}' expects {:?}", 
+                                                    i + 1, arg_type, param.name, param.type_),
+                                                Some("Check the argument types match the method parameters".to_string()),
+                                                None
+                                            ));
+                                        }
+                                    }
+                                    
+                                    // Return the method's return type
+                                    return Ok(method_def.return_type.clone());
+                                }
+                            }
+                            
+                            // Method not found in class
+                            Err(CompilerError::type_error(
+                                &format!("Method '{}' not found in class '{}'", method, class_name),
+                                Some("Check if the method name is correct and defined in the class".to_string()),
+                                None
+                            ))
+                        } else {
+                            // Class not found
+                            Err(CompilerError::type_error(
+                                &format!("Class '{}' not found", class_name),
+                                Some("Check if the class name is correct and defined".to_string()),
+                                None
                             ))
                         }
                     },
-                    _ => Err(CompilerError::type_error(
-                        &format!("Cannot call method '{}' on type {:?}", method, object_type),
-                        Some("Methods can only be called on objects, matrices, and arrays".to_string()),
-                        Some(location.clone())
-                    ))
+                    _ => {
+                        Err(CompilerError::type_error(
+                            &format!("Cannot call method '{}' on type {:?}", method, object_type),
+                            Some("Methods can only be called on objects and arrays".to_string()),
+                            None
+                        ))
+                    }
                 }
             },
 
@@ -1125,53 +1189,56 @@ impl SemanticAnalyzer {
         if let Some(return_type) = self.check_builtin_static_method(class_name, method, args, location)? {
             return Ok(return_type);
         }
-        
-        // Get the class from the user-defined class table
-        let class = self.class_table.get(class_name).cloned().ok_or_else(|| {
-            CompilerError::type_error(
-                &format!("Class '{}' not found", class_name),
-                Some("Check if the class name is correct and the class is defined".to_string()),
-                Some(location.clone())
-            )
-        })?;
 
-        // Find the method in the class
-        let class_method = class.methods.iter().find(|m| m.name == method).ok_or_else(|| {
-            CompilerError::type_error(
-                &format!("Static method '{}' not found in class '{}'", method, class_name),
-                Some("Check if the method name is correct and the method is defined in the class".to_string()),
-                Some(location.clone())
-            )
-        })?;
-
-        // Check that the method doesn't access instance fields (validation for static call)
-        // This would require analyzing the method body to ensure it doesn't use 'this' or instance fields
-        // For now, we'll allow all methods to be called statically and warn the user about the restriction
-
-        // Check argument count
-        if args.len() != class_method.parameters.len() {
-            return Err(CompilerError::type_error(
-                &format!("Static method '{}' expects {} arguments, but {} were provided", 
-                    method, class_method.parameters.len(), args.len()),
-                Some("Provide the correct number of arguments".to_string()),
-                Some(location.clone())
-            ));
-        }
-
-        // Check argument types
-        for (i, (arg, param)) in args.iter().zip(class_method.parameters.iter()).enumerate() {
-            let arg_type = self.check_expression(arg)?;
-            if !self.types_compatible(&arg_type, &param.type_) {
-                return Err(CompilerError::type_error(
-                    &format!("Argument {} has type {:?}, but parameter '{}' expects {:?}", 
-                        i + 1, arg_type, param.name, param.type_),
-                    Some("Provide arguments of the correct type".to_string()),
-                    Some(location.clone())
-                ));
+        // Check user-defined classes - clone the class definition to avoid borrowing issues
+        if let Some(class_def) = self.class_table.get(class_name).cloned() {
+            // Look for the static method in the class
+            for method_def in &class_def.methods {
+                if method_def.name == method {
+                    // Check if this method is static (for now, assume all methods can be static)
+                    
+                    // Check parameter count
+                    if args.len() != method_def.parameters.len() {
+                        return Err(CompilerError::type_error(
+                            &format!("Static method '{}::{}' expects {} arguments, but {} were provided", 
+                                class_name, method, method_def.parameters.len(), args.len()),
+                            Some("Check the method signature".to_string()),
+                            None
+                        ));
+                    }
+                    
+                    // Check parameter types
+                    for (i, (arg, param)) in args.iter().zip(method_def.parameters.iter()).enumerate() {
+                        let arg_type = self.check_expression(arg)?;
+                        if !self.types_compatible(&param.type_, &arg_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("Argument {} has type {:?}, but parameter '{}' expects {:?}", 
+                                    i + 1, arg_type, param.name, param.type_),
+                                Some("Check that argument types match the method parameters".to_string()),
+                                None
+                            ));
+                        }
+                    }
+                    
+                    // Return the method's return type
+                    return Ok(method_def.return_type.clone());
+                }
             }
+            
+            // Method not found in class
+            Err(CompilerError::type_error(
+                &format!("Static method '{}' not found in class '{}'", method, class_name),
+                Some("Check if the method name is correct and defined in the class".to_string()),
+                None
+            ))
+        } else {
+            // Class not found
+            Err(CompilerError::type_error(
+                &format!("Class '{}' not found", class_name),
+                Some("Check if the class name is correct and defined".to_string()),
+                None
+            ))
         }
-
-        Ok(class_method.return_type.clone())
     }
 
     fn check_builtin_static_method(&mut self, class_name: &str, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Option<Type>, CompilerError> {
@@ -1188,7 +1255,7 @@ impl SemanticAnalyzer {
                         }
                         let arg1_type = self.check_expression(&args[0])?;
                         let arg2_type = self.check_expression(&args[1])?;
-                        
+
                         // Both arguments should be numeric
                         let numeric_types = [Type::Integer, Type::Float];
                         if !numeric_types.contains(&arg1_type) || !numeric_types.contains(&arg2_type) {
@@ -1418,5 +1485,13 @@ impl SemanticAnalyzer {
         for warning in warnings_to_add {
             self.add_warning(warning);
         }
+    }
+
+    fn is_builtin_class(&self, class_name: &str) -> bool {
+        matches!(class_name, "MathUtils" | "StringUtils" | "ArrayUtils")
+    }
+
+    fn is_builtin_function(&self, function_name: &str) -> bool {
+        matches!(function_name, "print" | "println" | "error")
     }
 } 

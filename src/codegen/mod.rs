@@ -811,10 +811,59 @@ impl CodeGenerator {
                 self.generate_expression(expr, instructions)?;
                 instructions.push(Instruction::Drop);
             }
-            Statement::ApplyBlock { target: _, items: _, location: _ } => {
-                // Apply blocks are handled during parsing/semantic analysis
-                // No runtime code generation needed
-            }
+            Statement::TypeApplyBlock { type_, assignments, location: _ } => {
+                // Generate variable declarations
+                for assignment in assignments {
+                    if let Some(init_expr) = &assignment.initializer {
+                        self.generate_expression(init_expr, instructions)?;
+                        let local_index = self.current_locals.len() as u32;
+                        let wasm_type = self.ast_type_to_wasm_type(type_)?;
+                        
+                        self.current_locals.push(LocalVarInfo {
+                            index: local_index,
+                            type_: wasm_type.into(),
+                        });
+                        self.variable_map.insert(assignment.name.clone(), LocalVarInfo {
+                            index: local_index,
+                            type_: wasm_type.into(),
+                        });
+                        
+                        instructions.push(Instruction::LocalSet(local_index));
+                    }
+                }
+            },
+            
+            Statement::FunctionApplyBlock { function_name, expressions, location: _ } => {
+                // Generate multiple function calls with the same function
+                for expr in expressions {
+                    if let Some(func_index) = self.get_function_index(function_name) {
+                        self.generate_expression(expr, instructions)?;
+                        instructions.push(Instruction::Call(func_index));
+                        instructions.push(Instruction::Drop); // Drop return value if any
+                    }
+                }
+            },
+            
+            Statement::ConstantApplyBlock { constants, location: _ } => {
+                // Generate constant declarations (treated as variables in WASM)
+                for constant in constants {
+                    let local_index = self.current_locals.len() as u32;
+                    let wasm_type = self.ast_type_to_wasm_type(&constant.type_)?;
+                    
+                    self.generate_expression(&constant.value, instructions)?;
+                    
+                    self.current_locals.push(LocalVarInfo {
+                        index: local_index,
+                        type_: wasm_type.into(),
+                    });
+                    self.variable_map.insert(constant.name.clone(), LocalVarInfo {
+                        index: local_index,
+                        type_: wasm_type.into(),
+                    });
+                    
+                    instructions.push(Instruction::LocalSet(local_index));
+                }
+            },
             Statement::RangeIterate { iterator, start, end, step, body, location: _ } => {
                 // Similar to regular iterate but with range
                 let counter_index = self.current_locals.len() as u32;
@@ -962,7 +1011,20 @@ impl CodeGenerator {
                 Ok(WasmType::I32)
             },
             Expression::MethodCall { object, method, arguments, location: _ } => {
-                // Handle method calls on different types
+                // Check if this is a static method call on a built-in class first
+                if let Expression::Variable(class_name) = object.as_ref() {
+                    // Try to handle as built-in static method call
+                    if let Some(result_type) = self.generate_builtin_static_method_call(
+                        class_name, 
+                        method, 
+                        arguments, 
+                        instructions
+                    )? {
+                        return Ok(result_type);
+                    }
+                }
+                
+                // Handle method calls on different types (instance methods)
                 self.generate_expression(&*object, instructions)?;
                 
                 // Generate arguments

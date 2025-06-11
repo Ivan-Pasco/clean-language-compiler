@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 // Keywords that should not be parsed as identifiers
-keyword = { "return" | "if" | "else" | "iterate" | "in" | "to" | "step" | "test" | "print" | "println" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" }
+keyword = { "return" | "if" | "else" | "iterate" | "in" | "to" | "step" | "test" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" }
 
 // Identifiers and literals
 identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -62,8 +62,22 @@ NEWLINE = _{ "\n" | "\r\n" }
 empty_line = _{ INDENT* ~ NEWLINE }
 indented_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement)* }
 
-// Apply-blocks (core language feature)
-apply_block = { identifier ~ ":" ~ indented_block }
+// Apply-blocks (core language feature) - Specification compliant
+apply_block = { constant_apply_block | type_apply_block | function_apply_block }
+
+// Constant apply-blocks: constant: integer MAX_SIZE = 100 (most specific first)
+constant_apply_block = { "constant" ~ ":" ~ indented_constant_assignments }
+indented_constant_assignments = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ constant_assignment ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ constant_assignment)* }
+constant_assignment = { type_ ~ identifier ~ "=" ~ expression }
+
+// Type apply-blocks: integer: count = 0, maxSize = 100 (types before generic identifiers)
+type_apply_block = { (core_type | sized_type | matrix_type | array_type | pairs_type) ~ ":" ~ indented_variable_assignments }
+indented_variable_assignments = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ variable_assignment ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ variable_assignment)* }
+variable_assignment = { identifier ~ "=" ~ expression }
+
+// Function apply-blocks: println: "Hello", "World" (catch-all for identifiers)
+function_apply_block = { identifier ~ ":" ~ indented_expressions }
+indented_expressions = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ expression ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ expression)* }
 
 // Setup blocks for functions
 description_block = { "description" ~ string }
@@ -126,8 +140,6 @@ matrix_literal = { "[" ~ matrix_row ~ ("," ~ matrix_row)* ~ "]" }
 // Statements
 statement = {
     return_stmt |
-    print_stmt |
-    println_stmt |
     error_stmt |
     if_stmt |
     iterate_stmt |
@@ -142,26 +154,8 @@ statement = {
 // Type-first variable declarations (no let keyword)
 variable_decl = { type_ ~ identifier ~ ("=" ~ expression)? }
 
-// Apply-block style declarations for multiple variables
-variable_apply_block = { type_ ~ ":" ~ indented_block_with_assignments }
-indented_block_with_assignments = { NEWLINE ~ INDENT+ ~ variable_assignment ~ (NEWLINE ~ INDENT+ ~ variable_assignment)* }
-variable_assignment = { identifier ~ ("=" ~ expression)? }
-
-// Constants
-constant_block = { "constant" ~ ":" ~ indented_block_with_constant_assignments }
-constant_assignment = { type_ ~ identifier ~ "=" ~ expression }
-indented_block_with_constant_assignments = { NEWLINE ~ INDENT+ ~ constant_assignment ~ (NEWLINE ~ INDENT+ ~ constant_assignment)* }
-
 // Assignment
 assignment = { identifier ~ "=" ~ expression }
-
-// Print statements (both simple and block syntax)
-print_stmt = { "print" ~ ((":" ~ indented_print_block) | ("(" ~ expression ~ ")" | expression)) }
-println_stmt = { "println" ~ ((":" ~ indented_print_block) | ("(" ~ expression ~ ")" | expression)) }
-
-// Print block for multiple values
-indented_print_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ print_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ print_item)* }
-print_item = { expression }
 
 // Error statement (function call syntax)
 error_stmt = { "error" ~ "(" ~ expression ~ ")" }
@@ -231,5 +225,5 @@ constructor_type = {
 program_item = { start_function | implicit_start_function | functions_block | class_decl | statement }
 program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
-start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block }
+start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block } 
 implicit_start_function = { "start" ~ "(" ~ ")" ~ indented_block } 

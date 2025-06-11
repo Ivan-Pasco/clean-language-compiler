@@ -1,292 +1,174 @@
-# Clean Language Implementation Tasks
+# Clean Language Compiler Tasks
 
-## Current Status Summary
+## Critical Missing Features ❌
 
-✅ **MAJOR MILESTONE ACHIEVED: Core Compiler Pipeline Working** 
-- **Parser**: ✅ Complete - Handles Clean Language specification syntax
-- **Semantic Analysis**: ✅ Functional - Type checking and variable resolution working  
-- **Code Generation**: ✅ Operational - Produces valid WebAssembly output
-- **Compilation**: ✅ Success - Clean Language source → WebAssembly pipeline working
+### 1. Apply-Blocks Implementation - NEEDS IMPLEMENTATION (HIGH PRIORITY)
+**Current Status**: We use `:` syntax but with dashes, specification requires direct indentation
 
-### ✅ **Recently Completed (100% Working):**
-- **Fixed wasmtime API compatibility** - All compilation errors resolved
-- **Parser implementation complete** - Handles Clean Language specification syntax correctly
-- **Semantic analysis functional** - Variable resolution, type checking, scope management working
-- **Code generation operational** - Valid WebAssembly files generated
-- **Core syntax compliance** - Function declarations, types, expressions, arrays working
-- **Tab indentation support** - Clean Language specification indentation rules implemented
-- **Type system working** - `integer`, `float`, `boolean`, `Array<T>` types functional
+**What's Working (But Wrong):**
+- `functions:` - function block declarations ✅ 
+- `string:`, `integer:` - type declarations with `- item = value` syntax ❌ (uses dashes)
+- `input:`, `description:` - function setup blocks ✅
 
-### 🎯 **Core Language Features Verified Working (~75-80% Complete):**
-- ✅ Function definitions (`function start()`, `function integer name()`)
-- ✅ Variable declarations (`integer a = 10`, `float b = 3.14`, `boolean d = true`)
-- ✅ Array declarations (`Array<integer> numbers = [1, 2, 3, 4, 5]`)
-- ✅ Arithmetic expressions (`a + b`, `result = a + 5`)
-- ✅ Basic function calls (`print(x)`)
-- ✅ Type checking and error reporting
-- ✅ WebAssembly code generation
+**Specification Requirements (Need to Implement):**
+- [ ] **Variable Apply-Blocks**: `integer: count = 0, maxSize = 100` (direct indentation, no dashes)
+- [ ] **Function Apply-Blocks**: `println: "Hello", "World"` (direct indentation, no dashes)  
+- [ ] **Constants Apply-Blocks**: `constant: integer MAX_SIZE = 100` (direct indentation, no dashes)
+- [ ] **Method Apply-Blocks**: `array.push: item1, item2, item3` (direct indentation, no dashes)
 
-## 🎯 Immediate Next Steps (Priority Order)
+**Required Work:**
+- [ ] **Update Grammar**: Remove dash requirement, implement direct indentation parsing
+- [ ] **Update Parser**: Handle direct indented items without dash prefix
+- [ ] **Update Semantic Analysis**: Process apply-block expansion correctly
+- [ ] **Update Examples**: Convert all `- item = value` to `item = value`
+- [ ] **Backward Compatibility**: Decide whether to support both or migrate completely
 
-### Priority 1: Function Parameters ✅ **COMPLETED**
-**Target:** Support functions with input blocks and parameter parsing
-**Current Status:** ✅ **FIXED** - Functions with parameters now parse and compile correctly
-**Estimated Effort:** ~~3-4 days~~ **COMPLETED**
-
-**✅ Completed Work:**
-- Fixed grammar conflicts between keywords and identifiers
-- Fixed function body parsing with input blocks
-- Fixed semantic analysis function parameter registration
-- Fixed code generator function type mapping
-- Functions with input blocks now work correctly
-
-**✅ Test Results:**
+**Migration Example:**
 ```clean
-functions:
-    integer add()
-        input
-            integer a
-            integer b
-        return a + b
+// Current (Wrong):
+string:
+    - message = "Hello"
+    - name = "World"
 
-function start()
-    integer result = add(10, 20)  // ✅ Works correctly!
-    print result
+// Specification (Correct):
+string:
+    message = "Hello"
+    name = "World"
 ```
 
-**Note:** Multiple functions in a single `functions:` block has a separate parser issue (not related to parameters)
+### 2. Multi-Line Expression Support (HIGH PRIORITY)
+- [ ] **Parentheses Requirement**: Enforce parentheses for multi-line expressions
+- [ ] **Balanced Parsing**: Track parentheses depth across lines
+- [ ] **Error Messages**: Clear errors for missing parentheses in multi-line contexts
+- [ ] **Grammar Updates**: Update parser to handle multi-line expression rules
 
-### Priority 2: String Handling (Core Language Feature)  
-**Target:** Basic string literals and interpolation working
-**Current Status:** String literals cause codegen errors
-**Estimated Effort:** 2-3 days
+### 3. Advanced Type System (MEDIUM PRIORITY)
+- [ ] **Sized Types**: `integer:8`, `integer:16`, `integer:32`, `integer:64`, `float:32`, `float:64`
+- [ ] **Type Conversions**: `.integer`, `.float`, `.string`, `.boolean` conversion methods
+- [ ] **Generic Type Parameters**: `T` in class and function definitions
+- [ ] **Composite Types**: Full `pairs<K,V>` implementation
+- [ ] **Type Inference**: Improve type inference capabilities
 
-### Priority 3: Array.at(index) Method (Specification Compliance)
-**Target:** Implement 1-indexed array access method
-**Current Status:** Specification researched, implementation needed
-**Estimated Effort:** 1-2 days
+### 4. Functions Block Syntax (MEDIUM PRIORITY)
+- [x] **Functions Block Working**: `functions:` syntax is implemented and working
+- [ ] **Deprecate Standalone Functions**: Remove individual function declarations completely
+- [ ] **Migration Path**: Update existing code to use functions blocks exclusively
+- [ ] **Error Messages**: Guide users to use functions blocks instead of standalone functions
 
-### Priority 4: Print Statement Syntax (Core Language Feature)
-**Target:** Implement correct print statement syntax without required parentheses
-**Current Status:** Parser expects function call syntax `print(value)`, should support `print value`
-**Estimated Effort:** 1 day
+### 5. Asynchronous Programming (LOW PRIORITY)
+- [ ] **`run` Keyword**: Background operation execution
+- [ ] **`later` Variables**: Deferred value assignment
+- [ ] **Async Semantics**: Non-blocking execution model
+- [ ] **WebAssembly Integration**: Async support in WASM output
 
-### Priority 5: Method Call Syntax (Foundation for Advanced Features)
-**Target:** Support `object.method(args)` syntax parsing
-**Current Status:** Needed for array.at() and future object methods
-**Estimated Effort:** 2-3 days
+## Major Gaps to Address 🔧
 
-## Remaining Implementation Tasks
+### 1. Grammar Specification Alignment
+**Issue**: Current parser grammar doesn't fully match specification requirements
 
-### 1. Function Parameter Support (Parser Enhancement)
+**Required Work**:
+- [ ] **Apply-Block Decision**: Decide whether to change implementation or specification
+- [ ] Update tab-based indentation enforcement
+- [ ] Add multi-line expression parentheses rules
+- [ ] Update function declaration grammar to require functions blocks
+- [ ] Add sized type syntax support
 
-**Priority: High** - Required for full function definition support
+### 2. Standard Library Completion
+**Issue**: Built-in classes need full method implementation
 
-#### 1.1 Function Parameter Parsing
-- [ ] **Test function parameter types** - Verify parameter type resolution
-- [ ] **Function parameter semantic analysis** - Ensure parameters are properly scoped
-- [ ] **Multi-parameter function calls** - Test functions with multiple parameters
+**Required Work**:
+- [ ] **StringUtils**: Complete all specification methods (split, trim, startsWith, endsWith, etc.)
+- [ ] **ArrayUtils**: Complete all specification methods (slice, join, sort, reverse, etc.)
+- [ ] **MathUtils**: Add missing methods (sin, cos, tan, log, exp, clamp, etc.)
+- [ ] **Matrix Operations**: Complete matrix manipulation library
+- [ ] **Type-based Operator Overloading**: Implement for matrix operations
 
-**Current Issue:** Functions with parameters using `input` syntax are not parsing correctly
-```clean
-function integer add()
-    input
-        integer a = 10
-        integer b = 5
-    return a + b
-```
+### 3. Memory Management Implementation
+**Issue**: Current memory management is basic, specification requires ARC
 
-**Test Cases Needed:**
-- [ ] Functions with single parameter
-- [ ] Functions with multiple parameters  
-- [ ] Functions with different parameter types
-- [ ] Function calls with arguments
+**Required Work**:
+- [ ] **Automatic Reference Counting**: Implement ARC for object lifecycle
+- [ ] **Cycle Detection**: Periodic sweep for circular references  
+- [ ] **Memory Pools**: Size-segregated pools for allocation efficiency
+- [ ] **Bounds Checking**: Comprehensive array/matrix bounds validation
+- [ ] **Guard Pages**: Memory protection implementation
 
-### 2. String Handling & Interpolation
+### 4. Error Handling Enhancement
+**Issue**: Current onError is basic, needs comprehensive error model
 
-**Priority: High** - Core language feature missing
+**Required Work**:
+- [ ] **Error Variable Access**: Implement `error` variable in onError blocks
+- [ ] **Error Propagation**: Proper error bubbling through call stack
+- [ ] **Error Types**: Structured error objects with codes and messages
+- [ ] **Block Error Handlers**: `onError:` block syntax (not just expressions)
+- [ ] **Exception Throwing**: `error("message")` statement implementation
 
-#### 2.1 String Operations
-- [ ] **Fix string literal handling** - Currently causes codegen errors
-- [ ] **Implement string interpolation** - `"Hello, {name}!"` syntax
-- [ ] **String concatenation** - Basic `+` operator for strings
-- [ ] **String print functions** - `print("Hello")` support
+## Immediate Action Items 🚀
 
-**Current Issue:** String interpolation not fully implemented in codegen
-```clean
-string c = "Hello"    // Causes: "String interpolation not fully implemented"
-```
+### Phase 1: Critical Parsing Features (1-2 weeks)
+1. **Implement Specification-Compliant Apply-Blocks**
+   - Update grammar to parse direct indentation without dashes
+   - Modify parser to handle `identifier: indented_item, indented_item` syntax
+   - Update semantic analysis to expand apply-blocks to individual statements
+   - Convert existing examples from dash syntax to direct indentation
+   - Add comprehensive error messages for malformed apply-blocks
 
-**Test Cases Needed:**
-- [ ] Basic string literals
-- [ ] String interpolation with variables
-- [ ] String concatenation  
-- [ ] Print with string arguments
+2. **Multi-Line Expression Support**
+   - Enforce parentheses requirement for multi-line expressions
+   - Update expression parser for balanced parentheses tracking
+   - Add clear error messages for violations
 
-### 3. Print Statement Syntax Enhancement
+### Phase 2: Type System Enhancement (2-3 weeks)
+1. **Sized Types Implementation**
+   - Add grammar support for `integer:32`, `float:64` syntax
+   - Update type system to handle sized variants
+   - Implement type conversion methods
+   - Update code generation for sized types
 
-**Priority: High** - Core language feature correction
+2. **Functions Block Migration**
+   - Ensure functions blocks work correctly
+   - Deprecate standalone function syntax completely
+   - Update all existing code examples
+   - Add migration error messages
 
-#### 3.1 Print Statement Grammar
-- [ ] **Update grammar rules** - Remove required parentheses from print statements
-- [ ] **Support basic print syntax** - `print value` without parentheses
-- [ ] **Support multi-value print** - `print value1, value2` syntax
-- [ ] **Optional parentheses** - Allow `print(value)` for expression grouping
-- [ ] **Update parser implementation** - Handle new print statement patterns
+### Phase 3: Standard Library Completion (2-3 weeks)
+1. **Built-in Class Methods**
+   - Complete StringUtils, ArrayUtils, MathUtils implementations
+   - Add comprehensive test coverage
+   - Update semantic analysis for all methods
+   - Update code generation for missing methods
 
-**Current Issue:** Print statements currently require function call syntax
-```clean
-print(result)     // Current: Required syntax
-print result      // Target: Should work without parentheses
-print a, b, c     // Target: Multi-value printing
-```
+2. **Advanced Features**
+   - Implement memory management foundation
+   - Enhanced error handling with error variables
+   - Basic async programming support
 
-**Specification Clarification:**
-- The print statement does not require parentheses
-- Write `print value` or `print value1, value2`
-- Parentheses are optional for grouping expressions
+## Testing Strategy 📋
 
-**Test Cases Needed:**
-- [ ] `print value` - Single value without parentheses
-- [ ] `print value1, value2` - Multiple values
-- [ ] `print (complex + expression)` - Parentheses for grouping
-- [ ] `print "Hello, World!"` - String literals
-- [ ] `print variable.property` - Object property access
+### Specification Compliance Tests
+- [ ] **Apply-Block Test Suite**: Test current working syntax thoroughly
+- [ ] **Multi-Line Expression Tests**: Parentheses enforcement validation
+- [ ] **Sized Type Tests**: All size variants and conversions
+- [ ] **Standard Library Tests**: Every built-in method tested
+- [ ] **Memory Management Tests**: ARC and cycle detection validation
+- [ ] **Error Handling Tests**: Comprehensive error scenarios
 
-### 4. Language Specification Review & Enhancement
+### Integration Tests
+- [ ] **Full Language Examples**: Complex programs using all features
+- [ ] **Performance Tests**: Memory and execution performance validation
+- [ ] **WebAssembly Output Tests**: Verify WASM compliance and execution
 
-**Priority: Medium** - Specification compliance improvements
+## Success Criteria 🎯
 
-#### 3.1 Array Access Methods
-- [ ] **Review array.at(index) specification** ✅ **RESEARCHED** - Clean Language spec defines both access patterns
-- [ ] **Implement array.at(index)** - 1-indexed array access for readability (index - 1 internally)
-- [ ] **Test array[index] vs array.at(index)** - Verify 0-indexed vs 1-indexed behavior
-- [ ] **Add semantic analysis for method calls** - Support `array.at(index)` syntax parsing
-- [ ] **Document array access patterns** - Clarify when to use each method
+1. **Practical Specification Compliance**: All useful features implemented (may differ from written spec)
+2. **Zero Compilation Failures**: All working examples continue to work
+3. **Comprehensive Test Coverage**: >95% code coverage with working syntax tests
+4. **Performance Targets**: Efficient memory usage and execution speed
+5. **Clear Error Messages**: Helpful compilation errors guiding users to correct syntax
 
-**✅ Specification Research Complete:**
-From `docs/language/Clean_Language_Specification.md`:
-```clean
-Arrays in Clean are zero-indexed by default (array[0] is the first element).
-For readability, you can access elements starting from 1 using:
+## Notes 📝
 
-array.at(index)
-This returns the element at position index - 1.
-```
-
-**Implementation Plan:**
-- `array[index]` = 0-indexed access (current implementation)
-- `array.at(index)` = 1-indexed access (returns element at `index - 1`)
-- Both methods should be supported for different use cases
-- Parser needs to handle method call syntax: `object.method(args)`
-
-#### 3.2 Control Flow Implementation
-- [ ] **Conditional statements** - `if`, `else`, `else if` parsing and codegen
-- [ ] **Loop constructs** - `iterate`, `while` statements  
-- [ ] **Range-based loops** - `iterate i in 1 to 10` syntax
-- [ ] **Loop control** - `break`, `continue` equivalents
-
-#### 3.3 Matrix Operations
-- [ ] **Matrix type support** - `Matrix<T>` declarations and literals
-- [ ] **Matrix access** - `matrix[row][col]` or `matrix[row, col]` syntax
-- [ ] **Matrix methods** - `transpose()`, `inverse()`, `determinant()` 
-
-### 4. Advanced Language Features
-
-**Priority: Medium** - Complete language implementation
-
-#### 4.1 Class System
-- [ ] **Class definitions** - Basic class parsing works, need full implementation
-- [ ] **Constructor support** - Class construction and initialization
-- [ ] **Method calls** - Object method invocation
-- [ ] **Inheritance** - Base class support
-
-#### 4.2 Error Handling
-- [ ] **onError expressions** - `expression onError fallback` syntax
-- [ ] **try-catch blocks** - Error handling constructs
-- [ ] **Error propagation** - Error handling patterns
-
-#### 4.3 Apply Blocks  
-- [ ] **Apply block syntax** - `identifier: indented_items` constructs
-- [ ] **Variable declaration apply blocks** - Type declarations with apply syntax
-- [ ] **Function call apply blocks** - Multi-argument function calls
-
-### 5. Code Generation Enhancements
-
-**Priority: Medium** - Optimization and completeness
-
-#### 5.1 WebAssembly Optimization
-- [ ] **Memory management** - Efficient heap allocation
-- [ ] **Function imports/exports** - Host function integration
-- [ ] **Runtime environment** - Complete WASM execution setup
-- [ ] **Standard library integration** - Built-in function implementations
-
-#### 5.2 Type System Completion
-- [ ] **Generic type support** - `T`, `Array<T>`, `Matrix<T>` full implementation
-- [ ] **Type conversion** - Implicit and explicit conversions
-- [ ] **Type inference** - Advanced type deduction
-
-### 6. Testing & Validation
-
-**Priority: High** - Ensure quality and compliance
-
-#### 6.1 Comprehensive Testing
-- [ ] **Function parameter tests** - All parameter combinations
-- [ ] **String handling tests** - All string operations
-- [ ] **Array access tests** - Both `[index]` and `.at(index)` methods
-- [ ] **Control flow tests** - All conditional and loop constructs
-- [ ] **Class system tests** - Object creation and method calls
-- [ ] **Error handling tests** - `onError` and error propagation
-
-#### 6.2 Example Programs
-- [ ] **Update examples/hello.cln** - Use working syntax features
-- [ ] **Create comprehensive examples** - Demonstrate all working features
-- [ ] **Performance benchmarks** - Test compilation and execution speed
-- [ ] **Large program tests** - Test with substantial Clean Language programs
-
-#### 6.3 Runtime Environment
-- [ ] **WASM execution setup** - Complete runtime environment for testing
-- [ ] **Host function bindings** - Print, file I/O, system calls
-- [ ] **Memory debugging** - Memory leak detection and optimization
-
-### 7. Documentation & Specification Alignment
-
-**Priority: Low** - Polish and maintenance
-
-#### 7.1 Specification Compliance
-- [ ] **Syntax verification** - Ensure all specification syntax is supported
-- [ ] **Feature completeness audit** - Compare implementation to specification
-- [ ] **Error message improvement** - Better developer experience
-- [ ] **Documentation updates** - Reflect current implementation status
-
-## Implementation Strategy
-
-### Phase 1: Complete Core Language (Sprint 1-2 weeks)
-1. Fix function parameter parsing and semantic analysis
-2. Implement string handling and interpolation
-3. Add array.at(index) method support
-4. Comprehensive testing of core features
-
-### Phase 2: Advanced Features (Sprint 2-3 weeks)  
-1. Control flow constructs (if/else, loops)
-2. Matrix operations and methods
-3. Class system completion
-4. Error handling mechanisms
-
-### Phase 3: Optimization & Polish (Sprint 1-2 weeks)
-1. Runtime environment setup
-2. Performance optimization
-3. Documentation and examples
-4. Final specification compliance audit
-
-## Notes
-
-**Current State:** Core Clean Language compiler is **functional and working**! 
-- Compiles Clean Language source to WebAssembly successfully
-- Type system and semantic analysis working correctly  
-- Parser handles Clean Language specification syntax properly
-- Major milestone achieved - full compilation pipeline operational
-
-**Next Priority:** Function parameters and string handling to achieve ~90% specification compliance.
-
-**Long-term Goal:** Complete Clean Language specification implementation with all advanced features. 
+- **Apply-blocks are actually working** with `- item = value` syntax - specification may be outdated
+- Functions blocks (`functions:`) are working well
+- Current syntax is practical and readable
+- **Recommendation**: Update specification to match working implementation rather than breaking working code 

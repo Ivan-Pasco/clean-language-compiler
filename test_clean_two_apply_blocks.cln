@@ -1,0 +1,7 @@
+// Test Two Apply-Blocks - Clean
+
+start()
+	integer:
+		count = 0
+	println:
+		"Hello" 

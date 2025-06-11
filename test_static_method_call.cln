@@ -2,7 +2,7 @@ class MathUtils
 	functions:
 		string add()
 			return "static method called"
-
+ 
 start()
 	result = MathUtils.add()
 	print result 

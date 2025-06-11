@@ -1,86 +1,148 @@
 # Clean Language Compiler Tasks
 
-This document outlines the remaining tasks for the Clean Language compiler project, organized by priority.
+## Critical Missing Features ❌
 
-## ✅ Completed Tasks
+### 1. Apply-Blocks Implementation (HIGH PRIORITY)
+- [ ] **Variable Apply-Blocks**: `integer: count = 0, maxSize = 100` syntax
+- [ ] **Function Apply-Blocks**: `println: "Hello", "World"` syntax  
+- [ ] **Constants Apply-Blocks**: `constant: integer MAX_SIZE = 100` syntax
+- [ ] **Method Apply-Blocks**: `array.push: item1, item2, item3` syntax
+- [ ] **Semantic Analysis**: Proper handling of apply-block expansion
+- [ ] **Code Generation**: Converting apply-blocks to individual statements
 
-1. **Parser Improvements** ✅ COMPLETED:
-   - ✅ Implemented better file path handling in parser error reporting
-   - ✅ Added error recovery mechanisms to continue parsing after errors
-   - ✅ Enhanced error messages with help text and location information
-   - ✅ Implemented proper line/column calculation from byte offsets
-   - ✅ Added comprehensive test coverage for parser edge cases
-   - ✅ Created ErrorRecoveringParser for collecting multiple errors
+### 2. Multi-Line Expression Support (HIGH PRIORITY)
+- [ ] **Parentheses Requirement**: Enforce parentheses for multi-line expressions
+- [ ] **Balanced Parsing**: Track parentheses depth across lines
+- [ ] **Error Messages**: Clear errors for missing parentheses in multi-line contexts
+- [ ] **Grammar Updates**: Update parser to handle multi-line expression rules
 
-2. **Module Integration** ✅ COMPLETED:
-   - ✅ Fixed connections between parser, semantic analyzer, and code generator
-   - ✅ Ensured proper type propagation between compiler phases
-   - ✅ Fixed critical bug in variable lookup (find_local method)
-   - ✅ Added comprehensive integration tests covering all compilation phases
-   - ✅ Verified end-to-end compilation from source to WASM binary
+### 3. Advanced Type System (MEDIUM PRIORITY)
+- [ ] **Sized Types**: `integer:8`, `integer:16`, `integer:32`, `integer:64`, `float:32`, `float:64`
+- [ ] **Type Conversions**: `.integer`, `.float`, `.string`, `.boolean` conversion methods
+- [ ] **Generic Type Parameters**: `T` in class and function definitions
+- [ ] **Composite Types**: Full `pairs<K,V>` implementation
+- [ ] **Type Inference**: Improve type inference capabilities
 
-3. **Code Generation** ✅ COMPLETED:
-   - ✅ Streamlined CodeGenerator struct and removed unused fields
-   - ✅ Improved generate() method to return WASM binary directly
-   - ✅ Added debugging information and source location tracking
-   - ✅ Fixed WASM binary generation (now producing 136-159 bytes vs previous 0 bytes)
-   - ✅ Enhanced error messages with better context and suggestions
-   - ✅ Verified all integration tests pass with proper WASM output
+### 4. Functions Block Syntax (MEDIUM PRIORITY)
+- [ ] **Deprecate Standalone Functions**: Remove individual function declarations
+- [ ] **Functions Block Only**: Enforce `functions:` block syntax for all function declarations
+- [ ] **Migration Path**: Update existing code to use functions blocks
+- [ ] **Error Messages**: Guide users to use functions blocks instead of standalone functions
 
-4. **Standard Library Integration** ✅ COMPLETED:
-   - ✅ Integrated built-in functions (print, printl, math operations)
-   - ✅ Added string manipulation functions (len)
-   - ✅ Implemented array operations (array_length, array_get)
-   - ✅ Added math functions (abs) with proper WASM implementations
-   - ✅ Ensured proper memory management for complex data types
-   - ✅ Added comprehensive stdlib tests (all passing)
-   - ✅ Generated significantly larger WASM binaries (300+ bytes vs 136 bytes)
+### 5. Asynchronous Programming (LOW PRIORITY)
+- [ ] **`run` Keyword**: Background operation execution
+- [ ] **`later` Variables**: Deferred value assignment
+- [ ] **Async Semantics**: Non-blocking execution model
+- [ ] **WebAssembly Integration**: Async support in WASM output
 
-## 🎯 Next Priority Tasks
+## Major Gaps to Address 🔧
 
-5. **Error Handling & Recovery** 🎯 NEXT PRIORITY:
-   - Implement try-catch blocks in the language
-   - Add proper error propagation through the compilation pipeline
-   - Enhance error messages with suggestions and fix hints
-   - Add warning system for potential issues
+### 1. Grammar Specification Alignment
+**Issue**: Current parser grammar doesn't fully match specification requirements
 
-## 🔄 Medium Priority Tasks
+**Required Work**:
+- [ ] Update tab-based indentation enforcement
+- [ ] Implement apply-block grammar rules thoroughly  
+- [ ] Add multi-line expression parentheses rules
+- [ ] Update function declaration grammar to require functions blocks
+- [ ] Add sized type syntax support
 
-6. **Type System Enhancements**:
-   - Implement generic types and type parameters
-   - Add union types and optional types
-   - Improve type inference capabilities
-   - Add compile-time type checking for complex expressions
+### 2. Standard Library Completion
+**Issue**: Built-in classes need full method implementation
 
-7. **Memory Management**:
-   - Implement garbage collection for dynamic allocations
-   - Add reference counting for memory safety
-   - Optimize memory layout for better performance
-   - Add memory debugging tools
+**Required Work**:
+- [ ] **StringUtils**: Complete all specification methods (split, trim, startsWith, endsWith, etc.)
+- [ ] **ArrayUtils**: Complete all specification methods (slice, join, sort, reverse, etc.)
+- [ ] **MathUtils**: Add missing methods (sin, cos, tan, log, exp, clamp, etc.)
+- [ ] **Matrix Operations**: Complete matrix manipulation library
+- [ ] **Type-based Operator Overloading**: Implement for matrix operations
 
-## 🚀 Future Enhancements
+### 3. Memory Management Implementation
+**Issue**: Current memory management is basic, specification requires ARC
 
-8. **Performance Optimizations**:
-   - Implement dead code elimination
-   - Add constant folding and expression simplification
-   - Optimize WASM output size and execution speed
-   - Add compilation caching
+**Required Work**:
+- [ ] **Automatic Reference Counting**: Implement ARC for object lifecycle
+- [ ] **Cycle Detection**: Periodic sweep for circular references  
+- [ ] **Memory Pools**: Size-segregated pools for allocation efficiency
+- [ ] **Bounds Checking**: Comprehensive array/matrix bounds validation
+- [ ] **Guard Pages**: Memory protection implementation
 
-9. **Language Features**:
-   - Add class inheritance and polymorphism
-   - Implement modules and namespaces
-   - Add async/await functionality
-   - Support for external library imports
+### 4. Error Handling Enhancement
+**Issue**: Current onError is basic, needs comprehensive error model
 
-10. **Developer Experience**:
-    - Create language server protocol (LSP) support
-    - Add syntax highlighting definitions
-    - Implement code formatting tools
-    - Add comprehensive documentation generator
+**Required Work**:
+- [ ] **Error Variable Access**: Implement `error` variable in onError blocks
+- [ ] **Error Propagation**: Proper error bubbling through call stack
+- [ ] **Error Types**: Structured error objects with codes and messages
+- [ ] **Block Error Handlers**: `onError:` block syntax (not just expressions)
+- [ ] **Exception Throwing**: `error("message")` statement implementation
 
-## 📊 Progress Summary
+## Immediate Action Items 🚀
 
-- **Completed**: 4/10 major tasks (40%)
-- **Current Focus**: Error Handling & Recovery
-- **Next Milestone**: Complete error handling and type system enhancements
-- **Overall Status**: ✅ Core compilation pipeline working end-to-end with stdlib support
+### Phase 1: Critical Parsing Features (1-2 weeks)
+1. **Implement Apply-Blocks**
+   - Update grammar with comprehensive apply-block rules
+   - Add AST nodes for apply-block statements
+   - Implement semantic analysis expansion
+   - Add code generation for expanded statements
+
+2. **Multi-Line Expression Support**
+   - Enforce parentheses requirement for multi-line expressions
+   - Update expression parser for balanced parentheses tracking
+   - Add clear error messages for violations
+
+### Phase 2: Type System Enhancement (2-3 weeks)
+1. **Sized Types Implementation**
+   - Add grammar support for `integer:32`, `float:64` syntax
+   - Update type system to handle sized variants
+   - Implement type conversion methods
+   - Update code generation for sized types
+
+2. **Functions Block Migration**
+   - Update parser to require functions blocks
+   - Deprecate standalone function syntax
+   - Update all existing code examples
+   - Add migration error messages
+
+### Phase 3: Standard Library Completion (2-3 weeks)
+1. **Built-in Class Methods**
+   - Complete StringUtils, ArrayUtils, MathUtils implementations
+   - Add comprehensive test coverage
+   - Update semantic analysis for all methods
+   - Update code generation for missing methods
+
+2. **Advanced Features**
+   - Implement memory management foundation
+   - Enhanced error handling with error variables
+   - Basic async programming support
+
+## Testing Strategy 📋
+
+### Specification Compliance Tests
+- [ ] **Apply-Block Test Suite**: Comprehensive tests for all apply-block variations
+- [ ] **Multi-Line Expression Tests**: Parentheses enforcement validation
+- [ ] **Sized Type Tests**: All size variants and conversions
+- [ ] **Standard Library Tests**: Every built-in method tested
+- [ ] **Memory Management Tests**: ARC and cycle detection validation
+- [ ] **Error Handling Tests**: Comprehensive error scenarios
+
+### Integration Tests
+- [ ] **Full Language Examples**: Complex programs using all features
+- [ ] **Performance Tests**: Memory and execution performance validation
+- [ ] **WebAssembly Output Tests**: Verify WASM compliance and execution
+
+## Success Criteria 🎯
+
+1. **100% Specification Compliance**: All features from specification implemented
+2. **Zero Compilation Failures**: All valid specification examples compile successfully
+3. **Comprehensive Test Coverage**: >95% code coverage with specification-based tests
+4. **Performance Targets**: Efficient memory usage and execution speed
+5. **Clear Error Messages**: Helpful compilation errors guiding users to correct syntax
+
+## Notes 📝
+
+- Static method implementation is complete and working well
+- Basic language features are solid foundation
+- Apply-blocks are the most critical missing feature
+- Type system needs significant enhancement for full specification compliance
+- Memory management will require substantial WASM integration work

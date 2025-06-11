@@ -168,10 +168,21 @@ pub enum Statement {
         location: Option<SourceLocation>,
     },
     
-    // Apply blocks
-    ApplyBlock {
-        target: String,
-        items: Vec<ApplyItem>,
+    // Apply blocks - Three types as per specification
+    TypeApplyBlock {
+        type_: Type,
+        assignments: Vec<VariableAssignment>,
+        location: Option<SourceLocation>,
+    },
+    
+    FunctionApplyBlock {
+        function_name: String,
+        expressions: Vec<Expression>,
+        location: Option<SourceLocation>,
+    },
+    
+    ConstantApplyBlock {
+        constants: Vec<ConstantAssignment>,
         location: Option<SourceLocation>,
     },
     
@@ -242,17 +253,16 @@ pub enum Statement {
 }
 
 #[derive(Debug, Clone)]
-pub enum ApplyItem {
-    FunctionCall(Expression),
-    VariableDecl {
-        name: String,
-        initializer: Option<Expression>,
-    },
-    ConstantDecl {
-        type_: Type,
-        name: String,
-        value: Expression,
-    },
+pub struct VariableAssignment {
+    pub name: String,
+    pub initializer: Option<Expression>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConstantAssignment {
+    pub type_: Type,
+    pub name: String,
+    pub value: Expression,
 }
 
 #[derive(Debug, Clone)]

@@ -1,0 +1,17 @@
+// Test Working Apply-Blocks - Specification Compliant
+
+start()
+	// Type apply-blocks (working)
+	integer:
+		count = 0
+		maxSize = 100
+	
+	// Function apply-blocks (working)
+	println:
+		"Hello"
+		"World"
+	
+	// Constant apply-blocks (working)
+	constant:
+		integer MAX_SIZE = 100
+		string VERSION = "1.0.0" 

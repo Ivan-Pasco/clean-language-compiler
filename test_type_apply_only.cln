@@ -1,0 +1,6 @@
+// Test Type Apply-Blocks Only
+ 
+start()
+	integer:
+		count = 0
+		maxSize = 100 
