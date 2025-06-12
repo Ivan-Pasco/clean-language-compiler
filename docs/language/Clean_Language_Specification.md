@@ -56,7 +56,7 @@ Clean Language uses **tab-based indentation** for code structure:
 
 **Example:**
 ```clean
-function start()
+start()
 ⇥⇥⇥⇥integer x = 5    // Tab indentation
 ⇥⇥⇥⇥if x > 0
 ⇥⇥⇥⇥⇥⇥⇥⇥print("positive")    // Nested tab indentation
@@ -221,10 +221,24 @@ string message
 
 **Explicit conversions:**
 ```clean
-value.integer   // convert to integer
-value.float     // convert to floating-point
-value.string    // convert to string
-value.boolean   // convert to boolean
+value.toInteger   // convert to integer
+value.toFloat     // convert to floating-point
+value.toString    // convert to string
+value.toBoolean   // convert to boolean
+```
+
+**Implementation Status:**
+- ✅ **Numeric Conversions**: `integer.toFloat`, `float.toInteger`, `integer.toBoolean` fully implemented
+- ✅ **Boolean Conversions**: `integer.toBoolean` (0 = false, non-zero = true) implemented
+- ⚠️ **String Conversions**: `value.toString` requires runtime functions (not yet implemented)
+
+**Examples:**
+```clean
+integer num = 42
+float numFloat = num.toFloat      // ✅ Works: converts 42 to 42.0
+integer piInt = 3.14.toInteger    // ✅ Works: converts 3.14 to 3 (truncated)
+boolean flag = 0.toBoolean        // ✅ Works: converts 0 to false
+boolean nonZero = 5.toBoolean     // ✅ Works: converts 5 to true
 ```
 
 ## Apply-Blocks
@@ -492,11 +506,37 @@ return expression   // Return expression result
 
 ## Functions
 
-> **Note:** Clean Language encourages organizing functionality into classes with static methods rather than standalone functions. See [Class-Based Organization](#design-philosophy-class-based-organization) for the recommended approach.
+Clean Language supports two ways to declare functions: **standalone functions** and **functions blocks**.
 
-Clean Language uses a **functions block syntax** for all function declarations. Functions must be declared within a `functions:` block and cannot be declared as standalone statements.
+### The Start Function
 
-### Function Declaration Syntax
+Every Clean program begins with a `start()` function. This is **implicit** - you just write `start()` without the `function` keyword:
+
+```clean
+start()
+    println("Hello, World!")
+    integer x = 42
+    println(x)
+```
+
+### Standalone Functions
+
+Use standalone functions for simple cases and single utility functions:
+
+```clean
+function quickHelper()
+    return 42
+
+function integer add()
+    input
+        integer a
+        integer b
+    return a + b
+```
+
+### Functions Blocks
+
+Use functions blocks to organize multiple related functions together:
 
 ```clean
 functions:
@@ -521,32 +561,25 @@ functions:
         println("Hello World")
 ```
 
-**Key Rules:**
-- All functions (except `start()`) must be declared within a `functions:` block
-- Each function follows standard signature and body format within the block
-- Functions can have optional `description` and `input` blocks
-- Clean does not support standalone function declarations outside the `functions:` block
+### When to Use Each
 
-**Standalone functions are deprecated:**
-- Use built-in system classes (MathUtils, StringUtils, etc.) for utilities
-- Organize your application logic in classes with static/instance methods
-- Standalone functions are only for internal compiler use
+**The `start()` function** is always implicit:
+- Just write `start()` - no `function` keyword needed
+- This is the entry point of your program
 
-**System provides built-in utility classes:**
-```clean
-// Built-in classes - available automatically:
-result = MathUtils.add(5, 3)
-text = StringUtils.toUpper("hello")
-count = ArrayUtils.length([1, 2, 3])
+**Standalone functions** are good for:
+- Simple utility functions
+- Quick helper functions
+- Single-purpose functions
 
-// Your application code - must use classes:
-class BusinessLogic
-    functions:
-        integer calculateTotal(integer items)
-            return MathUtils.multiply(items, 10)
-```
+**Functions blocks** are good for:
+- Multiple related functions
+- Organizing code logically
+- Larger programs with many functions
 
 ### Function Calls
+
+Both types of functions are called the same way:
 
 ```clean
 result = add(5, 3)
@@ -554,30 +587,32 @@ value = multiply(2, 4)
 message = square(7)
 ```
 
-If a function does not use return, Clean automatically returns the value of the last expression in the function body.
-Use return for clarity in multi-step or branching logic.
-Implicit return is best for short, single-expression functions.
+### Function Features
+
+Functions support optional features:
+
+```clean
+function integer calculate()
+    description "Calculates something important"
+    input
+        integer x
+        integer y
+    return x + y
+```
+
+**Automatic return**: If a function doesn't use `return`, Clean automatically returns the value of the last expression.
 
 ### Generic Functions
 
 ```clean
 functions:
-    T identity()
-        input T value
+    Any identity()
+        input Any value
         return value
 
 // Usage
 string result = identity("hello")
 integer number = identity(42)
-```
-
-### Start Function
-
-Every Clean Language program must have a `start()` function:
-
-```clean
-function start()
-    println("Hello, World!")
 ```
 
 ## Control Flow
@@ -695,15 +730,15 @@ class Point
 
 ```clean
 class Container
-    T value                  // First mention of T makes class generic
+    Any value                  // First mention of Any makes class generic
 
     constructor(value)       // Auto-stores to matching field
 
-    T get()
+    Any get()
         return value
 
     set()
-        input T newValue
+        input Any newValue
         value = newValue
 ```
 
@@ -860,204 +895,3 @@ import:
     Utils as U          # module alias
     Json.decode as jd   # symbol alias
 ```
-
-## Standard Library
-
-### StringUtils Class
-
-```clean
-StringUtils.length(str)                        // Get string length
-StringUtils.compare(s1, s2)                    // Compare strings (-1, 0, 1)
-StringUtils.substring(str, start, len)         // Extract substring
-StringUtils.toUpper(str)                       // Convert to uppercase
-StringUtils.toLower(str)                       // Convert to lowercase
-StringUtils.trim(str)                          // Remove whitespace
-StringUtils.split(str, delimiter)              // Split into array
-StringUtils.concat(s1, s2)                     // Concatenate strings
-StringUtils.contains(str, substring)           // Check if contains substring
-StringUtils.startsWith(str, prefix)            // Check if starts with prefix
-StringUtils.endsWith(str, suffix)              // Check if ends with suffix
-```
-
-**Note:** String concatenation uses `+` only when both operands are strings.
-
-### ArrayUtils Class
-
-```clean
-ArrayUtils.length(arr)                       // Get array length
-ArrayUtils.get(arr, index)                   // Get element at index
-ArrayUtils.set(arr, index, value)            // Set element at index
-
-ArrayUtils.push(arr, value)                  // Add element to end
-ArrayUtils.pop(arr)                          // Remove and return last element
-ArrayUtils.insert(arr, index, value)         // Insert element at index
-ArrayUtils.remove(arr, index)                // Remove element at index
-
-ArrayUtils.contains(arr, value)              // Check if array contains value
-ArrayUtils.indexOf(arr, value)               // Get index of first occurrence
-ArrayUtils.lastIndexOf(arr, value)           // Get index of last occurrence
-
-ArrayUtils.sort(arr)                         // Sort array in place
-ArrayUtils.reverse(arr)                      // Reverse array in place
-ArrayUtils.slice(arr, start, end)            // Get subarray
-ArrayUtils.join(arr, separator)              // Join elements into string
-```
-
-### MathUtils Class
-
-```clean
-MathUtils.add(a, b)                // Addition
-MathUtils.subtract(a, b)           // Subtraction  
-MathUtils.multiply(a, b)           // Multiplication
-MathUtils.divide(a, b)             // Division
-MathUtils.modulo(a, b)             // Modulo
-
-MathUtils.sqrt(x)                  // Square root
-MathUtils.pow(x, y)                // Power
-MathUtils.abs(x)                   // Absolute value
-MathUtils.floor(x)                 // Floor
-MathUtils.ceil(x)                  // Ceiling
-MathUtils.round(x)                 // Round to nearest integer
-
-MathUtils.sin(x)                   // Sine
-MathUtils.cos(x)                   // Cosine
-MathUtils.tan(x)                   // Tangent
-MathUtils.log(x)                   // Natural logarithm
-MathUtils.exp(x)                   // e^x
-
-MathUtils.min(a, b)                // Minimum of two numbers
-MathUtils.max(a, b)                // Maximum of two numbers
-MathUtils.clamp(value, min, max)   // Clamp value between min and max
-
-MathUtils.PI                       // Pi constant
-MathUtils.E                        // Euler's number
-```
-
-### Matrix Module
-
-```clean
-matrix.create(rows, cols, value)  // Create matrix filled with value
-matrix.identity(size)             // Create identity matrix
-
-// Basic operations (type-based overloading)
-A * B          // Matrix multiplication
-A + B          // Matrix addition
-A - B          // Matrix subtraction
-
-// Advanced operations (methods)
-A.transpose()  // Matrix transpose
-A.inverse()    // Matrix inverse
-A.determinant() // Matrix determinant
-A.get(row, col) // Get element
-A.set(row, col, value) // Set element
-A.rows         // Number of rows
-A.cols         // Number of columns
-A.size         // Number of elements
-```
-
-### Memory Module
-
-```clean
-allocate(bytes)                    // Allocate memory block
-release(pointer)                   // Deallocate memory block
-copyBytes(from, to, bytes)         // Copy memory
-fillBytes(pointer, value, bytes)   // Fill memory with value
-memoryStats()                      // Get memory usage statistics
-```
-
-## Memory Management
-
-### Allocation Strategy
-
-Clean Language uses **automatic reference counting (ARC)** with cycle detection:
-
-- **Reference Counting**: Objects automatically deallocated when reference count reaches zero
-- **Cycle Detection**: Periodic sweep to handle circular references
-- **Memory Pools**: Size-segregated pools (8B, 16B, 32B, ...) to minimize fragmentation
-- **Bounds Checking**: All array and matrix accesses are bounds-checked
-- **Guard Pages**: Memory protection with <15% overhead on 64-bit systems
-
-### Memory Layout
-
-```
-WebAssembly Linear Memory Layout:
-┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐
-│  Stack Space    │   Heap Space    │  String Pool    │  Static Data    │
-│  (grows down)   │  (grows up)     │                 │                 │
-└─────────────────┴─────────────────┴─────────────────┴─────────────────┘
-```
-
-### Memory Safety Features
-
-- **Bounds Checking**: All array and matrix accesses are bounds-checked
-- **Type Safety**: Strong typing prevents memory corruption
-- **Null Safety**: Nullable references must be declared with `?T`
-- **Automatic Cleanup**: Resources are automatically cleaned up
-- **Leak Detection**: Debug builds track and report memory leaks
-
-## Advanced Types
-
-For cases requiring specific memory layouts or performance characteristics:
-
-### Sized Integer Types
-```clean
-integer:8     // 8-bit signed integer (-128 to 127)
-integer:8u    // 8-bit unsigned integer (0 to 255)
-integer:16    // 16-bit signed integer
-integer:16u   // 16-bit unsigned integer
-integer:32    // 32-bit signed integer
-integer:64    // 64-bit signed integer
-```
-
-### Sized Float Types
-```clean
-float:32      // 32-bit IEEE-754 floating point
-float:64      // 64-bit IEEE-754 floating point (default)
-```
-
-### Usage Examples
-```clean
-// Graphics/byte manipulation
-integer:8u pixelValue = 255
-
-// Large numbers
-integer:64 bigNumber = 123456789123456789
-
-// Memory-constrained 3D graphics
-float:32 position = 1.5
-```
-
-The compiler maps default `integer` and `float` types to optimal sizes for the target platform.
-
-## Asynchronous Programming
-
-Clean uses two keywords for simple asynchronous operations:
-
-### Keywords
-
-* **`run`** — starts an operation in the background
-* **`later`** — declares a variable that will be filled when ready
-
-### Basic Usage
-
-```clean
-later result = run fetchData("url")
-print result   // blocks if not ready
-```
-
-### Behavior
-
-* The `run` function begins immediately.
-* Accessing the `later` variable blocks until complete.
-* No `await` or callbacks are needed.
-* Functions do not need to be marked `async`.
-
-### Optional Short Form
-
-```clean
-result = run compute()   // treated as later result
-```
-
-Use `later` to make it explicit. Clean waits only when you read the value.
-
-##END OF FUNCTIONAL SPECIFICATION

@@ -18,9 +18,12 @@ pub fn parse_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
         Rule::range_iterate_stmt => parse_range_iterate_statement(inner, ast_location),
         Rule::test => parse_test_statement(inner, ast_location),
         Rule::return_stmt => parse_return_statement(inner, ast_location),
+        Rule::error_stmt => parse_error_statement(inner, ast_location),
+        Rule::on_error_block => parse_on_error_block_statement(inner, ast_location),
         Rule::apply_block => parse_apply_block_statement(inner, ast_location),
         Rule::type_apply_block => parse_type_apply_block_statement(inner, ast_location),
         Rule::function_apply_block => parse_function_apply_block_statement(inner, ast_location),
+        Rule::method_apply_block => parse_method_apply_block_statement(inner, ast_location),
         Rule::constant_apply_block => parse_constant_apply_block_statement(inner, ast_location),
         Rule::expression => {
             let expr = parse_expression(inner)?;
@@ -217,17 +220,40 @@ fn parse_return_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLoca
     })
 }
 
+fn parse_error_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    // error("message") syntax
+    let mut inner = pair.into_inner();
+    let message_expr = inner.next().unwrap();
+    let message = parse_expression(message_expr)?;
+    
+    Ok(Statement::Error {
+        message,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_on_error_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    // This should be handled as an expression, not a statement
+    // Convert the onError block to an expression statement
+    let expr = super::expression_parser::parse_expression(pair)?;
+    Ok(Statement::Expression {
+        expr,
+        location: Some(ast_location),
+    })
+}
+
 fn parse_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
     // apply_block is a choice rule, so we need to dispatch to the specific type
     let inner = pair.into_inner().next().unwrap();
     match inner.as_rule() {
         Rule::type_apply_block => parse_type_apply_block_statement(inner, ast_location),
         Rule::function_apply_block => parse_function_apply_block_statement(inner, ast_location),
+        Rule::method_apply_block => parse_method_apply_block_statement(inner, ast_location),
         Rule::constant_apply_block => parse_constant_apply_block_statement(inner, ast_location),
         _ => Err(CompilerError::parse_error(
             format!("Unexpected apply block type: {:?}", inner.as_rule()),
             Some(ast_location),
-            Some("Expected type, function, or constant apply block".to_string())
+            Some("Expected type, function, method, or constant apply block".to_string())
         )),
     }
 }
@@ -309,6 +335,43 @@ fn parse_function_apply_block_statement(pair: Pair<Rule>, ast_location: crate::a
     
     Ok(Statement::FunctionApplyBlock {
         function_name,
+        expressions,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_method_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let method_call_chain_part = parts.next().unwrap();
+    
+    // Parse the method call chain: object.method or object.method1.method2
+    let mut chain_parts = method_call_chain_part.into_inner();
+    let object_name = chain_parts.next().unwrap().as_str().to_string();
+    let mut method_chain = Vec::new();
+    
+    for part in chain_parts {
+        if part.as_rule() == Rule::identifier {
+            method_chain.push(part.as_str().to_string());
+        }
+    }
+    
+    let mut expressions = Vec::new();
+    for part in parts {
+        match part.as_rule() {
+            Rule::indented_expressions => {
+                for expr_pair in part.into_inner() {
+                    if expr_pair.as_rule() == Rule::expression {
+                        expressions.push(parse_expression(expr_pair)?);
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Ok(Statement::MethodApplyBlock {
+        object_name,
+        method_chain,
         expressions,
         location: Some(ast_location),
     })

@@ -24,6 +24,9 @@ pub struct ErrorContext {
     pub help: Option<String>,
     pub error_type: ErrorType,
     pub location: Option<SourceLocation>,
+    pub suggestions: Vec<String>,
+    pub source_snippet: Option<String>,
+    pub stack_trace: Vec<StackFrame>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -56,6 +59,9 @@ impl ErrorContext {
             help,
             error_type,
             location,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         }
     }
 
@@ -69,7 +75,6 @@ impl ErrorContext {
         self
     }
     
-    // Add convenience methods for optional location and help
     pub fn with_location_option(mut self, location: Option<SourceLocation>) -> Self {
         if let Some(loc) = location {
             self.location = Some(loc);
@@ -84,13 +89,69 @@ impl ErrorContext {
         self
     }
 
-    pub fn add_stack_frame(&mut self, _frame: StackFrame) {
-        // Implementation needed
+    pub fn with_suggestion<T: Into<String>>(mut self, suggestion: T) -> Self {
+        self.suggestions.push(suggestion.into());
+        self
     }
 
-    pub fn with_stack_frame(self, _frame: StackFrame) -> Self {
-        // Implementation needed
+    pub fn with_suggestions(mut self, suggestions: Vec<String>) -> Self {
+        self.suggestions.extend(suggestions);
         self
+    }
+
+    pub fn with_source_snippet<T: Into<String>>(mut self, snippet: T) -> Self {
+        self.source_snippet = Some(snippet.into());
+        self
+    }
+
+    pub fn add_stack_frame(&mut self, frame: StackFrame) {
+        self.stack_trace.push(frame);
+    }
+
+    pub fn with_stack_frame(mut self, frame: StackFrame) -> Self {
+        self.stack_trace.push(frame);
+        self
+    }
+
+    /// Create an enhanced syntax error with context and suggestions
+    pub fn enhanced_syntax_error<T: Into<String>>(
+        message: T,
+        location: Option<SourceLocation>,
+        source_snippet: Option<String>,
+        suggestions: Vec<String>,
+    ) -> Self {
+        Self {
+            message: message.into(),
+            help: None,
+            error_type: ErrorType::Syntax,
+            location,
+            suggestions,
+            source_snippet,
+            stack_trace: Vec::new(),
+        }
+    }
+
+    /// Create an enhanced type error with detailed type information
+    pub fn enhanced_type_error<T: Into<String>>(
+        message: T,
+        expected_type: Option<String>,
+        actual_type: Option<String>,
+        location: Option<SourceLocation>,
+    ) -> Self {
+        let mut help_text = String::new();
+        if let (Some(expected), Some(actual)) = (expected_type, actual_type) {
+            help_text = format!("Expected type '{}', but found '{}'", expected, actual);
+        }
+
+        Self {
+            message: message.into(),
+            help: if help_text.is_empty() { None } else { Some(help_text) },
+            error_type: ErrorType::Type,
+            location,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
+        }
     }
 }
 
@@ -140,6 +201,33 @@ impl fmt::Display for ErrorContext {
                 location.file, location.line, location.column
             )?;
         }
+
+        // Show source snippet if available
+        if let Some(snippet) = &self.source_snippet {
+            writeln!(f, "\nSource:")?;
+            writeln!(f, "{}", snippet)?;
+        }
+
+        // Show suggestions if available
+        if !self.suggestions.is_empty() {
+            writeln!(f, "\nSuggestions:")?;
+            for suggestion in &self.suggestions {
+                writeln!(f, "  - {}", suggestion)?;
+            }
+        }
+
+        // Show stack trace if available
+        if !self.stack_trace.is_empty() {
+            writeln!(f, "\nStack trace:")?;
+            for frame in &self.stack_trace {
+                if let Some(location) = &frame.location {
+                    writeln!(f, "  at {} ({}:{}:{})", 
+                        frame.function_name, location.file, location.line, location.column)?;
+                } else {
+                    writeln!(f, "  at {}", frame.function_name)?;
+                }
+            }
+        }
         
         Ok(())
     }
@@ -152,6 +240,9 @@ impl Default for ErrorContext {
             help: None,
             error_type: ErrorType::Syntax,
             location: None,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         }
     }
 }
@@ -224,14 +315,89 @@ impl CompilerError {
         }
     }
     
-    // Add parse_error method that works with the Syntax variant
     pub fn parse_error<T: Into<String>>(message: T, location: Option<SourceLocation>, help: Option<String>) -> Self {
         CompilerError::Syntax {
             context: ErrorContext::new(message, help, ErrorType::Syntax, location),
         }
     }
 
-    // Add the with_help and with_location methods to CompilerError
+    /// Enhanced syntax error with context, suggestions, and source snippet
+    pub fn enhanced_syntax_error<T: Into<String>>(
+        message: T,
+        location: Option<SourceLocation>,
+        source_snippet: Option<String>,
+        suggestions: Vec<String>,
+        help: Option<String>,
+    ) -> Self {
+        let context = ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions)
+            .with_help_option(help);
+        CompilerError::Syntax { context }
+    }
+
+    /// Enhanced type error with detailed type information
+    pub fn enhanced_type_error<T: Into<String>>(
+        message: T,
+        expected_type: Option<String>,
+        actual_type: Option<String>,
+        location: Option<SourceLocation>,
+        suggestions: Vec<String>,
+    ) -> Self {
+        let context = ErrorContext::enhanced_type_error(message, expected_type, actual_type, location)
+            .with_suggestions(suggestions);
+        CompilerError::Type { context }
+    }
+
+    /// Create a parse error with suggestions for common mistakes
+    pub fn parse_error_with_suggestions<T: Into<String>>(
+        message: T,
+        location: Option<SourceLocation>,
+        suggestions: Vec<String>,
+        source_snippet: Option<String>,
+    ) -> Self {
+        Self::enhanced_syntax_error(message, location, source_snippet, suggestions, None)
+    }
+
+    /// Create an error for unexpected tokens with suggestions
+    pub fn unexpected_token_error(
+        found: &str,
+        expected: Vec<&str>,
+        location: Option<SourceLocation>,
+        source_snippet: Option<String>,
+    ) -> Self {
+        let message = if expected.len() == 1 {
+            format!("Expected {}, but found '{}'", expected[0], found)
+        } else {
+            format!("Expected one of [{}], but found '{}'", expected.join(", "), found)
+        };
+
+        let suggestions = if expected.len() <= 3 {
+            expected.iter().map(|s| format!("Try using '{}'", s)).collect()
+        } else {
+            vec!["Check the syntax documentation for valid tokens".to_string()]
+        };
+
+        Self::enhanced_syntax_error(
+            message,
+            location,
+            source_snippet,
+            suggestions,
+            Some("Verify the token matches the expected syntax".to_string()),
+        )
+    }
+
+    /// Create an error for missing required elements
+    pub fn missing_element_error<T: Into<String>>(
+        element_type: T,
+        location: Option<SourceLocation>,
+        suggestions: Vec<String>,
+    ) -> Self {
+        let element = element_type.into();
+        let message = format!("Missing required {}", element);
+        let help = Some(format!("Add the missing {} to complete the syntax", element));
+
+        Self::enhanced_syntax_error(message, location, None, suggestions, help)
+    }
+
     pub fn with_help<T: Into<String>>(self, help_text: T) -> Self {
         match self {
             CompilerError::Syntax { mut context } => {
@@ -364,7 +530,6 @@ impl CompilerError {
         }
     }
 
-    /// Create a more detailed type error with additional context about the expected types
     pub fn detailed_type_error(
         message: impl AsRef<str>,
         expected_type: impl std::fmt::Debug,
@@ -384,12 +549,14 @@ impl CompilerError {
             error_type: ErrorType::Type,
             location,
             help,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         };
         
         CompilerError::Type { context }
     }
     
-    /// Create a memory allocation error with additional diagnostics
     pub fn memory_allocation_error(
         message: impl AsRef<str>,
         size_requested: usize,
@@ -416,12 +583,14 @@ impl CompilerError {
             error_type: ErrorType::Memory,
             location,
             help,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         };
         
         CompilerError::Memory { context }
     }
     
-    /// Create a bounds check error for array/matrix access
     pub fn bounds_error(
         message: impl AsRef<str>,
         index: usize,
@@ -445,12 +614,14 @@ impl CompilerError {
             error_type: ErrorType::Runtime,
             location,
             help,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         };
         
         CompilerError::Runtime { context }
     }
     
-    /// Create an improved validation error with component details
     pub fn component_validation_error(
         message: impl AsRef<str>,
         component_name: &str,
@@ -470,24 +641,28 @@ impl CompilerError {
             error_type: ErrorType::Validation,
             location,
             help,
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         };
         
         CompilerError::Validation { context }
     }
     
-    /// Create a division by zero error
     pub fn division_by_zero_error(location: Option<SourceLocation>) -> Self {
         let context = ErrorContext {
             message: "Division by zero".to_string(),
             error_type: ErrorType::Runtime,
             location,
             help: Some("Check divisor values to ensure they are not zero.".to_string()),
+            suggestions: Vec::new(),
+            source_snippet: None,
+            stack_trace: Vec::new(),
         };
         
         CompilerError::Runtime { context }
     }
     
-    /// Create a function not found error with suggestions
     pub fn function_not_found_error<T: Into<String>>(
         name: T,
         available_functions: &[&str],
@@ -506,6 +681,9 @@ impl CompilerError {
                 error_type: ErrorType::Type,
                 location: Some(location),
                 help: Some("Check if the function name is correct and the function is defined".to_string()),
+                suggestions: Vec::new(),
+                source_snippet: None,
+                stack_trace: Vec::new(),
             }
         }
     }
@@ -528,13 +706,14 @@ impl CompilerError {
                 error_type: ErrorType::Type,
                 location: Some(location),
                 help: Some("Check if the variable name is correct and the variable is defined".to_string()),
+                suggestions: Vec::new(),
+                source_snippet: None,
+                stack_trace: Vec::new(),
             }
         }
     }
 }
 
-/// Calculate Levenshtein distance between two strings
-/// Used for suggesting similar names for functions/variables
 fn levenshtein_distance(s1: &str, s2: &str) -> usize {
     let s1_len = s1.chars().count();
     let s2_len = s2.chars().count();
@@ -609,14 +788,12 @@ impl fmt::Display for CompilerError {
             },
         };
 
-        // Add location information if available
         if let Some(location) = &context.location {
             if !location.file.is_empty() && location.file != "<unknown>" {
                 write!(f, "\n  at {}:{}:{}", location.file, location.line, location.column)?;
             }
         }
 
-        // Add help information if available
         if let Some(help) = &context.help {
             write!(f, "\n  Help: {}", help)?;
         }
@@ -627,7 +804,6 @@ impl fmt::Display for CompilerError {
 
 impl Error for CompilerError {}
 
-// Add implementation for From<wasmtime::MemoryAccessError> trait
 impl From<wasmtime::MemoryAccessError> for CompilerError {
     fn from(error: wasmtime::MemoryAccessError) -> Self {
         CompilerError::memory_error(
@@ -638,7 +814,6 @@ impl From<wasmtime::MemoryAccessError> for CompilerError {
     }
 }
 
-/// Result type alias for compiler operations
 pub type CompilerResult<T> = Result<T, CompilerError>;
 
 #[derive(Debug, Clone)]
@@ -732,6 +907,147 @@ impl fmt::Display for CompilerWarning {
         }
         
         Ok(())
+    }
+}
+
+/// Utility functions for enhanced error reporting
+pub struct ErrorUtils;
+
+impl ErrorUtils {
+    /// Extract a source snippet around the error location
+    pub fn extract_source_snippet(
+        source: &str,
+        location: &SourceLocation,
+        context_lines: usize,
+    ) -> String {
+        let lines: Vec<&str> = source.lines().collect();
+        let error_line = location.line.saturating_sub(1); // Convert to 0-based indexing
+        
+        let start_line = error_line.saturating_sub(context_lines);
+        let end_line = std::cmp::min(error_line + context_lines + 1, lines.len());
+        
+        let mut snippet = String::new();
+        
+        for (i, line_content) in lines[start_line..end_line].iter().enumerate() {
+            let line_num = start_line + i + 1; // Convert back to 1-based
+            let is_error_line = line_num == location.line;
+            
+            if is_error_line {
+                snippet.push_str(&format!(" --> {}: {}\n", line_num, line_content));
+                
+                // Add pointer to the specific column
+                let pointer_line = format!("     {}{}", 
+                    " ".repeat(location.column.saturating_sub(1)), 
+                    "^".repeat(std::cmp::max(1, 1))
+                );
+                snippet.push_str(&format!("{}\n", pointer_line));
+            } else {
+                snippet.push_str(&format!("     {}: {}\n", line_num, line_content));
+            }
+        }
+        
+        snippet
+    }
+
+    /// Generate suggestions for similar identifiers using Levenshtein distance
+    pub fn suggest_similar_names(target: &str, available: &[&str], max_suggestions: usize) -> Vec<String> {
+        let mut suggestions: Vec<(usize, &str)> = available
+            .iter()
+            .map(|name| (levenshtein_distance(target, name), *name))
+            .filter(|(distance, _)| *distance <= 3) // Only suggest if distance is reasonable
+            .collect();
+        
+        suggestions.sort_by_key(|(distance, _)| *distance);
+        suggestions
+            .into_iter()
+            .take(max_suggestions)
+            .map(|(_, name)| format!("Did you mean '{}'?", name))
+            .collect()
+    }
+
+    /// Create suggestions for common syntax mistakes
+    pub fn suggest_syntax_fixes(error_context: &str) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        if error_context.contains("expected identifier") {
+            suggestions.push("Check if you're using a reserved keyword as an identifier".to_string());
+            suggestions.push("Ensure the identifier starts with a letter or underscore".to_string());
+        }
+        
+        if error_context.contains("expected \")\"") {
+            suggestions.push("Check for missing closing parenthesis".to_string());
+            suggestions.push("Verify parentheses are properly balanced".to_string());
+        }
+        
+        if error_context.contains("expected \"}\"") {
+            suggestions.push("Check for missing closing brace".to_string());
+            suggestions.push("Verify braces are properly balanced".to_string());
+        }
+        
+        if error_context.contains("expected \"]\"") {
+            suggestions.push("Check for missing closing bracket".to_string());
+            suggestions.push("Verify brackets are properly balanced".to_string());
+        }
+        
+        if error_context.contains("unexpected token") {
+            suggestions.push("Check the syntax documentation for valid tokens".to_string());
+            suggestions.push("Verify you're using the correct Clean Language syntax".to_string());
+        }
+        
+        suggestions
+    }
+
+    /// Convert a Pest parsing error to an enhanced CompilerError
+    pub fn from_pest_error(
+        pest_error: pest::error::Error<crate::parser::Rule>,
+        source: &str,
+        file_path: &str,
+    ) -> CompilerError {
+        let location = match pest_error.location {
+            pest::error::InputLocation::Pos(pos) => {
+                // Extract line and column from the position
+                let lines_before = source[..pos].lines().count();
+                let line = if lines_before == 0 { 1 } else { lines_before };
+                let last_line_start = source[..pos].rfind('\n').map(|i| i + 1).unwrap_or(0);
+                let col = pos - last_line_start + 1;
+                
+                Some(SourceLocation {
+                    line,
+                    column: col,
+                    file: file_path.to_string(),
+                })
+            },
+            pest::error::InputLocation::Span((start_pos, _)) => {
+                // Extract line and column from the start position
+                let lines_before = source[..start_pos].lines().count();
+                let line = if lines_before == 0 { 1 } else { lines_before };
+                let last_line_start = source[..start_pos].rfind('\n').map(|i| i + 1).unwrap_or(0);
+                let col = start_pos - last_line_start + 1;
+                
+                Some(SourceLocation {
+                    line,
+                    column: col,
+                    file: file_path.to_string(),
+                })
+            },
+        };
+
+        let source_snippet = if let Some(loc) = &location {
+            Some(Self::extract_source_snippet(source, loc, 2))
+        } else {
+            None
+        };
+
+        let error_message = pest_error.to_string();
+        let suggestions = Self::suggest_syntax_fixes(&error_message);
+
+        CompilerError::enhanced_syntax_error(
+            format!("Syntax error: {}", error_message),
+            location,
+            source_snippet,
+            suggestions,
+            Some("Check the Clean Language syntax documentation".to_string()),
+        )
     }
 }
 

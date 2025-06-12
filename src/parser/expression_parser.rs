@@ -43,14 +43,36 @@ pub fn parse_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         }
         Rule::on_error_expr => {
             // Handle onError expression
+            let location = convert_to_ast_location(&get_location(&pair));
             let mut inner = pair.into_inner();
             let expression = parse_expression(inner.next().unwrap())?;
             let fallback = parse_expression(inner.next().unwrap())?;
             
-            let location = crate::ast::SourceLocation::default();
             Ok(Expression::OnError {
                 expression: Box::new(expression),
                 fallback: Box::new(fallback),
+                location,
+            })
+        }
+        Rule::on_error_block => {
+            // Handle onError block
+            let location = convert_to_ast_location(&get_location(&pair));
+            let mut inner = pair.into_inner();
+            let expression = parse_expression(inner.next().unwrap())?;
+            
+            // Parse the indented block
+            let block_pair = inner.next().unwrap();
+            let mut error_handler = Vec::new();
+            
+            for stmt_pair in block_pair.into_inner() {
+                if stmt_pair.as_rule() == Rule::statement {
+                    error_handler.push(crate::parser::statement_parser::parse_statement(stmt_pair)?);
+                }
+            }
+            
+            Ok(Expression::OnErrorBlock {
+                expression: Box::new(expression),
+                error_handler,
                 location,
             })
         }
@@ -224,11 +246,23 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::property_access => parse_property_access(inner),
         Rule::array_access => parse_array_access(inner),
         Rule::identifier => {
-            Ok(Expression::Variable(inner.as_str().to_string()))
+            let identifier = inner.as_str();
+            if identifier == "error" {
+                // This could be an error variable access - we'll validate context in semantic analysis
+                Ok(Expression::ErrorVariable {
+                    location: convert_to_ast_location(&location),
+                })
+            } else {
+                Ok(Expression::Variable(identifier.to_string()))
+            }
         },
         Rule::expression => {
             // Handle parenthesized expressions: (expression)
             parse_expression(inner)
+        },
+        Rule::multiline_parenthesized_expr => {
+            // Handle multi-line parenthesized expressions: (expr + \n expr)
+            parse_multiline_parenthesized_expression(inner)
         },
         _ => Err(CompilerError::parse_error(
             format!("Unexpected primary expression: {}", inner.as_str()),
@@ -449,14 +483,29 @@ pub fn parse_method_call(pair: Pair<Rule>) -> Result<Expression, CompilerError> 
     for segment in inner {
         if let Rule::method_call_segment = segment.as_rule() {
             let mut seg_inner = segment.into_inner();
-            let method_name = seg_inner.next().unwrap().as_str().to_string();
+            let first_child = seg_inner.next().unwrap();
             
-            let mut arguments = Vec::new();
-            for arg in seg_inner {
-                if let Rule::expression = arg.as_rule() {
-                    arguments.push(parse_expression(arg)?);
-                }
-            }
+            let (method_name, arguments) = match first_child.as_rule() {
+                Rule::identifier => {
+                    // Method call with mandatory parentheses
+                    let method_name = first_child.as_str().to_string();
+                    let mut arguments = Vec::new();
+                    
+                    // Parse arguments from the remaining segments
+                    for arg in seg_inner {
+                        if let Rule::expression = arg.as_rule() {
+                            arguments.push(parse_expression(arg)?);
+                        }
+                    }
+                    
+                    (method_name, arguments)
+                },
+                _ => return Err(CompilerError::parse_error(
+                    format!("Unexpected method call segment: {:?}", first_child.as_rule()),
+                    None,
+                    None
+                ))
+            };
             
             let location = crate::ast::SourceLocation::default();
             current_expr = Expression::MethodCall {
@@ -501,4 +550,121 @@ pub fn parse_array_access(pair: Pair<Rule>) -> Result<Expression, CompilerError>
     let index_expr = parse_expression(index_pair)?;
     
     Ok(Expression::ArrayAccess(Box::new(array_expr), Box::new(index_expr)))
+}
+
+pub fn parse_multiline_parenthesized_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    // The multiline_parenthesized_expr contains a multiline_expression
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::multiline_expression => {
+                return parse_multiline_expression(inner);
+            },
+            _ => {} // Skip NEWLINE and INDENT tokens
+        }
+    }
+    
+    Err(CompilerError::parse_error(
+        "Empty multi-line parenthesized expression".to_string(),
+        None,
+        Some("Multi-line expressions must contain at least one expression".to_string())
+    ))
+}
+
+pub fn parse_multiline_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let mut expr_stack = Vec::new();
+    let mut op_stack = Vec::new();
+
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::primary => {
+                expr_stack.push(parse_primary(item)?);
+            }
+            Rule::binary_op => {
+                let op = match item.as_str() {
+                    "+" => BinaryOperator::Add,
+                    "-" => BinaryOperator::Subtract,
+                    "*" => BinaryOperator::Multiply,
+                    "/" => BinaryOperator::Divide,
+                    "%" => BinaryOperator::Modulo,
+                    "^" => BinaryOperator::Power,
+                    "and" => BinaryOperator::And,
+                    "or" => BinaryOperator::Or,
+                    _ => return Err(CompilerError::parse_error(
+                        format!("Invalid binary operator: {}", item.as_str()),
+                        Some(convert_to_ast_location(&get_location(&item))),
+                        Some("Valid binary operators are: +, -, *, /, %, ^, and, or".to_string())
+                    )),
+                };
+                op_stack.push(ParsedOperator::Binary(op));
+            }
+            Rule::comparison_op => {
+                let op = match item.as_str() {
+                    "==" => BinaryOperator::Equal,
+                    "!=" => BinaryOperator::NotEqual,
+                    "<" => BinaryOperator::Less,
+                    "<=" => BinaryOperator::LessEqual,
+                    ">" => BinaryOperator::Greater,
+                    ">=" => BinaryOperator::GreaterEqual,
+                    "is" => BinaryOperator::Is,
+                    "not" => BinaryOperator::Not,
+                    _ => return Err(CompilerError::parse_error(
+                        format!("Invalid comparison operator: {}", item.as_str()),
+                        Some(convert_to_ast_location(&get_location(&item))),
+                        Some("Valid comparison operators are: ==, !=, <, <=, >, >=, is, not".to_string())
+                    )),
+                };
+                op_stack.push(ParsedOperator::Binary(op));
+            }
+            _ => {} // Skip NEWLINE and INDENT tokens
+        }
+    }
+
+    // Apply operators with precedence (same logic as base_expression)
+    while op_stack.len() > 1 && expr_stack.len() >= 3 {
+        let op2 = op_stack.pop().unwrap();
+        let op1 = op_stack.last().unwrap();
+        
+        if op1.precedence() >= op2.precedence() {
+            let right = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
+                "Missing right operand".to_string(),
+                None,
+                Some("Each operator requires two operands".to_string())
+            ))?;
+            
+            let left = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
+                "Missing left operand".to_string(),
+                None,
+                Some("Each operator requires two operands".to_string())
+            ))?;
+            
+            expr_stack.push(apply_operator(left, op2, right)?);
+        } else {
+            op_stack.push(op2);
+            break;
+        }
+    }
+
+    // Apply remaining operators
+    while !op_stack.is_empty() && expr_stack.len() >= 2 {
+        let op = op_stack.pop().unwrap();
+        let right = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
+            "Missing right operand".to_string(),
+            None,
+            Some("Each operator requires two operands".to_string())
+        ))?;
+        
+        let left = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
+            "Missing left operand".to_string(),
+            None,
+            Some("Each operator requires two operands".to_string())
+        ))?;
+        
+        expr_stack.push(apply_operator(left, op, right)?);
+    }
+
+    expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
+        "Empty multi-line expression".to_string(),
+        None,
+        Some("A multi-line expression must contain at least one value".to_string())
+    ))
 } 

@@ -1,0 +1,9 @@
+function Any identity()
+	input
+		Any value
+	return value
+ 
+start()
+	integer result = identity(42)
+	println:
+		result 

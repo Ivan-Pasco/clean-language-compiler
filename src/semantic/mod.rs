@@ -28,6 +28,7 @@ pub struct SemanticAnalyzer {
     warnings: Vec<CompilerWarning>,
     used_variables: HashSet<String>,
     used_functions: HashSet<String>,
+    error_context_depth: i32,
 }
 
 impl SemanticAnalyzer {
@@ -48,6 +49,7 @@ impl SemanticAnalyzer {
             warnings: Vec::new(),
             used_variables: HashSet::new(),
             used_functions: HashSet::new(),
+            error_context_depth: 0,
         };
         
         analyzer.register_builtin_functions();
@@ -349,6 +351,32 @@ impl SemanticAnalyzer {
                 Ok(())
             },
 
+            Statement::MethodApplyBlock { object_name, method_chain, expressions, location: _ } => {
+                // Check that the object exists
+                if !self.current_scope.lookup_variable(object_name).is_some() {
+                    return Err(CompilerError::type_error(
+                        &format!("Object '{}' not found", object_name),
+                        Some("Check if the object name is correct and the object is declared".to_string()),
+                        None
+                    ));
+                }
+                
+                // For now, we'll do basic validation - in a full implementation we'd check method signatures
+                if method_chain.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method apply block requires at least one method".to_string(),
+                        Some("Use the format: object.method: arguments".to_string()),
+                        None
+                    ));
+                }
+                
+                // Check all expressions
+                for expr in expressions {
+                    self.check_expression(expr)?;
+                }
+                Ok(())
+            },
+
             Statement::ConstantApplyBlock { constants, location: _ } => {
                 for constant in constants {
                     self.check_type(&constant.type_)?;
@@ -520,6 +548,19 @@ impl SemanticAnalyzer {
                 self.check_expression(expr)?;
                 Ok(())
             },
+            
+            Statement::Error { message, location: _ } => {
+                // Check that the message expression is valid and returns a string
+                let message_type = self.check_expression(message)?;
+                if message_type != Type::String {
+                    return Err(CompilerError::type_error(
+                        &format!("Error message must be a string, found {:?}", message_type),
+                        Some("Use a string expression for the error message".to_string()),
+                        None
+                    ));
+                }
+                Ok(())
+            },
         }
     }
 
@@ -663,6 +704,11 @@ impl SemanticAnalyzer {
                     }
                 }
                 
+                // Check if this is a type conversion method
+                if self.is_type_conversion_method(method) {
+                    return self.check_type_conversion_method(object, method, arguments);
+                }
+                
                 // This is a regular method call - check object type first
                 let object_type = self.check_expression(object)?;
                 
@@ -674,6 +720,122 @@ impl SemanticAnalyzer {
                 
                 // Handle method calls based on object type
                 match &object_type {
+                    Type::String => {
+                        match method.as_str() {
+                            "length" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        "String.length() takes no arguments",
+                                        Some("String.length() is a property access with no parameters".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Integer)
+                            },
+                            "toUpper" | "toLower" | "trim" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        &format!("String.{}() takes no arguments", method),
+                                        Some(format!("String.{}() is a transformation method with no parameters", method)),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::String)
+                            },
+                            "startsWith" | "endsWith" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        &format!("String.{}() expects exactly 1 argument", method),
+                                        Some(format!("String.{}(prefix/suffix) requires one string argument", method)),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::String) {
+                                    return Err(CompilerError::type_error(
+                                        &format!("String.{}() requires a string argument", method),
+                                        Some("String comparison methods require string arguments".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Boolean)
+                            },
+                            "indexOf" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        "String.indexOf() expects exactly 1 argument",
+                                        Some("String.indexOf(substring) requires one string argument".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::String) {
+                                    return Err(CompilerError::type_error(
+                                        "String.indexOf() requires a string argument",
+                                        Some("String search methods require string arguments".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Integer)
+                            },
+                            "substring" => {
+                                if arguments.len() != 2 {
+                                    return Err(CompilerError::type_error(
+                                        "String.substring() expects exactly 2 arguments",
+                                        Some("String.substring(start, end) requires two integer arguments".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::Integer) || !matches!(arg_types[1], Type::Integer) {
+                                    return Err(CompilerError::type_error(
+                                        "String.substring() requires integer arguments",
+                                        Some("String.substring(start, end) requires integer indices".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::String)
+                            },
+                            "replace" => {
+                                if arguments.len() != 2 {
+                                    return Err(CompilerError::type_error(
+                                        "String.replace() expects exactly 2 arguments",
+                                        Some("String.replace(old, new) requires two string arguments".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::String) || !matches!(arg_types[1], Type::String) {
+                                    return Err(CompilerError::type_error(
+                                        "String.replace() requires string arguments",
+                                        Some("String.replace(old, new) requires string arguments".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::String)
+                            },
+                            "split" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        "String.split() expects exactly 1 argument",
+                                        Some("String.split(delimiter) requires one string argument".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::String) {
+                                    return Err(CompilerError::type_error(
+                                        "String.split() requires a string argument",
+                                        Some("String.split(delimiter) requires a string delimiter".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Array(Box::new(Type::String)))
+                            },
+                            _ => {
+                                Err(CompilerError::type_error(
+                                    &format!("Method '{}' not found on String type", method),
+                                    Some("Available methods: length(), toUpper(), toLower(), trim(), startsWith(str), endsWith(str), indexOf(str), substring(start, end), replace(old, new), split(delimiter)".to_string()),
+                                    None
+                                ))
+                            }
+                        }
+                    },
                     Type::Array(_element_type) => {
                         match method.as_str() {
                             "at" => {
@@ -848,6 +1010,32 @@ impl SemanticAnalyzer {
                 
                 Ok(expr_type)
             },
+            
+            Expression::OnErrorBlock { expression, error_handler, location: _ } => {
+                let expr_type = self.check_expression(expression)?;
+                
+                // Check the error handler statements in a new scope with error variable
+                self.push_error_scope();
+                for stmt in error_handler {
+                    self.check_statement(stmt)?;
+                }
+                self.pop_error_scope();
+                
+                Ok(expr_type)
+            },
+            
+            Expression::ErrorVariable { location } => {
+                if !self.in_error_context() {
+                    return Err(CompilerError::type_error(
+                        "Error variable 'error' can only be used in onError blocks",
+                        Some("Move this usage inside an onError block".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                
+                // Error variable has a special error type with message, code, and location
+                Ok(Type::Object("Error".to_string()))
+            },
         }
     }
 
@@ -926,7 +1114,44 @@ impl SemanticAnalyzer {
     }
 
     fn types_compatible(&self, t1: &Type, t2: &Type) -> bool {
-        t1 == t2 || (matches!((t1, t2), (Type::Integer, Type::Float) | (Type::Float, Type::Integer)))
+        // Exact type match
+        if t1 == t2 {
+            return true;
+        }
+        
+        // Standard integer/float conversions
+        if matches!((t1, t2), (Type::Integer, Type::Float) | (Type::Float, Type::Integer)) {
+            return true;
+        }
+        
+        // Sized type conversions
+        match (t1, t2) {
+            // Integer literals can be assigned to sized integer types
+            (Type::IntegerSized { .. }, Type::Integer) => true,
+            (Type::Integer, Type::IntegerSized { .. }) => true,
+            
+            // Float literals can be assigned to sized float types
+            (Type::FloatSized { .. }, Type::Float) => true,
+            (Type::Float, Type::FloatSized { .. }) => true,
+            
+            // Integer literals can be assigned to sized float types (with implicit conversion)
+            (Type::FloatSized { .. }, Type::Integer) => true,
+            (Type::Integer, Type::FloatSized { .. }) => true,
+            
+            // Sized integer types can be assigned to float types (with implicit conversion)
+            (Type::Float, Type::IntegerSized { .. }) => true,
+            (Type::IntegerSized { .. }, Type::Float) => true,
+            
+            // Sized integer types can be assigned to sized float types
+            (Type::FloatSized { .. }, Type::IntegerSized { .. }) => true,
+            (Type::IntegerSized { .. }, Type::FloatSized { .. }) => true,
+            
+            // Different sized types of the same base type are compatible (with potential warnings)
+            (Type::IntegerSized { .. }, Type::IntegerSized { .. }) => true,
+            (Type::FloatSized { .. }, Type::FloatSized { .. }) => true,
+            
+            _ => false
+        }
     }
 
     fn value_to_type(value: &Value) -> Type {
@@ -1040,6 +1265,12 @@ impl SemanticAnalyzer {
             },
             Type::Array(element_type) => self.check_type(element_type),
             Type::Matrix(element_type) => self.check_type(element_type),
+            Type::Pairs(key_type, value_type) => {
+                // Check both key and value types
+                self.check_type(key_type)?;
+                self.check_type(value_type)?;
+                Ok(())
+            },
             Type::Generic(base_type, type_args) => {
                 self.check_type(base_type)?;
                 for arg in type_args {
@@ -1066,6 +1297,12 @@ impl SemanticAnalyzer {
             },
             Type::Matrix(element_type) => {
                 Type::Matrix(Box::new(self.resolve_type(element_type)))
+            },
+            Type::Pairs(key_type, value_type) => {
+                Type::Pairs(
+                    Box::new(self.resolve_type(key_type)),
+                    Box::new(self.resolve_type(value_type))
+                )
             },
             Type::Generic(base_type, type_args) => {
                 let resolved_base = Box::new(self.resolve_type(base_type));
@@ -1399,7 +1636,7 @@ impl SemanticAnalyzer {
                         Ok(Some(Type::String))
                     },
                     "toUpper" | "toLower" | "trim" => {
-                        if args.len() != 1 {
+                        if !args.is_empty() {
                             return Err(CompilerError::type_error(
                                 &format!("StringUtils.{} expects 1 argument, but {} were provided", method, args.len()),
                                 Some("Provide exactly 1 string argument".to_string()),
@@ -1415,6 +1652,112 @@ impl SemanticAnalyzer {
                             ));
                         }
                         Ok(Some(Type::String))
+                    },
+                    "startsWith" | "endsWith" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.{} expects 2 arguments, but {} were provided", method, args.len()),
+                                Some("Provide exactly 2 string arguments (string, prefix/suffix)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        if arg1_type != Type::String || arg2_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.{} requires string arguments", method),
+                                Some("Use string values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Boolean))
+                    },
+                    "indexOf" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.indexOf expects 2 arguments, but {} were provided",
+                                Some("Provide exactly 2 string arguments (string, substring)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        if arg1_type != Type::String || arg2_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.indexOf requires string arguments",
+                                Some("Use string values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Integer))
+                    },
+                    "substring" => {
+                        if args.len() < 2 || args.len() > 3 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.substring expects 2 or 3 arguments, but {} were provided", args.len()),
+                                Some("Provide string, start index, and optionally end index".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        if arg1_type != Type::String || arg2_type != Type::Integer {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.substring requires string and integer arguments",
+                                Some("Use string for text and integer for indices".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        if args.len() == 3 {
+                            let arg3_type = self.check_expression(&args[2])?;
+                            if arg3_type != Type::Integer {
+                                return Err(CompilerError::type_error(
+                                    "StringUtils.substring end index must be an integer",
+                                    Some("Use integer for end index".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    "replace" => {
+                        if args.len() != 3 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.replace expects 3 arguments, but {} were provided", args.len()),
+                                Some("Provide exactly 3 string arguments (string, search, replacement)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        let arg3_type = self.check_expression(&args[2])?;
+                        if arg1_type != Type::String || arg2_type != Type::String || arg3_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.replace requires string arguments",
+                                Some("Use string values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    "split" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("StringUtils.split expects 2 arguments, but {} were provided", args.len()),
+                                Some("Provide exactly 2 string arguments (string, delimiter)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg1_type = self.check_expression(&args[0])?;
+                        let arg2_type = self.check_expression(&args[1])?;
+                        if arg1_type != Type::String || arg2_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "StringUtils.split requires string arguments",
+                                Some("Use string values".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Array(Box::new(Type::String))))
                     },
                     _ => Ok(None), // Method not found in StringUtils
                 }
@@ -1435,6 +1778,135 @@ impl SemanticAnalyzer {
                         } else {
                             Err(CompilerError::type_error(
                                 "ArrayUtils.length requires an array argument".to_string(),
+                                Some("Use an array value".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    "slice" => {
+                        if args.len() < 2 || args.len() > 3 {
+                            return Err(CompilerError::type_error(
+                                &format!("ArrayUtils.slice expects 2 or 3 arguments, but {} were provided", args.len()),
+                                Some("Provide array, start index, and optionally end index".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let array_type = self.check_expression(&args[0])?;
+                        let start_type = self.check_expression(&args[1])?;
+                        if start_type != Type::Integer {
+                            return Err(CompilerError::type_error(
+                                "ArrayUtils.slice start index must be an integer",
+                                Some("Use integer for start index".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        if args.len() == 3 {
+                            let end_type = self.check_expression(&args[2])?;
+                            if end_type != Type::Integer {
+                                return Err(CompilerError::type_error(
+                                    "ArrayUtils.slice end index must be an integer",
+                                    Some("Use integer for end index".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
+                        }
+                        if let Type::Array(_) = array_type {
+                            Ok(Some(array_type)) // Return same array type
+                        } else {
+                            Err(CompilerError::type_error(
+                                "ArrayUtils.slice requires an array argument".to_string(),
+                                Some("Use an array value".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    "join" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("ArrayUtils.join expects 2 arguments, but {} were provided", args.len()),
+                                Some("Provide exactly 2 arguments (array, separator)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let array_type = self.check_expression(&args[0])?;
+                        let separator_type = self.check_expression(&args[1])?;
+                        if separator_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "ArrayUtils.join separator must be a string",
+                                Some("Use string for separator".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        if let Type::Array(_) = array_type {
+                            Ok(Some(Type::String)) // Join returns a string
+                        } else {
+                            Err(CompilerError::type_error(
+                                "ArrayUtils.join requires an array argument".to_string(),
+                                Some("Use an array value".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    "reverse" | "sort" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("ArrayUtils.{} expects 1 argument, but {} were provided", method, args.len()),
+                                Some("Provide exactly 1 array argument".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let array_type = self.check_expression(&args[0])?;
+                        if let Type::Array(_) = array_type {
+                            Ok(Some(array_type)) // Return same array type
+                        } else {
+                            Err(CompilerError::type_error(
+                                &format!("ArrayUtils.{} requires an array argument", method),
+                                Some("Use an array value".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    "push" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("ArrayUtils.push expects 2 arguments, but {} were provided", args.len()),
+                                Some("Provide exactly 2 arguments (array, element)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let array_type = self.check_expression(&args[0])?;
+                        let element_type = self.check_expression(&args[1])?;
+                        if let Type::Array(element_array_type) = &array_type {
+                            if !self.types_compatible(&element_type, element_array_type) {
+                                return Err(CompilerError::type_error(
+                                    "ArrayUtils.push element type doesn't match array element type",
+                                    Some("Ensure the element type matches the array's element type".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
+                            Ok(Some(array_type)) // Return same array type
+                        } else {
+                            Err(CompilerError::type_error(
+                                "ArrayUtils.push requires an array argument".to_string(),
+                                Some("Use an array value".to_string()),
+                                Some(location.clone())
+                            ))
+                        }
+                    },
+                    "pop" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("ArrayUtils.pop expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 array argument".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let array_type = self.check_expression(&args[0])?;
+                        if let Type::Array(element_type) = array_type {
+                            Ok(Some(*element_type)) // Return element type
+                        } else {
+                            Err(CompilerError::type_error(
+                                "ArrayUtils.pop requires an array argument".to_string(),
                                 Some("Use an array value".to_string()),
                                 Some(location.clone())
                             ))
@@ -1493,5 +1965,50 @@ impl SemanticAnalyzer {
 
     fn is_builtin_function(&self, function_name: &str) -> bool {
         matches!(function_name, "print" | "println" | "error")
+    }
+
+    fn is_type_conversion_method(&self, method: &str) -> bool {
+        matches!(method, "toInteger" | "toFloat" | "toString" | "toBoolean")
+    }
+
+    fn check_type_conversion_method(&mut self, object: &Expression, method: &str, args: &[Expression]) -> Result<Type, CompilerError> {
+        // Type conversion methods don't take arguments
+        if !args.is_empty() {
+            return Err(CompilerError::type_error(
+                &format!("Type conversion method '{}' doesn't take arguments", method),
+                Some("Remove the arguments from the method call".to_string()),
+                None
+            ));
+        }
+
+        // Check that the object expression is valid
+        let _object_type = self.check_expression(object)?;
+
+        // Return the target type based on the method name
+        match method {
+            "toInteger" => Ok(Type::Integer),
+            "toFloat" => Ok(Type::Float),
+            "toString" => Ok(Type::String),
+            "toBoolean" => Ok(Type::Boolean),
+            _ => unreachable!("Invalid type conversion method: {}", method)
+        }
+    }
+    
+    fn push_error_scope(&mut self) {
+        self.error_context_depth += 1;
+        // Add error variable to the current scope
+        self.symbol_table.insert("error".to_string(), Type::Object("Error".to_string()));
+    }
+    
+    fn pop_error_scope(&mut self) {
+        self.error_context_depth -= 1;
+        if self.error_context_depth == 0 {
+            // Remove error variable from scope
+            self.symbol_table.remove("error");
+        }
+    }
+    
+    fn in_error_context(&self) -> bool {
+        self.error_context_depth > 0
     }
 } 

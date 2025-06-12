@@ -1,0 +1,25 @@
+start()
+	// String methods - all with parentheses
+	string text = "Hello World"
+	integer length = text.length()
+	string upper = text.toUpper()
+	string lower = text.toLower()
+	string trimmed = text.trim()
+	boolean starts = text.startsWith("Hello")
+	boolean ends = text.endsWith("World")
+	integer index = text.indexOf("World")
+	string sub = text.substring(0, 5)
+	string replaced = text.replace("World", "Universe")
+	
+	// Array methods - all with parentheses
+	Array<integer> numbers = [1, 2, 3, 4, 5]
+	integer arrayLength = numbers.length()
+	integer firstElement = numbers.at(0)
+	
+	// Math methods - all with parentheses
+	float sum = MathUtils.add(5.0, 3.0)
+	float product = MathUtils.multiply(4.0, 2.0)
+	
+	println:
+		"All standard library methods use parentheses!"
+		"startsWith and endsWith require string parameters!" 

@@ -1,0 +1,7 @@
+function test(value: integer) returns integer {
+	return value
+}
+
+start() {
+	integer result = test(42)
+} 

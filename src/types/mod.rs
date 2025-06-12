@@ -148,6 +148,7 @@ impl From<&AstType> for WasmType {
             AstType::Void => WasmType::I32,   // Void represented as I32
             AstType::Array(_) => WasmType::I32, // Array pointers
             AstType::Matrix(_) => WasmType::I32, // Matrix pointers
+            AstType::Pairs(_, _) => WasmType::I32, // Pairs are represented as pointers to heap-allocated structures
             AstType::Object(_) => WasmType::I32, // Object pointers
             AstType::Generic(_, _) => WasmType::I32, // Generic type pointers
             AstType::TypeParameter(_) => WasmType::I32, // Type parameter pointers

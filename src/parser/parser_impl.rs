@@ -1,6 +1,6 @@
 use pest::{Parser, iterators::Pair};
 use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value, Class, Field, Constructor};
-use crate::error::CompilerError;
+use crate::error::{CompilerError, ErrorUtils};
 use super::{CleanParser, convert_to_ast_location};
 use super::statement_parser::parse_statement;
 use super::type_parser::parse_type;
@@ -36,20 +36,34 @@ impl ErrorRecoveringParser {
 
     /// Parse with error recovery - collects multiple errors instead of stopping at the first one
     pub fn parse_with_recovery(&mut self, source: &str) -> Result<Program, Vec<CompilerError>> {
-        match parse_with_file(source, &self.file_path) {
-            Ok(program) => Ok(program),
+        match self.parse_internal(source) {
+            Ok(program) => {
+                if self.errors.is_empty() {
+                    Ok(program)
+                } else {
+                    Err(self.errors.clone())
+                }
+            }
             Err(error) => {
                 self.errors.push(error);
                 Err(self.errors.clone())
             }
         }
     }
+
+    fn parse_internal(&mut self, source: &str) -> Result<Program, CompilerError> {
+        let trimmed_source = source.trim();
+        let pairs = CleanParser::parse(Rule::program, trimmed_source)
+            .map_err(|e| ErrorUtils::from_pest_error(e, source, &self.file_path))?;
+
+        parse_program_ast(pairs)
+    }
 }
 
 pub fn parse(source: &str) -> Result<Program, CompilerError> {
     let trimmed_source = source.trim();
     let pairs = CleanParser::parse(Rule::program, trimmed_source)
-        .map_err(|e| CompilerError::parse_error(e.to_string(), None, None))?;
+        .map_err(|e| ErrorUtils::from_pest_error(e, source, "<unknown>"))?;
 
     parse_program_ast(pairs)
 }
@@ -57,11 +71,7 @@ pub fn parse(source: &str) -> Result<Program, CompilerError> {
 pub fn parse_with_file(source: &str, file_path: &str) -> Result<Program, CompilerError> {
     let trimmed_source = source.trim();
     let pairs = CleanParser::parse(Rule::program, trimmed_source)
-        .map_err(|e| CompilerError::parse_error(
-            format!("Parse error in {}: {}", file_path, e),
-            None,
-            Some(format!("Check syntax in file: {}", file_path))
-        ))?;
+        .map_err(|e| ErrorUtils::from_pest_error(e, source, file_path))?;
 
     parse_program_ast(pairs)
 }
@@ -82,6 +92,10 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
                                     Rule::functions_block => {
                                         let block_functions = parse_functions_block(program_item_inner)?;
                                         functions.extend(block_functions);
+                                    },
+                                    Rule::standalone_function => {
+                                        let func = parse_standalone_function(program_item_inner)?;
+                                        functions.push(func);
                                     },
                                     Rule::start_function => {
                                         let func = parse_start_function(program_item_inner)?;
@@ -184,6 +198,149 @@ pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError>
     })
 }
 
+/// Parse a standalone function definition like: function Any identity() { ... }
+pub fn parse_standalone_function(pair: Pair<Rule>) -> Result<Function, CompilerError> {
+    let mut name = String::new();
+    let mut type_parameters = Vec::new();
+    let mut parameters = Vec::new();
+    let mut return_type = Type::Void;
+    let mut body = Vec::new();
+    let mut description: Option<String> = None;
+    let location = Some(convert_to_ast_location(&get_location(&pair)));
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::function_type => {
+                // This is the return type that comes first in Clean Language syntax
+                return_type = parse_type(inner)?;
+                
+                // If the return type is a type parameter (like "Any"), add it to type_parameters
+                if let Type::TypeParameter(ref param_name) = return_type {
+                    type_parameters.push(param_name.clone());
+                }
+            },
+            Rule::identifier => {
+                name = inner.as_str().to_string();
+            },
+            Rule::parameter_list => {
+                for param in inner.into_inner() {
+                    if param.as_rule() == Rule::parameter {
+                        let parameter = parse_parameter(param)?;
+                        
+                        // If parameter type is a type parameter, add it to type_parameters if not already present
+                        if let Type::TypeParameter(ref param_name) = parameter.type_ {
+                            if !type_parameters.contains(param_name) {
+                                type_parameters.push(param_name.clone());
+                            }
+                        }
+                        
+                        parameters.push(parameter);
+                    }
+                }
+            },
+            Rule::function_body => {
+                // function_body = (setup_block ~ indented_block) | indented_block
+                let mut found_body = false;
+                for body_item in inner.into_inner() {
+                    match body_item.as_rule() {
+                        Rule::setup_block => {
+                            // setup_block may contain description_block and/or input_block
+                            for setup_item in body_item.into_inner() {
+                                match setup_item.as_rule() {
+                                    Rule::description_block => {
+                                        for desc_inner in setup_item.into_inner() {
+                                            if desc_inner.as_rule() == Rule::string {
+                                                description = Some(desc_inner.as_str().trim_matches('"').to_string());
+                                            }
+                                        }
+                                    },
+                                    Rule::input_block => {
+                                        let params = parse_parameters_from_input_block(setup_item)?;
+                                        for param in &params {
+                                            // If parameter type is a type parameter, add it to type_parameters if not already present
+                                            if let Type::TypeParameter(ref param_name) = param.type_ {
+                                                if !type_parameters.contains(param_name) {
+                                                    type_parameters.push(param_name.clone());
+                                                }
+                                            }
+                                        }
+                                        parameters.extend(params);
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        },
+                        Rule::function_statements => {
+                            found_body = true;
+                            // Only add statements from the function_statements to the function body
+                            for stmt_pair in body_item.into_inner() {
+                                if stmt_pair.as_rule() == Rule::statement {
+                                    body.push(parse_statement(stmt_pair)?);
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+                if !found_body {
+                    return Err(CompilerError::parse_error(
+                        format!("Function '{}' is missing a body.", name),
+                        location.clone(),
+                        None,
+                    ));
+                }
+            },
+            _ => {}
+        }
+    }
+
+    Ok(Function {
+        name,
+        type_parameters,
+        parameters,
+        return_type,
+        body,
+        description,
+        syntax: FunctionSyntax::Simple,
+        visibility: Visibility::Public,
+        location,
+    })
+}
+
+/// Parse a parameter from a parameter list: type identifier
+fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
+    let mut param_type = None;
+    let mut param_name = String::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::type_ => {
+                param_type = Some(parse_type(inner)?);
+            },
+            Rule::identifier => {
+                param_name = inner.as_str().to_string();
+            },
+            _ => {}
+        }
+    }
+
+    let param_type = param_type.ok_or_else(|| CompilerError::parse_error(
+        "Parameter missing type".to_string(),
+        None,
+        Some("Parameters must have a type".to_string())
+    ))?;
+
+    if param_name.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Parameter missing name".to_string(),
+            None,
+            Some("Parameters must have a name".to_string())
+        ));
+    }
+
+    Ok(Parameter::new(param_name, param_type))
+}
+
 pub fn get_location(pair: &Pair<Rule>) -> super::SourceLocation {
     let span = pair.as_span();
     super::SourceLocation {
@@ -228,14 +385,6 @@ pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> 
             Rule::identifier => {
                 class_name = item.as_str().to_string();
             },
-            Rule::type_parameters => {
-                // Parse type parameters like <T, U>
-                for type_param in item.into_inner() {
-                    if type_param.as_rule() == Rule::type_parameter {
-                        type_parameters.push(type_param.as_str().to_string());
-                    }
-                }
-            },
             Rule::generic_type => {
                 // Parse "is BaseClass<Args>" inheritance
                 let mut base_name = String::new();
@@ -267,6 +416,14 @@ pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> 
                                 match class_item.as_rule() {
                                     Rule::class_field => {
                                         let field = parse_class_field(class_item)?;
+                                        
+                                        // If field type is a type parameter, add it to type_parameters if not already present
+                                        if let Type::TypeParameter(ref param_name) = field.type_ {
+                                            if !type_parameters.contains(param_name) {
+                                                type_parameters.push(param_name.clone());
+                                            }
+                                        }
+                                        
                                         fields.push(field);
                                     },
                                     Rule::constructor => {
@@ -474,6 +631,7 @@ fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Para
 pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, CompilerError> {
     let mut func_name = String::new();
     let mut return_type: Option<Type> = None;
+    let mut type_parameters = Vec::new();
     let mut parameters = Vec::new();
     let mut body = Vec::new();
     let mut description: Option<String> = None;
@@ -483,7 +641,13 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
     for item in func_pair.into_inner() {
         match item.as_rule() {
             Rule::function_type => {
-                return_type = Some(parse_type(item)?);
+                let parsed_type = parse_type(item)?;
+                return_type = Some(parsed_type.clone());
+                
+                // If the return type is a type parameter (like "Any"), add it to type_parameters
+                if let Type::TypeParameter(ref param_name) = parsed_type {
+                    type_parameters.push(param_name.clone());
+                }
             },
             Rule::identifier => {
                 func_name = item.as_str().to_string();
@@ -508,6 +672,14 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
                                     },
                                     Rule::input_block => {
                                         let params = parse_parameters_from_input_block(setup_item)?;
+                                        for param in &params {
+                                            // If parameter type is a type parameter, add it to type_parameters if not already present
+                                            if let Type::TypeParameter(ref param_name) = param.type_ {
+                                                if !type_parameters.contains(param_name) {
+                                                    type_parameters.push(param_name.clone());
+                                                }
+                                            }
+                                        }
                                         parameters.extend(params);
                                     },
                                     _ => {}
@@ -550,7 +722,7 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
 
     Ok(Function {
         name: func_name,
-        type_parameters: Vec::new(),
+        type_parameters,
         parameters,
         return_type,
         body,

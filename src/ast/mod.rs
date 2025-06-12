@@ -150,6 +150,18 @@ pub enum Expression {
         fallback: Box<Expression>,
         location: SourceLocation,
     },
+    
+    // Error handling with block
+    OnErrorBlock {
+        expression: Box<Expression>,
+        error_handler: Vec<Statement>,
+        location: SourceLocation,
+    },
+    
+    // Error variable access (only valid in error handling contexts)
+    ErrorVariable {
+        location: SourceLocation,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -158,7 +170,7 @@ pub enum StringPart {
     Interpolation(Expression),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     // Variable declarations (type-first)
     VariableDecl {
@@ -177,6 +189,13 @@ pub enum Statement {
     
     FunctionApplyBlock {
         function_name: String,
+        expressions: Vec<Expression>,
+        location: Option<SourceLocation>,
+    },
+    
+    MethodApplyBlock {
+        object_name: String,
+        method_chain: Vec<String>,
         expressions: Vec<Expression>,
         location: Option<SourceLocation>,
     },
@@ -250,15 +269,21 @@ pub enum Statement {
         expr: Expression,
         location: Option<SourceLocation>,
     },
+    
+    // Error statement (throw error)
+    Error {
+        message: Expression,
+        location: Option<SourceLocation>,
+    },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VariableAssignment {
     pub name: String,
     pub initializer: Option<Expression>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConstantAssignment {
     pub type_: Type,
     pub name: String,

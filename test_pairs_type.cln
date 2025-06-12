@@ -1,0 +1,5 @@
+pairs<string, integer> myPair
+ 
+start()
+	println:
+		"Testing pairs type" 

@@ -1,0 +1,8 @@
+function identity<Any>(value: Any) returns Any {
+	return value
+}
+ 
+start() {
+	integer num = identity<integer>(42)
+	float pi = identity<float>(3.14)
+} 

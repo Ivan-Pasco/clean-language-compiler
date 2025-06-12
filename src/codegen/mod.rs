@@ -35,6 +35,7 @@ pub const FLOAT_TYPE_ID: u32 = 2;
 pub const STRING_TYPE_ID: u32 = 3;
 pub const ARRAY_TYPE_ID: u32 = 4;
 pub const MATRIX_TYPE_ID: u32 = 5;
+pub const PAIRS_TYPE_ID: u32 = 6;
 
 // Memory constants
 pub const PAGE_SIZE: u32 = 65536;
@@ -800,7 +801,16 @@ impl CodeGenerator {
                 instructions.push(Instruction::End);
                 
                 self.variable_map.remove(iterator);
-            }
+            },
+            Statement::Error { message, location: _ } => {
+                // Generate error throwing - create error object and throw it
+                // First generate the error message
+                self.generate_expression(message, instructions)?;
+                
+                // For now, we'll use a simple trap instruction to halt execution
+                // In a full implementation, we'd create an error object and use WebAssembly's exception handling
+                instructions.push(Instruction::Unreachable);
+            },
             Statement::Test { name: _, body, location: _ } => {
                 #[cfg(test)]
                 for stmt in body {
@@ -840,6 +850,42 @@ impl CodeGenerator {
                         self.generate_expression(expr, instructions)?;
                         instructions.push(Instruction::Call(func_index));
                         instructions.push(Instruction::Drop); // Drop return value if any
+                    }
+                }
+            },
+            
+            Statement::MethodApplyBlock { object_name, method_chain, expressions, location: _ } => {
+                // Generate multiple method calls with the same object.method
+                for expr in expressions {
+                    // Load the object
+                    if let Some(local) = self.find_local(object_name) {
+                        instructions.push(Instruction::LocalGet(local.index));
+                    } else {
+                        return Err(CompilerError::parse_error(
+                            format!("Object '{}' not found", object_name),
+                            None,
+                            Some("Check if the object is declared".to_string())
+                        ));
+                    }
+                    
+                    // Generate the argument
+                    self.generate_expression(expr, instructions)?;
+                    
+                    // For now, we'll generate a simple method call
+                    // In a full implementation, we'd resolve the method chain and generate appropriate calls
+                    if !method_chain.is_empty() {
+                        let method_name = &method_chain[0]; // Use first method in chain for now
+                        
+                        // Handle built-in array methods
+                        if method_name == "push" {
+                            // This would be array.push(item) - for now just drop the values
+                            instructions.push(Instruction::Drop); // Drop argument
+                            instructions.push(Instruction::Drop); // Drop object
+                        } else {
+                            // Generic method call - drop for now
+                            instructions.push(Instruction::Drop); // Drop argument
+                            instructions.push(Instruction::Drop); // Drop object
+                        }
                     }
                 }
             },
@@ -932,6 +978,15 @@ impl CodeGenerator {
                 instructions.push(Instruction::End);
                 
                 self.variable_map.remove(iterator);
+            },
+            Statement::Error { message, location: _ } => {
+                // Generate error throwing - create error object and throw it
+                // First generate the error message
+                self.generate_expression(message, instructions)?;
+                
+                // For now, we'll use a simple trap instruction to halt execution
+                // In a full implementation, we'd create an error object and use WebAssembly's exception handling
+                instructions.push(Instruction::Unreachable);
             }
         }
         Ok(())
@@ -1011,6 +1066,11 @@ impl CodeGenerator {
                 Ok(WasmType::I32)
             },
             Expression::MethodCall { object, method, arguments, location: _ } => {
+                // Check if this is a type conversion method first
+                if self.is_type_conversion_method(method) {
+                    return self.generate_type_conversion_method(object, method, instructions);
+                }
+                
                 // Check if this is a static method call on a built-in class first
                 if let Expression::Variable(class_name) = object.as_ref() {
                     // Try to handle as built-in static method call
@@ -1177,6 +1237,51 @@ impl CodeGenerator {
                     Err(CompilerError::codegen_error(
                         &format!("Static method '{}' in class '{}' not found", method, class_name), 
                         Some("Make sure the method is defined in the class".to_string()), 
+                        None
+                    ))
+                }
+            },
+            Expression::OnErrorBlock { expression, error_handler, .. } => {
+                // Generate a try-catch block for error handling
+                // First, generate the main expression
+                let mut try_instructions = Vec::new();
+                let result_type = self.generate_expression(expression, &mut try_instructions)?;
+                
+                // Generate the error handler block
+                let mut catch_instructions = Vec::new();
+                
+                // Add error variable to scope (represented as an object pointer)
+                let error_var = LocalVarInfo {
+                    index: self.current_locals.len() as u32,
+                    type_: ValType::I32.into(), // Error object is represented as a pointer
+                };
+                self.variable_map.insert("error".to_string(), error_var.clone());
+                self.current_locals.push(error_var);
+                
+                // Generate error handler statements
+                for stmt in error_handler {
+                    self.generate_statement(stmt, &mut catch_instructions)?;
+                }
+                
+                // Remove error variable from scope
+                self.variable_map.remove("error");
+                self.current_locals.pop();
+                
+                // For now, just add the try instructions directly
+                // In a full implementation, we'd use WebAssembly's exception handling
+                instructions.extend(try_instructions);
+                
+                Ok(result_type)
+            },
+            Expression::ErrorVariable { .. } => {
+                // Access the error variable in an error context
+                if let Some(error_local) = self.find_local("error") {
+                    instructions.push(Instruction::LocalGet(error_local.index));
+                    Ok(WasmType::I32) // Error object is represented as a pointer
+                } else {
+                    Err(CompilerError::codegen_error(
+                        "Error variable accessed outside of error context",
+                        Some("Error variable can only be used within onError blocks".to_string()),
                         None
                     ))
                 }
@@ -1964,7 +2069,220 @@ impl CodeGenerator {
                         instructions.push(Instruction::Call(string_concat_index));
                         Ok(Some(WasmType::I32)) // String is represented as I32 pointer
                     },
+                    "length" => {
+                        // Generate the string argument
+                        self.generate_expression(&arguments[0], instructions)?;
+                        
+                        // Call string length function (would need to be implemented in stdlib)
+                        if let Some(string_length_index) = self.get_function_index("string_length") {
+                            instructions.push(Instruction::Call(string_length_index));
+                            Ok(Some(WasmType::I32)) // Length is an integer
+                        } else {
+                            // For now, return a placeholder implementation
+                            instructions.push(Instruction::I32Const(0)); // Placeholder
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "toUpper" | "toLower" | "trim" => {
+                        // Generate the string argument
+                        self.generate_expression(&arguments[0], instructions)?;
+                        
+                        // Call appropriate string transformation function
+                        let function_name = match method {
+                            "toUpper" => "string_to_upper",
+                            "toLower" => "string_to_lower", 
+                            "trim" => "string_trim",
+                            _ => unreachable!()
+                        };
+                        
+                        if let Some(function_index) = self.get_function_index(function_name) {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // String is represented as I32 pointer
+                        } else {
+                            // For now, return the original string (placeholder)
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "startsWith" | "endsWith" => {
+                        // Generate both string arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        
+                        // Call appropriate string comparison function
+                        let function_name = match method {
+                            "startsWith" => "string_starts_with",
+                            "endsWith" => "string_ends_with",
+                            _ => unreachable!()
+                        };
+                        
+                        if let Some(function_index) = self.get_function_index(function_name) {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Boolean is represented as I32
+                        } else {
+                            // For now, return false (placeholder)
+                            instructions.push(Instruction::I32Const(0));
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "indexOf" => {
+                        // Generate both string arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        
+                        if let Some(function_index) = self.get_function_index("string_index_of") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Index is an integer
+                        } else {
+                            // For now, return -1 (not found, placeholder)
+                            instructions.push(Instruction::I32Const(-1));
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "substring" => {
+                        // Generate string and index arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        if arguments.len() == 3 {
+                            self.generate_expression(&arguments[2], instructions)?;
+                        } else {
+                            // If no end index provided, use string length
+                            instructions.push(Instruction::I32Const(-1)); // Placeholder for end
+                        }
+                        
+                        if let Some(function_index) = self.get_function_index("string_substring") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // String is represented as I32 pointer
+                        } else {
+                            // For now, return the original string (placeholder)
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "replace" => {
+                        // Generate all three string arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        self.generate_expression(&arguments[2], instructions)?;
+                        
+                        if let Some(function_index) = self.get_function_index("string_replace") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // String is represented as I32 pointer
+                        } else {
+                            // For now, return the original string (placeholder)
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "split" => {
+                        // Generate both string arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        
+                        if let Some(function_index) = self.get_function_index("string_split") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Array is represented as I32 pointer
+                        } else {
+                            // For now, return an empty array (placeholder)
+                            instructions.push(Instruction::I32Const(0));
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
                     _ => Ok(None), // Method not found in StringUtils
+                }
+            },
+            "ArrayUtils" => {
+                match method {
+                    "length" => {
+                        // Generate the array argument
+                        self.generate_expression(&arguments[0], instructions)?;
+                        
+                        // Call array length function
+                        if let Some(array_length_index) = self.get_function_index("array_length") {
+                            instructions.push(Instruction::Call(array_length_index));
+                            Ok(Some(WasmType::I32)) // Length is an integer
+                        } else {
+                            // For now, return a placeholder implementation
+                            instructions.push(Instruction::I32Const(0)); // Placeholder
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "slice" => {
+                        // Generate array and index arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        if arguments.len() == 3 {
+                            self.generate_expression(&arguments[2], instructions)?;
+                        } else {
+                            // If no end index provided, use array length
+                            instructions.push(Instruction::I32Const(-1)); // Placeholder for end
+                        }
+                        
+                        if let Some(function_index) = self.get_function_index("array_slice") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Array is represented as I32 pointer
+                        } else {
+                            // For now, return the original array (placeholder)
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "join" => {
+                        // Generate array and separator arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        
+                        if let Some(function_index) = self.get_function_index("array_join") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // String is represented as I32 pointer
+                        } else {
+                            // For now, return empty string (placeholder)
+                            instructions.push(Instruction::I32Const(0));
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "reverse" | "sort" => {
+                        // Generate the array argument
+                        self.generate_expression(&arguments[0], instructions)?;
+                        
+                        // Call appropriate array function
+                        let function_name = match method {
+                            "reverse" => "array_reverse",
+                            "sort" => "array_sort",
+                            _ => unreachable!()
+                        };
+                        
+                        if let Some(function_index) = self.get_function_index(function_name) {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Array is represented as I32 pointer
+                        } else {
+                            // For now, return the original array (placeholder)
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "push" => {
+                        // Generate array and element arguments
+                        self.generate_expression(&arguments[0], instructions)?;
+                        self.generate_expression(&arguments[1], instructions)?;
+                        
+                        if let Some(function_index) = self.get_function_index("array_push") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Array is represented as I32 pointer
+                        } else {
+                            // For now, return the original array (placeholder)
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    "pop" => {
+                        // Generate the array argument
+                        self.generate_expression(&arguments[0], instructions)?;
+                        
+                        if let Some(function_index) = self.get_function_index("array_pop") {
+                            instructions.push(Instruction::Call(function_index));
+                            Ok(Some(WasmType::I32)) // Element (assuming I32 for now)
+                        } else {
+                            // For now, return 0 (placeholder)
+                            instructions.push(Instruction::I32Const(0));
+                            Ok(Some(WasmType::I32))
+                        }
+                    },
+                    _ => Ok(None), // Method not found in ArrayUtils
                 }
             },
             _ => Ok(None), // Class not found in built-ins
@@ -1977,5 +2295,129 @@ impl CodeGenerator {
         // generates the binary directly in the generate() method
         // For now, return an empty vector as a placeholder
         vec![]
+    }
+    
+    fn is_type_conversion_method(&self, method: &str) -> bool {
+        matches!(method, "toInteger" | "toFloat" | "toString" | "toBoolean")
+    }
+    
+    fn generate_type_conversion_method(
+        &mut self,
+        object: &Expression,
+        method: &str,
+        instructions: &mut Vec<Instruction>
+    ) -> Result<WasmType, CompilerError> {
+        // Generate the object expression first
+        let object_type = self.generate_expression(object, instructions)?;
+        
+        // Perform the type conversion based on the method name
+        match method {
+            "toInteger" => {
+                match object_type {
+                    WasmType::I32 => {
+                        // Already an integer, no conversion needed
+                        Ok(WasmType::I32)
+                    },
+                    WasmType::F64 => {
+                        // Convert float to integer (truncate)
+                        instructions.push(Instruction::I32TruncF64S);
+                        Ok(WasmType::I32)
+                    },
+                    _ => {
+                        // For other types (like strings), we'd need more complex conversion
+                        // For now, just return an error
+                        Err(CompilerError::codegen_error(
+                            &format!("Conversion from {:?} to integer not yet implemented", object_type),
+                            None,
+                            None
+                        ))
+                    }
+                }
+            },
+            "toFloat" => {
+                match object_type {
+                    WasmType::I32 => {
+                        // Convert integer to float
+                        instructions.push(Instruction::F64ConvertI32S);
+                        Ok(WasmType::F64)
+                    },
+                    WasmType::F64 => {
+                        // Already a float, no conversion needed
+                        Ok(WasmType::F64)
+                    },
+                    _ => {
+                        Err(CompilerError::codegen_error(
+                            &format!("Conversion from {:?} to float not yet implemented", object_type),
+                            None,
+                            None
+                        ))
+                    }
+                }
+            },
+            "toString" => {
+                match object_type {
+                    WasmType::I32 => {
+                        // Convert integer to string
+                        // This would require a runtime function to convert int to string
+                        // For now, we'll implement a basic version
+                        if let Some(int_to_string_index) = self.get_function_index("int_to_string") {
+                            instructions.push(Instruction::Call(int_to_string_index));
+                            Ok(WasmType::I32) // String is represented as I32 pointer
+                        } else {
+                            Err(CompilerError::codegen_error(
+                                "Integer to string conversion function not found",
+                                Some("int_to_string function needs to be implemented".to_string()),
+                                None
+                            ))
+                        }
+                    },
+                    WasmType::F64 => {
+                        // Convert float to string
+                        if let Some(float_to_string_index) = self.get_function_index("float_to_string") {
+                            instructions.push(Instruction::Call(float_to_string_index));
+                            Ok(WasmType::I32) // String is represented as I32 pointer
+                        } else {
+                            Err(CompilerError::codegen_error(
+                                "Float to string conversion function not found",
+                                Some("float_to_string function needs to be implemented".to_string()),
+                                None
+                            ))
+                        }
+                    },
+                    _ => {
+                        // Already a string or other type
+                        Ok(WasmType::I32) // Assume string representation
+                    }
+                }
+            },
+            "toBoolean" => {
+                match object_type {
+                    WasmType::I32 => {
+                        // Convert integer to boolean (0 = false, non-zero = true)
+                        instructions.push(Instruction::I32Const(0));
+                        instructions.push(Instruction::I32Ne);
+                        Ok(WasmType::I32) // Boolean is represented as I32
+                    },
+                    WasmType::F64 => {
+                        // Convert float to boolean (0.0 = false, non-zero = true)
+                        instructions.push(Instruction::F64Const(0.0));
+                        instructions.push(Instruction::F64Ne);
+                        instructions.push(Instruction::I32TruncF64S); // Convert result to I32
+                        Ok(WasmType::I32)
+                    },
+                    _ => {
+                        // For other types, assume truthy conversion
+                        Ok(WasmType::I32)
+                    }
+                }
+            },
+            _ => {
+                Err(CompilerError::codegen_error(
+                    &format!("Unknown type conversion method: {}", method),
+                    None,
+                    None
+                ))
+            }
+        }
     }
 } 

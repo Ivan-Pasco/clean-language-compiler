@@ -1,0 +1,5 @@
+start()
+	string text = "hello"
+	integer length = text.length()
+	println:
+		"Simple method test" 

@@ -1,0 +1,77 @@
+// Test Error Handling Features
+
+// Test 1: Basic onError block
+function void testBasicErrorHandling()
+	let result = divide(10, 0) onError:
+		print("Division by zero caught!")
+		return -1
+	
+	print("Result: " + result.toString())
+
+// Test 2: Error variable access
+function void testErrorVariable()
+	let result = riskyOperation() onError:
+		print("Error occurred: " + error.toString())
+		return "fallback"
+	
+	print("Final result: " + result)
+
+// Test 3: Error throwing
+function void testErrorThrowing()
+	error("Something went wrong!")
+	print("This should not execute")
+
+// Test 4: Nested error handling
+function void testNestedErrorHandling()
+	let outer = outerOperation() onError:
+		print("Outer error caught")
+		let inner = innerOperation() onError:
+			print("Inner error caught: " + error.toString())
+			return "inner fallback"
+		return inner
+	
+	print("Final outer result: " + outer)
+
+// Test 5: Error handling with different types
+function void testErrorTypes()
+	let numberResult = parseNumber("invalid") onError:
+		print("Number parsing failed")
+		return 0
+	
+	let stringResult = getString() onError:
+		print("String operation failed")
+		return "default"
+	
+	print("Number: " + numberResult.toString())
+	print("String: " + stringResult)
+
+// Helper functions for testing
+function integer divide(integer a, integer b)
+	if (b == 0)
+		error("Division by zero")
+	return a / b
+
+function string riskyOperation()
+	error("This always fails")
+
+function string outerOperation()
+	error("Outer operation failed")
+
+function string innerOperation()
+	error("Inner operation failed")
+
+function integer parseNumber(string str)
+	if (str == "invalid")
+		error("Invalid number format")
+	return 42
+
+function string getString()
+	error("String operation failed")
+
+// Main test execution
+function start()
+	testBasicErrorHandling()
+	testErrorVariable()
+	testNestedErrorHandling()
+	testErrorTypes()
+	testErrorThrowing()  // This should halt execution 

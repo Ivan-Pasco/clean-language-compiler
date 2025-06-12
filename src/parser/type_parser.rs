@@ -56,10 +56,11 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                         "float" => Type::Float,
                         "string" => Type::String,
                         "void" => Type::Void,
+                        "any" => Type::Any,
                         _ => return Err(CompilerError::parse_error(
                             format!("Unknown core type in sized type: {}", core_type_pair.as_str()),
                             None,
-                            Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                            Some("Valid core types are: boolean, integer, float, string, void, any".to_string())
                         ))
                     };
                     
@@ -101,10 +102,11 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                 "float" => Ok(Type::Float),
                 "string" => Ok(Type::String),
                 "void" => Ok(Type::Void),
+                "any" => Ok(Type::Any),
                 _ => Err(CompilerError::parse_error(
                     format!("Unknown core type: {}", type_str),
                     None,
-                    Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                    Some("Valid core types are: boolean, integer, float, string, void, any".to_string())
                 ))
             }
         },
@@ -120,10 +122,11 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                 "float" => Type::Float,
                 "string" => Type::String,
                 "void" => Type::Void,
+                "any" => Type::Any,
                 _ => return Err(CompilerError::parse_error(
                     format!("Unknown core type in sized type: {}", core_type_pair.as_str()),
                     None,
-                    Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                    Some("Valid core types are: boolean, integer, float, string, void, any".to_string())
                 ))
             };
             

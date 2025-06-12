@@ -82,27 +82,23 @@ cargo run -- repl
 ### Hello World
 
 ```clean
-start() {
-    printl "Hello, World!"
-    return 0
-}
+start()
+    println("Hello, World!")
 ```
 
 ### Fibonacci Sequence
 
 ```clean
-function fibonacci(n: integer) returns integer {
-    if n <= 1 {
+function integer fibonacci()
+    input integer n
+    if n <= 1
         return n
-    }
     return fibonacci(n - 1) + fibonacci(n - 2)
-}
 
-start() {
-    let n = 10
-    printl "Fibonacci of ${n} is ${fibonacci(n)}"
-    return 0
-}
+start()
+    integer n = 10
+    integer result = fibonacci(n)
+    println("Fibonacci of {n} is {result}")
 ```
 
 ## Documentation Structure
