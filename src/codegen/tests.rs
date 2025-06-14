@@ -18,6 +18,7 @@ fn test_code_generation() {
                 name: "add".to_string(),
                 description: None,
                 type_parameters: vec![],
+                type_constraints: vec![],
                 parameters: vec![
                     Parameter { name: "a".to_string(), type_: Type::Integer },
                     Parameter { name: "b".to_string(), type_: Type::Integer },
@@ -254,6 +255,7 @@ fn test_iterate_statement() {
         name: "test_iterate".to_string(),
         description: None,
         type_parameters: vec![],
+        type_constraints: vec![],
         parameters: vec![],
         return_type: Type::Void,
         body: vec![iterate_stmt],

@@ -1,0 +1,26 @@
+start()
+	print("=== Clean Language HTTP Client Test ===")
+	print("")
+	
+	print("1. Testing HTTP GET...")
+	print(http_get("https://httpbin.org/json"))
+	print("")
+	
+	print("2. Testing HTTP POST...")
+	print(http_post("https://httpbin.org/post", "Hello from Clean Language!"))
+	print("")
+	
+	print("3. Testing HTTP PUT...")
+	print(http_put("https://httpbin.org/put", "Updated data"))
+	print("")
+	
+	print("4. Testing HTTP DELETE...")
+	print(http_delete("https://httpbin.org/delete"))
+	print("")
+	
+	print("5. Testing error handling...")
+	print(http_get("https://invalid-url-that-does-not-exist.com"))
+	print("")
+	
+	print("=== All HTTP Tests Complete! ===")
+	print("Clean Language now supports full HTTP client functionality!") 

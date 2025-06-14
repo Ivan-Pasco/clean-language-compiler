@@ -219,7 +219,7 @@ impl StringOperations {
     pub fn new(heap_start: usize) -> Self {
         Self {
             heap_start,
-            memory_manager: MemoryManager::new(1, Some(10)),
+            memory_manager: MemoryManager::new(16, Some(heap_start as u32)),
         }
     }
 

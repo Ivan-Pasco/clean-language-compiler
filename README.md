@@ -13,6 +13,7 @@ Clean Language is designed to be a simple, expressive, and type-safe programming
 - Matrix operations
 - String interpolation
 - Error handling
+- Class inheritance with base constructor calls
 - WebAssembly compilation target
 
 ## Project Status
@@ -100,6 +101,40 @@ start()
     integer result = fibonacci(n)
     println("Fibonacci of {n} is {result}")
 ```
+
+### Class Inheritance
+
+```clean
+class Shape
+    string color
+    
+    constructor(string colorParam)
+        color = colorParam  // Implicit context - no 'this' needed
+    
+    functions:
+        string getColor()
+            return color
+
+class Circle is Shape
+    float radius
+    
+    constructor(string colorParam, float radiusParam)
+        base(colorParam)  // Call parent constructor
+        radius = radiusParam  // Implicit context
+    
+    functions:
+        float getArea()
+            return 3.14159 * radius * radius
+```
+
+#### Inheritance Features
+
+- **Class Inheritance**: Use `class Child is Parent` syntax to inherit from a parent class
+- **Base Constructor Calls**: Use `base(args...)` in child constructors to call the parent constructor
+- **Method Inheritance**: Child classes automatically inherit all public methods from parent classes
+- **Field Access**: Child classes can access public fields from parent classes
+- **Method Overriding**: Child classes can override parent methods by defining methods with the same name
+- **Implicit Context**: No need for `this` or `self` - class fields are directly accessible when no name conflicts exist
 
 ## Documentation Structure
 

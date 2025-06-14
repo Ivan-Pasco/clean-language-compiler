@@ -1,0 +1,4 @@
+start()
+	boolean exists = File.exists("test.txt")
+	print(exists)
+	return 0 

@@ -1,0 +1,82 @@
+functions:
+    // Test numeric type constraint
+    number sum(number[] values)
+        number result = 0
+        iterate i in 0 to values.length
+            result = result + values[i]
+        return result
+
+    // Test comparable type constraint
+    T max<T>(T[] values) where T is comparable
+        if values.length == 0
+            throw "Array is empty"
+        
+        T result = values[0]
+        iterate i in 1 to values.length
+            if values[i] > result
+                result = values[i]
+        return result
+
+    // Test multiple type constraints
+    T combine<T>(T[] values, T initial) where T is numeric
+        T result = initial
+        iterate i in 0 to values.length
+            result = result + values[i]
+        return result
+
+    // Test nested type constraints
+    T[] filter<T>(T[] values, function(T)boolean predicate) where T is comparable
+        T[] result = array()
+        iterate i in 0 to values.length
+            if predicate(values[i])
+                result.push(values[i])
+        return result
+
+    // Test type constraint with inheritance
+    Animal[] getAnimals<A>(A[] animals) where A is Animal
+        Animal[] result = array()
+        iterate i in 0 to animals.length
+            result.push(animals[i])
+        return result
+
+class Animal
+    string name
+    constructor(string name)
+        this.name = name
+
+class Dog is Animal
+    string breed
+    constructor(string name, string breed)
+        super(name)
+        this.breed = breed
+
+start()
+    // Test numeric constraint
+    number[] numbers = [1, 2, 3, 4, 5]
+    number sumResult = sum(numbers)
+    assert(sumResult == 15, "Sum should be 15")
+
+    // Test comparable constraint
+    string[] strings = ["apple", "banana", "cherry"]
+    string maxString = max(strings)
+    assert(maxString == "cherry", "Max string should be cherry")
+
+    // Test multiple constraints
+    number[] values = [1, 2, 3, 4, 5]
+    number combined = combine(values, 10)
+    assert(combined == 25, "Combined value should be 25")
+
+    // Test nested constraints
+    number[] filtered = filter(numbers, function(number n)boolean
+        return n > 3
+    )
+    assert(filtered.length == 2, "Filtered array should have 2 elements")
+    assert(filtered[0] == 4, "First filtered element should be 4")
+    assert(filtered[1] == 5, "Second filtered element should be 5")
+
+    // Test inheritance constraint
+    Dog[] dogs = [Dog("Rex", "German Shepherd"), Dog("Buddy", "Golden Retriever")]
+    Animal[] animals = getAnimals(dogs)
+    assert(animals.length == 2, "Should have 2 animals")
+    assert(animals[0].name == "Rex", "First animal should be Rex")
+    assert(animals[1].name == "Buddy", "Second animal should be Buddy") 

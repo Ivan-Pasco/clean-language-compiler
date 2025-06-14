@@ -1,0 +1,18 @@
+start()
+	print("Testing memory management with HTTP...")
+	string:
+		url1 = "https://api.example.com/test"
+		data = "test data for POST"
+		message1 = "Hello"
+		message2 = "World"
+		message3 = "Clean Language"
+		result1 = http_get(url1)
+		result2 = http_post("https://api.example.com/submit", data)
+	print("HTTP GET result:")
+	print(result1)
+	print("HTTP POST result:")
+	print(result2)
+	print(message1)
+	print(message2)
+	print(message3)
+	print("Memory management test completed!") 

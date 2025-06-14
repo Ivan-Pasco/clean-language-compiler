@@ -62,9 +62,18 @@ impl TypeManager {
 
     /// Check if conversion is possible between two types
     pub(crate) fn can_convert(&self, from: WasmType, to: WasmType) -> bool {
+        // Any type is compatible with any other type
+        if from == WasmType::I32 && to == WasmType::I32 {
+            return true;
+        }
+        
         match (from, to) {
             (WasmType::I32, WasmType::F64) => true,
             (WasmType::F64, WasmType::I32) => true,
+            (WasmType::I64, WasmType::F64) => true,
+            (WasmType::F64, WasmType::I64) => true,
+            (WasmType::F32, WasmType::F64) => true,
+            (WasmType::F64, WasmType::F32) => true,
             _ => from == to,
         }
     }
@@ -81,7 +90,29 @@ impl TypeManager {
 
     /// Convert AST type to WasmType
     pub(crate) fn ast_type_to_wasm_type(&self, ast_type: &Type) -> Result<WasmType, CompilerError> {
-        Ok(WasmType::from(ast_type))
+        match ast_type {
+            Type::Boolean => Ok(WasmType::I32),
+            Type::Integer => Ok(WasmType::I64),
+            Type::Float => Ok(WasmType::F64),
+            Type::String => Ok(WasmType::I32), // String pointers
+            Type::Void => Ok(WasmType::I32),   // Void represented as I32
+            Type::Array(_) => Ok(WasmType::I32), // Array pointers
+            Type::Matrix(_) => Ok(WasmType::I32), // Matrix pointers
+            Type::Pairs(_, _) => Ok(WasmType::I32), // Pairs are represented as pointers
+            Type::Object(_) => Ok(WasmType::I32), // Object pointers
+            Type::Generic(_, _) => Ok(WasmType::I32), // Generic type pointers
+            Type::TypeParameter(_) => Ok(WasmType::I32), // Type parameter pointers
+            Type::Any => Ok(WasmType::I32), // Any type is represented as a pointer
+            // Sized types
+            Type::IntegerSized { bits: 8..=32, .. } => Ok(WasmType::I32),
+            Type::IntegerSized { bits: 64, .. } => Ok(WasmType::I64),
+            Type::FloatSized { bits: 32 } => Ok(WasmType::F32),
+            Type::FloatSized { bits: 64 } => Ok(WasmType::F64),
+            Type::List(_) => Ok(WasmType::I32), // Pointer to list structure
+            Type::Class { .. } => Ok(WasmType::I32), // Pointer to object
+            Type::Function(_, _) => Ok(WasmType::I32), // Function pointer
+            _ => Ok(WasmType::I32), // Default fallback for any other types
+        }
     }
 
     /// Infer the WasmType from a Value
@@ -92,6 +123,7 @@ impl TypeManager {
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
             Value::Float(_) => WasmType::F64,
             Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
+            Value::List(_, _) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
             Value::Void => WasmType::I32,       // Void represented as I32
             // Sized types
@@ -113,6 +145,7 @@ impl TypeManager {
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
             Value::Float(_) => WasmType::F64,
             Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
+            Value::List(_, _) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
             Value::Void => WasmType::I32,       // Void represented as I32
             // Sized types
@@ -125,5 +158,10 @@ impl TypeManager {
             Value::Float32(_) => WasmType::F32,
             Value::Float64(_) => WasmType::F64,
         })
+    }
+
+    /// Check if a type is Any
+    pub(crate) fn is_any_type(&self, ast_type: &Type) -> bool {
+        matches!(ast_type, Type::Any)
     }
 } 

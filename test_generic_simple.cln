@@ -1,0 +1,12 @@
+functions:
+	Any identity()
+		input
+			Any value
+		return value
+
+start()
+	integer x = identity(42)
+	print x
+	
+	string text = identity("Hello World")
+	print text 

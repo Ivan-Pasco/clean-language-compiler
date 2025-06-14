@@ -156,38 +156,13 @@ pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError>
         }
     }
 
-    // Infer return type from the function body
-    let return_type = if let Some(last_stmt) = body.last() {
-        match last_stmt {
-            Statement::Expression { expr, .. } => {
-                // Infer type from the expression
-                match expr {
-                    Expression::Literal(Value::Integer(_)) => Type::Integer,
-                    Expression::Literal(Value::Float(_)) => Type::Float,
-                    Expression::Literal(Value::Boolean(_)) => Type::Boolean,
-                    Expression::Literal(Value::String(_)) => Type::String,
-                    _ => Type::Integer, // Default to integer for other expressions
-                }
-            },
-            Statement::Return { value: Some(expr), .. } => {
-                // Infer type from the return expression
-                match expr {
-                    Expression::Literal(Value::Integer(_)) => Type::Integer,
-                    Expression::Literal(Value::Float(_)) => Type::Float,
-                    Expression::Literal(Value::Boolean(_)) => Type::Boolean,
-                    Expression::Literal(Value::String(_)) => Type::String,
-                    _ => Type::Integer, // Default to integer for other expressions
-                }
-            },
-            _ => Type::Void, // For other statement types, assume void
-        }
-    } else {
-        Type::Void // Empty function body
-    };
+    // Start function must always have void return type for WebAssembly compatibility
+    let return_type = Type::Void;
 
     Ok(Function {
         name,
         type_parameters: Vec::new(),
+        type_constraints: Vec::new(),
         parameters: Vec::new(),
         return_type,
         body,
@@ -297,6 +272,7 @@ pub fn parse_standalone_function(pair: Pair<Rule>) -> Result<Function, CompilerE
     Ok(Function {
         name,
         type_parameters,
+        type_constraints: Vec::new(),
         parameters,
         return_type,
         body,
@@ -385,27 +361,31 @@ pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> 
             Rule::identifier => {
                 class_name = item.as_str().to_string();
             },
-            Rule::generic_type => {
-                // Parse "is BaseClass<Args>" inheritance
-                let mut base_name = String::new();
-                let mut args = Vec::new();
-                for generic_item in item.into_inner() {
-                    match generic_item.as_rule() {
-                        Rule::identifier => {
-                            base_name = generic_item.as_str().to_string();
-                        },
-                        Rule::type_arguments => {
-                            for type_arg in generic_item.into_inner() {
-                                if type_arg.as_rule() == Rule::type_ {
-                                    args.push(parse_type(type_arg)?);
-                                }
-                            }
-                        },
-                        _ => {}
+            Rule::type_ => {
+                // Parse "is BaseClass" or "is BaseClass<Args>" inheritance
+                let type_result = parse_type(item)?;
+                match type_result {
+                    Type::Object(class_name) => {
+                        base_class = Some(class_name);
+                    },
+                    Type::Generic(boxed_type, type_args) => {
+                        if let Type::Object(class_name) = *boxed_type {
+                            base_class = Some(class_name);
+                            base_class_type_args = type_args;
+                        }
+                    },
+                    Type::TypeParameter(class_name) => {
+                        // Handle simple class names that are parsed as type parameters
+                        base_class = Some(class_name);
+                    },
+                    _ => {
+                        return Err(CompilerError::parse_error(
+                            "Base class must be a class type".to_string(),
+                            location.clone(),
+                            Some("Use a valid class name for inheritance".to_string())
+                        ));
                     }
                 }
-                base_class = Some(base_name);
-                base_class_type_args = args;
             },
             Rule::indented_class_body => {
                 // Parse the class body containing field declarations, constructors, methods
@@ -723,6 +703,7 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
     Ok(Function {
         name: func_name,
         type_parameters,
+        type_constraints: Vec::new(),
         parameters,
         return_type,
         body,

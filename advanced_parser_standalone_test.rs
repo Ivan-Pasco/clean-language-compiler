@@ -10,23 +10,23 @@ fn main() {
         private values: array<T>
         private size: integer
         
-        constructor(capacity: integer) {
-            this.values = new array<T>(capacity)
-            this.size = 0
+        constructor(capacityParam: integer) {
+            values = new array<T>(capacityParam)
+            size = 0
         }
         
         push(value: T) {
-            if this.size < this.values.length {
-                this.values[this.size] = value
-                this.size = this.size + 1
+            if size < values.length {
+                values[size] = value
+                size = size + 1
             } else {
                 printl "Error: Vector is full"
             }
         }
         
         get(index: integer) -> T {
-            if index >= 0 && index < this.size {
-                return this.values[index]
+            if index >= 0 && index < size {
+                return values[index]
             } else {
                 // In a real language, we'd throw an exception here
                 printl "Error: Index out of bounds"
@@ -35,7 +35,7 @@ fn main() {
         }
         
         size() -> integer {
-            return this.size
+            return size
         }
     }
     

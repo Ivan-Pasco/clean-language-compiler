@@ -1,0 +1,24 @@
+start()
+	print("=== HTTP Functions Test ===")
+	
+	print("Testing http_get...")
+	get_result = http_get("https://httpbin.org/get")
+	print("GET Result:")
+	print(get_result)
+	
+	print("Testing http_post...")
+	post_result = http_post("https://httpbin.org/post", "test data")
+	print("POST Result:")
+	print(post_result)
+	
+	print("Testing http_put...")
+	put_result = http_put("https://httpbin.org/put", "updated data")
+	print("PUT Result:")
+	print(put_result)
+	
+	print("Testing http_delete...")
+	delete_result = http_delete("https://httpbin.org/delete")
+	print("DELETE Result:")
+	print(delete_result)
+	
+	print("=== HTTP Test Complete ===") 

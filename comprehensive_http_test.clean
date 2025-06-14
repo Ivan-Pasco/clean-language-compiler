@@ -1,0 +1,22 @@
+functions:
+	void testAllHttpMethods()
+		string getUrl = "https://httpbin.org/get"
+		string getResponse = Http.get(getUrl)
+		
+		string postUrl = "https://httpbin.org/post"
+		string postBody = "name=CleanLanguage&version=1.0"
+		string postResponse = Http.post(postUrl, postBody)
+		
+		string putUrl = "https://httpbin.org/put"
+		string putBody = "data=updated&timestamp=2024"
+		string putResponse = Http.put(putUrl, putBody)
+		
+		string patchUrl = "https://httpbin.org/patch"
+		string patchBody = "field=patched"
+		string patchResponse = Http.patch(patchUrl, patchBody)
+		
+		string deleteUrl = "https://httpbin.org/delete"
+		string deleteResponse = Http.delete(deleteUrl)
+
+start()
+	testAllHttpMethods() 

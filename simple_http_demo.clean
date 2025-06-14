@@ -1,0 +1,14 @@
+functions:
+	void testHttpGet()
+		string url = "https://httpbin.org/get"
+		string response = Http.get(url)
+
+	void testHttpPost()
+		string url = "https://httpbin.org/post"
+		string body = "test=data"
+		string response = Http.post(url, body)
+
+start()
+	testHttpGet()
+	testHttpPost()
+	0 

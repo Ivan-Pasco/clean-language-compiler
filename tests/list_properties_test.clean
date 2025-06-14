@@ -1,0 +1,25 @@
+functions:
+	void testListProperties()
+		List<string> defaultList = List()
+		defaultList.add("first")
+		defaultList.add("second")
+		assert(defaultList.size() == 2)
+		
+		List<string> queueList = List()
+		queueList.type = "line"
+		queueList.add("Task 1")
+		queueList.add("Task 2")
+		assert(queueList.size() == 2)
+		
+		List<string> uniqueList = List()
+		uniqueList.type = "unique"
+		uniqueList.add("Alice")
+		uniqueList.add("Bob")
+		uniqueList.add("Alice")
+		assert(uniqueList.size() == 2)
+		assert(uniqueList.contains("Alice"))
+		assert(uniqueList.contains("Bob"))
+
+start()
+	testListProperties()
+	0 

@@ -1,0 +1,6 @@
+start()
+	print("Testing memory management...")
+	string:
+		message = "Hello World"
+	print(message)
+	print("Memory test completed!") 

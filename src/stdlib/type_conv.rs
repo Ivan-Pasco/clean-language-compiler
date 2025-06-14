@@ -221,8 +221,9 @@ impl TypeConvOperations {
 
     fn generate_i32_to_f64_function(&self) -> Vec<Instruction> {
         vec![
-            // Load i32 value
+            // Get i32 value
             Instruction::LocalGet(0),
+            
             // Convert to f64
             Instruction::F64ConvertI32S,
         ]
@@ -230,9 +231,10 @@ impl TypeConvOperations {
 
     fn generate_f64_to_i32_function(&self) -> Vec<Instruction> {
         vec![
-            // Load f64 value
+            // Get f64 value
             Instruction::LocalGet(0),
-            // Convert to i32
+            
+            // Convert to i32 (truncate)
             Instruction::I32TruncF64S,
         ]
     }
@@ -586,7 +588,7 @@ mod tests {
         let mut results = vec![Val::F64(0)];
         conv.call(&mut store, &[Val::I32(value)], &mut results).unwrap();
         
-        let result = results[0].unwrap_f64();
+        let result = f64::from_bits(results[0].unwrap_i64() as u64);
         assert!((result - value as f64).abs() < f64::EPSILON);
     }
 

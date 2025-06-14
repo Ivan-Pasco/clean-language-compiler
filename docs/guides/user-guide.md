@@ -301,24 +301,26 @@ Clean supports basic object-oriented programming with classes:
 
 ```
 class Point
-    x: int
-    y: int
+    integer x
+    integer y
     
-    constructor(x, y)
-        this.x = x
-        this.y = y
+    constructor(integer xParam, integer yParam)
+        x = xParam      // Implicit context - no 'this' needed
+        y = yParam
     
-    function distance(other: Point): float
-        dx = this.x - other.x
-        dy = this.y - other.y
-        return math.sqrt(dx * dx + dy * dy)
+    functions:
+        float distance(Point other)
+            integer dx = x - other.x    // Direct field access
+            integer dy = y - other.y
+            return Math.sqrt(dx * dx + dy * dy)
 
-start()
-    p1 = Point(0, 0)
-    p2 = Point(3, 4)
-    
-    dist = p1.distance(p2)  // 5.0
-    print("Distance: " + dist)
+functions:
+    void start()
+        Point p1 = Point(0, 0)
+        Point p2 = Point(3, 4)
+        
+        float dist = p1.distance(p2)  // 5.0
+        print("Distance: " + dist.toString())
 ```
 
 ### Modules and Imports

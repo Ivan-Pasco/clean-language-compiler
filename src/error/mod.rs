@@ -997,57 +997,275 @@ impl ErrorUtils {
         suggestions
     }
 
-    /// Convert a Pest parsing error to an enhanced CompilerError
+    /// Convert a Pest parsing error to an enhanced CompilerError with detailed context
     pub fn from_pest_error(
         pest_error: pest::error::Error<crate::parser::Rule>,
         source: &str,
         file_path: &str,
     ) -> CompilerError {
-        let location = match pest_error.location {
+        let (location, error_span) = match pest_error.location {
             pest::error::InputLocation::Pos(pos) => {
-                // Extract line and column from the position
-                let lines_before = source[..pos].lines().count();
-                let line = if lines_before == 0 { 1 } else { lines_before };
-                let last_line_start = source[..pos].rfind('\n').map(|i| i + 1).unwrap_or(0);
-                let col = pos - last_line_start + 1;
-                
-                Some(SourceLocation {
+                let (line, col) = Self::calculate_line_column(source, pos);
+                let location = SourceLocation {
                     line,
                     column: col,
                     file: file_path.to_string(),
-                })
+                };
+                (Some(location), (pos, pos))
             },
-            pest::error::InputLocation::Span((start_pos, _)) => {
-                // Extract line and column from the start position
-                let lines_before = source[..start_pos].lines().count();
-                let line = if lines_before == 0 { 1 } else { lines_before };
-                let last_line_start = source[..start_pos].rfind('\n').map(|i| i + 1).unwrap_or(0);
-                let col = start_pos - last_line_start + 1;
-                
-                Some(SourceLocation {
+            pest::error::InputLocation::Span((start_pos, end_pos)) => {
+                let (line, col) = Self::calculate_line_column(source, start_pos);
+                let location = SourceLocation {
                     line,
                     column: col,
                     file: file_path.to_string(),
-                })
+                };
+                (Some(location), (start_pos, end_pos))
             },
         };
 
         let source_snippet = if let Some(loc) = &location {
-            Some(Self::extract_source_snippet(source, loc, 2))
+            Some(Self::extract_enhanced_source_snippet(source, error_span, loc))
         } else {
             None
         };
 
-        let error_message = pest_error.to_string();
-        let suggestions = Self::suggest_syntax_fixes(&error_message);
+        let (enhanced_message, suggestions, help) = Self::enhance_pest_error_message(&pest_error, source, error_span);
 
         CompilerError::enhanced_syntax_error(
-            format!("Syntax error: {}", error_message),
+            enhanced_message,
             location,
             source_snippet,
             suggestions,
-            Some("Check the Clean Language syntax documentation".to_string()),
+            help,
         )
+    }
+
+    /// Calculate accurate line and column numbers from position
+    fn calculate_line_column(source: &str, pos: usize) -> (usize, usize) {
+        let mut line = 1;
+        let mut col = 1;
+        
+        for (i, ch) in source.char_indices() {
+            if i >= pos {
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+        
+        (line, col)
+    }
+
+    /// Extract enhanced source snippet with error highlighting
+    fn extract_enhanced_source_snippet(source: &str, error_span: (usize, usize), location: &SourceLocation) -> String {
+        let lines: Vec<&str> = source.lines().collect();
+        let error_line_idx = location.line.saturating_sub(1);
+        
+        if error_line_idx >= lines.len() {
+            return "Source line not available".to_string();
+        }
+
+        let start_line = error_line_idx.saturating_sub(2);
+        let end_line = std::cmp::min(error_line_idx + 3, lines.len());
+        
+        let mut snippet = String::new();
+        
+        for (i, line_idx) in (start_line..end_line).enumerate() {
+            let line_num = line_idx + 1;
+            let line_content = lines[line_idx];
+            
+            if line_idx == error_line_idx {
+                // This is the error line - add highlighting
+                snippet.push_str(&format!("{:4} | {}\n", line_num, line_content));
+                
+                // Add error pointer
+                let pointer_offset = location.column.saturating_sub(1);
+                let pointer_line = format!("     | {}^", " ".repeat(pointer_offset));
+                
+                // If we have a span, show the full error range
+                if error_span.1 > error_span.0 {
+                    let span_length = std::cmp::min(error_span.1 - error_span.0, line_content.len() - pointer_offset);
+                    if span_length > 1 {
+                        snippet.push_str(&format!("{}{}",
+                            pointer_line,
+                            "~".repeat(span_length.saturating_sub(1))
+                        ));
+                    } else {
+                        snippet.push_str(&pointer_line);
+                    }
+                } else {
+                    snippet.push_str(&pointer_line);
+                }
+                snippet.push('\n');
+            } else {
+                // Context line
+                snippet.push_str(&format!("{:4} | {}\n", line_num, line_content));
+            }
+        }
+        
+        snippet
+    }
+
+    /// Enhance Pest error messages with context-specific information
+    fn enhance_pest_error_message(
+        pest_error: &pest::error::Error<crate::parser::Rule>,
+        source: &str,
+        error_span: (usize, usize),
+    ) -> (String, Vec<String>, Option<String>) {
+        use pest::error::ErrorVariant;
+        
+        match &pest_error.variant {
+            ErrorVariant::ParsingError { positives, negatives } => {
+                let mut message = String::new();
+                let mut suggestions = Vec::new();
+                let mut help = None;
+
+                if !positives.is_empty() {
+                    let expected: Vec<String> = positives.iter()
+                        .map(|rule| Self::rule_to_friendly_name(rule))
+                        .collect();
+                    
+                    message = if expected.len() == 1 {
+                        format!("Expected {}", expected[0])
+                    } else {
+                        format!("Expected one of: {}", expected.join(", "))
+                    };
+
+                    // Add context-specific suggestions
+                    suggestions.extend(Self::get_context_specific_suggestions(&expected, source, error_span));
+                }
+
+                if !negatives.is_empty() {
+                    let unexpected: Vec<String> = negatives.iter()
+                        .map(|rule| Self::rule_to_friendly_name(rule))
+                        .collect();
+                    
+                    if !message.is_empty() {
+                        message.push_str(&format!(", but found {}", unexpected.join(" or ")));
+                    } else {
+                        message = format!("Unexpected {}", unexpected.join(" or "));
+                    }
+                }
+
+                // Add helpful context
+                help = Some(Self::get_contextual_help(&message, source, error_span));
+
+                (message, suggestions, help)
+            },
+            ErrorVariant::CustomError { message } => {
+                let suggestions = Self::suggest_syntax_fixes(message);
+                let help = Some("Check the Clean Language syntax documentation".to_string());
+                (message.clone(), suggestions, help)
+            },
+        }
+    }
+
+    /// Convert Pest rule names to user-friendly descriptions
+    fn rule_to_friendly_name(rule: &crate::parser::Rule) -> String {
+        use crate::parser::Rule;
+        
+        match rule {
+            Rule::identifier => "identifier".to_string(),
+            Rule::number => "number".to_string(),
+            Rule::string => "string".to_string(),
+            Rule::boolean => "boolean value".to_string(),
+            Rule::function_call => "function call".to_string(),
+            Rule::method_call => "method call".to_string(),
+            Rule::variable_decl => "variable declaration".to_string(),
+            Rule::assignment => "assignment".to_string(),
+            Rule::if_stmt => "if statement".to_string(),
+            Rule::return_stmt => "return statement".to_string(),
+            Rule::expression => "expression".to_string(),
+            Rule::statement => "statement".to_string(),
+            Rule::type_ => "type annotation".to_string(),
+            Rule::parameter => "parameter".to_string(),
+            Rule::function_body => "function body".to_string(),
+            Rule::indented_block => "indented block".to_string(),
+            Rule::NEWLINE => "newline".to_string(),
+            Rule::INDENT => "indentation".to_string(),
+            Rule::EOI => "end of input".to_string(),
+            _ => format!("{:?}", rule).to_lowercase(),
+        }
+    }
+
+    /// Get context-specific suggestions based on expected rules and surrounding code
+    fn get_context_specific_suggestions(expected: &[String], source: &str, error_span: (usize, usize)) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        // Get the context around the error
+        let context = if error_span.0 > 0 && error_span.0 <= source.len() {
+            &source[error_span.0.saturating_sub(50)..std::cmp::min(error_span.1 + 50, source.len())]
+        } else {
+            ""
+        };
+
+        for exp in expected {
+            match exp.as_str() {
+                "identifier" => {
+                    suggestions.push("Use a valid identifier (letters, numbers, underscore, starting with letter)".to_string());
+                    if context.contains("function") {
+                        suggestions.push("Function names must be valid identifiers".to_string());
+                    }
+                },
+                "type annotation" => {
+                    suggestions.push("Add a type annotation (e.g., 'integer', 'string', 'boolean')".to_string());
+                    suggestions.push("Check if you're missing a type before the variable name".to_string());
+                },
+                "expression" => {
+                    suggestions.push("Add a valid expression (variable, literal, or function call)".to_string());
+                    if context.contains("=") {
+                        suggestions.push("Assignment requires a value after the '=' sign".to_string());
+                    }
+                },
+                "indented block" => {
+                    suggestions.push("Add proper indentation using tabs".to_string());
+                    suggestions.push("Ensure the block is indented more than the parent statement".to_string());
+                },
+                "newline" => {
+                    suggestions.push("Add a newline to separate statements".to_string());
+                },
+                "end of input" => {
+                    suggestions.push("The file may be incomplete or have unclosed constructs".to_string());
+                },
+                _ => {}
+            }
+        }
+
+        // Add general suggestions if no specific ones were found
+        if suggestions.is_empty() {
+            suggestions.push("Check the Clean Language syntax documentation".to_string());
+            suggestions.push("Verify proper indentation and statement structure".to_string());
+        }
+
+        suggestions
+    }
+
+    /// Get contextual help based on the error message and surrounding code
+    fn get_contextual_help(message: &str, source: &str, error_span: (usize, usize)) -> String {
+        let context = if error_span.0 > 0 && error_span.0 <= source.len() {
+            &source[error_span.0.saturating_sub(100)..std::cmp::min(error_span.1 + 100, source.len())]
+        } else {
+            ""
+        };
+
+        if message.contains("identifier") && context.contains("function") {
+            "Function declarations require a valid function name after the 'function' keyword".to_string()
+        } else if message.contains("type annotation") {
+            "Clean Language uses type-first syntax: 'type variable_name = value'".to_string()
+        } else if message.contains("indented block") {
+            "Clean Language uses indentation to define code blocks. Use tabs for indentation".to_string()
+        } else if message.contains("expression") && context.contains("=") {
+            "Assignments require a value after the '=' operator".to_string()
+        } else if message.contains("newline") {
+            "Statements in Clean Language must be separated by newlines".to_string()
+        } else {
+            "Refer to the Clean Language syntax guide for proper formatting".to_string()
+        }
     }
 }
 

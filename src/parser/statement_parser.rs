@@ -1,5 +1,5 @@
 use pest::iterators::Pair;
-use crate::ast::Statement;
+use crate::ast::{Statement, Expression};
 use crate::error::CompilerError;
 use super::{get_location, convert_to_ast_location};
 use super::expression_parser::parse_expression;
@@ -59,9 +59,34 @@ fn parse_variable_declaration(pair: Pair<Rule>, ast_location: crate::ast::Source
 
 fn parse_assignment_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
     let mut parts = pair.into_inner();
-    let target = parts.next().unwrap().as_str().to_string();
+    let target_part = parts.next().unwrap();
     let value = parse_expression(parts.next().unwrap())?;
 
+    // Check if this is a property assignment (e.g., list.type = "line")
+    if target_part.as_rule() == Rule::property_access {
+        // Parse as property assignment expression
+        let property_expr = super::expression_parser::parse_property_access(target_part)?;
+        if let Expression::PropertyAccess { object, property, location } = property_expr {
+            return Ok(Statement::Expression {
+                expr: Expression::PropertyAssignment {
+                    object,
+                    property,
+                    value: Box::new(value),
+                    location,
+                },
+                location: Some(ast_location),
+            });
+        }
+        // If we get here, something went wrong with property parsing
+        return Err(CompilerError::parse_error(
+            "Failed to parse property assignment".to_string(),
+            Some(ast_location),
+            Some("Property assignment parsing failed".to_string())
+        ));
+    }
+
+    // Regular variable assignment
+    let target = target_part.as_str().to_string();
     Ok(Statement::Assignment {
         target,
         value,

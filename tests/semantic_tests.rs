@@ -1,9 +1,9 @@
 use clean_language_compiler::{
-    ast::{Program, Type, Statement, Expression, Function, Operator, ComparisonOperator},
+    ast::{Program, Type, Statement, Expression, Function},
     semantic::SemanticAnalyzer,
-    CompilerError,
+    error::CompilerError,
 };
-use crate::test_utils;
+mod test_utils;
 
 #[test]
 fn test_variable_declaration() {

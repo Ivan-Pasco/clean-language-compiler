@@ -1,0 +1,104 @@
+functions:
+    // Test Set implementation
+    Set<number> createNumberSet()
+        Set<number> set = Set()
+        set.add(1)
+        set.add(2)
+        set.add(3)
+        return set
+
+    // Test Map implementation
+    Map<string, number> createNameAgeMap()
+        Map<string, number> map = Map()
+        map.put("Alice", 25)
+        map.put("Bob", 30)
+        map.put("Charlie", 35)
+        return map
+
+    // Test Queue implementation
+    Queue<string> createTaskQueue()
+        Queue<string> queue = Queue()
+        queue.enqueue("Task 1")
+        queue.enqueue("Task 2")
+        queue.enqueue("Task 3")
+        return queue
+
+    // Test Stack implementation
+    Stack<number> createNumberStack()
+        Stack<number> stack = Stack()
+        stack.push(1)
+        stack.push(2)
+        stack.push(3)
+        return stack
+
+start()
+    // Test Set operations
+    Set<number> numberSet = createNumberSet()
+    assert(numberSet.size() == 3, "Set should have 3 elements")
+    assert(numberSet.contains(1), "Set should contain 1")
+    assert(numberSet.contains(2), "Set should contain 2")
+    assert(numberSet.contains(3), "Set should contain 3")
+    assert(!numberSet.contains(4), "Set should not contain 4")
+    
+    numberSet.remove(2)
+    assert(numberSet.size() == 2, "Set should have 2 elements after removal")
+    assert(!numberSet.contains(2), "Set should not contain 2 after removal")
+    
+    // Test Map operations
+    Map<string, number> nameAgeMap = createNameAgeMap()
+    assert(nameAgeMap.size() == 3, "Map should have 3 entries")
+    assert(nameAgeMap.get("Alice") == 25, "Alice should be 25")
+    assert(nameAgeMap.get("Bob") == 30, "Bob should be 30")
+    assert(nameAgeMap.get("Charlie") == 35, "Charlie should be 35")
+    
+    nameAgeMap.put("Alice", 26)
+    assert(nameAgeMap.get("Alice") == 26, "Alice should be 26 after update")
+    
+    nameAgeMap.remove("Bob")
+    assert(nameAgeMap.size() == 2, "Map should have 2 entries after removal")
+    assert(nameAgeMap.get("Bob") == null, "Bob should not exist after removal")
+    
+    // Test Queue operations
+    Queue<string> taskQueue = createTaskQueue()
+    assert(taskQueue.size() == 3, "Queue should have 3 elements")
+    assert(taskQueue.peek() == "Task 1", "First task should be Task 1")
+    
+    string task = taskQueue.dequeue()
+    assert(task == "Task 1", "Dequeued task should be Task 1")
+    assert(taskQueue.size() == 2, "Queue should have 2 elements after dequeue")
+    assert(taskQueue.peek() == "Task 2", "First task should be Task 2 after dequeue")
+    
+    // Test Stack operations
+    Stack<number> numberStack = createNumberStack()
+    assert(numberStack.size() == 3, "Stack should have 3 elements")
+    assert(numberStack.peek() == 3, "Top element should be 3")
+    
+    number value = numberStack.pop()
+    assert(value == 3, "Popped value should be 3")
+    assert(numberStack.size() == 2, "Stack should have 2 elements after pop")
+    assert(numberStack.peek() == 2, "Top element should be 2 after pop")
+    
+    // Test collection iteration
+    number sum = 0
+    iterate num in numberSet
+        sum = sum + num
+    assert(sum == 4, "Sum of set elements should be 4")
+    
+    number totalAge = 0
+    iterate entry in nameAgeMap
+        totalAge = totalAge + entry.value
+    assert(totalAge == 61, "Total age should be 61")
+    
+    string[] tasks = array()
+    iterate task in taskQueue
+        tasks.push(task)
+    assert(tasks.length == 2, "Should have 2 tasks")
+    assert(tasks[0] == "Task 2", "First task should be Task 2")
+    assert(tasks[1] == "Task 3", "Second task should be Task 3")
+    
+    number[] values = array()
+    iterate num in numberStack
+        values.push(num)
+    assert(values.length == 2, "Should have 2 values")
+    assert(values[0] == 2, "First value should be 2")
+    assert(values[1] == 1, "Second value should be 1") 

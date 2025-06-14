@@ -1,0 +1,6 @@
+start()
+	print("=== HTTP Test ===")
+	print("Testing http_get...")
+	result = http_get("https://httpbin.org/json")
+	print("HTTP GET completed")
+	print("=== Test Complete ===") 

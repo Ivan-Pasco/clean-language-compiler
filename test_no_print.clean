@@ -1,0 +1,6 @@
+functions:
+	Integer addTen(Integer x)
+		x + 10
+
+start()
+	5 + 10 

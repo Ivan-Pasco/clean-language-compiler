@@ -29,6 +29,21 @@ pub enum Value {
     Integer64(i64),
     Float32(f32),
     Float64(f64),
+    
+    // List with properties
+    List(Vec<Value>, ListBehavior),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ListBehavior {
+    Default,    // Standard list behavior
+    Line,       // Queue behavior (FIFO)
+    Pile,       // Stack behavior (LIFO)
+    Unique,     // Set behavior (no duplicates)
+    LinePile,   // Combined line + pile (not typical, but allowed)
+    LineUnique, // Queue with unique elements
+    PileUnique, // Stack with unique elements
+    LineUniquePile, // All three combined
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +61,7 @@ pub enum Type {
     
     // Composite types
     Array(Box<Type>),
+    List(Box<Type>),
     Matrix(Box<Type>),
     Pairs(Box<Type>, Box<Type>),
     
@@ -55,6 +71,7 @@ pub enum Type {
     
     // Object types
     Object(String),
+    Class { name: String, type_args: Vec<Type> },
     Function(Vec<Type>, Box<Type>),
     Any,
 }
@@ -115,6 +132,14 @@ pub enum Expression {
         property: String,
         location: SourceLocation,
     },
+    
+    // Property assignment (for list.type = behavior)
+    PropertyAssignment {
+        object: Box<Expression>,
+        property: String,
+        value: Box<Expression>,
+        location: SourceLocation,
+    },
     MethodCall {
         object: Box<Expression>,
         method: String,
@@ -162,12 +187,79 @@ pub enum Expression {
     ErrorVariable {
         location: SourceLocation,
     },
+    
+    // Conditional expressions: if condition then value else value
+    Conditional {
+        condition: Box<Expression>,
+        then_expr: Box<Expression>,
+        else_expr: Box<Expression>,
+        location: SourceLocation,
+    },
+    
+    // Base constructor call: base(args...)
+    BaseCall {
+        arguments: Vec<Expression>,
+        location: SourceLocation,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StringPart {
     Text(String),
     Interpolation(Expression),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchCase {
+    pub pattern: Pattern,
+    pub guard: Option<Expression>,  // Optional when condition
+    pub body: Vec<Statement>,
+    pub location: SourceLocation,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern {
+    // Literal patterns: 42, "hello", true
+    Literal(Value),
+    
+    // Variable patterns: x (binds to variable)
+    Variable(String),
+    
+    // Wildcard pattern: _
+    Wildcard,
+    
+    // Constructor patterns: Some(x), Point(x, y)
+    Constructor {
+        name: String,
+        patterns: Vec<Pattern>,
+    },
+    
+    // Array patterns: [x, y, z] or [head, ...tail]
+    Array {
+        patterns: Vec<Pattern>,
+        rest: Option<String>,  // For spread patterns like [x, ...rest]
+    },
+    
+    // Object patterns: { x, y } or { x: pattern }
+    Object {
+        fields: Vec<FieldPattern>,
+    },
+    
+    // Or patterns: pattern1 | pattern2
+    Or(Vec<Pattern>),
+    
+    // Range patterns: 1..10
+    Range {
+        start: Box<Expression>,
+        end: Box<Expression>,
+        inclusive: bool,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldPattern {
+    pub name: String,
+    pub pattern: Option<Pattern>,  // None means shorthand { x } instead of { x: pattern }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -298,9 +390,16 @@ pub enum FunctionSyntax {
 }
 
 #[derive(Debug, Clone)]
+pub struct TypeConstraint {
+    pub type_parameter: String,
+    pub constraint_type: Type,
+}
+
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
     pub type_parameters: Vec<String>,
+    pub type_constraints: Vec<TypeConstraint>,
     pub parameters: Vec<Parameter>,
     pub return_type: Type,
     pub body: Vec<Statement>,
@@ -321,6 +420,7 @@ impl Function {
         Self {
             name,
             type_parameters: Vec::new(),
+            type_constraints: Vec::new(),
             parameters,
             return_type,
             body,
@@ -411,6 +511,7 @@ impl fmt::Display for Type {
             },
             Type::FloatSized { bits } => write!(f, "float:{}", bits),
             Type::Array(inner) => write!(f, "Array<{}>", inner),
+            Type::List(inner) => write!(f, "List<{}>", inner),
             Type::Matrix(inner) => write!(f, "Matrix<{}>", inner),
             Type::Pairs(key, value) => write!(f, "pairs<{}, {}>", key, value),
             Type::Function(params, ret) => {
@@ -424,6 +525,20 @@ impl fmt::Display for Type {
                 write!(f, ") returns {}", ret)
             },
             Type::Object(name) => write!(f, "{}", name),
+            Type::Class { name, type_args } => {
+                if type_args.is_empty() {
+                    write!(f, "{}", name)
+                } else {
+                    write!(f, "{}<", name)?;
+                    for (i, arg) in type_args.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", arg)?;
+                    }
+                    write!(f, ">")
+                }
+            },
             Type::Generic(base, args) => {
                 write!(f, "{}<", base)?;
                 for (i, arg) in args.iter().enumerate() {
@@ -483,6 +598,27 @@ impl fmt::Display for Value {
             Value::Integer64(i) => write!(f, "{}:64", i),
             Value::Float32(f_val) => write!(f, "{}:32", f_val),
             Value::Float64(f_val) => write!(f, "{}:64", f_val),
+            Value::List(items, behavior) => {
+                write!(f, "List[")?;
+                for (i, item) in items.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, "]")?;
+                match behavior {
+                    ListBehavior::Default => {},
+                    ListBehavior::Line => write!(f, ".line")?,
+                    ListBehavior::Pile => write!(f, ".pile")?,
+                    ListBehavior::Unique => write!(f, ".unique")?,
+                    ListBehavior::LineUnique => write!(f, ".line.unique")?,
+                    ListBehavior::PileUnique => write!(f, ".pile.unique")?,
+                    ListBehavior::LinePile => write!(f, ".line.pile")?,
+                    ListBehavior::LineUniquePile => write!(f, ".line.unique.pile")?,
+                }
+                Ok(())
+            },
         }
     }
 }

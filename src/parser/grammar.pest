@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 // Keywords and identifiers
-keyword = { ("return" | "if" | "else" | "iterate" | "in" | "to" | "step" | "test" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any") ~ !ASCII_ALPHANUMERIC }
+keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any") ~ !ASCII_ALPHANUMERIC }
 identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
@@ -35,6 +35,7 @@ sized_type = { core_type ~ size_specifier }
 // Composite types
 matrix_type = { "Matrix" ~ "<" ~ type_ ~ ">" }
 array_type = { "Array" ~ "<" ~ type_ ~ ">" }
+list_type = { "List" ~ "<" ~ type_ ~ ">" }
 pairs_type = { "pairs" ~ "<" ~ type_ ~ "," ~ type_ ~ ">" }
 
 // Generic types
@@ -49,6 +50,7 @@ type_ = {
     core_type |
     matrix_type |
     array_type |
+    list_type |
     pairs_type |
     generic_type |
     type_parameter |
@@ -70,7 +72,7 @@ indented_constant_assignments = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ constant_a
 constant_assignment = { type_ ~ identifier ~ "=" ~ expression }
 
 // Type apply-blocks: integer: count = 0, maxSize = 100 (types before generic identifiers)
-type_apply_block = { (core_type | sized_type | matrix_type | array_type | pairs_type) ~ ":" ~ indented_variable_assignments }
+type_apply_block = { (core_type | sized_type | matrix_type | array_type | list_type | pairs_type) ~ ":" ~ indented_variable_assignments }
 indented_variable_assignments = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ variable_assignment ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ variable_assignment)* }
 variable_assignment = { identifier ~ "=" ~ expression }
 
@@ -79,7 +81,7 @@ method_apply_block = { method_call_chain ~ ":" ~ indented_expressions }
 method_call_chain = { identifier ~ ("." ~ identifier)+ }
 
 // Function apply-blocks: println: "Hello", "World" (catch-all for identifiers)
-function_apply_block = { identifier ~ ":" ~ indented_expressions }
+function_apply_block = { !("functions" ~ ":") ~ identifier ~ ":" ~ indented_expressions }
 indented_expressions = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ expression ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ expression)* }
 
 // Setup blocks for functions
@@ -89,6 +91,7 @@ input_type = {
     core_type |
     matrix_type |
     array_type |
+    list_type |
     pairs_type |
     generic_type |
     type_parameter
@@ -110,6 +113,8 @@ array_access = { identifier ~ "[" ~ expression ~ "]" }
 
 // Primary expressions
 primary = { 
+    conditional_expr |
+    base_call |
     method_call |
     number |
     boolean |
@@ -119,10 +124,20 @@ primary = {
     array_access |
     function_call |
     property_access |
+    error_variable |
     identifier |
     multiline_parenthesized_expr |
     "(" ~ expression ~ ")"
 }
+
+// Base constructor call
+base_call = { "base" ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
+
+// Error variable (only valid in error contexts)
+error_variable = { "error" ~ !(ASCII_ALPHANUMERIC | "_") }
+
+// Conditional expressions: if condition then value else value
+conditional_expr = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expression }
 
 // Multi-line expressions within parentheses (allows newlines and indentation)
 multiline_parenthesized_expr = { "(" ~ NEWLINE* ~ (INDENT* ~ multiline_expression)? ~ NEWLINE* ~ INDENT* ~ ")" }
@@ -165,7 +180,7 @@ statement = {
 variable_decl = { type_ ~ identifier ~ ("=" ~ expression)? }
 
 // Assignment
-assignment = { identifier ~ "=" ~ expression }
+assignment = { (property_access | identifier) ~ "=" ~ expression }
 
 // Error statement (function call syntax)
 error_stmt = { "error" ~ "(" ~ expression ~ ")" }
@@ -205,6 +220,7 @@ function_type = {
     core_type |
     matrix_type |
     array_type |
+    list_type |
     pairs_type |
     generic_type |
     type_parameter
@@ -220,7 +236,7 @@ indented_class_body = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item ~ (N
 
 class_decl = { 
     "class" ~ identifier ~ 
-    ("is" ~ generic_type)? ~ 
+    ("is" ~ type_)? ~ 
     indented_class_body?
 }
 
@@ -232,6 +248,7 @@ constructor_type = {
     core_type |
     matrix_type |
     array_type |
+    list_type |
     pairs_type |
     generic_type
 }

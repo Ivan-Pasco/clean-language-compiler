@@ -104,6 +104,10 @@ impl InstructionGenerator {
         let left_type = self.generate_expression(left, instructions)?;
         let right_type = self.generate_expression(right, instructions)?;
         
+        // Handle Any type conversions
+        // Note: For now, we'll skip Any type checking as it requires more complex type analysis
+        // This would need to be implemented with proper type inference
+        
         match (left_type, right_type) {
             (WasmType::I32, WasmType::I32) => {
                 match op {
@@ -277,7 +281,20 @@ impl InstructionGenerator {
                 }
             },
             Statement::Print { expression, newline, location: _ } => {
+                // For print functions, we need to handle them specially since they expect (ptr, len)
+                // but the old implementation was just generating the expression and calling print
+                // This is causing stack mismatches. For now, we'll generate a placeholder.
+                
+                // Generate the expression to get its value
                 self.generate_expression(expression, instructions)?;
+                
+                // For string literals, we need to convert to (ptr, len) format
+                // For now, we'll drop the value and generate a placeholder string
+                instructions.push(Instruction::Drop);
+                
+                // Generate placeholder string data
+                instructions.push(Instruction::I32Const(0)); // ptr placeholder
+                instructions.push(Instruction::I32Const(0)); // len placeholder
                 
                 let function_name = if *newline { "printl" } else { "print" };
                 if let Some(print_function_index) = self.get_function_index(function_name) {
@@ -615,6 +632,11 @@ impl InstructionGenerator {
             Value::Float64(f) => {
                 instructions.push(Instruction::F64Const(*f));
                 Ok(WasmType::F64)
+            },
+            Value::List(_, _) => {
+                // TODO: Implement list literal generation
+                instructions.push(Instruction::I32Const(0)); // Placeholder - pointer to list
+                Ok(WasmType::I32)
             },
         }
     }

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use crate::ast::*;
-use crate::error::{CompilerError, CompilerWarning};
+use crate::error::{CompilerError, CompilerWarning, WarningType};
 
 mod scope;
 
@@ -29,6 +29,59 @@ pub struct SemanticAnalyzer {
     used_variables: HashSet<String>,
     used_functions: HashSet<String>,
     error_context_depth: i32,
+    type_constraints: HashMap<String, Box<dyn TypeConstraint>>,
+}
+
+/// Type constraint trait
+trait TypeConstraint {
+    fn check(&self, type_: &Type) -> bool;
+}
+
+/// Numeric type constraint
+struct NumericConstraint;
+
+impl TypeConstraint for NumericConstraint {
+    fn check(&self, type_: &Type) -> bool {
+        matches!(type_, Type::Integer | Type::Float | Type::IntegerSized { .. } | Type::FloatSized { .. })
+    }
+}
+
+/// Comparable type constraint
+struct ComparableConstraint;
+
+impl TypeConstraint for ComparableConstraint {
+    fn check(&self, type_: &Type) -> bool {
+        matches!(type_, Type::Integer | Type::Float | Type::String | Type::IntegerSized { .. } | Type::FloatSized { .. })
+    }
+}
+
+/// Inheritance type constraint
+struct InheritanceConstraint {
+    base_type: Type,
+}
+
+impl InheritanceConstraint {
+    fn is_subclass(&self, child_name: &str, base_name: &str) -> bool {
+        // Implement proper inheritance checking
+        if child_name == base_name {
+            return true;
+        }
+        
+        // This would need access to the class table, so we'll implement this
+        // as a method on SemanticAnalyzer instead
+        false
+    }
+}
+
+impl TypeConstraint for InheritanceConstraint {
+    fn check(&self, type_: &Type) -> bool {
+        if let Type::Class { name, .. } = type_ {
+            if let Type::Class { name: base_name, .. } = &self.base_type {
+                return name == base_name || self.is_subclass(name, base_name);
+            }
+        }
+        false
+    }
 }
 
 impl SemanticAnalyzer {
@@ -50,6 +103,7 @@ impl SemanticAnalyzer {
             used_variables: HashSet::new(),
             used_functions: HashSet::new(),
             error_context_depth: 0,
+            type_constraints: HashMap::new(),
         };
         
         analyzer.register_builtin_functions();
@@ -58,40 +112,128 @@ impl SemanticAnalyzer {
     
     // Register built-in functions like print, println, etc.
     fn register_builtin_functions(&mut self) {
-        // print function
+        // print function - type-safe overloads for different types
+        // print(value: Integer) -> Void
+        self.function_table.insert(
+            "print_int".to_string(),
+            (vec![Type::Integer], Type::Void)
+        );
+        
+        // print(value: Float) -> Void  
+        self.function_table.insert(
+            "print_float".to_string(),
+            (vec![Type::Float], Type::Void)
+        );
+        
+        // print(value: String) -> Void
+        self.function_table.insert(
+            "print_string".to_string(),
+            (vec![Type::String], Type::Void)
+        );
+        
+        // print(value: Boolean) -> Void
+        self.function_table.insert(
+            "print_bool".to_string(),
+            (vec![Type::Boolean], Type::Void)
+        );
+        
+        // Generic print function that dispatches to type-specific versions
+        // This maintains backward compatibility while adding type safety
         self.function_table.insert(
             "print".to_string(),
             (vec![Type::Any], Type::Void)
         );
         
-        // println function
+        // printl function (print with newline) - same overloads
         self.function_table.insert(
-            "println".to_string(),
-            (vec![Type::Any], Type::Void)
+            "printl_int".to_string(),
+            (vec![Type::Integer], Type::Void)
         );
         
-        // printl function (print with newline)
+        self.function_table.insert(
+            "printl_float".to_string(),
+            (vec![Type::Float], Type::Void)
+        );
+        
+        self.function_table.insert(
+            "printl_string".to_string(),
+            (vec![Type::String], Type::Void)
+        );
+        
+        self.function_table.insert(
+            "printl_bool".to_string(),
+            (vec![Type::Boolean], Type::Void)
+        );
+        
         self.function_table.insert(
             "printl".to_string(),
+            (vec![Type::Any], Type::Void)
+        );
+
+        // println function (legacy compatibility)
+        self.function_table.insert(
+            "println".to_string(),
             (vec![Type::Any], Type::Void)
         );
         
         // abs function (absolute value)
         self.function_table.insert(
             "abs".to_string(),
-            (vec![Type::Integer], Type::Integer)
+            (vec![Type::Any], Type::Any)
         );
-        
-        // array_get function
+
+        // Array functions
         self.function_table.insert(
             "array_get".to_string(),
-            (vec![Type::Array(Box::new(Type::Integer)), Type::Integer], Type::Integer)
+            (vec![Type::Array(Box::new(Type::Any)), Type::Integer], Type::Any)
         );
-        
-        // array_length function
+
         self.function_table.insert(
             "array_length".to_string(),
-            (vec![Type::Array(Box::new(Type::Integer))], Type::Integer)
+            (vec![Type::Array(Box::new(Type::Any))], Type::Integer)
+        );
+
+        // Assert function
+        self.function_table.insert(
+            "assert".to_string(),
+            (vec![Type::Boolean], Type::Void)
+        );
+
+        // String functions
+        self.function_table.insert(
+            "string_concat".to_string(),
+            (vec![Type::String, Type::String], Type::String)
+        );
+
+        self.function_table.insert(
+            "string_compare".to_string(),
+            (vec![Type::String, Type::String], Type::Integer)
+        );
+
+        // HTTP functions
+        self.function_table.insert(
+            "http_get".to_string(),
+            (vec![Type::String], Type::String)
+        );
+
+        self.function_table.insert(
+            "http_post".to_string(),
+            (vec![Type::String, Type::String], Type::String)
+        );
+
+        self.function_table.insert(
+            "http_put".to_string(),
+            (vec![Type::String, Type::String], Type::String)
+        );
+
+        self.function_table.insert(
+            "http_delete".to_string(),
+            (vec![Type::String], Type::String)
+        );
+
+        self.function_table.insert(
+            "http_patch".to_string(),
+            (vec![Type::String, Type::String], Type::String)
         );
     }
 
@@ -108,18 +250,24 @@ impl SemanticAnalyzer {
 
         for function in &program.functions {
             let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
-            self.function_table.insert(
-                function.name.clone(),
-                (param_types, function.return_type.clone())
-            );
+            // Don't overwrite builtin functions like print, printl, etc.
+            if !self.is_builtin_function(&function.name) {
+                self.function_table.insert(
+                    function.name.clone(),
+                    (param_types, function.return_type.clone())
+                );
+            }
         }
 
         if let Some(start_fn) = &program.start_function {
             let param_types = start_fn.parameters.iter().map(|p| p.type_.clone()).collect();
-            self.function_table.insert(
-                start_fn.name.clone(),
-                (param_types, start_fn.return_type.clone())
-            );
+            // Don't overwrite builtin functions like print, printl, etc.
+            if !self.is_builtin_function(&start_fn.name) {
+                self.function_table.insert(
+                    start_fn.name.clone(),
+                    (param_types, start_fn.return_type.clone())
+                );
+            }
         }
 
         // Check for inheritance cycles
@@ -174,18 +322,24 @@ impl SemanticAnalyzer {
             self.type_environment.insert(type_param.clone());
         }
 
+        // Check inheritance cycles
+        if let Some(_base_class) = &class.base_class {
+            self.check_inheritance_cycles()?;
+        }
+
         // Check fields
         for field in &class.fields {
-            self.check_type(&field.type_)?;
+            // Any type is valid for fields
+            if matches!(field.type_, Type::Any) {
+                continue;
         }
             
-        // Check base class if it exists
-        if let Some(base_class_name) = &class.base_class {
-            if !self.class_table.contains_key(base_class_name) {
+            // Check if field type is valid
+            if !self.is_valid_type(&field.type_) {
                 return Err(CompilerError::type_error(
-                    &format!("Base class '{}' not found", base_class_name),
-                    Some("Check if the base class name is correct and defined".to_string()),
-                    class.location.clone()
+                    format!("Invalid type for field {}: {}", field.name, field.type_),
+                    None,
+                    None
                 ));
             }
         }
@@ -195,8 +349,16 @@ impl SemanticAnalyzer {
             self.check_constructor(constructor, class)?;
         }
 
-        // Check methods
+        // Check methods and validate overrides
         for method in &class.methods {
+            // Check for method overrides if this class has a base class
+            if let Some(base_class_name) = &class.base_class {
+                if let Some((parent_class_name, parent_method)) = self.find_method_in_hierarchy(base_class_name, &method.name) {
+                    self.check_method_override(method, &parent_method, &class.name, &parent_class_name)?;
+                }
+            }
+            
+            // Check method with proper scope setup
             self.check_method(method, class)?;
         }
 
@@ -213,15 +375,27 @@ impl SemanticAnalyzer {
         // Enter constructor scope
         self.current_scope.enter();
 
-        // Add constructor parameters to scope
+        // Add constructor parameters to scope first (they take precedence)
         for param in &constructor.parameters {
             self.check_type(&param.type_)?;
             self.current_scope.define_variable(param.name.clone(), param.type_.clone());
             }
 
-        // Add class fields to scope (accessible in constructor)
-        for field in &class.fields {
-            self.current_scope.define_variable(field.name.clone(), field.type_.clone());
+        // Add class fields to scope (accessible in constructor), including inherited fields
+        // These will be available as implicit context when not shadowed by parameters
+        let hierarchy = self.get_class_hierarchy(&class.name);
+        for class_name in hierarchy {
+            if let Some(class_def) = self.class_table.get(&class_name) {
+                for field in &class_def.fields {
+                    // Include public fields from any class in hierarchy, or any field from current class
+                    if field.visibility == Visibility::Public || class_name == class.name {
+                        // Only add if not already defined (parameters take precedence)
+                        if self.current_scope.lookup_variable(&field.name).is_none() {
+                            self.current_scope.define_variable(field.name.clone(), field.type_.clone());
+                        }
+                    }
+                }
+            }
         }
 
         // Check constructor body
@@ -241,16 +415,26 @@ impl SemanticAnalyzer {
         // Enter method scope
         self.current_scope.enter();
 
-        // Add method parameters to scope
+        // Add method parameters to scope first (they take precedence)
         for param in &method.parameters {
             self.check_type(&param.type_)?;
             self.current_scope.define_variable(param.name.clone(), param.type_.clone());
         }
 
-        // Add class fields to scope (accessible in methods)
-        for field in &class.fields {
-            if field.visibility == Visibility::Public || self.current_class == Some(class.name.clone()) {
-                self.current_scope.define_variable(field.name.clone(), field.type_.clone());
+        // Add class fields to scope (accessible in methods), including inherited fields
+        // These will be available as implicit context when not shadowed by parameters
+        let hierarchy = self.get_class_hierarchy(&class.name);
+        for class_name in hierarchy {
+            if let Some(class_def) = self.class_table.get(&class_name) {
+                for field in &class_def.fields {
+                    // Include public fields from any class in hierarchy, or any field from current class
+                    if field.visibility == Visibility::Public || class_name == class.name {
+                        // Only add if not already defined (parameters take precedence)
+                        if self.current_scope.lookup_variable(&field.name).is_none() {
+                            self.current_scope.define_variable(field.name.clone(), field.type_.clone());
+                        }
+                    }
+                }
             }
         }
 
@@ -271,22 +455,51 @@ impl SemanticAnalyzer {
         self.current_function = Some(function.name.clone());
         self.current_function_return_type = Some(function.return_type.clone());
 
-        // Enter function scope
-        self.current_scope.enter();
-
-        // Add function parameters to scope
+        // Check type parameters
+        for type_param in &function.type_parameters {
+            self.type_environment.insert(type_param.clone());
+        }
+        
+        // Check parameters
         for param in &function.parameters {
             self.check_type(&param.type_)?;
-            self.current_scope.define_variable(param.name.clone(), param.type_.clone());
+            self.current_scope.declare_variable(&param.name, param.type_.clone());
         }
 
-        // Check function body
+        // Check return type
+        self.check_type(&function.return_type)?;
+        
+        // Check body
         for stmt in &function.body {
             self.check_statement(stmt)?;
         }
 
-        // Exit function scope
-        self.current_scope.exit();
+        // Check if return type matches the last expression
+        if let Some(last_stmt) = function.body.last() {
+            match last_stmt {
+                Statement::Expression { expr, .. } => {
+                    let expr_type = self.check_expression(expr)?;
+                    if !self.types_compatible(&expr_type, &function.return_type) {
+                        return Err(CompilerError::type_error(
+                            &format!("Return type mismatch: expected {:?}, got {:?}", function.return_type, expr_type),
+                            Some("Make sure the last expression matches the function's return type".to_string()),
+                            Some(self.get_expr_location(expr))
+                        ));
+                    }
+                },
+                Statement::Return { value: Some(expr), .. } => {
+                    let expr_type = self.check_expression(expr)?;
+                    if !self.types_compatible(&expr_type, &function.return_type) {
+                        return Err(CompilerError::type_error(
+                            &format!("Return type mismatch: expected {:?}, got {:?}", function.return_type, expr_type),
+                            Some("Make sure the return expression matches the function's return type".to_string()),
+                            Some(self.get_expr_location(expr))
+                        ));
+                    }
+                },
+                _ => {}
+            }
+        }
 
         self.current_function = None;
         self.current_function_return_type = None;
@@ -319,7 +532,7 @@ impl SemanticAnalyzer {
                 self.check_type(type_)?;
                 for assignment in assignments {
                     if let Some(init_expr) = &assignment.initializer {
-                        let init_type = self.check_expression(init_expr)?;
+                                let init_type = self.check_expression(init_expr)?;
                         if !self.types_compatible(type_, &init_type) {
                             return Err(CompilerError::type_error(
                                 &format!("Variable '{}' initializer type {:?} doesn't match declared type {:?}", 
@@ -342,7 +555,7 @@ impl SemanticAnalyzer {
                         Some("Check if the function name is correct and the function is declared".to_string()),
                         None
                     ));
-                }
+                            }
                 
                 // Check all expressions
                 for expr in expressions {
@@ -489,10 +702,11 @@ impl SemanticAnalyzer {
                 
                 let element_type = match collection_type {
                     Type::Array(element_type) => *element_type,
+                    Type::List(element_type) => *element_type,
                     Type::String => Type::String, // Iterating over characters
                     _ => return Err(CompilerError::type_error(
                         &format!("Cannot iterate over type {:?}", collection_type),
-                        Some("Use an array or string in iterate statements".to_string()),
+                        Some("Use an array, list, or string in iterate statements".to_string()),
                         None
                     ))
                 };
@@ -511,27 +725,7 @@ impl SemanticAnalyzer {
             },
 
             Statement::RangeIterate { iterator, start, end, step: _, body, location: _ } => {
-                let start_type = self.check_expression(start)?;
-                let end_type = self.check_expression(end)?;
-
-                if start_type != Type::Integer || end_type != Type::Integer {
-                    return Err(CompilerError::type_error(
-                        "Range iterate requires integer start and end values".to_string(),
-                        Some("Use integer expressions for range bounds".to_string()),
-                        None
-                    ));
-                }
-
-                self.current_scope.enter();
-                self.current_scope.define_variable(iterator.clone(), Type::Integer);
-                self.loop_depth += 1;
-                
-                for stmt in body {
-                    self.check_statement(stmt)?;
-                }
-                
-                self.loop_depth -= 1;
-                self.current_scope.exit();
+                self.check_range_iterate(stmt)?;
                 Ok(())
             },
 
@@ -553,10 +747,16 @@ impl SemanticAnalyzer {
                 // Check that the message expression is valid and returns a string
                 let message_type = self.check_expression(message)?;
                 if message_type != Type::String {
-                    return Err(CompilerError::type_error(
-                        &format!("Error message must be a string, found {:?}", message_type),
-                        Some("Use a string expression for the error message".to_string()),
-                        None
+                    return Err(CompilerError::enhanced_type_error(
+                        "Error message must be a string".to_string(),
+                        Some("String".to_string()),
+                        Some(format!("{:?}", message_type)),
+                        None,
+                        vec![
+                            "Use a string literal like \"error message\"".to_string(),
+                            "Use a string variable or expression".to_string(),
+                            "Convert the value to string using .toString()".to_string(),
+                        ],
                     ));
                 }
                 Ok(())
@@ -572,11 +772,26 @@ impl SemanticAnalyzer {
                 if let Some(var_type) = self.current_scope.lookup_variable(name) {
                     self.used_variables.insert(name.clone());
                     Ok(var_type)
+                } else if self.is_builtin_class(name) {
+                    // Built-in class names are valid "variables" that represent the class itself
+                    // This allows static method calls like File.read() to work
+                    Ok(Type::Object(name.clone()))
                 } else {
-                    Err(CompilerError::type_error(
-                        &format!("Variable '{}' not found", name),
-                        Some("Check if the variable name is correct and the variable is declared".to_string()),
-                        None
+                    // Enhanced error with suggestions for similar variable names
+                    let available_vars = self.current_scope.get_all_variable_names();
+                    let available_var_refs: Vec<&str> = available_vars.iter().map(|s| s.as_str()).collect();
+                    let suggestions = crate::error::ErrorUtils::suggest_similar_names(name, &available_var_refs, 3);
+                    
+                    let mut enhanced_suggestions = suggestions;
+                    enhanced_suggestions.push("Check if the variable name is correct and the variable is declared".to_string());
+                    enhanced_suggestions.push("Ensure the variable is declared before use".to_string());
+                    
+                    Err(CompilerError::enhanced_type_error(
+                        format!("Variable '{}' not found", name),
+                        Some("variable".to_string()),
+                        None,
+                        None,
+                        enhanced_suggestions,
                     ))
                 }
             },
@@ -613,7 +828,17 @@ impl SemanticAnalyzer {
                 }
             },
 
-                        Expression::Call(name, args) => {
+            Expression::Call(name, args) => {
+                // Special handling for type-safe print functions
+                if name == "print" || name == "printl" || name == "println" {
+                    return self.check_print_function_call(name, args);
+                }
+
+                // Check if this is a built-in type constructor
+                if self.is_builtin_type_constructor(name) {
+                    return self.check_builtin_type_constructor(name, args);
+                }
+
                 // Check if this is actually a constructor call (class name)
                 if self.class_table.contains_key(name) {
                     // Convert function call to object creation
@@ -633,6 +858,12 @@ impl SemanticAnalyzer {
                 self.used_functions.insert(name.clone());
                 
                 if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
+                    // Special case: if this is a print function but it has wrong parameter count in function table,
+                    // use the builtin print function validation instead
+                    if (name == "print" || name == "printl" || name == "println") && param_types.len() != 1 {
+                        return self.check_print_function_call(name, args);
+                    }
+                    
                     if args.len() != param_types.len() {
                     return Err(CompilerError::type_error(
                             &format!("Function '{}' called with wrong number of arguments\nExpected type: {}\nActual type: {}", 
@@ -687,9 +918,53 @@ impl SemanticAnalyzer {
                             ))
                         }
                     },
+                    Type::List(_) => {
+                        // Handle List property access (e.g., list.type)
+                        match property.as_str() {
+                            "type" => Ok(Type::String), // Property access returns current behavior as string
+                            _ => Err(CompilerError::type_error(
+                                &format!("Property '{}' not found on List type", property),
+                                Some("Available properties: type".to_string()),
+                                None
+                            ))
+                        }
+                    },
                     _ => Err(CompilerError::type_error(
                         &format!("Cannot access property '{}' on type {:?}", property, object_type),
-                        Some("Properties can only be accessed on objects".to_string()),
+                        Some("Properties can only be accessed on objects and lists".to_string()),
+                        None
+                    ))
+                }
+            },
+
+            Expression::PropertyAssignment { object, property, value, location: _ } => {
+                let object_type = self.check_expression(object)?;
+                let value_type = self.check_expression(value)?;
+                
+                match object_type {
+                    Type::List(_) => {
+                        // Handle List property assignment (e.g., list.type = "line")
+                        match property.as_str() {
+                            "type" => {
+                                if value_type != Type::String {
+                                    return Err(CompilerError::type_error(
+                                        &format!("List.type property expects string, found {:?}", value_type),
+                                        Some("Use string values like \"line\", \"pile\", or \"unique\"".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Void) // Assignment returns void
+                            },
+                            _ => Err(CompilerError::type_error(
+                                &format!("Property '{}' cannot be assigned on List type", property),
+                                Some("Only 'type' property can be assigned on lists".to_string()),
+                                None
+                            ))
+                        }
+                    },
+                    _ => Err(CompilerError::type_error(
+                        &format!("Cannot assign property '{}' on type {:?}", property, object_type),
+                        Some("Property assignment is only supported on lists".to_string()),
                         None
                     ))
                 }
@@ -875,6 +1150,123 @@ impl SemanticAnalyzer {
                             }
                         }
                     },
+                    Type::List(element_type) => {
+                        match method.as_str() {
+                            "add" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        "List.add() expects exactly 1 argument",
+                                        Some("List.add(item) requires one item argument".to_string()),
+                                        None
+                                    ));
+                                }
+                                // Check that the argument type matches the list element type
+                                if !self.types_compatible(element_type, &arg_types[0]) {
+                                    return Err(CompilerError::type_error(
+                                        &format!("List.add() expects {:?}, found {:?}", element_type, arg_types[0]),
+                                        Some("The item type must match the list's element type".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Boolean) // Returns success/failure for unique lists
+                            },
+                            "remove" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        "List.remove() takes no arguments",
+                                        Some("List.remove() removes based on behavior (FIFO/LIFO)".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(element_type.as_ref().clone()) // Returns the removed element type
+                            },
+                            "peek" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        "List.peek() takes no arguments",
+                                        Some("List.peek() views the next element without removing".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(element_type.as_ref().clone()) // Returns the element type
+                            },
+                            "contains" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        "List.contains() expects exactly 1 argument",
+                                        Some("List.contains(item) requires one item argument".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !self.types_compatible(element_type, &arg_types[0]) {
+                                    return Err(CompilerError::type_error(
+                                        &format!("List.contains() expects {:?}, found {:?}", element_type, arg_types[0]),
+                                        Some("The item type must match the list's element type".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Boolean)
+                            },
+                            "size" => {
+                                if !arguments.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        "List.size() takes no arguments",
+                                        Some("List.size() returns the number of elements".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Integer)
+                            },
+                            "get" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        "List.get() expects exactly 1 argument",
+                                        Some("List.get(index) requires one index argument".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::Integer) {
+                                    return Err(CompilerError::type_error(
+                                        "List.get() requires an integer index",
+                                        Some("List indices must be integers".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(element_type.as_ref().clone())
+                            },
+                            "set" => {
+                                if arguments.len() != 2 {
+                                    return Err(CompilerError::type_error(
+                                        "List.set() expects exactly 2 arguments",
+                                        Some("List.set(index, item) requires index and item arguments".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !matches!(arg_types[0], Type::Integer) {
+                                    return Err(CompilerError::type_error(
+                                        "List.set() requires an integer index",
+                                        Some("List indices must be integers".to_string()),
+                                        None
+                                    ));
+                                }
+                                if !self.types_compatible(element_type, &arg_types[1]) {
+                                    return Err(CompilerError::type_error(
+                                        &format!("List.set() expects {:?}, found {:?}", element_type, arg_types[1]),
+                                        Some("The item type must match the list's element type".to_string()),
+                                        None
+                                    ));
+                                }
+                                Ok(Type::Boolean) // Returns success/failure
+                            },
+                            _ => {
+                                Err(CompilerError::type_error(
+                                    &format!("Method '{}' not found on List type", method),
+                                    Some("Available methods: add(item), remove(), peek(), contains(item), size(), get(index), set(index, item)".to_string()),
+                                    None
+                                ))
+                            }
+                        }
+                    },
                     Type::Object(class_name) => {
                         // Check if the class exists and has this method
                         if let Some(class_def) = self.class_table.get(class_name) {
@@ -925,10 +1317,10 @@ impl SemanticAnalyzer {
                     },
                     _ => {
                         Err(CompilerError::type_error(
-                            &format!("Cannot call method '{}' on type {:?}", method, object_type),
-                            Some("Methods can only be called on objects and arrays".to_string()),
+                        &format!("Cannot call method '{}' on type {:?}", method, object_type),
+                            Some("Methods can only be called on objects, arrays, and lists".to_string()),
                             None
-                        ))
+                    ))
                     }
                 }
             },
@@ -939,17 +1331,18 @@ impl SemanticAnalyzer {
 
                 if index_type != Type::Integer {
             return Err(CompilerError::type_error(
-                        &format!("Array index must be integer, found {:?}", index_type),
-                        Some("Use integer expressions for array indices".to_string()),
+                        &format!("Index must be integer, found {:?}", index_type),
+                        Some("Use integer expressions for indices".to_string()),
                         None
                     ));
                 }
 
         match array_type {
             Type::Array(element_type) => Ok(*element_type),
+            Type::List(element_type) => Ok(*element_type),
             _ => Err(CompilerError::type_error(
                         &format!("Cannot index into type {:?}", array_type),
-                        Some("Array access can only be used on array types".to_string()),
+                        Some("Index access can only be used on array and list types".to_string()),
                         None
                     ))
                 }
@@ -1026,15 +1419,61 @@ impl SemanticAnalyzer {
             
             Expression::ErrorVariable { location } => {
                 if !self.in_error_context() {
-                    return Err(CompilerError::type_error(
-                        "Error variable 'error' can only be used in onError blocks",
-                        Some("Move this usage inside an onError block".to_string()),
-                        Some(location.clone())
+                    return Err(CompilerError::enhanced_type_error(
+                        "Error variable 'error' can only be used in onError blocks".to_string(),
+                        Some("onError block".to_string()),
+                        Some("global scope".to_string()),
+                        Some(location.clone()),
+                        vec![
+                            "Move this usage inside an onError block".to_string(),
+                            "Use 'expression onError: error' syntax to access error information".to_string(),
+                            "The error variable contains message, code, and location properties".to_string(),
+                        ]
                     ));
                 }
                 
                 // Error variable has a special error type with message, code, and location
-                Ok(Type::Object("Error".to_string()))
+                Ok(self.create_error_type())
+            },
+            
+            Expression::Conditional { condition, then_expr, else_expr, location: _ } => {
+                // Check that condition is boolean
+                let condition_type = self.check_expression(condition)?;
+                if condition_type != Type::Boolean {
+                    return Err(CompilerError::type_error(
+                        &format!("Conditional expression condition must be boolean, found {:?}", condition_type),
+                        Some("Use a boolean expression for the condition".to_string()),
+                        None
+                    ));
+                }
+                
+                // Check both branches and ensure they have compatible types
+                let then_type = self.check_expression(then_expr)?;
+                let else_type = self.check_expression(else_expr)?;
+                
+                if self.types_compatible(&then_type, &else_type) {
+                    // Return the more general type if they're compatible
+                    if then_type == else_type {
+                        Ok(then_type)
+                    } else {
+                        // Handle type promotion (e.g., integer + float = float)
+                        match (&then_type, &else_type) {
+                            (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
+                            (Type::IntegerSized { .. }, Type::Float) | (Type::Float, Type::IntegerSized { .. }) => Ok(Type::Float),
+                            (Type::FloatSized { .. }, Type::Integer) | (Type::Integer, Type::FloatSized { .. }) => Ok(Type::Float),
+                            _ => Ok(then_type) // Default to then type
+                        }
+                    }
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Conditional expression branches have incompatible types: {:?} and {:?}", then_type, else_type),
+                        Some("Ensure both branches of the conditional expression return the same type".to_string()),
+                        None
+                    ))
+                }
+            },
+            Expression::BaseCall { arguments, location } => {
+                self.check_base_call(arguments, location)
             },
         }
     }
@@ -1058,10 +1497,53 @@ impl SemanticAnalyzer {
                             ))
                         }
                     },
+                    // Handle exact type matches
                     (Type::Integer, Type::Integer) => Ok(Type::Integer),
                     (Type::Float, Type::Float) => Ok(Type::Float),
                     (Type::Integer, Type::Float) | (Type::Float, Type::Integer) => Ok(Type::Float),
                     (Type::String, Type::String) if matches!(op, BinaryOperator::Add) => Ok(Type::String),
+                    
+                    // Handle sized integer types
+                    (Type::IntegerSized { .. }, Type::IntegerSized { .. }) => Ok(left_type), // Return left type for consistency
+                    (Type::IntegerSized { .. }, Type::Integer) | (Type::Integer, Type::IntegerSized { .. }) => {
+                        // When mixing sized and unsized integers, return the more specific type
+                        match (&left_type, &right_type) {
+                            (Type::IntegerSized { .. }, Type::Integer) => Ok(left_type),
+                            (Type::Integer, Type::IntegerSized { .. }) => Ok(right_type),
+                            _ => unreachable!()
+                        }
+                    },
+                    
+                    // Handle sized float types
+                    (Type::FloatSized { .. }, Type::FloatSized { .. }) => Ok(left_type), // Return left type for consistency
+                    (Type::FloatSized { .. }, Type::Float) | (Type::Float, Type::FloatSized { .. }) => {
+                        // When mixing sized and unsized floats, return the more specific type
+                        match (&left_type, &right_type) {
+                            (Type::FloatSized { .. }, Type::Float) => Ok(left_type),
+                            (Type::Float, Type::FloatSized { .. }) => Ok(right_type),
+                            _ => unreachable!()
+                        }
+                    },
+                    
+                    // Handle mixed integer/float with sizing
+                    (Type::IntegerSized { .. }, Type::Float) | (Type::Float, Type::IntegerSized { .. }) => Ok(Type::Float),
+                    (Type::IntegerSized { .. }, Type::FloatSized { .. }) | (Type::FloatSized { .. }, Type::IntegerSized { .. }) => {
+                        // When mixing integer and float types, return the float type
+                        match (&left_type, &right_type) {
+                            (Type::FloatSized { .. }, Type::IntegerSized { .. }) => Ok(left_type),
+                            (Type::IntegerSized { .. }, Type::FloatSized { .. }) => Ok(right_type),
+                            _ => unreachable!()
+                        }
+                    },
+                    (Type::Integer, Type::FloatSized { .. }) | (Type::FloatSized { .. }, Type::Integer) => {
+                        // When mixing unsized integer with sized float, return the sized float
+                        match (&left_type, &right_type) {
+                            (Type::FloatSized { .. }, Type::Integer) => Ok(left_type),
+                            (Type::Integer, Type::FloatSized { .. }) => Ok(right_type),
+                            _ => unreachable!()
+                        }
+                    },
+                    
             _ => Err(CompilerError::type_error(
                         &format!("Cannot apply {:?} to types {:?} and {:?}", op, left_type, right_type),
                         Some("Ensure both operands have compatible types".to_string()),
@@ -1113,44 +1595,39 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn types_compatible(&self, t1: &Type, t2: &Type) -> bool {
-        // Exact type match
-        if t1 == t2 {
+    fn types_compatible(&self, left: &Type, right: &Type) -> bool {
+        // Any type is compatible with any other type
+        if matches!(left, Type::Any) || matches!(right, Type::Any) {
             return true;
         }
         
-        // Standard integer/float conversions
-        if matches!((t1, t2), (Type::Integer, Type::Float) | (Type::Float, Type::Integer)) {
-            return true;
-        }
-        
-        // Sized type conversions
-        match (t1, t2) {
-            // Integer literals can be assigned to sized integer types
-            (Type::IntegerSized { .. }, Type::Integer) => true,
-            (Type::Integer, Type::IntegerSized { .. }) => true,
-            
-            // Float literals can be assigned to sized float types
-            (Type::FloatSized { .. }, Type::Float) => true,
-            (Type::Float, Type::FloatSized { .. }) => true,
-            
-            // Integer literals can be assigned to sized float types (with implicit conversion)
-            (Type::FloatSized { .. }, Type::Integer) => true,
-            (Type::Integer, Type::FloatSized { .. }) => true,
-            
-            // Sized integer types can be assigned to float types (with implicit conversion)
-            (Type::Float, Type::IntegerSized { .. }) => true,
-            (Type::IntegerSized { .. }, Type::Float) => true,
-            
-            // Sized integer types can be assigned to sized float types
-            (Type::FloatSized { .. }, Type::IntegerSized { .. }) => true,
-            (Type::IntegerSized { .. }, Type::FloatSized { .. }) => true,
-            
-            // Different sized types of the same base type are compatible (with potential warnings)
-            (Type::IntegerSized { .. }, Type::IntegerSized { .. }) => true,
-            (Type::FloatSized { .. }, Type::FloatSized { .. }) => true,
-            
-            _ => false
+        match (left, right) {
+            (Type::Boolean, Type::Boolean) => true,
+            (Type::Integer, Type::Integer) => true,
+            (Type::Float, Type::Float) => true,
+            (Type::String, Type::String) => true,
+            (Type::Void, Type::Void) => true,
+            (Type::Array(left_inner), Type::Array(right_inner)) => self.types_compatible(left_inner, right_inner),
+            (Type::List(left_inner), Type::List(right_inner)) => self.types_compatible(left_inner, right_inner),
+            (Type::Matrix(left_inner), Type::Matrix(right_inner)) => self.types_compatible(left_inner, right_inner),
+            (Type::Pairs(left_first, left_second), Type::Pairs(right_first, right_second)) => {
+                self.types_compatible(left_first, right_first) && self.types_compatible(left_second, right_second)
+            },
+            (Type::Object(left_name), Type::Object(right_name)) => left_name == right_name,
+            (Type::Generic(left_name, left_params), Type::Generic(right_name, right_params)) => {
+                if left_name != right_name || left_params.len() != right_params.len() {
+                    return false;
+                }
+                left_params.iter().zip(right_params.iter()).all(|(left, right)| self.types_compatible(left, right))
+            },
+            (Type::TypeParameter(left_name), Type::TypeParameter(right_name)) => left_name == right_name,
+            // Sized types
+            (Type::IntegerSized { bits: left_bits, .. }, Type::IntegerSized { bits: right_bits, .. }) => left_bits == right_bits,
+            (Type::FloatSized { bits: left_bits }, Type::FloatSized { bits: right_bits }) => left_bits == right_bits,
+            // Standard conversions
+            (Type::Integer, Type::Float) => true,
+            (Type::Float, Type::Integer) => true,
+            _ => false,
         }
     }
 
@@ -1166,6 +1643,14 @@ impl SemanticAnalyzer {
                     } else {
                     let element_type = Self::value_to_type(&elements[0]);
                     Type::Array(Box::new(element_type))
+                }
+            },
+            Value::List(elements, _behavior) => {
+                if elements.is_empty() {
+                    Type::List(Box::new(Type::Any))
+                } else {
+                    let element_type = Self::value_to_type(&elements[0]);
+                    Type::List(Box::new(element_type))
                 }
             },
             Value::Matrix(_) => Type::Matrix(Box::new(Type::Float)),
@@ -1264,6 +1749,7 @@ impl SemanticAnalyzer {
                 Ok(())
             },
             Type::Array(element_type) => self.check_type(element_type),
+            Type::List(element_type) => self.check_type(element_type),
             Type::Matrix(element_type) => self.check_type(element_type),
             Type::Pairs(key_type, value_type) => {
                 // Check both key and value types
@@ -1294,6 +1780,9 @@ impl SemanticAnalyzer {
             },
             Type::Array(element_type) => {
                 Type::Array(Box::new(self.resolve_type(element_type)))
+            },
+            Type::List(element_type) => {
+                Type::List(Box::new(self.resolve_type(element_type)))
             },
             Type::Matrix(element_type) => {
                 Type::Matrix(Box::new(self.resolve_type(element_type)))
@@ -1326,6 +1815,14 @@ impl SemanticAnalyzer {
                     Type::Array(Box::new(element_type))
                 }
             },
+            Value::List(elements, _behavior) => {
+                if elements.is_empty() {
+                    Type::List(Box::new(Type::Any))
+                } else {
+                    let element_type = self.check_literal(&elements[0]);
+                    Type::List(Box::new(element_type))
+                }
+            },
             Value::Matrix(rows) => {
                 if rows.is_empty() || rows[0].is_empty() {
                     Type::Matrix(Box::new(Type::Any))
@@ -1353,6 +1850,7 @@ impl SemanticAnalyzer {
             Value::Boolean(_) => Type::Boolean,
             Value::String(_) => Type::String,
             Value::Array(_) => Type::Array(Box::new(Type::Any)),
+            Value::List(_, _) => Type::List(Box::new(Type::Any)),
             Value::Matrix(_) => Type::Matrix(Box::new(Type::Float)),
             Value::Float(_) => Type::Float,
             Value::Void => Type::Void,
@@ -1372,43 +1870,34 @@ impl SemanticAnalyzer {
         
         match object_type {
             Type::Object(class_name) => {
-                if let Some(class) = self.class_table.get(&class_name).cloned() {
-                    for method_def in &class.methods {
-                        if method_def.name == method {
-                            if args.len() != method_def.parameters.len() {
-                                return Err(CompilerError::type_error(
-                                    &format!("Method '{}' expects {} arguments, but {} were provided", 
-                                        method, method_def.parameters.len(), args.len()),
-                                    Some("Provide the correct number of arguments".to_string()),
-                                    Some(location.clone())
-                                ));
-                            }
+                // Use inheritance hierarchy to find the method
+                if let Some((defining_class, method_def)) = self.find_method_in_hierarchy(&class_name, method) {
+                    if args.len() != method_def.parameters.len() {
+                        return Err(CompilerError::type_error(
+                            &format!("Method '{}' expects {} arguments, but {} were provided", 
+                                method, method_def.parameters.len(), args.len()),
+                            Some("Provide the correct number of arguments".to_string()),
+                            Some(location.clone())
+                        ));
+                    }
 
-                            for (i, (arg, param)) in args.iter().zip(method_def.parameters.iter()).enumerate() {
-                                let arg_type = self.check_expression(arg)?;
-                                if !self.types_compatible(&param.type_, &arg_type) {
-                                    return Err(CompilerError::type_error(
-                                        &format!("Argument {} has type {:?}, but method parameter expects {:?}", 
-                                            i + 1, arg_type, param.type_),
-                                        Some("Provide arguments of the correct type".to_string()),
-                                        Some(location.clone())
-                                    ));
-                                }
-                            }
-
-                            return Ok(method_def.return_type.clone());
+                    for (i, (arg, param)) in args.iter().zip(method_def.parameters.iter()).enumerate() {
+                        let arg_type = self.check_expression(arg)?;
+                        if !self.types_compatible(&param.type_, &arg_type) {
+                            return Err(CompilerError::type_error(
+                                &format!("Argument {} has type {:?}, but method parameter expects {:?}", 
+                                    i + 1, arg_type, param.type_),
+                                Some("Provide arguments of the correct type".to_string()),
+                                Some(location.clone())
+                            ));
                         }
                     }
-                    
-                    Err(CompilerError::type_error(
-                        &format!("Method '{}' not found in class '{}'", method, class_name),
-                        Some("Check if the method name is correct".to_string()),
-                        Some(location.clone())
-                    ))
+
+                    return Ok(method_def.return_type.clone());
                 } else {
                     Err(CompilerError::type_error(
-                        &format!("Class '{}' not found", class_name),
-                        Some("Check if the class name is correct".to_string()),
+                        &format!("Method '{}' not found in class '{}' or its parent classes", method, class_name),
+                        Some("Check if the method name is correct and defined in the class hierarchy".to_string()),
                         Some(location.clone())
                     ))
                 }
@@ -1915,6 +2404,162 @@ impl SemanticAnalyzer {
                     _ => Ok(None), // Method not found in ArrayUtils
                 }
             },
+            "File" => {
+                match method {
+                    "read" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("File.read expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument (file path)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "File.read requires a string argument (file path)".to_string(),
+                                Some("Use a string value for the file path".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    "write" | "append" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("File.{} expects 2 arguments, but {} were provided", method, args.len()),
+                                Some("Provide exactly 2 string arguments (file path, content)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let path_type = self.check_expression(&args[0])?;
+                        let content_type = self.check_expression(&args[1])?;
+                        if path_type != Type::String || content_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                &format!("File.{} requires string arguments (file path, content)", method),
+                                Some("Use string values for both file path and content".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Void))
+                    },
+                    "exists" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("File.exists expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument (file path)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "File.exists requires a string argument (file path)".to_string(),
+                                Some("Use a string value for the file path".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Boolean))
+                    },
+                    "delete" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("File.delete expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument (file path)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "File.delete requires a string argument (file path)".to_string(),
+                                Some("Use a string value for the file path".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::Void))
+                    },
+                    "lines" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("File.lines expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument (file path)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "File.lines requires a string argument (file path)".to_string(),
+                                Some("Use a string value for the file path".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::List(Box::new(Type::String))))
+                    },
+                    _ => Ok(None), // Method not found in File
+                }
+            },
+            "Http" => {
+                match method {
+                    "get" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("Http.get expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument (URL)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "Http.get requires a string argument (URL)".to_string(),
+                                Some("Use a string value for the URL".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    "post" | "put" | "patch" => {
+                        if args.len() != 2 {
+                            return Err(CompilerError::type_error(
+                                &format!("Http.{} expects 2 arguments, but {} were provided", method, args.len()),
+                                Some("Provide exactly 2 string arguments (URL, body)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let url_type = self.check_expression(&args[0])?;
+                        let body_type = self.check_expression(&args[1])?;
+                        if url_type != Type::String || body_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                &format!("Http.{} requires string arguments (URL, body)", method),
+                                Some("Use string values for both URL and request body".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    "delete" => {
+                        if args.len() != 1 {
+                            return Err(CompilerError::type_error(
+                                &format!("Http.delete expects 1 argument, but {} were provided", args.len()),
+                                Some("Provide exactly 1 string argument (URL)".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        let arg_type = self.check_expression(&args[0])?;
+                        if arg_type != Type::String {
+                            return Err(CompilerError::type_error(
+                                "Http.delete requires a string argument (URL)".to_string(),
+                                Some("Use a string value for the URL".to_string()),
+                                Some(location.clone())
+                            ));
+                        }
+                        Ok(Some(Type::String))
+                    },
+                    _ => Ok(None), // Method not found in Http
+                }
+            },
             _ => Ok(None), // Class not found in built-ins
         }
     }
@@ -1960,11 +2605,16 @@ impl SemanticAnalyzer {
     }
 
     fn is_builtin_class(&self, class_name: &str) -> bool {
-        matches!(class_name, "MathUtils" | "StringUtils" | "ArrayUtils")
+        matches!(class_name, "MathUtils" | "StringUtils" | "ArrayUtils" | "File" | "Http")
     }
 
     fn is_builtin_function(&self, function_name: &str) -> bool {
-        matches!(function_name, "print" | "println" | "error")
+        matches!(function_name, 
+            "print" | "printl" | "println" | "error" |
+            "abs" | "array_get" | "array_length" | "assert" | 
+            "string_concat" | "string_compare" |
+            "http_get" | "http_post" | "http_put" | "http_delete" | "http_patch"
+        )
     }
 
     fn is_type_conversion_method(&self, method: &str) -> bool {
@@ -1996,8 +2646,14 @@ impl SemanticAnalyzer {
     
     fn push_error_scope(&mut self) {
         self.error_context_depth += 1;
-        // Add error variable to the current scope
-        self.symbol_table.insert("error".to_string(), Type::Object("Error".to_string()));
+        // Add error variable to the current scope with proper Error type
+        self.symbol_table.insert("error".to_string(), self.create_error_type());
+    }
+    
+    /// Create the Error type with proper structure
+    fn create_error_type(&self) -> Type {
+        // Error object has message (String), code (Integer), and location (String) properties
+        Type::Object("Error".to_string())
     }
     
     fn pop_error_scope(&mut self) {
@@ -2010,5 +2666,361 @@ impl SemanticAnalyzer {
     
     fn in_error_context(&self) -> bool {
         self.error_context_depth > 0
+    }
+
+    /// Check if a range iteration statement is valid
+    fn check_range_iterate(&mut self, stmt: &Statement) -> Result<(), CompilerError> {
+        if let Statement::RangeIterate { iterator, start, end, step, body, .. } = stmt {
+            // Check start expression
+            let start_type = self.check_expression(start)?;
+            
+            // Check end expression
+            let end_type = self.check_expression(end)?;
+            
+            // Check step expression if present
+            if let Some(step_expr) = step {
+                let step_type = self.check_expression(step_expr)?;
+                
+                // Step must be numeric
+                if !self.is_numeric_type(&step_type) {
+                    return Err(CompilerError::type_error(
+                        format!("Step expression must be numeric, got {}", step_type),
+                        None,
+                        None
+                    ));
+                }
+                
+                // Step must match start/end type
+                if !self.types_compatible(&start_type, &step_type) || !self.types_compatible(&end_type, &step_type) {
+                    return Err(CompilerError::type_error(
+                        format!("Step type {} must match range type {}", step_type, start_type),
+                        None,
+                        None
+                    ));
+                }
+            }
+            
+            // Start and end must be numeric
+            if !self.is_numeric_type(&start_type) || !self.is_numeric_type(&end_type) {
+                return Err(CompilerError::type_error(
+                    format!("Range expressions must be numeric, got {} and {}", start_type, end_type),
+                    None,
+                    None
+                ));
+            }
+            
+            // Start and end must be compatible
+            if !self.types_compatible(&start_type, &end_type) {
+                return Err(CompilerError::type_error(
+                    format!("Range expressions must have compatible types, got {} and {}", start_type, end_type),
+                    None,
+                    None
+                ));
+            }
+            
+            // Add iterator to symbol table
+            self.symbol_table.insert(iterator.clone(), start_type.clone());
+            
+            // Check body
+            self.check_statements(body)?;
+            
+            // Remove iterator from symbol table
+            self.symbol_table.remove(iterator);
+            
+            Ok(())
+        } else {
+            Err(CompilerError::type_error(
+                "Expected range iteration statement".to_string(),
+                None,
+                None
+            ))
+        }
+    }
+
+    /// Check if a type is numeric
+    fn is_numeric_type(&self, type_: &Type) -> bool {
+        matches!(type_, Type::Integer | Type::Float | Type::IntegerSized { .. } | Type::FloatSized { .. })
+    }
+
+    fn is_valid_type(&self, type_: &Type) -> bool {
+        match type_ {
+            Type::Boolean | Type::Integer | Type::Float | Type::String | Type::Void | Type::Any => true,
+            Type::IntegerSized { bits, .. } => *bits == 8 || *bits == 16 || *bits == 32 || *bits == 64,
+            Type::FloatSized { bits } => *bits == 32 || *bits == 64,
+            Type::Array(inner) => self.is_valid_type(inner),
+            Type::List(inner) => self.is_valid_type(inner),
+            Type::Matrix(inner) => self.is_valid_type(inner),
+            Type::Pairs(key, value) => self.is_valid_type(key) && self.is_valid_type(value),
+            Type::Generic(base, args) => {
+                self.is_valid_type(base) && args.iter().all(|arg| self.is_valid_type(arg))
+            },
+            Type::TypeParameter(name) => self.type_environment.contains(name),
+            Type::Object(name) => self.class_table.contains_key(name),
+            Type::Class { name, type_args } => {
+                self.class_table.contains_key(name) && 
+                type_args.iter().all(|arg| self.is_valid_type(arg))
+            },
+            Type::Function(params, return_type) => {
+                params.iter().all(|param| self.is_valid_type(param)) && 
+                self.is_valid_type(return_type)
+            },
+        }
+    }
+
+    fn check_statements(&mut self, statements: &[Statement]) -> Result<(), CompilerError> {
+        for stmt in statements {
+            self.check_statement(stmt)?;
+        }
+        Ok(())
+    }
+
+    fn is_builtin_type_constructor(&self, name: &str) -> bool {
+        matches!(name, "List" | "Array" | "Matrix" | "Set" | "Map" | "Queue" | "Stack")
+    }
+
+    fn check_builtin_type_constructor(&mut self, name: &str, args: &[Expression]) -> Result<Type, CompilerError> {
+        match name {
+            "List" => {
+                // List constructor can take 0 or more arguments
+                Ok(Type::List(Box::new(Type::Any)))
+            },
+            _ => Err(CompilerError::type_error(
+                &format!("Unknown built-in type constructor: {}", name),
+                None,
+                None
+            ))
+        }
+    }
+
+    /// Type-safe print function call validation following printf best practices
+    /// Dispatches to appropriate type-specific print function based on argument type
+    fn check_print_function_call(&mut self, func_name: &str, args: &[Expression]) -> Result<Type, CompilerError> {
+        // Validate argument count
+        if args.len() != 1 {
+            return Err(CompilerError::type_error(
+                &format!("Print function '{}' expects exactly 1 argument, got {}", func_name, args.len()),
+                Some("Print functions accept a single value to output".to_string()),
+                None
+            ));
+        }
+
+        // Determine argument type for type-safe dispatch
+        let arg_type = self.check_expression(&args[0])?;
+        
+        // Validate that the argument type is printable
+        match arg_type {
+            Type::Integer | Type::Float | Type::String | Type::Boolean => {
+                // Type is valid for printing
+                self.used_functions.insert(func_name.to_string());
+                Ok(Type::Void)
+            },
+            Type::Object(class_name) if class_name == "Error" => {
+                // Error objects can be printed (will show error message)
+                self.used_functions.insert(func_name.to_string());
+                Ok(Type::Void)
+            },
+            Type::Any => {
+                // Allow Any type for backward compatibility, but warn about potential type safety issues
+                self.add_warning(CompilerWarning::new(
+                    format!("Print function '{}' called with 'Any' type - consider using specific types for better type safety", func_name),
+                    WarningType::TypeInference,
+                    None
+                ));
+                self.used_functions.insert(func_name.to_string());
+                Ok(Type::Void)
+            },
+            _ => {
+                Err(CompilerError::type_error(
+                    &format!("Cannot print value of type {:?}", arg_type),
+                    Some("Print functions support Integer, Float, String, Boolean, and Error types".to_string()),
+                    None
+                ))
+            }
+        }
+    }
+
+    // Inheritance support methods
+    fn is_subclass(&self, child_name: &str, base_name: &str) -> bool {
+        if child_name == base_name {
+            return true;
+        }
+
+        if let Some(child_class) = self.class_table.get(child_name) {
+            if let Some(parent_name) = &child_class.base_class {
+                return self.is_subclass(parent_name, base_name);
+            }
+        }
+
+        false
+    }
+
+    fn get_class_hierarchy(&self, class_name: &str) -> Vec<String> {
+        let mut hierarchy = vec![class_name.to_string()];
+        let mut current = class_name;
+
+        while let Some(class) = self.class_table.get(current) {
+            if let Some(base_class) = &class.base_class {
+                hierarchy.push(base_class.clone());
+                current = base_class;
+            } else {
+                break;
+            }
+        }
+
+        hierarchy
+    }
+
+    fn find_method_in_hierarchy(&self, class_name: &str, method_name: &str) -> Option<(String, Function)> {
+        let hierarchy = self.get_class_hierarchy(class_name);
+        
+        for class_name in hierarchy {
+            if let Some(class) = self.class_table.get(&class_name) {
+                for method in &class.methods {
+                    if method.name == method_name {
+                        return Some((class_name, method.clone()));
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn find_field_in_hierarchy(&self, class_name: &str, field_name: &str) -> Option<(String, Field)> {
+        let hierarchy = self.get_class_hierarchy(class_name);
+        
+        for class_name in hierarchy {
+            if let Some(class) = self.class_table.get(&class_name) {
+                for field in &class.fields {
+                    if field.name == field_name {
+                        return Some((class_name, field.clone()));
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    fn check_method_override(&self, child_method: &Function, parent_method: &Function, child_class: &str, parent_class: &str) -> Result<(), CompilerError> {
+        // Check that method signatures are compatible for overriding
+        if child_method.parameters.len() != parent_method.parameters.len() {
+            return Err(CompilerError::type_error(
+                format!("Method '{}' in class '{}' has different parameter count than parent method in '{}'", 
+                    child_method.name, child_class, parent_class),
+                Some("Method overrides must have the same parameter count".to_string()),
+                child_method.location.clone()
+            ));
+        }
+
+        // Check parameter types
+        for (i, (child_param, parent_param)) in child_method.parameters.iter().zip(parent_method.parameters.iter()).enumerate() {
+            if !self.types_compatible(&child_param.type_, &parent_param.type_) {
+                return Err(CompilerError::type_error(
+                    format!("Parameter {} of method '{}' in class '{}' has incompatible type with parent method", 
+                        i + 1, child_method.name, child_class),
+                    Some("Method override parameters must have compatible types".to_string()),
+                    child_method.location.clone()
+                ));
+            }
+        }
+
+        // Check return type (covariant return types allowed)
+        if !self.types_compatible(&child_method.return_type, &parent_method.return_type) {
+            return Err(CompilerError::type_error(
+                format!("Method '{}' in class '{}' has incompatible return type with parent method", 
+                    child_method.name, child_class),
+                Some("Method override return type must be compatible with parent".to_string()),
+                child_method.location.clone()
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn check_base_call(&mut self, arguments: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
+        // Base calls are only valid in constructors
+        if self.current_function.is_none() {
+            return Err(CompilerError::type_error(
+                "Base calls can only be used in constructors".to_string(),
+                Some("Move the base call inside a constructor".to_string()),
+                Some(location.clone())
+            ));
+        }
+
+        // Get the current class
+        let current_class_name = self.current_class.as_ref().ok_or_else(|| {
+            CompilerError::type_error(
+                "Base calls can only be used within a class".to_string(),
+                Some("Base calls are only valid in class constructors".to_string()),
+                Some(location.clone())
+            )
+        })?;
+
+        let current_class = self.class_table.get(current_class_name).cloned().ok_or_else(|| {
+            CompilerError::type_error(
+                format!("Current class '{}' not found", current_class_name),
+                None,
+                Some(location.clone())
+            )
+        })?;
+
+        // Check if this class has a base class
+        let base_class_name = current_class.base_class.as_ref().ok_or_else(|| {
+            CompilerError::type_error(
+                format!("Class '{}' has no parent class to call base() on", current_class_name),
+                Some("Remove the base call or add inheritance with 'is ParentClass'".to_string()),
+                Some(location.clone())
+            )
+        })?;
+
+        let base_class = self.class_table.get(base_class_name).cloned().ok_or_else(|| {
+            CompilerError::type_error(
+                format!("Base class '{}' not found", base_class_name),
+                None,
+                Some(location.clone())
+            )
+        })?;
+
+        // Check if the base class has a constructor
+        if let Some(base_constructor) = &base_class.constructor {
+            // Check argument count
+            if arguments.len() != base_constructor.parameters.len() {
+                return Err(CompilerError::type_error(
+                    format!("Base call expects {} arguments, but {} were provided", 
+                        base_constructor.parameters.len(), arguments.len()),
+                    Some("Provide the correct number of arguments for the parent constructor".to_string()),
+                    Some(location.clone())
+                ));
+            }
+
+            // Check argument types
+            for (i, (arg, param)) in arguments.iter().zip(base_constructor.parameters.iter()).enumerate() {
+                let arg_type = self.check_expression(arg)?;
+                if !self.types_compatible(&param.type_, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        format!("Argument {} has type {:?}, but parent constructor parameter expects {:?}", 
+                            i + 1, arg_type, param.type_),
+                        Some("Provide arguments of the correct type for the parent constructor".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+            }
+
+            // Base call returns void (it's a statement, not an expression that returns a value)
+            Ok(Type::Void)
+        } else {
+            // Base class has no constructor, base() should have no arguments
+            if !arguments.is_empty() {
+                return Err(CompilerError::type_error(
+                    format!("Parent class '{}' has no constructor, but base() was called with {} arguments", 
+                        base_class_name, arguments.len()),
+                    Some("Remove arguments from base() call or add a constructor to the parent class".to_string()),
+                    Some(location.clone())
+                ));
+            }
+
+            Ok(Type::Void)
+        }
     }
 } 

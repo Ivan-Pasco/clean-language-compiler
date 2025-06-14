@@ -1,0 +1,9 @@
+start()
+	string filePath = "hello_output.txt"
+	string content = "hello was"
+	
+	File.write(filePath, content)
+	print("File written to: ")
+	print(filePath)
+	
+	return 0 

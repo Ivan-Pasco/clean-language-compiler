@@ -465,4 +465,74 @@ function start()
         // In the future, we could capture output via memory inspection
         Ok("Function executed successfully".to_string())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_implicit_context() {
+        let program = r#"
+class Shape
+	string color
+	
+	constructor(string colorParam)
+		color = colorParam
+	
+	functions:
+		string getColor()
+			return color
+
+function start()
+	Shape shape = Shape("red")
+	print("Implicit context test")
+"#;
+
+        match compile_with_file(program, "implicit_context_test.clean") {
+            Ok(_) => println!("✓ Implicit context compilation successful"),
+            Err(error) => {
+                println!("✗ Implicit context compilation failed: {}", error);
+                panic!("Implicit context test failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_inheritance_with_implicit_context() {
+        let program = r#"
+class Shape
+	string color
+	
+	constructor(string colorParam)
+		color = colorParam
+	
+	functions:
+		string getColor()
+			return color
+
+class Circle is Shape
+	float radius
+	
+	constructor(string colorParam, float radiusParam)
+		base(colorParam)
+		radius = radiusParam
+	
+	functions:
+		float getRadius()
+			return radius
+
+function start()
+	Circle circle = Circle("blue", 5.0)
+	print("Inheritance with implicit context test")
+"#;
+
+        match compile_with_file(program, "inheritance_with_implicit_context_test.clean") {
+            Ok(_) => println!("✓ Inheritance with implicit context compilation successful"),
+            Err(error) => {
+                println!("✗ Inheritance with implicit context compilation failed: {}", error);
+                panic!("Inheritance with implicit context test failed");
+            }
+        }
+    }
 } 

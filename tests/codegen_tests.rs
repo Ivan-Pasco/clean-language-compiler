@@ -79,24 +79,15 @@ function start()
     // Check results
     let mut results = vec![wasmtime::Val::I32(0)];
     get_x.call(&mut store, &[], &mut results).expect("Failed to call get_x");
-    let x_result = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let x_result = f64::from_bits(results[0].unwrap_i64() as u64);
     get_y.call(&mut store, &[], &mut results).expect("Failed to call get_y");
-    let y_result = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let y_result = f64::from_bits(results[0].unwrap_i64() as u64);
     get_z.call(&mut store, &[], &mut results).expect("Failed to call get_z");
-    let z_result = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let z_result = f64::from_bits(results[0].unwrap_i64() as u64);
     
-    assert_eq!(x_result, 50.0); // 10 + (20 * 2)
-    assert_eq!(y_result, 5.0);  // (30 - 5) / 5
-    assert_eq!(z_result, 55.0); // 50 + 5
+    assert!((x_result - 50.0).abs() < f64::EPSILON); // 10 + (20 * 2)
+    assert!((y_result - 5.0).abs() < f64::EPSILON);  // (30 - 5) / 5
+    assert!((z_result - 55.0).abs() < f64::EPSILON); // 50 + 5
 }
 
 #[test]
@@ -139,36 +130,24 @@ function start()
     
     // Test function calls
     let mut results = vec![wasmtime::Val::I32(0)];
-    add_func.call(&mut store, &[wasmtime::Val::F64(10.0_f64.to_bits()), wasmtime::Val::F64(20.0_f64.to_bits())], &mut results)
+    add_func.call(&mut store, &[wasmtime::Val::F64(f64::to_bits(10.0)), wasmtime::Val::F64(f64::to_bits(20.0))], &mut results)
         .expect("Failed to call add");
-    let add_result = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
-    multiply_func.call(&mut store, &[wasmtime::Val::F64(5.0_f64.to_bits()), wasmtime::Val::F64(6.0_f64.to_bits())], &mut results)
+    let add_result = f64::from_bits(results[0].unwrap_i64() as u64);
+    multiply_func.call(&mut store, &[wasmtime::Val::F64(f64::to_bits(5.0)), wasmtime::Val::F64(f64::to_bits(6.0))], &mut results)
         .expect("Failed to call multiply");
-    let multiply_result = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let multiply_result = f64::from_bits(results[0].unwrap_i64() as u64);
     
-    assert_eq!(add_result, 30.0);
-    assert_eq!(multiply_result, 30.0);
+    assert!((add_result - 30.0).abs() < f64::EPSILON);
+    assert!((multiply_result - 30.0).abs() < f64::EPSILON);
     
     // Test stored results
     get_result1.call(&mut store, &[], &mut results).expect("Failed to call get_result1");
-    let result1 = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let result1 = f64::from_bits(results[0].unwrap_i64() as u64);
     get_result2.call(&mut store, &[], &mut results).expect("Failed to call get_result2");
-    let result2 = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let result2 = f64::from_bits(results[0].unwrap_i64() as u64);
     
-    assert_eq!(result1, 30.0);
-    assert_eq!(result2, 30.0);
+    assert!((result1 - 30.0).abs() < f64::EPSILON);
+    assert!((result2 - 30.0).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -324,10 +303,7 @@ function start()
     let get_x = instance.get_func(&mut store, "get_x").expect("Failed to get x function");
     let mut results = vec![wasmtime::Val::I32(0)];
     get_x.call(&mut store, &[], &mut results).expect("Failed to call get_x");
-    let x_after_error = match results[0] {
-        wasmtime::Val::F64(bits) => f64::from_bits(bits),
-        _ => panic!("Expected F64 result"),
-    };
+    let x_after_error = f64::from_bits(results[0].unwrap_i64() as u64);
     
-    assert_eq!(x_after_error, 42.0); // Error handler should have executed
+    assert!((x_after_error - 42.0).abs() < f64::EPSILON); // Error handler should have executed
 } 

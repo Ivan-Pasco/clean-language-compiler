@@ -1,0 +1,40 @@
+functions:
+	void testHttpGet()
+		string url = "https://api.example.com/users"
+		string response = Http.get(url)
+		println("GET request completed")
+
+	void testHttpPost()
+		string postUrl = "https://api.example.com/users"
+		string body = "{\"name\": \"John\"}"
+		string postResponse = Http.post(postUrl, body)
+		println("POST request completed")
+
+	void testHttpPut()
+		string putUrl = "https://api.example.com/users/123"
+		string putBody = "{\"name\": \"Jane\"}"
+		string putResponse = Http.put(putUrl, putBody)
+		println("PUT request completed")
+
+	void testHttpPatch()
+		string patchUrl = "https://api.example.com/users/123"
+		string patchBody = "{\"email\": \"new@example.com\"}"
+		string patchResponse = Http.patch(patchUrl, patchBody)
+		println("PATCH request completed")
+
+	void testHttpDelete()
+		string deleteUrl = "https://api.example.com/users/123"
+		string deleteResponse = Http.delete(deleteUrl)
+		println("DELETE request completed")
+
+start()
+	println("Testing HTTP Client Operations...")
+	
+	testHttpGet()
+	testHttpPost()
+	testHttpPut()
+	testHttpPatch()
+	testHttpDelete()
+	
+	println("All HTTP client tests completed!")
+	0 

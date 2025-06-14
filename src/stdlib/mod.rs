@@ -1,15 +1,19 @@
-mod date_ops;
-mod format_ops;
-mod numeric_ops;
-mod random_ops;
+pub mod date_ops;
+pub mod format_ops;
+pub mod numeric_ops;
+pub mod random_ops;
 pub mod string_ops;
 pub mod time_ops;
 pub mod type_conv;
 pub mod memory;
-mod basic_ops;
+pub mod basic_ops;
 pub mod array_ops;
 pub mod matrix_ops;
 pub mod error;
+pub mod collection_ops;
+pub mod list_ops;
+pub mod file_ops;
+pub mod http_ops;
 
 pub use date_ops::DateOperations;
 pub use format_ops::FormatOperations;
@@ -24,6 +28,8 @@ pub use string_ops::StringManager;
 pub use array_ops::ArrayManager;
 pub use matrix_ops::MatrixOperations;
 pub use error::StdlibError;
+pub use file_ops::FileOperations;
+pub use http_ops::HttpOperations;
 
 use crate::error::CompilerError;
 use crate::codegen::{CodeGenerator, INTEGER_TYPE_ID};
@@ -33,6 +39,10 @@ use crate::types::WasmType;
 use crate::codegen::{STRING_TYPE_ID, HEAP_START};
 
 use wasm_encoder::{Instruction};
+
+use wasmtime::{Engine, Linker, Module, Store, Instance, Val};
+
+
 
 /// Memory wrapper to handle allocations and access
 pub struct Memory {
@@ -193,6 +203,8 @@ pub struct StandardLibrary {
     format_ops: FormatOperations,
     type_conv: TypeConvOperations,
     matrix_ops: MatrixOperations,
+    file_ops: FileOperations,
+    http_ops: HttpOperations,
 }
 
 impl StandardLibrary {
@@ -207,6 +219,8 @@ impl StandardLibrary {
             format_ops: FormatOperations::new(),
             type_conv: TypeConvOperations::new(heap_start),
             matrix_ops: MatrixOperations::new(heap_start),
+            file_ops: FileOperations::new(heap_start),
+            http_ops: HttpOperations::new(heap_start),
         }
     }
 
@@ -219,6 +233,8 @@ impl StandardLibrary {
         self.format_ops.register_functions(codegen)?;
         self.type_conv.register_functions(codegen)?;
         self.matrix_ops.register_functions(codegen)?;
+        self.file_ops.register_functions(codegen)?;
+        // Note: HTTP operations will be registered as imports, not as stdlib functions
         Ok(())
     }
 }
@@ -343,4 +359,13 @@ pub(crate) fn register_stdlib_function(
     instructions: Vec<Instruction>
 ) -> Result<u32, CompilerError> {
     codegen.register_function(name, params, return_type, &instructions)
+}
+
+pub fn register_standard_library(linker: &mut Linker<()>) {
+    // ... existing code ...
+    
+    // Register collection type functions
+    collection_ops::register_collection_functions(linker);
+    
+    // ... existing code ...
 } 

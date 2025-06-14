@@ -1,8 +1,8 @@
 use pest::Parser;
 use pest::iterators::Pair;
 use std::process;
-use clean_language::parser::{CleanParser, Rule};
-use clean_language::error::CompilerError;
+use clean_language_compiler::parser::{CleanParser, Rule};
+use clean_language_compiler::error::CompilerError;
 
 fn main() {
     println!("Starting parser test...");

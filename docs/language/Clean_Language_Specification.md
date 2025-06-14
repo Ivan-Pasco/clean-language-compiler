@@ -32,6 +32,70 @@ Clean Language is a modern, type-safe programming language designed to compile t
 ### File Extension
 Clean Language source files use the `.cln` extension.
 
+## Compiler Instructions (Core Implementation Rules)
+
+### 🛠 Clean Language Compiler Instructions (Core Fixes)
+
+These are essential implementation rules that must be followed by the Clean Language compiler:
+
+1. **Functions must be in a `functions:` block**
+   - ❌ No standalone `function name(...)` allowed at top level
+   - ✅ Use `functions:` for top-level and class functions
+   ```clean
+   // ❌ Invalid
+   function myFunc()
+       return 42
+   
+   // ✅ Valid
+   functions:
+       integer myFunc()
+           return 42
+   ```
+
+2. **Helper methods require parentheses**
+   - ✅ `x.toString()`
+   - ❌ `x.toString`
+   ```clean
+   value = 42
+   text = value.toString()  // ✅ Correct
+   ```
+
+3. **Use `Any` for generic types**
+   - ✅ `Any identity(Any value) -> Any`
+   - Treat any capitalized type name not declared as a concrete type as a generic
+   ```clean
+   functions:
+       Any identity(Any value)
+           return value
+   ```
+
+4. **Use `functions:` inside `class`**
+   - All class methods go inside a `functions:` block
+   ```clean
+   class MyClass
+       integer value
+       
+       functions:
+           void setValue(integer newValue)
+               value = newValue
+   ```
+
+5. **Drop `Utils` suffix from standard library classes**
+   - ✅ Use `Math`, `String`, `Array`, `File` — not `MathUtils`, etc.
+
+6. **Use natural generic container syntax**
+   - ✅ `Array<Item>`, `Matrix<Type>`
+   - ❌ No angle brackets in user code (`<>`) - these are internal representations
+
+7. **Clean uses `Any` as the single generic placeholder type**
+   - It represents a value of any type, determined when the function or class is used
+   - No explicit type parameter declarations needed - `Any` is automatically generic
+
+### Implementation Notes
+- These rules ensure consistency with Clean's philosophy of simplicity and readability
+- The compiler should enforce these patterns and provide helpful error messages when violated
+- Generic type resolution happens at compile time based on usage context
+
 ## Lexical Structure
 
 ### Comments
@@ -182,20 +246,197 @@ false
 | `string`   | UTF-8 text, dynamically sized | — | `"Hello"` |
 | `void`     | No value / empty return type | 0 bytes | *(function return only)* |
 
+### Precision Control
+
+Clean Language supports explicit precision control for numeric types using type modifiers:
+
+#### Integer Precision Modifiers
+
+| Type Syntax | WebAssembly Type | Size | Range | Use Case |
+|-------------|------------------|------|-------|----------|
+| `integer:8`  | i32 (clamped) | 8-bit | -128 to 127 | Small values, memory optimization |
+| `integer:16` | i32 (clamped) | 16-bit | -32,768 to 32,767 | Medium values, coordinates |
+| `integer:32` | i32 | 32-bit | -2³¹ to 2³¹-1 | Default integer size |
+| `integer:64` | i64 | 64-bit | -2⁶³ to 2⁶³-1 | Large numbers, timestamps |
+
+#### Float Precision Modifiers
+
+| Type Syntax | WebAssembly Type | Size | Precision | Use Case |
+|-------------|------------------|------|-----------|----------|
+| `float:32`  | f32 | 32-bit | IEEE 754 single | Default float, graphics |
+| `float:64`  | f64 | 64-bit | IEEE 754 double | High precision, scientific computing |
+
+#### Examples
+
+```clean
+// Integer precision examples
+integer:8 red = 255              // Color component (0-255)
+integer:16 coordinate = 1024     // Screen coordinate
+integer:32 count = 1000000       // Default integer (can omit :32)
+integer:64 timestamp = 1640995200000  // Unix timestamp in milliseconds
+
+// Float precision examples  
+float:32 temperature = 23.5      // Default float (can omit :32)
+float:64 preciseValue = 3.141592653589793  // High precision calculation
+
+// Apply-blocks with precision
+integer:8:
+    red = 255
+    green = 128
+    blue = 64
+
+float:64:
+    pi = 3.141592653589793
+    e = 2.718281828459045
+```
+
+#### Default Behavior
+- `integer` without modifier defaults to `integer:32`
+- `float` without modifier defaults to `float:32`
+- This maintains backward compatibility with existing code
+
 ### Composite & Generic Types
 
 | Type syntax | What it is | Example |
 |-------------|------------|---------|
-| `Array<T>`  | Homogeneous resizable list | `Array<integer>`, `[1, 2, 3]` |
-| `Matrix<T>` | 2-D array (array of arrays) | `Matrix<float>`, `[[1.0, 2.0], [3.0, 4.0]]` |
-| `pairs<K,V>`  | Key-value associative container | `pairs<string, integer>` |
-| `T`         | Generic type parameter | Used in function definitions |
+| `Array<Any>`  | Homogeneous resizable list | `Array<integer>`, `[1, 2, 3]` |
+| `List<Any>` | Flexible list with behavior properties | `List<string>`, see List Properties below |
+| `Matrix<Any>` | 2-D array (array of arrays) | `Matrix<float>`, `[[1.0, 2.0], [3.0, 4.0]]` |
+| `pairs<Any,Any>`  | Key-value associative container | `pairs<string, integer>` |
+| `Any`         | Generic type parameter | Used in function definitions |
 
 Arrays in Clean are zero-indexed by default (array[0] is the first element).
 For readability, you can access elements starting from 1 using:
 
 array.at(index)
 This returns the element at position index - 1.
+
+### List Properties - Collection Behavior Modifiers
+
+Clean Language extends the core `List<Any>` type with **property modifiers** that change the list's behavior without requiring separate collection types. This provides a unified, consistent approach to different collection patterns while maintaining type safety and simplicity.
+
+#### Property Syntax
+
+```clean
+List<Any> myList = List<Any>()
+myList.type = behavior_type
+```
+
+Where `behavior_type` defines how the list handles insertions, removals, and access patterns.
+
+#### Supported Properties
+
+**`line` - Queue Behavior (FIFO)**
+
+First-In-First-Out behavior. Elements are added to the back and removed from the front.
+
+```clean
+functions:
+    void processTaskQueue()
+        List<string> tasks = List<string>()
+        tasks.type = line
+        
+        // Add tasks (to back)
+        tasks.add("Task 1")
+        tasks.add("Task 2") 
+        tasks.add("Task 3")
+        
+        // Process tasks (from front)
+        while tasks.size() > 0
+            string currentTask = tasks.remove()  // Gets "Task 1", then "Task 2", etc.
+            println("Processing: {currentTask}")
+```
+
+**Modified Operations**:
+- `add(item)` → Adds to the **back** of the list
+- `remove()` → Removes from the **front** of the list  
+- `peek()` → Views the **front** element without removing
+- Standard list operations (`get(index)`, `size()`) remain unchanged
+
+**`pile` - Stack Behavior (LIFO)**
+
+Last-In-First-Out behavior. Elements are added and removed from the same end (top).
+
+```clean
+functions:
+    void undoSystem()
+        List<string> actions = List<string>()
+        actions.type = pile
+        
+        // Perform actions (add to top)
+        actions.add("Create file")
+        actions.add("Edit text")
+        actions.add("Save file")
+        
+        // Undo actions (remove from top)
+        while actions.size() > 0
+            string lastAction = actions.remove()  // Gets "Save file", then "Edit text", etc.
+            println("Undoing: {lastAction}")
+```
+
+**Modified Operations**:
+- `add(item)` → Adds to the **top** of the list
+- `remove()` → Removes from the **top** of the list
+- `peek()` → Views the **top** element without removing
+- Standard list operations (`get(index)`, `size()`) remain unchanged
+
+**`unique` - Set Behavior (Uniqueness Constraint)**
+
+Only allows unique elements. Duplicate additions are ignored.
+
+```clean
+functions:
+    void trackUniqueVisitors()
+        List<string> visitors = List<string>()
+        visitors.type = unique
+        
+        // Add visitors (duplicates ignored)
+        visitors.add("Alice")    // Added
+        visitors.add("Bob")      // Added  
+        visitors.add("Alice")    // Ignored (duplicate)
+        visitors.add("Charlie")  // Added
+        
+        println("Unique visitors: {visitors.size()}")  // Prints: 3
+        
+        if visitors.contains("Alice")
+            println("Alice has visited")
+```
+
+**Modified Operations**:
+- `add(item)` → Adds only if `item` is not already present
+- `remove(item)` → Removes the specified item (not index-based)
+- `contains(item)` → Optimized for membership testing
+- Standard list operations remain available
+
+#### Property Combinations
+
+Properties can be combined for specialized behavior:
+
+```clean
+// Unique queue - FIFO with no duplicates
+List<string> uniqueQueue = List<string>()
+uniqueQueue.type = line
+uniqueQueue.type = unique
+
+// Unique stack - LIFO with no duplicates  
+List<integer> uniqueStack = List<integer>()
+uniqueStack.type = pile
+uniqueStack.type = unique
+```
+
+#### Performance Characteristics
+- `line`: O(1) add, O(1) remove, O(1) peek
+- `pile`: O(1) add, O(1) remove, O(1) peek  
+- `unique`: O(1) add/contains (hash-based), O(1) remove
+
+#### Advantages
+
+1. **Unified Type System**: Single `List<Any>` type instead of multiple collection types
+2. **Consistent API**: All lists share the same base methods
+3. **Flexible Behavior**: Properties can be changed at runtime if needed
+4. **Type Safety**: Full generic type support with compile-time validation
+5. **Simplicity**: Easier to learn and remember than separate collection classes
+6. **Interoperability**: All property-modified lists are still `List<Any>` types
 
 ### Type Annotations and Variable Declaration
 
@@ -506,113 +747,118 @@ return expression   // Return expression result
 
 ## Functions
 
-Clean Language supports two ways to declare functions: **standalone functions** and **functions blocks**.
+Clean Language uses **functions blocks** for all function declarations. This ensures consistency and organization in code structure.
 
 ### The Start Function
 
-Every Clean program begins with a `start()` function. This is **implicit** - you just write `start()` without the `function` keyword:
-
-```clean
-start()
-    println("Hello, World!")
-    integer x = 42
-    println(x)
-```
-
-### Standalone Functions
-
-Use standalone functions for simple cases and single utility functions:
-
-```clean
-function quickHelper()
-    return 42
-
-function integer add()
-    input
-        integer a
-        integer b
-    return a + b
-```
-
-### Functions Blocks
-
-Use functions blocks to organize multiple related functions together:
+Every Clean program begins with a `start()` function within a `functions:` block:
 
 ```clean
 functions:
-    integer add()
-        input
-            integer a
-            integer b
+    void start()
+        print("Hello, World!")
+        integer x = 42
+        print(x)
+```
+
+### Functions Blocks (Required)
+
+**All functions must be declared within a `functions:` block.** This is the only supported syntax for function declarations:
+
+```clean
+functions:
+    integer add(integer a, integer b)
         return a + b
 
-    integer multiply()
+    integer multiply(integer a, integer b)
         description "Multiplies two integers"
         input
             integer a
             integer b
         return a * b
     
-    integer square()
-        input integer x
+    integer square(integer x)
         return x * x
     
-    printMessage()
-        println("Hello World")
+    void printMessage()
+        print("Hello World")
 ```
 
-### When to Use Each
+### Generic Functions with `Any`
 
-**The `start()` function** is always implicit:
-- Just write `start()` - no `function` keyword needed
-- This is the entry point of your program
-
-**Standalone functions** are good for:
-- Simple utility functions
-- Quick helper functions
-- Single-purpose functions
-
-**Functions blocks** are good for:
-- Multiple related functions
-- Organizing code logically
-- Larger programs with many functions
-
-### Function Calls
-
-Both types of functions are called the same way:
+Clean Language uses `Any` as the universal generic type. No explicit type parameter declarations are needed:
 
 ```clean
-result = add(5, 3)
-value = multiply(2, 4)
-message = square(7)
+functions:
+    Any identity(Any value)
+        return value
+    
+    Any getFirst(Array<Any> items)
+        return items[0]
+    
+    void printAny(Any value)
+        print(value.toString())
+
+// Usage - type is inferred at compile time
+string result = identity("hello")    // Any → string
+integer number = identity(42)        // Any → integer
+float decimal = identity(3.14)       // Any → float
 ```
 
 ### Function Features
 
-Functions support optional features:
-
-```clean
-function integer calculate()
-    description "Calculates something important"
-    input
-        integer x
-        integer y
-    return x + y
-```
-
-**Automatic return**: If a function doesn't use `return`, Clean automatically returns the value of the last expression.
-
-### Generic Functions
+Functions support optional documentation and input blocks:
 
 ```clean
 functions:
-    Any identity()
-        input Any value
-        return value
+    integer calculate(integer x, integer y)
+        description "Calculates something important"
+        input
+            integer x
+            integer y
+        return x + y
+```
 
-// Usage
-string result = identity("hello")
-integer number = identity(42)
+### Method Calls (Require Parentheses)
+
+All method calls must include parentheses, even when no arguments are provided:
+
+```clean
+functions:
+    void demonstrateMethods()
+        integer value = 42
+        string text = value.toString()    // ✅ Correct - parentheses required
+        integer length = text.length()   // ✅ Correct - parentheses required
+        
+        // ❌ Invalid - missing parentheses
+        // string bad = value.toString
+        // integer badLength = text.length
+```
+
+### Function Call Syntax
+
+Functions are called using standard syntax:
+
+```clean
+functions:
+    void start()
+        integer result = add(5, 3)
+        integer value = multiply(2, 4)
+        integer squared = square(7)
+        printMessage()
+```
+
+### Automatic Return
+
+If a function doesn't use explicit `return`, Clean automatically returns the value of the last expression:
+
+```clean
+functions:
+    integer addOne(integer x)
+        x + 1    // Automatically returned
+    
+    string greet(string name)
+        "Hello, " + name    // Automatically returned
 ```
 
 ## Control Flow
@@ -708,75 +954,110 @@ The error is available as error.
 
 ### Class Definition
 
+**All class methods must be declared within a `functions:` block:**
+
 ```clean
 class Point
     integer x
     integer y
 
-    constructor(x, y)        // Auto-stores matching parameter names
+    constructor(integer x, integer y)        // Auto-stores matching parameter names
 
+    functions:
     integer distanceFromOrigin()
         return sqrt(x * x + y * y)
 
-    move()
-        input
-            integer dx
-            integer dy
+        void move(integer dx, integer dy)
         x = x + dx
         y = y + dy
 ```
 
-### Generic Classes
+### Generic Classes with `Any`
+
+Clean Language uses `Any` for generic class fields and methods:
 
 ```clean
 class Container
-    Any value                  // First mention of Any makes class generic
+    Any value                  // Any makes class generic
 
-    constructor(value)       // Auto-stores to matching field
+    constructor(Any value)     // Auto-stores to matching field
 
-    Any get()
+    functions:
+        Any get()
         return value
 
-    set()
-        input Any newValue
+        void set(Any newValue)
         value = newValue
 ```
 
 ### Inheritance
 
+Clean Language supports single inheritance using the `is` keyword. Child classes inherit all public fields and methods from their parent class.
+
 ```clean
 class Shape
     string color
     
-    constructor(color)
+    constructor(string colorParam)
+        color = colorParam          // Implicit context - no 'this' needed
     
-    string getColor()
-        return color
+    functions:
+        string getColor()
+            return color            // Direct field access
 
 class Circle is Shape
     float radius
     
-    constructor(color, radius)
-        super(color)
+    constructor(string colorParam, float radiusParam)
+        base(colorParam)            // Call parent constructor with 'base'
+        radius = radiusParam        // Implicit context
     
-    float area()
-        return pi * radius * radius
+    functions:
+        float area()
+            return 3.14159 * radius * radius
+        
+        string getInfo()
+            return color + " circle"    // Access inherited field directly
 ```
+
+#### Inheritance Features
+
+- **Syntax**: Use `class Child is Parent` to inherit from a parent class
+- **Base Constructor**: Use `base(args...)` to call the parent constructor
+- **Implicit Context**: No need for `this` or `self` - fields are directly accessible
+- **Name Safety**: Parameters must have different names than fields to prevent conflicts
+- **Method Inheritance**: Child classes inherit all public methods from parent classes
+- **Field Inheritance**: Child classes inherit all public fields from parent classes
+- **Method Overriding**: Child classes can override parent methods by defining methods with the same name
+
+#### Implicit Context Rules
+
+Clean Language uses implicit context for accessing class fields:
+
+- ✅ `color = colorParam` (field assignment)
+- ✅ `return color` (field access)  
+- ✅ `radius = radiusParam` (works in child classes too)
+- ❌ No `this.color` or `self.color` needed
+- ❌ Parameter names cannot match field names (compiler enforced)
+
+This makes code cleaner while maintaining type safety through name conflict prevention.
 
 ### Object Creation and Usage
 
 ```clean
+functions:
+    void start()
 // Create objects
-point = Point(3, 4)
-circle = Circle("red", 5.0)
+        Point point = Point(3, 4)
+        Circle circle = Circle("red", 5.0)
 
-// Call methods
-distance = point.distanceFromOrigin()
+        // Call methods (parentheses required)
+        integer distance = point.distanceFromOrigin()
 point.move(1, -2)
 
 // Access properties
-xCoord = point.x
-color = circle.color
+        integer xCoord = point.x
+        string color = circle.color
 ```
 
 ### Static Methods
@@ -784,34 +1065,39 @@ color = circle.color
 You can call class methods directly on the class name if they don't use instance fields:
 
 ```clean
-class MathUtils
-    float add(float a, float b)
-        return a + b
-    
-    float max(float a, float b)
-        return if a > b then a else b
+class Math
+functions:
+        float add(float a, float b)
+            return a + b
+        
+        float max(float a, float b)
+            return if a > b then a else b
 
 class DatabaseService
-    boolean connect(string url)
-        // implementation that doesn't use instance fields
-        return true
-    
-    User findUser(integer id)
-        // implementation that doesn't use instance fields
-        return User.loadFromDatabase(id)
+    functions:
+        boolean connect(string url)
+            // implementation that doesn't use instance fields
+            return true
+        
+        User findUser(integer id)
+            // implementation that doesn't use instance fields
+            return User.loadFromDatabase(id)
 
 // Static method calls - ClassName.method()
-result = MathUtils.add(5.0, 3.0)
-maximum = MathUtils.max(10.0, 7.5)
-connected = DatabaseService.connect("mysql://localhost")
-user = DatabaseService.findUser(42)
+functions:
+    void start()
+        float result = Math.add(5.0, 3.0)
+        float maximum = Math.max(10.0, 7.5)
+        boolean connected = DatabaseService.connect("mysql://localhost")
+        User user = DatabaseService.findUser(42)
 ```
 
 **Rules for Static Methods:**
 - Use `ClassName.method()` syntax for static calls
 - Only allowed if the method doesn't access instance fields (`this.field`)
+- All methods must be in `functions:` blocks
+- Method calls require parentheses: `Math.add()` not `Math.add`
 - Ideal for helpers, services, utilities, and database access functions
-- To access instance fields, call methods on object instances instead
 
 **Example - Mixed Static and Instance Methods:**
 ```clean
@@ -819,20 +1105,23 @@ class User
     string name
     integer age
     
-    constructor(name, age)
+    constructor(string name, integer age)
     
-    // Instance method - accesses fields
-    string getInfo()
-        return "User: {name}, Age: {age}"
-    
-    // Static method - no field access
-    boolean isValidAge(integer age)
-        return age >= 0 and age <= 150
+    functions:
+        // Instance method - accesses fields
+        string getInfo()
+            return "User: {name}, Age: {age}"
+        
+        // Static method - no field access
+        boolean isValidAge(integer age)
+            return age >= 0 and age <= 150
 
 // Usage
-user = User("Alice", 25)
-info = user.getInfo()                    // Instance method call
-valid = User.isValidAge(30)              // Static method call
+functions:
+    void start()
+        User user = User("Alice", 25)
+        string info = user.getInfo()                    // Instance method call
+        boolean valid = User.isValidAge(30)             // Static method call
 ```
 
 ### Design Philosophy: Class-Based Organization
@@ -844,26 +1133,239 @@ Clean Language encourages organizing all functionality into classes rather than 
 - **Consistent syntax**: All method calls use the same `Class.method()` or `object.method()` pattern
 - **Extensibility**: Easy to add related methods to existing classes
 
-**System provides built-in utility classes:**
+**System provides built-in utility classes (without Utils suffix):**
 ```clean
-// Built-in classes available automatically:
-result = MathUtils.add(5.0, 3.0)           // Math operations
-length = StringUtils.length("hello")        // String operations  
-size = ArrayUtils.length([1, 2, 3])        // Array operations
-data = FileUtils.readText("file.txt")      // File operations
-response = HttpUtils.get("api/users")      // HTTP requests
+functions:
+    void start()
+        // Built-in classes available automatically:
+        float result = Math.add(5.0, 3.0)           // Math operations
+        integer length = String.length("hello")     // String operations  
+        integer size = Array.length([1, 2, 3])     // Array operations
+        string data = File.readText("file.txt")    // File operations
+        string response = Http.get("api/users")    // HTTP requests
 
-// User code must use classes:
+// User code must use classes with functions blocks:
 class Calculator
     functions:
         float calculateTax(float amount)
-            return MathUtils.multiply(amount, 0.15)
+            return Math.multiply(amount, 0.15)
         
         string formatResult(float value)
-            return StringUtils.concat("Result: ", value)
+            return String.concat("Result: ", value.toString())
 ```
 
-**Exception:** The `start()` function remains as the program entry point.
+**Exception:** The `start()` function remains as the program entry point within a `functions:` block.
+
+## Standard Library
+
+Clean Language provides built-in utility classes for common operations. All standard library classes follow the compiler instructions:
+
+- All methods are in `functions:` blocks
+- Method calls require parentheses
+- No `Utils` suffix in class names
+- Use `Any` for generic operations
+
+### Math Class
+
+```clean
+class Math
+    functions:
+        // Basic arithmetic
+        float add(float a, float b)
+        float subtract(float a, float b)
+        float multiply(float a, float b)
+        float divide(float a, float b)
+        
+        // Advanced operations
+        float sqrt(float x)
+        float pow(float base, float exponent)
+        float abs(float x)
+        
+        // Trigonometry
+        float sin(float x)
+        float cos(float x)
+        float tan(float x)
+        
+        // Constants
+        float pi()
+        float e()
+
+// Usage
+functions:
+    void start()
+        float result = Math.add(5.0, 3.0)
+        float hypotenuse = Math.sqrt(Math.add(Math.pow(3.0, 2.0), Math.pow(4.0, 2.0)))
+```
+
+### String Class
+
+```clean
+class String
+    functions:
+        // Basic operations
+        integer length(string text)
+        string concat(string a, string b)
+        string substring(string text, integer start, integer end)
+        
+        // Case operations
+        string toUpperCase(string text)
+        string toLowerCase(string text)
+        
+        // Search operations
+        boolean contains(string text, string search)
+        integer indexOf(string text, string search)
+        
+        // Conversion
+        string toString(Any value)
+
+// Usage
+functions:
+    void start()
+        integer len = String.length("hello")
+        string upper = String.toUpperCase("world")
+        string combined = String.concat("Hello, ", "World!")
+```
+
+### Array Class
+
+```clean
+class Array
+    functions:
+        // Basic operations
+        integer length(Array<Any> array)
+        Any get(Array<Any> array, integer index)
+        void set(Array<Any> array, integer index, Any value)
+        
+        // Modification
+        void push(Array<Any> array, Any item)
+        Any pop(Array<Any> array)
+        
+        // Search
+        boolean contains(Array<Any> array, Any item)
+        integer indexOf(Array<Any> array, Any item)
+
+// Usage
+functions:
+    void start()
+        Array<integer> numbers = [1, 2, 3]
+        integer size = Array.length(numbers)
+        Array.push(numbers, 4)
+        integer first = Array.get(numbers, 0)
+```
+
+### File Class
+
+The File class makes working with files simple and straightforward. Whether you need to read configuration files, save user data, or process text documents, File has you covered with easy-to-use methods.
+
+```clean
+class File
+    functions:
+        // Reading files
+        string read(string path)
+            // Reads the entire file content as a single string
+            // Perfect for small to medium-sized files
+        
+        List<string> lines(string path)
+            // Reads the file and returns each line as a separate string
+            // Great for processing text files line by line
+        
+        // Writing files
+        void write(string path, string content)
+            // Writes text to a file, replacing any existing content
+            // Creates the file if it doesn't exist
+        
+        void append(string path, string content)
+            // Adds text to the end of an existing file
+            // Creates the file if it doesn't exist
+        
+        // File management
+        boolean exists(string path)
+            // Checks if a file exists at the given path
+            // Returns true if found, false otherwise
+        
+        void delete(string path)
+            // Removes a file from the filesystem
+            // Does nothing if the file doesn't exist
+
+// Usage Examples
+functions:
+    void start()
+        // Read a configuration file
+        string config = File.read("settings.txt")
+        
+        // Process a log file line by line
+        List<string> logLines = File.lines("app.log")
+        
+        // Save user data
+        File.write("user_data.txt", "John Doe, 25, Engineer")
+        
+        // Add to a log file
+        File.append("activity.log", "User logged in at 2:30 PM")
+        
+        // Check if a file exists before reading
+        if File.exists("backup.txt")
+            string backup = File.read("backup.txt")
+        
+        // Clean up temporary files
+        File.delete("temp_data.txt")
+```
+
+### Http Class
+
+The Http class makes web requests simple and intuitive. Whether you're fetching data from APIs, submitting forms, or building web applications, Http provides all the essential HTTP methods you need.
+
+```clean
+class Http
+    functions:
+        // GET - Retrieve data from a server
+        string get(string url)
+            // Sends a GET request to fetch data
+            // Returns the response body as a string
+        
+        // POST - Send new data to a server
+        string post(string url, string body)
+            // Sends a POST request with data in the body
+            // Returns the server's response as a string
+        
+        // PUT - Update existing data on a server
+        string put(string url, string body)
+            // Sends a PUT request to update a resource
+            // Returns the server's response as a string
+        
+        // PATCH - Partially update data on a server
+        string patch(string url, string body)
+            // Sends a PATCH request for partial updates
+            // Returns the server's response as a string
+        
+        // DELETE - Remove data from a server
+        string delete(string url)
+            // Sends a DELETE request to remove a resource
+            // Returns the server's response as a string
+
+// Usage Examples
+functions:
+    void start()
+        // Fetch user data from an API
+        string users = Http.get("https://api.example.com/users")
+        
+        // Create a new user
+        string newUser = "{\"name\": \"Alice\", \"email\": \"alice@example.com\"}"
+        string response = Http.post("https://api.example.com/users", newUser)
+        
+        // Update user information
+        string updatedUser = "{\"name\": \"Alice Smith\", \"email\": \"alice.smith@example.com\"}"
+        Http.put("https://api.example.com/users/123", updatedUser)
+        
+        // Partially update user (just the email)
+        string emailUpdate = "{\"email\": \"newemail@example.com\"}"
+        Http.patch("https://api.example.com/users/123", emailUpdate)
+        
+        // Remove a user
+        Http.delete("https://api.example.com/users/123")
+        
+        // Fetch weather data
+        string weather = Http.get("https://api.weather.com/current?city=London")
+```
 
 ## Modules and Imports
 
@@ -895,3 +1397,31 @@ import:
     Utils as U          # module alias
     Json.decode as jd   # symbol alias
 ```
+
+## Asynchronous Programming
+Clean uses start and later for simple asynchronous execution.
+start begins a task in the background.
+later declares that the result will be available in the future.
+The value blocks only when accessed.
+Use background to run a task without keeping the result.
+You can also mark a function as background to always run it asynchronously and ignore its result.
+
+later data = start fetchData("url")
+print "Working..."
+print data          # blocks here only
+
+background logAction("login")    # runs and ignores result
+
+function syncCache() background
+    sendUpdateToServer()
+    clearLocalTemp()
+    
+syncCache()    # runs in background automatically
+
+
+
+## Memory Management
+Clean uses Automatic Reference Counting (ARC) for memory management.
+Each object tracks how many references point to it, and is automatically freed when no references remain.
+A lightweight cycle detector runs periodically to prevent memory leaks in circular structures.
+No manual memory handling is needed — memory is released as soon as it's no longer used.

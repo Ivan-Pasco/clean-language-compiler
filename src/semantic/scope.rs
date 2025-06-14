@@ -29,6 +29,11 @@ impl Scope {
         }
     }
 
+    pub fn declare_variable<S: Into<String>>(&mut self, name: S, type_: Type) {
+        // Alias for define_variable for compatibility
+        self.define_variable(name, type_);
+    }
+
     pub fn lookup_variable(&self, name: &str) -> Option<Type> {
         // First check the current scope stack (most recent first)
         for scope in self.scope_stack.iter().rev() {
@@ -74,5 +79,33 @@ impl Scope {
         self.variables.clear();
         self.parent = None;
         self.scope_stack.clear();
+    }
+
+    /// Get all variable names in the current scope for error suggestions
+    pub fn get_all_variable_names(&self) -> Vec<String> {
+        let mut names = Vec::new();
+        
+        // Add variables from scope stack (most recent first)
+        for scope in self.scope_stack.iter().rev() {
+            names.extend(scope.keys().cloned());
+        }
+        
+        // Add base variables
+        names.extend(self.variables.keys().cloned());
+        
+        // Add parent scope variables
+        if let Some(parent) = &self.parent {
+            names.extend(parent.get_all_variable_names());
+        }
+        
+        // Remove duplicates while preserving order (most recent first)
+        let mut unique_names = Vec::new();
+        for name in names {
+            if !unique_names.contains(&name) {
+                unique_names.push(name);
+            }
+        }
+        
+        unique_names
     }
 } 

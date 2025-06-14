@@ -1,0 +1,82 @@
+class Shape
+	string color
+	
+	constructor(string colorParam)
+		color = colorParam
+	
+	functions:
+		string getColor()
+			return color
+		
+		void display()
+			print("Shape with color: ")
+			print(color)
+
+class Circle is Shape
+	float radius
+	
+	constructor(string colorParam, float radiusParam)
+		base(colorParam)
+		radius = radiusParam
+	
+	functions:
+		float getRadius()
+			return radius
+		
+		void display()
+			print("Circle with color: ")
+			print(color)
+			print(" and radius: ")
+			print(radius)
+		
+		float getArea()
+			return 3.14159 * radius * radius
+
+class Rectangle is Shape
+	float width
+	float height
+	
+	constructor(string colorParam, float widthParam, float heightParam)
+		base(colorParam)
+		width = widthParam
+		height = heightParam
+	
+	functions:
+		float getWidth()
+			return width
+		
+		float getHeight()
+			return height
+		
+		void display()
+			print("Rectangle with color: ")
+			print(color)
+			print(", width: ")
+			print(width)
+			print(", height: ")
+			print(height)
+		
+		float getArea()
+			return width * height
+
+function start()
+	// Test inheritance and method resolution
+	Shape shape = Shape("blue")
+	shape.display()
+	
+	Circle circle = Circle("red", 5.0)
+	circle.display()
+	print("Circle area: ")
+	print(circle.getArea())
+	
+	Rectangle rect = Rectangle("green", 10.0, 20.0)
+	rect.display()
+	print("Rectangle area: ")
+	print(rect.getArea())
+	
+	// Test inherited methods
+	print("Circle color: ")
+	print(circle.getColor())
+	
+	print("Rectangle color: ")
+	print(rect.getColor()) 

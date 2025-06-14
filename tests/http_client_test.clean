@@ -1,0 +1,101 @@
+// HTTP Client Test for Clean Language
+// Tests all HTTP methods: GET, POST, PUT, PATCH, DELETE
+
+functions:
+	void testHttpGet()
+		println("Testing Http.get()...")
+		
+		// Test basic GET request
+		string url = "https://api.example.com/users"
+		string response = Http.get(url)
+		
+		println("GET request completed")
+		println("Response received (placeholder)")
+
+	void testHttpPost()
+		println("Testing Http.post()...")
+		
+		// Test POST request with JSON body
+		string url = "https://api.example.com/users"
+		string body = "{\"name\": \"John Doe\", \"email\": \"john@example.com\"}"
+		string response = Http.post(url, body)
+		
+		println("POST request completed")
+		println("Response received (placeholder)")
+
+	void testHttpPut()
+		println("Testing Http.put()...")
+		
+		// Test PUT request to update resource
+		string url = "https://api.example.com/users/123"
+		string body = "{\"name\": \"Jane Doe\", \"email\": \"jane@example.com\"}"
+		string response = Http.put(url, body)
+		
+		println("PUT request completed")
+		println("Response received (placeholder)")
+
+	void testHttpPatch()
+		println("Testing Http.patch()...")
+		
+		// Test PATCH request for partial update
+		string url = "https://api.example.com/users/123"
+		string body = "{\"email\": \"newemail@example.com\"}"
+		string response = Http.patch(url, body)
+		
+		println("PATCH request completed")
+		println("Response received (placeholder)")
+
+	void testHttpDelete()
+		println("Testing Http.delete()...")
+		
+		// Test DELETE request
+		string url = "https://api.example.com/users/123"
+		string response = Http.delete(url)
+		
+		println("DELETE request completed")
+		println("Response received (placeholder)")
+
+	void testHttpErrorHandling()
+		println("Testing HTTP error handling...")
+		
+		// Test with invalid URL
+		string invalidUrl = "invalid-url"
+		string response = Http.get(invalidUrl)
+		
+		println("Error handling test completed")
+
+	void testHttpWithDifferentContentTypes()
+		println("Testing HTTP with different content types...")
+		
+		// Test with XML body
+		string xmlUrl = "https://api.example.com/xml-endpoint"
+		string xmlBody = "<user><name>John</name><email>john@example.com</email></user>"
+		string xmlResponse = Http.post(xmlUrl, xmlBody)
+		
+		// Test with form data
+		string formUrl = "https://api.example.com/form-endpoint"
+		string formBody = "name=John&email=john@example.com"
+		string formResponse = Http.post(formUrl, formBody)
+		
+		println("Content type tests completed")
+
+start()
+	println("Testing HTTP Client Operations...")
+	
+	// Test HTTP GET
+	testHttpGet()
+	
+	// Test HTTP POST
+	testHttpPost()
+	
+	// Test HTTP PUT
+	testHttpPut()
+	
+	// Test HTTP PATCH
+	testHttpPatch()
+	
+	// Test HTTP DELETE
+	testHttpDelete()
+	
+	println("All HTTP client tests completed!")
+	0 

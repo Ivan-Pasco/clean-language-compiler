@@ -152,7 +152,7 @@ mod tests {
             Val::F64(f64::to_bits(3.7))
         ], &mut results).unwrap();
         
-        let result = results[0].unwrap_f64();
+        let result = f64::from_bits(results[0].unwrap_i64() as u64);
         assert!((result - 6.2).abs() < f64::EPSILON);
     }
 
@@ -167,7 +167,7 @@ mod tests {
             Val::F64(f64::to_bits(2.5))
         ], &mut results).unwrap();
         
-        let result = results[0].unwrap_f64();
+        let result = f64::from_bits(results[0].unwrap_i64() as u64);
         assert!((result - 2.5).abs() < f64::EPSILON);
     }
 

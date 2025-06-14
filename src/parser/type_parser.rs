@@ -16,10 +16,19 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     
     match inner.as_rule() {
         Rule::generic_type => parse_generic_type(inner),
-        Rule::type_parameter => Ok(Type::TypeParameter(inner.as_str().to_string())),
+        Rule::type_parameter => {
+            let type_name = inner.as_str().to_string();
+            // Handle "Any" as a special type parameter
+            if type_name == "Any" {
+                Ok(Type::TypeParameter(type_name))
+            } else {
+                Ok(Type::TypeParameter(type_name))
+            }
+        },
         Rule::identifier => parse_basic_type(inner),
         Rule::matrix_type => parse_matrix_type(inner),
         Rule::array_type => parse_array_type(inner),
+        Rule::list_type => parse_list_type(inner),
         Rule::pairs_type => parse_pairs_type(inner),
         Rule::function_type => {
             // function_type contains one of: sized_type, core_type, matrix_type, array_type, pairs_type, generic_type, type_parameter
@@ -38,6 +47,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                         "float" => Ok(Type::Float),
                         "string" => Ok(Type::String),
                         "void" => Ok(Type::Void),
+                        "any" => Ok(Type::Any),
                         _ => Err(CompilerError::parse_error(
                             format!("Unknown core type: {}", type_str),
                             None,
@@ -84,6 +94,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                 },
                 Rule::matrix_type => parse_matrix_type(inner_type),
                 Rule::array_type => parse_array_type(inner_type),
+                Rule::list_type => parse_list_type(inner_type),
                 Rule::pairs_type => parse_pairs_type(inner_type),
                 Rule::generic_type => parse_generic_type(inner_type),
                 Rule::type_parameter => Ok(Type::TypeParameter(inner_type.as_str().to_string())),
@@ -227,6 +238,21 @@ fn parse_array_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     
     let element_type = parse_type(element_type)?;
     Ok(Type::Array(Box::new(element_type)))
+}
+
+fn parse_list_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
+    let parser_location = get_location(&pair);
+    let ast_location = convert_to_ast_location(&parser_location);
+    
+    let element_type = pair.into_inner().next()
+        .ok_or_else(|| CompilerError::parse_error(
+            "List type must specify element type".to_string(),
+            Some(ast_location),
+            Some("List types must be in the form List<T>".to_string())
+        ))?;
+    
+    let element_type = parse_type(element_type)?;
+    Ok(Type::List(Box::new(element_type)))
 }
 
 fn parse_pairs_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {

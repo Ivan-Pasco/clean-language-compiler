@@ -79,6 +79,11 @@ pub fn parse_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::base_expression => {
             parse_base_expression(pair)
         }
+        Rule::error_variable => {
+            // Parse error variable
+            let location = convert_to_ast_location(&get_location(&pair));
+            Ok(Expression::ErrorVariable { location })
+        }
         _ => {
             // For backward compatibility, try parsing as base_expression
             parse_base_expression(pair)
@@ -163,25 +168,16 @@ pub fn parse_base_expression(pair: Pair<Rule>) -> Result<Expression, CompilerErr
     // Apply remaining operators
     while !op_stack.is_empty() && expr_stack.len() >= 2 {
         let op = op_stack.pop().unwrap();
-        let right = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-            "Missing right operand".to_string(),
-            None,
-            Some("Each operator requires two operands".to_string())
-        ))?;
-        
-        let left = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-            "Missing left operand".to_string(),
-            None,
-            Some("Each operator requires two operands".to_string())
-        ))?;
+        let right = expr_stack.pop().unwrap();
+        let left = expr_stack.pop().unwrap();
         
         expr_stack.push(apply_operator(left, op, right)?);
     }
 
     expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-        "Empty expression".to_string(),
+        "Empty multiline expression".to_string(),
         None,
-        Some("An expression must contain at least one value".to_string())
+        Some("A multiline expression must contain at least one value".to_string())
     ))
 }
 
@@ -245,16 +241,15 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::method_call => parse_method_call(inner),
         Rule::property_access => parse_property_access(inner),
         Rule::array_access => parse_array_access(inner),
+        Rule::error_variable => {
+            // Parse error variable
+            Ok(Expression::ErrorVariable {
+                location: convert_to_ast_location(&location),
+            })
+        },
         Rule::identifier => {
             let identifier = inner.as_str();
-            if identifier == "error" {
-                // This could be an error variable access - we'll validate context in semantic analysis
-                Ok(Expression::ErrorVariable {
-                    location: convert_to_ast_location(&location),
-                })
-            } else {
-                Ok(Expression::Variable(identifier.to_string()))
-            }
+            Ok(Expression::Variable(identifier.to_string()))
         },
         Rule::expression => {
             // Handle parenthesized expressions: (expression)
@@ -263,6 +258,14 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::multiline_parenthesized_expr => {
             // Handle multi-line parenthesized expressions: (expr + \n expr)
             parse_multiline_parenthesized_expression(inner)
+        },
+        Rule::conditional_expr => {
+            // Handle conditional expressions: if condition then value else value
+            parse_conditional_expression(inner)
+        },
+        Rule::base_call => {
+            // Handle base constructor calls: base(args...)
+            parse_base_call(inner)
         },
         _ => Err(CompilerError::parse_error(
             format!("Unexpected primary expression: {}", inner.as_str()),
@@ -663,8 +666,60 @@ pub fn parse_multiline_expression(pair: Pair<Rule>) -> Result<Expression, Compil
     }
 
     expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-        "Empty multi-line expression".to_string(),
+        "Empty multiline expression".to_string(),
         None,
-        Some("A multi-line expression must contain at least one value".to_string())
+        Some("A multiline expression must contain at least one value".to_string())
     ))
+}
+
+pub fn parse_conditional_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let location = convert_to_ast_location(&get_location(&pair));
+    let mut inner = pair.into_inner();
+    
+    // Parse: if condition then value else value
+    // The grammar gives us: expression, expression, expression (condition, then_expr, else_expr)
+    let condition_pair = inner.next().ok_or_else(|| CompilerError::parse_error(
+        "Missing condition in conditional expression".to_string(),
+        Some(location.clone()),
+        Some("Conditional expressions require: if condition then value else value".to_string())
+    ))?;
+    
+    let then_pair = inner.next().ok_or_else(|| CompilerError::parse_error(
+        "Missing then expression in conditional expression".to_string(),
+        Some(location.clone()),
+        Some("Conditional expressions require: if condition then value else value".to_string())
+    ))?;
+    
+    let else_pair = inner.next().ok_or_else(|| CompilerError::parse_error(
+        "Missing else expression in conditional expression".to_string(),
+        Some(location.clone()),
+        Some("Conditional expressions require: if condition then value else value".to_string())
+    ))?;
+    
+    let condition = parse_expression(condition_pair)?;
+    let then_expr = parse_expression(then_pair)?;
+    let else_expr = parse_expression(else_pair)?;
+    
+    Ok(Expression::Conditional {
+        condition: Box::new(condition),
+        then_expr: Box::new(then_expr),
+        else_expr: Box::new(else_expr),
+        location,
+    })
+}
+
+pub fn parse_base_call(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let location = get_location(&pair);
+    let mut arguments = Vec::new();
+    
+    for arg in pair.into_inner() {
+        if let Rule::expression = arg.as_rule() {
+            arguments.push(parse_expression(arg)?);
+        }
+    }
+    
+    Ok(Expression::BaseCall {
+        arguments,
+        location: convert_to_ast_location(&location),
+    })
 } 

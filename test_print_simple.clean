@@ -1,0 +1,8 @@
+functions:
+	void testPrint()
+		print("Hello from Clean Language!")
+		print("\n")
+		print("Testing print functionality")
+
+start()
+	testPrint() 

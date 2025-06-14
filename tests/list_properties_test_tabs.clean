@@ -1,0 +1,84 @@
+functions:
+	void testListProperties()
+	    // Test default list behavior
+	    List<string> defaultList = List<string>()
+	    defaultList.add("first")
+	    defaultList.add("second")
+	    println("Default list size: {defaultList.size()}")
+	    
+	    // Test line behavior (queue)
+	    List<string> queueList = List<string>()
+	    queueList.type = "line"
+	    queueList.add("Task 1")
+	    queueList.add("Task 2")
+	    queueList.add("Task 3")
+	    
+	    println("Queue processing:")
+	    while queueList.size() > 0
+	        string task = queueList.remove()
+	        println("Processing: {task}")
+	    
+	    // Test pile behavior (stack)
+	    List<string> stackList = List<string>()
+	    stackList.type = "pile"
+	    stackList.add("Action 1")
+	    stackList.add("Action 2")
+	    stackList.add("Action 3")
+	    
+	    println("Stack undo:")
+	    while stackList.size() > 0
+	        string action = stackList.remove()
+	        println("Undoing: {action}")
+	    
+	    // Test unique behavior (set)
+	    List<string> uniqueList = List<string>()
+	    uniqueList.type = "unique"
+	    uniqueList.add("Alice")
+	    uniqueList.add("Bob")
+	    uniqueList.add("Alice")  // Should be ignored
+	    uniqueList.add("Charlie")
+	    
+	    println("Unique visitors: {uniqueList.size()}")
+	    if uniqueList.contains("Alice")
+	        println("Alice has visited")
+	    
+	    // Test combined behavior
+	    List<integer> uniqueQueue = List<integer>()
+	    uniqueQueue.type = "line"
+	    uniqueQueue.type = "unique"  // Combined line + unique
+	    
+	    uniqueQueue.add(1)
+	    uniqueQueue.add(2)
+	    uniqueQueue.add(1)  // Should be ignored
+	    uniqueQueue.add(3)
+	    
+	    println("Unique queue size: {uniqueQueue.size()}")
+	    
+	    // Test property access
+	    string currentBehavior = queueList.type
+	    println("Queue behavior: {currentBehavior}")
+
+	void testListMethods()
+	    List<integer> numbers = List<integer>()
+	    
+	    // Test basic operations
+	    numbers.add(10)
+	    numbers.add(20)
+	    numbers.add(30)
+	    
+	    println("List size: {numbers.size()}")
+	    println("First element: {numbers.get(0)}")
+	    println("Contains 20: {numbers.contains(20)}")
+	    
+	    // Test peek
+	    integer next = numbers.peek()
+	    println("Next element: {next}")
+	    
+	    // Test set
+	    boolean success = numbers.set(1, 25)
+	    println("Set operation success: {success}")
+	    println("Updated element: {numbers.get(1)}")
+
+start()
+	testListProperties()
+	testListMethods() 

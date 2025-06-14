@@ -29,19 +29,35 @@ pub fn parse_class(pair: Pair<Rule>) -> Result<Class, CompilerError> {
                     }
                 }
             },
-            Rule::generic_type => {
-                // This is the base class in "extends generic_type"
-                let mut parts = item.into_inner();
-                if let Some(base) = parts.next() {
-                    if base.as_rule() == Rule::identifier {
-                        base_class = Some(base.as_str().to_string());
-                    }
-                    
-                    // Process any type arguments in the base class
-                    for type_arg in parts {
-                        if type_arg.as_rule() == Rule::type_ {
-                            base_class_type_args.push(parse_type(type_arg)?);
+            Rule::type_ => {
+                // This is the base class in "is type_"
+                let type_result = parse_type(item)?;
+                match type_result {
+                    crate::ast::Type::Object(class_name) => {
+                        base_class = Some(class_name);
+                    },
+                    crate::ast::Type::Generic(boxed_type, type_args) => {
+                        if let crate::ast::Type::Object(class_name) = *boxed_type {
+                            base_class = Some(class_name);
+                            base_class_type_args = type_args;
+                        } else {
+                            return Err(CompilerError::parse_error(
+                                "Base class must be a class type".to_string(),
+                                Some(ast_location.clone()),
+                                Some("Use a valid class name for inheritance".to_string())
+                            ));
                         }
+                    },
+                    crate::ast::Type::TypeParameter(class_name) => {
+                        // Handle simple class names that are parsed as type parameters
+                        base_class = Some(class_name);
+                    },
+                    _ => {
+                        return Err(CompilerError::parse_error(
+                            "Base class must be a class type".to_string(),
+                            Some(ast_location.clone()),
+                            Some("Use a valid class name for inheritance".to_string())
+                        ));
                     }
                 }
             },

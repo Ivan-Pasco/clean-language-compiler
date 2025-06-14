@@ -1757,7 +1757,7 @@ mod tests {
             wasmtime::Val::I32(matrix_ptr as i32),
             wasmtime::Val::I32(0),
             wasmtime::Val::I32(0),
-            wasmtime::Val::F64(5.0f64.to_bits()),
+            wasmtime::Val::F64(f64::to_bits(5.0)),
         ], &mut results).unwrap();
         assert_eq!(results[0].unwrap_i32(), 1);
 
@@ -1766,7 +1766,7 @@ mod tests {
             wasmtime::Val::I32(matrix_ptr as i32),
             wasmtime::Val::I32(2),
             wasmtime::Val::I32(0),
-            wasmtime::Val::F64(5.0f64.to_bits()),
+            wasmtime::Val::F64(f64::to_bits(5.0)),
         ], &mut results).unwrap();
         assert_eq!(results[0].unwrap_i32(), 0);
 
@@ -1775,7 +1775,7 @@ mod tests {
             wasmtime::Val::I32(matrix_ptr as i32),
             wasmtime::Val::I32(0),
             wasmtime::Val::I32(2),
-            wasmtime::Val::F64(5.0f64.to_bits()),
+            wasmtime::Val::F64(f64::to_bits(5.0)),
         ], &mut results).unwrap();
         assert_eq!(results[0].unwrap_i32(), 0);
     }
