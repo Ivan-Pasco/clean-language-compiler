@@ -1,0 +1,61 @@
+// StringOps module - String manipulation utilities
+// All functions are public and can be imported by other modules
+
+public function length(string text) -> number
+    // Basic string length calculation
+    number count = 0
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return count
+
+public function concat(string a, string b) -> string
+    // String concatenation
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return a
+
+public function substring(string text, number start, number end) -> string
+    // Extract substring from start to end position
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return text
+
+public function contains(string text, string search) -> boolean
+    // Check if text contains the search string
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return true
+
+public function indexOf(string text, string search) -> number
+    // Find the first occurrence of search in text
+    // Returns -1 if not found
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return -1
+
+public function replace(string text, string old, string new) -> string
+    // Replace first occurrence of old with new in text
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return text
+
+public function toUpperCase(string text) -> string
+    // Convert string to uppercase
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return text
+
+public function toLowerCase(string text) -> string
+    // Convert string to lowercase
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return text
+
+public function trim(string text) -> string
+    // Remove leading and trailing whitespace
+    // Note: This is a placeholder - real implementation would use WASM string operations
+    return text
+
+public function split(string text, string delimiter) -> void
+    // Split string by delimiter (returns array when we have array support)
+    // Note: This is a placeholder - real implementation would return array
+    print("Splitting: " + text)
+
+// Utility functions for string validation
+public function isEmpty(string text) -> boolean
+    return length(text) == 0
+
+public function isNotEmpty(string text) -> boolean
+    return length(text) > 0 

@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 // Keywords and identifiers
-keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any") ~ !ASCII_ALPHANUMERIC }
+keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "start" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
 identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
@@ -161,20 +161,7 @@ array_literal = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 matrix_row = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 matrix_literal = { "[" ~ matrix_row ~ ("," ~ matrix_row)* ~ "]" }
 
-// Statements
-statement = {
-    return_stmt |
-    error_stmt |
-    on_error_block |
-    if_stmt |
-    iterate_stmt |
-    range_iterate_stmt |
-    test |
-    variable_decl |
-    apply_block |
-    assignment |
-    expression
-}
+// Statements (removed - now defined below with async features)
 
 // Type-first variable declarations (no let keyword)
 variable_decl = { type_ ~ identifier ~ ("=" ~ expression)? }
@@ -250,11 +237,39 @@ constructor_type = {
     array_type |
     list_type |
     pairs_type |
-    generic_type
+    generic_type |
+    type_parameter
+}
+
+// Import statements
+import_item = { identifier ~ ("as" ~ identifier)? }
+import_list = { import_item ~ ("," ~ import_item)* }
+import_stmt = { "import" ~ ":" ~ NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_list }
+
+// Async expressions and statements
+later_assignment = { "later" ~ identifier ~ "=" ~ "start" ~ expression }
+background_stmt = { "background" ~ expression }
+background_function = { "function" ~ function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ "background" ~ function_body }
+
+// Update statements to include async features and imports
+statement = {
+    return_stmt |
+    error_stmt |
+    on_error_block |
+    if_stmt |
+    iterate_stmt |
+    range_iterate_stmt |
+    test |
+    later_assignment |
+    background_stmt |
+    variable_decl |
+    apply_block |
+    assignment |
+    expression
 }
 
 // Program with proper newline handling
-program_item = { start_function | implicit_start_function | standalone_function | functions_block | class_decl | statement }
+program_item = { import_stmt | start_function | implicit_start_function | standalone_function | background_function | functions_block | class_decl | statement }
 program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
 start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block } 

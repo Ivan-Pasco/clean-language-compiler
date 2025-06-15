@@ -103,6 +103,11 @@ pub struct CodeGenerator {
     file_import_indices: HashMap<String, u32>,
     http_import_indices: HashMap<String, u32>,
     label_counter: u32,
+    
+    // Class and inheritance support
+    current_class_context: Option<String>,
+    class_field_map: HashMap<String, HashMap<String, (Type, u32)>>, // class_name -> (field_name -> (type, offset))
+    class_table: HashMap<String, Class>,
 }
 
 impl CodeGenerator {
@@ -135,6 +140,11 @@ impl CodeGenerator {
             file_import_indices: HashMap::new(),
             http_import_indices: HashMap::new(),
             label_counter: 0,
+            
+            // Class and inheritance support
+            current_class_context: None,
+            class_field_map: HashMap::new(),
+            class_table: HashMap::new(),
         }
     }
 
@@ -166,7 +176,36 @@ impl CodeGenerator {
         self.register_stdlib_functions()?;
 
         // ------------------------------------------------------------------
-        // 3. Analyze and prepare all functions (including start function and class methods)
+        // 3. Store class information and setup field maps
+        // ------------------------------------------------------------------
+        for class in &program.classes {
+            self.class_table.insert(class.name.clone(), class.clone());
+            
+            // Build field map with offsets - for simple inheritance, inherit parent fields first
+            let mut field_map = HashMap::new();
+            let mut field_offset = 0u32;
+            
+            // Add parent class fields first (if any)
+            if let Some(base_class_name) = &class.base_class {
+                if let Some(base_class) = program.classes.iter().find(|c| c.name == *base_class_name) {
+                    for field in &base_class.fields {
+                        field_map.insert(field.name.clone(), (field.type_.clone(), field_offset));
+                        field_offset += 4; // Simple 4-byte offset for all fields (treating everything as i32 for now)
+                    }
+                }
+            }
+            
+            // Add this class's fields
+            for field in &class.fields {
+                field_map.insert(field.name.clone(), (field.type_.clone(), field_offset));
+                field_offset += 4; // Simple 4-byte offset for all fields
+            }
+            
+            self.class_field_map.insert(class.name.clone(), field_map);
+        }
+
+        // ------------------------------------------------------------------
+        // 4. Analyze and prepare all functions (including start function and class methods)
         // ------------------------------------------------------------------
         for function in &program.functions {
             self.prepare_function_type(function)?;
@@ -212,6 +251,9 @@ impl CodeGenerator {
         for class in &program.classes {
             // Generate constructor if it exists
             if let Some(constructor) = &class.constructor {
+                // Set class context for constructor generation
+                self.current_class_context = Some(class.name.clone());
+                
                 let constructor_function_name = format!("{}_constructor", class.name);
                 let constructor_function = ast::Function::new(
                     constructor_function_name,
@@ -221,6 +263,9 @@ impl CodeGenerator {
                     constructor.location.clone(),
                 );
                 self.generate_function(&constructor_function)?;
+                
+                // Clear class context
+                self.current_class_context = None;
             }
             
             // Generate class methods as static functions
@@ -742,8 +787,49 @@ impl CodeGenerator {
             }
             Statement::Assignment { target, value, location } => {
                 if let Some(local_info) = self.find_local(target) {
+                    // Regular local variable assignment
                     self.generate_expression(value, instructions)?;
                     instructions.push(Instruction::LocalSet(local_info.index));
+                } else if let Some(class_context) = &self.current_class_context {
+                    // Check if this is a field assignment in class context
+                    let field_info = self.class_field_map.get(class_context)
+                        .and_then(|field_map| field_map.get(target).cloned());
+                    
+                    if let Some((field_type, _field_offset)) = field_info {
+                        // For now, treat field assignments as local variables
+                        // In a full implementation, this would store to object memory
+                        self.generate_expression(value, instructions)?;
+                        
+                        // Create a local variable for the field if it doesn't exist
+                        let local_index = self.current_locals.len() as u32;
+                        let wasm_type = self.ast_type_to_wasm_type(&field_type)?;
+                        
+                        self.current_locals.push(LocalVarInfo {
+                            index: local_index,
+                            type_: wasm_type.into(),
+                        });
+                        self.variable_map.insert(target.clone(), LocalVarInfo {
+                            index: local_index,
+                            type_: wasm_type.into(),
+                        });
+                        
+                        instructions.push(Instruction::LocalSet(local_index));
+                    } else {
+                        // Check if the class exists to provide better error message
+                        if self.class_field_map.contains_key(class_context) {
+                            return Err(CompilerError::codegen_error(
+                                format!("Field '{}' not found in class '{}'", target, class_context),
+                                None,
+                                location.clone()
+                            ));
+                        } else {
+                            return Err(CompilerError::codegen_error(
+                                format!("Class '{}' not found", class_context),
+                                None,
+                                location.clone()
+                            ));
+                        }
+                    }
                 } else {
                     return Err(CompilerError::codegen_error(
                         format!("Undefined variable: {}", target),
@@ -1075,7 +1161,37 @@ impl CodeGenerator {
                 // For now, we'll use a simple trap instruction to halt execution
                 // In a full implementation, we'd create an error object and use WebAssembly's exception handling
                 instructions.push(Instruction::Unreachable);
-            }
+            },
+            
+            // Module and async statements
+            Statement::Import { imports: _, location: _ } => {
+                // For now, imports are no-ops in code generation
+                // TODO: Implement module linking and symbol resolution
+            },
+            
+            Statement::LaterAssignment { variable, expression, location: _ } => {
+                // later variable = start expression
+                // For now, this is handled as a regular assignment
+                // TODO: Implement proper async handling with WebAssembly async support
+                let expr_type = self.generate_expression(expression, instructions)?;
+                
+                // Create a local variable for the future result
+                let local_info = LocalVarInfo {
+                    index: self.current_locals.len() as u32,
+                    type_: expr_type.into(),
+                };
+                instructions.push(Instruction::LocalSet(local_info.index));
+                self.variable_map.insert(variable.clone(), local_info.clone());
+                self.current_locals.push(local_info);
+            },
+            
+            Statement::Background { expression, location: _ } => {
+                // background expression - fire and forget
+                // For now, just evaluate the expression and discard the result
+                // TODO: Implement proper background execution
+                self.generate_expression(expression, instructions)?;
+                instructions.push(Instruction::Drop); // Discard the result
+            },
         }
         Ok(())
     }
@@ -1169,6 +1285,28 @@ impl CodeGenerator {
                     // Generate HTTP call with URL and data parameters
                     self.generate_http_call(func_name, args, instructions)?;
                     return Ok(WasmType::I32); // String represented as I32 pointer
+                }
+                
+                // Check if this is a constructor call (function name matches a class name)
+                if self.class_table.contains_key(func_name) {
+                    // This is a constructor call - redirect to constructor function
+                    let constructor_name = format!("{}_constructor", func_name);
+                    if let Some(constructor_index) = self.get_function_index(&constructor_name) {
+                        // Generate arguments
+                        for arg in args {
+                            self.generate_expression(arg, instructions)?;
+                        }
+                        
+                        instructions.push(Instruction::Call(constructor_index));
+                        // Constructor returns an object (represented as I32 pointer)
+                        return Ok(WasmType::I32);
+                    } else {
+                        return Err(CompilerError::codegen_error(
+                            &format!("Constructor for class '{}' not found", func_name),
+                            Some("Make sure the class has a constructor defined".to_string()),
+                            None
+                        ));
+                    }
                 }
                 
                 // Check if function exists to provide better error messages
@@ -1956,7 +2094,7 @@ impl CodeGenerator {
     
     /// Create AST function definitions for stdlib functions
     fn create_stdlib_ast_functions(&self) -> Result<Vec<ast::Function>, CompilerError> {
-        use crate::ast::{Function as AstFunction, Parameter, Statement, Expression, Value, Type, FunctionSyntax, Visibility};
+        use crate::ast::{Function as AstFunction, Parameter, Statement, Expression, Value, Type, FunctionSyntax, Visibility, FunctionModifier};
         
         let mut functions = Vec::new();
         
@@ -2002,6 +2140,7 @@ impl CodeGenerator {
             description: Some("Returns the absolute value of an integer".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location: None,
         });
         
@@ -2035,6 +2174,7 @@ impl CodeGenerator {
             description: Some("Gets an element from an array".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location: None,
         });
         
@@ -2061,6 +2201,7 @@ impl CodeGenerator {
             description: Some("Gets the length of an array".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location: None,
         });
         
@@ -2087,6 +2228,7 @@ impl CodeGenerator {
             description: Some("Asserts that a condition is true".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location: None,
         });
         
@@ -2117,6 +2259,7 @@ impl CodeGenerator {
             description: Some("Concatenates two strings".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location: None,
         });
         
@@ -2147,6 +2290,7 @@ impl CodeGenerator {
             description: Some("Compares two strings".to_string()),
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location: None,
         });
 
@@ -3465,7 +3609,13 @@ impl CodeGenerator {
             instructions.push(Instruction::Drop);
         }
         
-        // Base calls don't return a value
-        Ok(WasmType::I32) // Return a dummy value for now
+        // Base calls don't produce a value on the WebAssembly stack
+        // They are statements that perform side effects
+        // We need to indicate that this doesn't leave a value on the stack
+        // by using a special marker. Since this is called from Statement::Expression
+        // context, we need to return a type that indicates "no value"
+        // But since we can't return "void", we'll use a dummy value approach
+        instructions.push(Instruction::I32Const(0));
+        Ok(WasmType::I32)
     }
 }

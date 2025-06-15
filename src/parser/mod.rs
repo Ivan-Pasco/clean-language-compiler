@@ -1,6 +1,7 @@
 use pest_derive::Parser;
 use crate::ast::{Program, Expression};
 use crate::error::CompilerError;
+use crate::module::ModuleResolver;
 
 // Define the CleanParser with the proper grammar path
 #[derive(Parser)]
@@ -57,6 +58,58 @@ impl CleanParser {
     pub fn parse_program_with_recovery(source: &str, file_path: &str) -> Result<Program, Vec<CompilerError>> {
         let mut parser = ErrorRecoveringParser::new(source, file_path);
         parser.parse_with_recovery(source)
+    }
+}
+
+/// Parse a program with module resolution support
+pub fn parse_with_modules(source: &str, file_path: &str) -> Result<Program, CompilerError> {
+    // Parse the basic program first
+    let mut program = parse_with_file(source, file_path)?;
+    
+    // If there are imports, resolve them
+    if !program.imports.is_empty() {
+        let mut resolver = ModuleResolver::new();
+        resolver.set_current_module(file_path.to_string());
+        
+        // Resolve imports and update the program
+        let import_resolution = resolver.resolve_imports(&program)?;
+        
+        // Store resolved modules in the program (we'll need to extend Program struct)
+        // For now, just validate that imports can be resolved
+        for import in &program.imports {
+            if !import_resolution.resolved_imports.contains_key(&import.name) {
+                return Err(CompilerError::import_error(
+                    "Failed to resolve import",
+                    &import.name,
+                    Some(crate::ast::SourceLocation {
+                        file: file_path.to_string(),
+                        line: 1,
+                        column: 1,
+                    })
+                ));
+            }
+        }
+    }
+    
+    Ok(program)
+}
+
+/// Parse a program with error recovery and module resolution
+pub fn parse_with_modules_and_recovery(source: &str, file_path: &str) -> Result<Program, Vec<CompilerError>> {
+    let mut parser = parser_impl::ErrorRecoveringParser::new(source, file_path);
+    let program = parser.parse_with_recovery(source)?;
+    
+    // If parsing succeeded, try module resolution
+    if !program.imports.is_empty() {
+        let mut resolver = ModuleResolver::new();
+        resolver.set_current_module(file_path.to_string());
+        
+        match resolver.resolve_imports(&program) {
+            Ok(_) => Ok(program),
+            Err(module_error) => Err(vec![module_error]),
+        }
+    } else {
+        Ok(program)
     }
 }
 

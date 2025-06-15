@@ -1,0 +1,69 @@
+// FileReader module - File I/O operations with async support
+// All functions are public and can be imported by other modules
+
+public function readFile(string filepath) -> string background
+    // Asynchronously read a file
+    // Note: This is a placeholder - real implementation would use WASM file APIs
+    print("Reading file: " + filepath)
+    return "File content placeholder"
+
+public function writeFile(string filepath, string content) -> boolean background
+    // Asynchronously write to a file
+    // Note: This is a placeholder - real implementation would use WASM file APIs
+    print("Writing to file: " + filepath)
+    return true
+
+public function fileExists(string filepath) -> boolean
+    // Check if a file exists
+    // Note: This is a placeholder - real implementation would use WASM file system APIs
+    print("Checking if file exists: " + filepath)
+    return true
+
+public function fileSize(string filepath) -> number
+    // Get file size in bytes
+    // Note: This is a placeholder - real implementation would use WASM file system APIs
+    print("Getting size of file: " + filepath)
+    return 0
+
+public function deleteFile(string filepath) -> boolean background
+    // Asynchronously delete a file
+    // Note: This is a placeholder - real implementation would use WASM file APIs
+    print("Deleting file: " + filepath)
+    return true
+
+public function copyFile(string source, string destination) -> boolean background
+    // Asynchronously copy a file
+    // Note: This is a placeholder - real implementation would use WASM file APIs
+    print("Copying file from " + source + " to " + destination)
+    return true
+
+public function moveFile(string source, string destination) -> boolean background
+    // Asynchronously move a file
+    // Note: This is a placeholder - real implementation would use WASM file APIs
+    print("Moving file from " + source + " to " + destination)
+    return true
+
+// Directory operations
+public function createDirectory(string dirpath) -> boolean
+    // Create a directory
+    // Note: This is a placeholder - real implementation would use WASM file system APIs
+    print("Creating directory: " + dirpath)
+    return true
+
+public function directoryExists(string dirpath) -> boolean
+    // Check if a directory exists
+    // Note: This is a placeholder - real implementation would use WASM file system APIs
+    print("Checking if directory exists: " + dirpath)
+    return true
+
+// Advanced file operations
+public function readFileLines(string filepath) -> void background
+    // Read file line by line (would return array when we have array support)
+    // Note: This is a placeholder - real implementation would return array of strings
+    print("Reading file lines: " + filepath)
+
+public function appendToFile(string filepath, string content) -> boolean background
+    // Asynchronously append content to a file
+    // Note: This is a placeholder - real implementation would use WASM file APIs
+    print("Appending to file: " + filepath)
+    return true 

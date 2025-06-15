@@ -1,0 +1,18 @@
+// Test module import system
+import:
+	MathUtils
+	StringOps as StrOps
+	FileReader
+
+function start()
+	// Test imported static methods
+	integer result = MathUtils.add(10, 20)
+	print(result)
+	
+	// Test imported with alias
+	string processed = StrOps.concat("Hello", " World")
+	print(processed)
+	
+	// Test file operations
+	string content = FileReader.read("test.txt")
+	print(content) 

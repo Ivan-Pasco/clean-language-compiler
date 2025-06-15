@@ -1,5 +1,5 @@
 use pest::{Parser, iterators::Pair};
-use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value, Class, Field, Constructor};
+use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value, Class, Field, Constructor, FunctionModifier, ImportItem};
 use crate::error::{CompilerError, ErrorUtils};
 use super::{CleanParser, convert_to_ast_location};
 use super::statement_parser::parse_statement;
@@ -127,6 +127,7 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
     }
 
     let mut program = Program {
+        imports: Vec::new(),
         functions,
         classes,
         start_function,
@@ -169,6 +170,7 @@ pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError>
         description: None,
         syntax: FunctionSyntax::Simple,
         visibility: Visibility::Public,
+        modifier: FunctionModifier::None,
         location,
     })
 }
@@ -279,6 +281,7 @@ pub fn parse_standalone_function(pair: Pair<Rule>) -> Result<Function, CompilerE
         description,
         syntax: FunctionSyntax::Simple,
         visibility: Visibility::Public,
+        modifier: FunctionModifier::None,
         location,
     })
 }
@@ -710,8 +713,158 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
         description,
         syntax: FunctionSyntax::Block,
         visibility: Visibility::Public,
+        modifier: FunctionModifier::None,
         location,
     })
+}
+
+/// Parse an import statement
+pub fn parse_import_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
+    let location = Some(convert_to_ast_location(&get_location(&pair)));
+    let mut imports = Vec::new();
+    
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::import_list => {
+                for import_item in inner.into_inner() {
+                    if import_item.as_rule() == Rule::import_item {
+                        let import = parse_import_item(import_item)?;
+                        imports.push(import);
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Ok(Statement::Import {
+        imports,
+        location,
+    })
+}
+
+/// Parse an individual import item
+fn parse_import_item(pair: Pair<Rule>) -> Result<ImportItem, CompilerError> {
+    let mut name = String::new();
+    let mut alias = None;
+    
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier => {
+                if name.is_empty() {
+                    name = inner.as_str().to_string();
+                } else {
+                    // This is the alias name
+                    alias = Some(inner.as_str().to_string());
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    if name.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Import item is missing a name".to_string(),
+            None,
+            None,
+        ));
+    }
+    
+    Ok(ImportItem { name, alias })
+}
+
+/// Parse a later assignment statement
+pub fn parse_later_assignment(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
+    let location = Some(convert_to_ast_location(&get_location(&pair)));
+    let mut variable = String::new();
+    let mut expression = None;
+    
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier => {
+                variable = inner.as_str().to_string();
+            },
+            Rule::expression => {
+                expression = Some(parse_expression(inner)?);
+            },
+            _ => {}
+        }
+    }
+    
+    if variable.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Later assignment is missing variable name".to_string(),
+            location.clone(),
+            None,
+        ));
+    }
+    
+    let expression = expression.ok_or_else(|| CompilerError::parse_error(
+        "Later assignment is missing expression".to_string(),
+        location.clone(),
+        None,
+    ))?;
+    
+    Ok(Statement::LaterAssignment {
+        variable,
+        expression,
+        location,
+    })
+}
+
+/// Parse a background statement
+pub fn parse_background_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
+    let location = Some(convert_to_ast_location(&get_location(&pair)));
+    let mut expression = None;
+    
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::expression {
+            expression = Some(parse_expression(inner)?);
+            break;
+        }
+    }
+    
+    let expression = expression.ok_or_else(|| CompilerError::parse_error(
+        "Background statement is missing expression".to_string(),
+        location.clone(),
+        None,
+    ))?;
+    
+    Ok(Statement::Background {
+        expression,
+        location,
+    })
+}
+
+/// Parse a start expression for async programming
+pub fn parse_start_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let location = convert_to_ast_location(&get_location(&pair));
+    let mut expression = None;
+    
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::expression {
+            expression = Some(Box::new(parse_expression(inner)?));
+            break;
+        }
+    }
+    
+    let expression = expression.ok_or_else(|| CompilerError::parse_error(
+        "Start expression is missing inner expression".to_string(),
+        Some(location.clone()),
+        None,
+    ))?;
+    
+    Ok(Expression::StartExpression {
+        expression,
+        location,
+    })
+}
+
+// Note: We'll need to add parse_expression function - this is a placeholder reference
+fn parse_expression(_pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    // This function should be implemented elsewhere in the parser
+    // For now, return a placeholder
+    Ok(Expression::Literal(Value::Void))
 }
 
 #[cfg(test)]

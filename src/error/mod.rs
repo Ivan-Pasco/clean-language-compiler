@@ -38,6 +38,7 @@ pub enum ErrorType {
     IO,
     Runtime,
     Validation,
+    Module,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -270,6 +271,9 @@ pub enum CompilerError {
     Validation {
         context: ErrorContext,
     },
+    Module {
+        context: ErrorContext,
+    },
 }
 
 impl CompilerError {
@@ -428,6 +432,10 @@ impl CompilerError {
                 context = context.with_help(help_text);
                 CompilerError::Validation { context }
             }
+            CompilerError::Module { mut context } => {
+                context = context.with_help(help_text);
+                CompilerError::Module { context }
+            }
         }
     }
 
@@ -460,6 +468,10 @@ impl CompilerError {
             CompilerError::Validation { mut context } => {
                 context = context.with_help_option(help_text);
                 CompilerError::Validation { context }
+            }
+            CompilerError::Module { mut context } => {
+                context = context.with_help_option(help_text);
+                CompilerError::Module { context }
             }
         }
     }
@@ -494,6 +506,10 @@ impl CompilerError {
                 context = context.with_location(location);
                 CompilerError::Validation { context }
             }
+            CompilerError::Module { mut context } => {
+                context = context.with_location(location);
+                CompilerError::Module { context }
+            }
         }
     }
 
@@ -526,6 +542,10 @@ impl CompilerError {
             CompilerError::Validation { mut context } => {
                 context = context.with_location_option(location);
                 CompilerError::Validation { context }
+            }
+            CompilerError::Module { mut context } => {
+                context = context.with_location_option(location);
+                CompilerError::Module { context }
             }
         }
     }
@@ -712,6 +732,44 @@ impl CompilerError {
             }
         }
     }
+
+    /// Create a module-related error
+    pub fn module_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
+        CompilerError::Module {
+            context: ErrorContext::new(message, help, ErrorType::Module, location),
+        }
+    }
+
+    /// Create an import resolution error
+    pub fn import_error<T: Into<String>>(message: T, import_name: &str, location: Option<SourceLocation>) -> Self {
+        let detailed_message = format!("Import '{}': {}", import_name, message.into());
+        let help = Some(format!("Check if the module '{}' exists and is accessible", import_name));
+        CompilerError::Module {
+            context: ErrorContext::new(detailed_message, help, ErrorType::Module, location),
+        }
+    }
+
+    /// Create a symbol resolution error
+    pub fn symbol_error<T: Into<String>>(message: T, symbol_name: &str, module_name: Option<&str>) -> Self {
+        let detailed_message = match module_name {
+            Some(module) => format!("Symbol '{}' in module '{}': {}", symbol_name, module, message.into()),
+            None => format!("Symbol '{}': {}", symbol_name, message.into()),
+        };
+        let help = Some(format!("Check if the symbol '{}' is properly exported and accessible", symbol_name));
+        CompilerError::Module {
+            context: ErrorContext::new(detailed_message, help, ErrorType::Module, None),
+        }
+    }
+
+    /// Create a circular dependency error
+    pub fn circular_dependency_error(modules: &[String]) -> Self {
+        let cycle = modules.join(" -> ");
+        let message = format!("Circular dependency detected: {}", cycle);
+        let help = Some("Reorganize modules to eliminate circular dependencies".to_string());
+        CompilerError::Module {
+            context: ErrorContext::new(message, help, ErrorType::Module, None),
+        }
+    }
 }
 
 fn levenshtein_distance(s1: &str, s2: &str) -> usize {
@@ -784,6 +842,10 @@ impl fmt::Display for CompilerError {
             },
             CompilerError::Validation { context } => {
                 write!(f, "Validation error: {}", context.message)?;
+                context
+            },
+            CompilerError::Module { context } => {
+                write!(f, "Module error: {}", context.message)?;
                 context
             },
         };

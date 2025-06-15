@@ -73,6 +73,10 @@ pub enum Type {
     Object(String),
     Class { name: String, type_args: Vec<Type> },
     Function(Vec<Type>, Box<Type>),
+    
+    // Async types
+    Future(Box<Type>),
+    
     Any,
 }
 
@@ -199,6 +203,19 @@ pub enum Expression {
     // Base constructor call: base(args...)
     BaseCall {
         arguments: Vec<Expression>,
+        location: SourceLocation,
+    },
+    
+    // Async expressions
+    StartExpression {
+        expression: Box<Expression>,
+        location: SourceLocation,
+    },
+    
+    // Later assignment (for async)
+    LaterAssignment {
+        variable: String,
+        expression: Box<Expression>,
         location: SourceLocation,
     },
 }
@@ -367,6 +384,24 @@ pub enum Statement {
         message: Expression,
         location: Option<SourceLocation>,
     },
+    
+    // Module imports
+    Import {
+        imports: Vec<ImportItem>,
+        location: Option<SourceLocation>,
+    },
+    
+    // Async statements
+    LaterAssignment {
+        variable: String,
+        expression: Expression,
+        location: Option<SourceLocation>,
+    },
+    
+    Background {
+        expression: Expression,
+        location: Option<SourceLocation>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -380,6 +415,18 @@ pub struct ConstantAssignment {
     pub type_: Type,
     pub name: String,
     pub value: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportItem {
+    pub name: String,
+    pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FunctionModifier {
+    None,
+    Background,
 }
 
 #[derive(Debug, Clone)]
@@ -406,6 +453,7 @@ pub struct Function {
     pub description: Option<String>,
     pub syntax: FunctionSyntax,
     pub visibility: Visibility,
+    pub modifier: FunctionModifier,
     pub location: Option<SourceLocation>,
 }
 
@@ -427,6 +475,7 @@ impl Function {
             description: None,
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
             location,
         }
     }
@@ -478,15 +527,17 @@ pub struct Class {
 
 #[derive(Debug, Clone)]
 pub struct Program {
+    pub imports: Vec<ImportItem>,
     pub functions: Vec<Function>,
     pub classes: Vec<Class>,
     pub start_function: Option<Function>,
 }
 
 impl Program {
-    pub fn new(functions: Vec<Function>, classes: Vec<Class>) -> Self {
-        Self { 
-            functions, 
+        pub fn new(functions: Vec<Function>, classes: Vec<Class>) -> Self {
+        Self {
+            imports: Vec::new(),
+            functions,
             classes,
             start_function: None,
         }
@@ -550,6 +601,7 @@ impl fmt::Display for Type {
                 write!(f, ">")
             },
             Type::TypeParameter(name) => write!(f, "{}", name),
+            Type::Future(inner) => write!(f, "Future<{}>", inner),
             Type::Any => f.write_str("any"),
         }
     }

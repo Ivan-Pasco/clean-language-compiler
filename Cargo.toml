@@ -86,6 +86,10 @@ path = "src/bin/debug_wasm.rs"
 name = "debug_parse_tree"
 path = "debug_parse_tree.rs"
 
+[[bin]]
+name = "wasmtime_runner"
+path = "src/bin/wasmtime_runner.rs"
+
 [lib]
 name = "clean_language_compiler"
 path = "src/lib.rs"

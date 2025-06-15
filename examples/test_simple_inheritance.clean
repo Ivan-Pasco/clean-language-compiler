@@ -1,0 +1,15 @@
+// Test basic inheritance with constructor and base class calls
+class Shape
+	String color
+	constructor(String colorParam)
+		color = colorParam
+
+class Circle is Shape  
+	integer radius
+	constructor(String colorParam, integer radiusParam)
+		base(colorParam)
+		radius = radiusParam
+
+start()
+	Circle myCircle = Circle("red", 5)
+	printl("Circle created") 
