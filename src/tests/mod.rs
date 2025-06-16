@@ -367,3 +367,5 @@ mod simple_test;
 mod compiler_fixes_test;
 mod memory_tests;
 mod parser_complex_test; 
+pub mod test_runner;
+pub mod simple_test_runner; 

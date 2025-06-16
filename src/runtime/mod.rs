@@ -264,6 +264,174 @@ impl CleanRuntime {
     
     /// Add standard library functions (HTTP, File I/O, etc.)
     fn add_stdlib_functions(&self, linker: &mut Linker<()>) -> Result<(), CompilerError> {
+        // Type conversion functions - CRITICAL for runtime functionality
+        linker.func_wrap("env", "int_to_string", |mut caller: Caller<'_, ()>, value: i32| -> i32 {
+            let string_value = value.to_string();
+            
+            // Get memory to store the string
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let mut data = memory.data_mut(&mut caller);
+                    
+                    // Simple string storage: length (4 bytes) + string data
+                    let string_bytes = string_value.as_bytes();
+                    let total_size = 4 + string_bytes.len();
+                    
+                    // Find a place to store the string (simple allocation at end of used memory)
+                    let mut offset = 1024; // Start after initial memory
+                    while offset + total_size < data.len() {
+                        // Check if this area is free (all zeros)
+                        let is_free = data[offset..offset + total_size].iter().all(|&b| b == 0);
+                        if is_free {
+                            break;
+                        }
+                        offset += 32; // Move in 32-byte chunks
+                    }
+                    
+                    if offset + total_size < data.len() {
+                        // Store length
+                        data[offset..offset + 4].copy_from_slice(&(string_bytes.len() as u32).to_le_bytes());
+                        // Store string data
+                        data[offset + 4..offset + 4 + string_bytes.len()].copy_from_slice(string_bytes);
+                        return offset as i32;
+                    }
+                }
+            }
+            
+            0 // Return null pointer on failure
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create int_to_string function: {}", e),
+            None, None
+        ))?;
+        
+        linker.func_wrap("env", "float_to_string", |mut caller: Caller<'_, ()>, value: f64| -> i32 {
+            let string_value = value.to_string();
+            
+            // Get memory to store the string
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let mut data = memory.data_mut(&mut caller);
+                    
+                    // Simple string storage: length (4 bytes) + string data
+                    let string_bytes = string_value.as_bytes();
+                    let total_size = 4 + string_bytes.len();
+                    
+                    // Find a place to store the string
+                    let mut offset = 1024;
+                    while offset + total_size < data.len() {
+                        let is_free = data[offset..offset + total_size].iter().all(|&b| b == 0);
+                        if is_free {
+                            break;
+                        }
+                        offset += 32;
+                    }
+                    
+                    if offset + total_size < data.len() {
+                        // Store length
+                        data[offset..offset + 4].copy_from_slice(&(string_bytes.len() as u32).to_le_bytes());
+                        // Store string data
+                        data[offset + 4..offset + 4 + string_bytes.len()].copy_from_slice(string_bytes);
+                        return offset as i32;
+                    }
+                }
+            }
+            
+            0 // Return null pointer on failure
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create float_to_string function: {}", e),
+            None, None
+        ))?;
+        
+        linker.func_wrap("env", "bool_to_string", |mut caller: Caller<'_, ()>, value: i32| -> i32 {
+            let string_value = if value != 0 { "true" } else { "false" };
+            
+            // Get memory to store the string
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let mut data = memory.data_mut(&mut caller);
+                    
+                    let string_bytes = string_value.as_bytes();
+                    let total_size = 4 + string_bytes.len();
+                    
+                    let mut offset = 1024;
+                    while offset + total_size < data.len() {
+                        let is_free = data[offset..offset + total_size].iter().all(|&b| b == 0);
+                        if is_free {
+                            break;
+                        }
+                        offset += 32;
+                    }
+                    
+                    if offset + total_size < data.len() {
+                        data[offset..offset + 4].copy_from_slice(&(string_bytes.len() as u32).to_le_bytes());
+                        data[offset + 4..offset + 4 + string_bytes.len()].copy_from_slice(string_bytes);
+                        return offset as i32;
+                    }
+                }
+            }
+            
+            0
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create bool_to_string function: {}", e),
+            None, None
+        ))?;
+        
+        // String parsing functions
+        linker.func_wrap("env", "string_to_int", |mut caller: Caller<'_, ()>, str_ptr: i32| -> i32 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if str_ptr >= 0 && (str_ptr as usize) + 4 < data.len() {
+                        // Read string length
+                        let len_bytes = &data[str_ptr as usize..str_ptr as usize + 4];
+                        let str_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                        
+                        if str_ptr as usize + 4 + str_len < data.len() {
+                            // Read string data
+                            let str_data = &data[str_ptr as usize + 4..str_ptr as usize + 4 + str_len];
+                            if let Ok(string_value) = std::str::from_utf8(str_data) {
+                                return string_value.parse::<i32>().unwrap_or(0);
+                            }
+                        }
+                    }
+                }
+            }
+            0
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create string_to_int function: {}", e),
+            None, None
+        ))?;
+        
+        linker.func_wrap("env", "string_to_float", |mut caller: Caller<'_, ()>, str_ptr: i32| -> f64 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if str_ptr >= 0 && (str_ptr as usize) + 4 < data.len() {
+                        let len_bytes = &data[str_ptr as usize..str_ptr as usize + 4];
+                        let str_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                        
+                        if str_ptr as usize + 4 + str_len < data.len() {
+                            let str_data = &data[str_ptr as usize + 4..str_ptr as usize + 4 + str_len];
+                            if let Ok(string_value) = std::str::from_utf8(str_data) {
+                                return string_value.parse::<f64>().unwrap_or(0.0);
+                            }
+                        }
+                    }
+                }
+            }
+            0.0
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create string_to_float function: {}", e),
+            None, None
+        ))?;
+        
         // HTTP functions with async simulation
         linker.func_wrap("env", "http_get", |_caller: Caller<'_, ()>, _url_ptr: i32, _url_len: i32| -> i32 {
             println!("🌐 [HTTP GET] Simulating async request...");

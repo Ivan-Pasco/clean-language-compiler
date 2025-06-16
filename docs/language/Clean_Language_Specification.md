@@ -1717,6 +1717,190 @@ functions:
         string weather = Http.get("https://api.weather.com/current?city=London")
 ```
 
+## Method-Style Syntax
+
+Clean Language supports both traditional function calls and modern method-style syntax. This makes your code more readable and intuitive by allowing you to call functions directly on values.
+
+### How It Works
+
+Instead of writing `function(value, parameters)`, you can write `value.function(parameters)`. This feels more natural and reads like English!
+
+**Traditional Style:**
+```clean
+integer textLength = length(myText)
+string upperText = toUpperCase(myText)
+```
+
+**Method Style (Same Result):**
+```clean
+integer textLength = myText.length()
+string upperText = myText.toUpperCase()
+```
+
+### Available Method-Style Functions
+
+#### Utility Functions
+These work on any value and help with common tasks:
+
+**Length and Size Functions:**
+
+```clean
+// Get the length of text, arrays, or collections
+integer size = myText.length()
+integer count = myArray.length()
+
+// Check if something is empty or has content
+boolean empty = myText.isEmpty()
+boolean hasContent = myArray.isNotEmpty()
+
+// Check if a value exists (not null/undefined)
+boolean exists = myValue.isDefined()
+boolean missing = myValue.isNotDefined()
+
+// Keep numbers within bounds (like volume controls)
+integer volume = userInput.keepBetween(0, 100)
+float temperature = reading.keepBetween(-10.0, 50.0)
+
+// Get default values for types
+integer defaultNumber = defaultInt()        // Returns 0
+float defaultDecimal = defaultFloat()       // Returns 0.0
+boolean defaultFlag = defaultBool()         // Returns false
+```
+
+**Validation and Checking Functions:**
+
+```clean
+// Check if something is empty or has content
+boolean empty = myText.isEmpty()
+boolean hasContent = myArray.isNotEmpty()
+
+// Check if a value exists (not null/undefined)
+boolean exists = myValue.isDefined()
+boolean missing = myValue.isNotDefined()
+```
+
+**Boundary and Range Functions:**
+
+```clean
+// Keep numbers within bounds (like volume controls)
+integer volume = userInput.keepBetween(0, 100)
+float temperature = reading.keepBetween(-10.0, 50.0)
+```
+
+**Default Value Pattern:**
+
+```clean
+// Use 'or' for elegant default values - much cleaner!
+integer count = userInput or 0              // If userInput is null/undefined, use 0
+string name = userName or "Anonymous"       // If userName is empty, use "Anonymous"
+float rate = configRate or 1.0             // If configRate is missing, use 1.0
+boolean enabled = setting or true          // If setting is undefined, use true
+```
+
+#### Type Conversion Functions
+Convert values from one type to another - perfect for user input and data processing:
+
+```clean
+// Convert numbers to different types
+string numberText = age.toString()          // 25 → "25"
+float decimal = wholeNumber.toFloat()       // 42 → 42.0
+integer rounded = price.toInteger()         // 19.99 → 19
+
+// Convert text to numbers
+integer userAge = ageInput.toInteger()      // "25" → 25
+float userHeight = heightInput.toFloat()    // "5.8" → 5.8
+
+// Convert to true/false values
+boolean isValid = userChoice.toBoolean()    // "true" → true
+
+// Chain conversions together!
+string result = temperature.toFloat().toString()  // "98.6" → 98.6 → "98.6"
+```
+
+#### Validation Functions
+Make sure your data is correct with friendly assertion methods:
+
+```clean
+// Check that conditions are true
+userAge.mustBeTrue(userAge > 0)           // Ensures age is positive
+password.mustBeTrue(password.length() >= 8)  // Ensures strong password
+
+// Check that conditions are false  
+email.mustBeFalse(email.isEmpty())        // Ensures email isn't empty
+
+// Check that two values match
+confirmPassword.mustBeEqual(originalPassword)  // Password confirmation
+
+// Check that two values are different
+newPassword.mustNotBeEqual(oldPassword)   // Ensures password was changed
+```
+
+### Method Chaining
+
+One of the best features is **method chaining** - you can call multiple methods in a row:
+
+```clean
+// Clean up and validate user input in one line
+string cleanEmail = userInput.trim().toLowerCase().toString()
+
+// Process numbers with multiple steps
+integer finalScore = rawScore.keepBetween(0, 100).toInteger()
+
+// Complex text processing
+string result = messyText
+    .trim()                    // Remove extra spaces
+    .toLowerCase()             // Make lowercase  
+    .toString()                // Ensure it's text
+```
+
+### When to Use Each Style
+
+**Use Method Style When:**
+- Working with a specific value (like `text.length()`)
+- Chaining multiple operations together
+- The code reads more naturally
+
+**Use Traditional Style When:**
+- Calling utility functions like `Math.sqrt()`
+- Working with multiple parameters of equal importance
+- Following existing code patterns
+
+### Real-World Examples
+
+```clean
+functions:
+    void processUserData()
+        // User registration form processing with elegant defaults
+        string email = (userEmail or "").trim().toLowerCase()
+        boolean validEmail = email.length().keepBetween(5, 100)
+        
+        // Age validation with method chaining and defaults
+        integer age = (ageInput or "18").toInteger().keepBetween(13, 120)
+        age.mustBeTrue(age >= 18)  // Must be adult
+        
+        // Password strength checking
+        password.mustBeTrue(password.length() >= 8)
+        confirmPassword.mustBeEqual(password)
+        
+        // Format display text with defaults
+        string firstName = userFirstName or "User"
+        string welcome = "Welcome, ".concat(firstName.trim())
+        string ageText = "Age: ".concat(age.toString())
+        
+    void dataProcessing()
+        // Array processing with methods
+        Array<string> names = ["Alice", "Bob", "Charlie"]
+        integer count = names.length()
+        boolean hasData = names.isNotEmpty()
+        
+        // Number processing
+        Array<float> scores = [85.5, 92.3, 78.9]
+        float average = calculateAverage(scores).keepBetween(0.0, 100.0)
+        string displayScore = average.toString().concat("%")
+```
+
+This method-style syntax makes Clean Language feel modern and intuitive while keeping all the power of traditional function calls!
+
 ## Modules and Imports
 
 ### Visibility Model

@@ -2,11 +2,11 @@ use crate::parser::CleanParser;
 use crate::semantic::SemanticAnalyzer;
 use crate::codegen::CodeGenerator;
 use crate::ast::{Program, Function, Statement, Expression, Type, Value, SourceLocation};
-use crate::stdlib::memory::{MemoryManager, MemoryBlock};
+use crate::stdlib::memory::MemoryManager;
 use crate::stdlib::error::StdlibError;
 use crate::error::CompilerError;
 use crate::types::WasmType;
-use wasm_encoder::{FuncType, ValType};
+use wasm_encoder::ValType;
 
 #[test]
 fn test_memory_manager_clone() {

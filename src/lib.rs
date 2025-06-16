@@ -9,6 +9,8 @@ pub mod types;
 pub mod module;
 pub mod runtime;
 
+pub mod tests;
+
 use crate::parser::CleanParser;
 use crate::semantic::SemanticAnalyzer;
 use crate::codegen::CodeGenerator;

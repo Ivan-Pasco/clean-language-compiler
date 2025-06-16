@@ -171,6 +171,9 @@ impl CodeGenerator {
         // 1.3. Register HTTP client imports
         self.register_http_imports()?;
 
+        // 1.4. Register type conversion imports - CRITICAL for runtime functionality
+        self.register_type_conversion_imports()?;
+
         // ------------------------------------------------------------------
         // 2. Register standard library functions AFTER imports (they get indices 14+)
         // ------------------------------------------------------------------
@@ -1922,7 +1925,7 @@ impl CodeGenerator {
                 Ok(WasmType::I32)
             },
             
-// TODO: Add other expression variants based on ast::Expression definition
+            // TODO: Add other expression variants based on ast::Expression definition
             // Expression::Unary(op, expr) => { ... }
             _ => Err(CompilerError::codegen_error("Unsupported expression type in codegen", None, loc.clone())),
         }
@@ -2551,6 +2554,32 @@ impl CodeGenerator {
 
 
 
+        // mustBeTrue(condition: Boolean) -> Void
+        functions.push(AstFunction {
+            name: "mustBeTrue".to_string(),
+            type_parameters: vec![],
+            type_constraints: vec![],
+            parameters: vec![
+                Parameter {
+                    name: "condition".to_string(),
+                    type_: Type::Boolean,
+                }
+            ],
+            return_type: Type::Void,
+            body: vec![
+                // Placeholder implementation - just drop the value
+                Statement::Expression {
+                    expr: Expression::Variable("condition".to_string()),
+                    location: None,
+                }
+            ],
+            description: Some("Ensures that a condition is true".to_string()),
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
+            location: None,
+        });
+
         // mustBeFalse(condition: Boolean) -> Void
         functions.push(AstFunction {
             name: "mustBeFalse".to_string(),
@@ -2611,91 +2640,8 @@ impl CodeGenerator {
             location: None,
         });
 
-        // defaultInt() -> Integer
-        functions.push(AstFunction {
-            name: "defaultInt".to_string(),
-            type_parameters: vec![],
-            type_constraints: vec![],
-            parameters: vec![],
-            return_type: Type::Integer,
-            body: vec![
-                Statement::Return {
-                    value: Some(Expression::Literal(Value::Integer(0))),
-                    location: None,
-                }
-            ],
-            description: Some("Returns the default integer value".to_string()),
-            syntax: FunctionSyntax::Simple,
-            visibility: Visibility::Public,
-            modifier: FunctionModifier::None,
-            location: None,
-        });
-
-        // keepBetween(value: Integer, min: Integer, max: Integer) -> Integer
-        functions.push(AstFunction {
-            name: "keepBetween".to_string(),
-            type_parameters: vec![],
-            type_constraints: vec![],
-            parameters: vec![
-                Parameter {
-                    name: "value".to_string(),
-                    type_: Type::Integer,
-                },
-                Parameter {
-                    name: "min".to_string(),
-                    type_: Type::Integer,
-                },
-                Parameter {
-                    name: "max".to_string(),
-                    type_: Type::Integer,
-                }
-            ],
-            return_type: Type::Integer,
-            body: vec![
-                // Simplified clamp: if value < min then min else if value > max then max else value
-                Statement::If {
-                    condition: Expression::Binary(
-                        Box::new(Expression::Variable("value".to_string())),
-                        ast::BinaryOperator::Less,
-                        Box::new(Expression::Variable("min".to_string()))
-                    ),
-                    then_branch: vec![
-                        Statement::Return {
-                            value: Some(Expression::Variable("min".to_string())),
-                            location: None,
-                        }
-                    ],
-                    else_branch: Some(vec![
-                        Statement::If {
-                            condition: Expression::Binary(
-                                Box::new(Expression::Variable("value".to_string())),
-                                ast::BinaryOperator::Greater,
-                                Box::new(Expression::Variable("max".to_string()))
-                            ),
-                            then_branch: vec![
-                                Statement::Return {
-                                    value: Some(Expression::Variable("max".to_string())),
-                                    location: None,
-                                }
-                            ],
-                            else_branch: Some(vec![
-                                Statement::Return {
-                                    value: Some(Expression::Variable("value".to_string())),
-                                    location: None,
-                                }
-                            ]),
-                            location: None,
-                        }
-                    ]),
-                    location: None,
-                }
-            ],
-            description: Some("Keeps an integer value between min and max bounds".to_string()),
-            syntax: FunctionSyntax::Simple,
-            visibility: Visibility::Public,
-            modifier: FunctionModifier::None,
-            location: None,
-        });
+        // Note: length, isEmpty, isNotEmpty, isDefined, isNotDefined, keepBetween
+        // are now ONLY available as method-style calls, not as traditional functions
 
         Ok(functions)
     }
@@ -2917,10 +2863,10 @@ impl CodeGenerator {
                         // Call array length function
                         if let Some(array_length_index) = self.get_function_index("array.length") {
                             instructions.push(Instruction::Call(array_length_index));
-                            Ok(Some(WasmType::I32))
+                                Ok(Some(WasmType::I32))
                         } else {
                             instructions.push(Instruction::I32Const(0)); // Placeholder
-                            Ok(Some(WasmType::I32))
+                                Ok(Some(WasmType::I32))
                         }
                     },
                     "get" => {
@@ -2933,9 +2879,9 @@ impl CodeGenerator {
                             Ok(Some(WasmType::I32)) // Element pointer
                         } else {
                             instructions.push(Instruction::I32Const(0));
-                            Ok(Some(WasmType::I32))
+                                Ok(Some(WasmType::I32))
                         }
-                    },
+                            },
                     "set" => {
                         // Generate array, index, and value arguments
                         self.generate_expression(&arguments[0], instructions)?;
@@ -3826,8 +3772,8 @@ impl CodeGenerator {
                     "printl" | "println" => {
                         // Call printl_simple import function (index 3) - void function
                         instructions.push(Instruction::Call(3));
-                    },
-                    _ => {
+            },
+            _ => {
                         return Err(CompilerError::codegen_error(
                             &format!("Unknown print function: {}", func_name),
                             None,
@@ -4085,6 +4031,41 @@ impl CodeGenerator {
         let printl_simple_type = self.add_function_type(&[WasmType::I32], None)?;
         self.import_section.import("env", "printl_simple", wasm_encoder::EntityType::Function(printl_simple_type));
         self.function_map.insert("printl_simple".to_string(), self.function_count);
+        self.function_count += 1;
+        
+        Ok(())
+    }
+
+    /// Register type conversion import functions - CRITICAL for runtime functionality
+    fn register_type_conversion_imports(&mut self) -> Result<(), CompilerError> {
+        // int_to_string(value: i32) -> i32 (returns string pointer)
+        let int_to_string_type = self.add_function_type(&[WasmType::I32], Some(WasmType::I32))?;
+        self.import_section.import("env", "int_to_string", wasm_encoder::EntityType::Function(int_to_string_type));
+        self.function_map.insert("int_to_string".to_string(), self.function_count);
+        self.function_count += 1;
+        
+        // float_to_string(value: f64) -> i32 (returns string pointer)
+        let float_to_string_type = self.add_function_type(&[WasmType::F64], Some(WasmType::I32))?;
+        self.import_section.import("env", "float_to_string", wasm_encoder::EntityType::Function(float_to_string_type));
+        self.function_map.insert("float_to_string".to_string(), self.function_count);
+        self.function_count += 1;
+        
+        // bool_to_string(value: i32) -> i32 (returns string pointer)
+        let bool_to_string_type = self.add_function_type(&[WasmType::I32], Some(WasmType::I32))?;
+        self.import_section.import("env", "bool_to_string", wasm_encoder::EntityType::Function(bool_to_string_type));
+        self.function_map.insert("bool_to_string".to_string(), self.function_count);
+        self.function_count += 1;
+        
+        // string_to_int(str_ptr: i32) -> i32 (returns parsed integer)
+        let string_to_int_type = self.add_function_type(&[WasmType::I32], Some(WasmType::I32))?;
+        self.import_section.import("env", "string_to_int", wasm_encoder::EntityType::Function(string_to_int_type));
+        self.function_map.insert("string_to_int".to_string(), self.function_count);
+        self.function_count += 1;
+        
+        // string_to_float(str_ptr: i32) -> f64 (returns parsed float)
+        let string_to_float_type = self.add_function_type(&[WasmType::I32], Some(WasmType::F64))?;
+        self.import_section.import("env", "string_to_float", wasm_encoder::EntityType::Function(string_to_float_type));
+        self.function_map.insert("string_to_float".to_string(), self.function_count);
         self.function_count += 1;
         
         Ok(())

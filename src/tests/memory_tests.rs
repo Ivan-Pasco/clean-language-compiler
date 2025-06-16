@@ -1,4 +1,4 @@
-use crate::stdlib::memory::{MemoryManager, MemoryBlock};
+use crate::stdlib::memory::MemoryManager;
 use crate::error::CompilerError;
 use crate::codegen::{INTEGER_TYPE_ID, FLOAT_TYPE_ID, STRING_TYPE_ID, ARRAY_TYPE_ID, MATRIX_TYPE_ID};
 

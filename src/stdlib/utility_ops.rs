@@ -1,17 +1,18 @@
 use crate::codegen::CodeGenerator;
-use crate::types::WasmType;
 use crate::error::CompilerError;
+use crate::types::WasmType;
 use wasm_encoder::Instruction;
 use crate::stdlib::register_stdlib_function;
 
-/// Utility operations implementation for common built-in functions
-pub struct UtilityOperations {}
+/// Utility operations for Clean Language
+pub struct UtilityOperations;
 
 impl UtilityOperations {
     pub fn new() -> Self {
-        Self {}
+        UtilityOperations
     }
 
+    /// Register utility functions with the code generator
     pub fn register_functions(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
         // Register length function for strings and arrays
         self.register_length_functions(codegen)?;
@@ -23,7 +24,7 @@ impl UtilityOperations {
         self.register_type_checking_functions(codegen)?;
         
         // Register utility functions
-        self.register_utility_functions(codegen)?;
+        UtilityOperations::register_utility_functions(codegen)?;
         
         Ok(())
     }
@@ -45,8 +46,6 @@ impl UtilityOperations {
                 }),
             ]
         )?;
-
-
 
         Ok(())
     }
@@ -79,7 +78,22 @@ impl UtilityOperations {
             self.generate_assert_not_equals()
         )?;
 
-
+        // MustBeTrue function
+        register_stdlib_function(
+            codegen,
+            "mustBeTrue",
+            &[WasmType::I32], // condition
+            None, // void
+            vec![
+                Instruction::LocalGet(0),
+                Instruction::I32Const(0),
+                Instruction::I32Eq,
+                Instruction::If(wasm_encoder::BlockType::Empty),
+                    // If condition is false, trap
+                    Instruction::Unreachable,
+                Instruction::End,
+            ]
+        )?;
 
         // MustBeFalse function
         register_stdlib_function(
@@ -169,75 +183,75 @@ impl UtilityOperations {
         Ok(())
     }
 
-    fn register_utility_functions(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // Default value function for integers
+    /// Register utility functions with the code generator
+    pub fn register_utility_functions(codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
+        use wasm_encoder::Instruction;
+        
+        // Helper function to register stdlib functions
+        fn register_stdlib_function(
+            codegen: &mut CodeGenerator,
+            name: &str,
+            params: &[WasmType],
+            return_type: Option<WasmType>,
+            instructions: Vec<Instruction>
+        ) -> Result<(), CompilerError> {
+            codegen.register_function(name, params, return_type, &instructions)?;
+            Ok(())
+        }
+
+        // MustBeTrue function
         register_stdlib_function(
             codegen,
-            "defaultInt",
-            &[],
-            Some(WasmType::I32),
+            "mustBeTrue",
+            &[WasmType::I32], // condition
+            None, // void
             vec![
+                Instruction::LocalGet(0),
                 Instruction::I32Const(0),
+                Instruction::I32Eq,
+                Instruction::If(wasm_encoder::BlockType::Empty),
+                    // If condition is false, trap
+                    Instruction::Unreachable,
+                Instruction::End,
             ]
         )?;
 
-        // Default value function for floats
+        // MustBeFalse function
         register_stdlib_function(
             codegen,
-            "defaultFloat",
-            &[],
-            Some(WasmType::F64),
+            "mustBeFalse",
+            &[WasmType::I32], // condition
+            None, // void
             vec![
-                Instruction::F64Const(0.0),
+                Instruction::LocalGet(0),
+                Instruction::I32Const(0),
+                Instruction::I32Ne,
+                Instruction::If(wasm_encoder::BlockType::Empty),
+                    // If condition is true, trap
+                    Instruction::Unreachable,
+                Instruction::End,
             ]
         )?;
 
-        // Default value function for booleans
+        // MustBeEqual function (simplified - just checks if both values are the same)
         register_stdlib_function(
             codegen,
-            "defaultBool",
-            &[],
-            Some(WasmType::I32),
+            "mustBeEqual",
+            &[WasmType::I32, WasmType::I32], // value1, value2
+            None, // void
             vec![
-                Instruction::I32Const(0), // false
+                Instruction::LocalGet(0),
+                Instruction::LocalGet(1),
+                Instruction::I32Ne,
+                Instruction::If(wasm_encoder::BlockType::Empty),
+                    // If values are not equal, trap
+                    Instruction::Unreachable,
+                Instruction::End,
             ]
         )?;
 
-        // Swap function for integers
-        register_stdlib_function(
-            codegen,
-            "swap_int",
-            &[WasmType::I32, WasmType::I32], // a, b
-            Some(WasmType::I64), // packed result (high 32 bits = b, low 32 bits = a)
-            vec![
-                // Pack b in high 32 bits, a in low 32 bits
-                Instruction::LocalGet(1), // b
-                Instruction::I64ExtendI32U,
-                Instruction::I64Const(32),
-                Instruction::I64Shl,
-                Instruction::LocalGet(0), // a
-                Instruction::I64ExtendI32U,
-                Instruction::I64Or,
-            ]
-        )?;
-
-        // KeepBetween function for integers
-        register_stdlib_function(
-            codegen,
-            "keepBetween",
-            &[WasmType::I32, WasmType::I32, WasmType::I32], // value, min, max
-            Some(WasmType::I32), // value kept between bounds
-            self.generate_keep_between_int()
-        )?;
-
-        // KeepBetween function for floats
-        register_stdlib_function(
-            codegen,
-            "keepBetweenFloat",
-            &[WasmType::F64, WasmType::F64, WasmType::F64], // value, min, max
-            Some(WasmType::F64), // value kept between bounds
-            self.generate_keep_between_float()
-        )?;
+        // Note: length, isEmpty, isNotEmpty, isDefined, isNotDefined, keepBetween
+        // are now ONLY available as method-style calls, not as traditional functions
 
         Ok(())
     }

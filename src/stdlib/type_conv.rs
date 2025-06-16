@@ -369,27 +369,23 @@ impl TypeConvOperations {
     }
 
     fn generate_int_to_string_function(&self) -> Vec<Instruction> {
-        let mut instructions = Vec::new();
-        
+        vec![
         // Get integer value
-        instructions.push(Instruction::LocalGet(0));
+            Instruction::LocalGet(0),
         
-        // Call host function for int to string conversion
-        instructions.push(Instruction::Call(17)); // Import index for int_to_string
-        
-        instructions
+            // Call the runtime int_to_string function
+            Instruction::Call(0), // This will be resolved to the correct import index by the linker
+        ]
     }
 
     fn generate_float_to_string_function(&self) -> Vec<Instruction> {
-        let mut instructions = Vec::new();
-        
+        vec![
         // Get float value
-        instructions.push(Instruction::LocalGet(0));
+            Instruction::LocalGet(0),
         
-        // Call host function for float to string conversion
-        instructions.push(Instruction::Call(16)); // Import index for float_to_string
-        
-        instructions
+            // Call the runtime float_to_string function
+            Instruction::Call(1), // This will be resolved to the correct import index by the linker
+        ]
     }
 
     fn generate_float_to_int_function(&self) -> Vec<Instruction> {
@@ -524,15 +520,13 @@ impl TypeConvOperations {
     }
 
     fn generate_string_to_float_function(&self) -> Vec<Instruction> {
-        let mut instructions = Vec::new();
-        
+        vec![
         // Get string pointer
-        instructions.push(Instruction::LocalGet(0));
+            Instruction::LocalGet(0),
         
-        // Call host function for string to float conversion
-        instructions.push(Instruction::Call(15)); // Import index for string_to_float
-        
-        instructions
+            // Call the runtime string_to_float function
+            Instruction::Call(2), // This will be resolved to the correct import index by the linker
+        ]
     }
 
     fn generate_byte_to_int_function(&self) -> Vec<Instruction> {

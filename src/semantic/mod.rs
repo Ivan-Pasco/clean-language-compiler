@@ -63,52 +63,80 @@ impl SemanticAnalyzer {
 
     /// Register built-in functions that are available in the global scope
     fn register_builtin_functions(&mut self) {
-        // Basic I/O functions
+        // Register standard library functions
         self.function_table.insert(
             "print".to_string(),
-            (vec![Type::Any], Type::Void)
-        );
-
-        // Println variations for different types
-        self.function_table.insert(
-            "printl_int".to_string(),
-            (vec![Type::Integer], Type::Void)
-        );
-
-        self.function_table.insert(
-            "printl_float".to_string(),
-            (vec![Type::Float], Type::Void)
-        );
-
-        self.function_table.insert(
-            "printl_string".to_string(),
             (vec![Type::String], Type::Void)
         );
 
         self.function_table.insert(
-            "printl_bool".to_string(),
+            "printl".to_string(),
+            (vec![Type::String], Type::Void)
+        );
+
+        // Assertion functions (keep as traditional functions)
+        self.function_table.insert(
+            "mustBeTrue".to_string(),
             (vec![Type::Boolean], Type::Void)
         );
 
-        // Generic println function
         self.function_table.insert(
-            "printl".to_string(),
-            (vec![Type::Any], Type::Void)
+            "mustBeFalse".to_string(),
+            (vec![Type::Boolean], Type::Void)
         );
 
-        // Generic println function alias
         self.function_table.insert(
-            "println".to_string(),
-            (vec![Type::Any], Type::Void)
+            "mustBeEqual".to_string(),
+            (vec![Type::Any, Type::Any], Type::Void)
         );
 
-        // Mathematical functions
+        // Array and string operations (removed - now only available as methods)
+        // length, isEmpty, isNotEmpty, isDefined, isNotDefined, keepBetween
+        // are now ONLY available as method-style calls
+
+        // Math functions
         self.function_table.insert(
             "abs".to_string(),
-            (vec![Type::Any], Type::Any)
+            (vec![Type::Integer], Type::Integer)
         );
 
-        // Array utilities
+        self.function_table.insert(
+            "sqrt".to_string(),
+            (vec![Type::Float], Type::Float)
+        );
+
+        self.function_table.insert(
+            "pow".to_string(),
+            (vec![Type::Float, Type::Float], Type::Float)
+        );
+
+        self.function_table.insert(
+            "sin".to_string(),
+            (vec![Type::Float], Type::Float)
+        );
+
+        self.function_table.insert(
+            "cos".to_string(),
+            (vec![Type::Float], Type::Float)
+        );
+
+        self.function_table.insert(
+            "tan".to_string(),
+            (vec![Type::Float], Type::Float)
+        );
+
+        // String operations
+        self.function_table.insert(
+            "string_concat".to_string(),
+            (vec![Type::String, Type::String], Type::String)
+        );
+
+        self.function_table.insert(
+            "string_compare".to_string(),
+            (vec![Type::String, Type::String], Type::Integer)
+        );
+
+        // Array operations
         self.function_table.insert(
             "array_get".to_string(),
             (vec![Type::Array(Box::new(Type::Any)), Type::Integer], Type::Any)
@@ -117,101 +145,6 @@ impl SemanticAnalyzer {
         self.function_table.insert(
             "array_length".to_string(),
             (vec![Type::Array(Box::new(Type::Any))], Type::Integer)
-        );
-
-        // Validation/assertion functions
-        self.function_table.insert(
-            "assert".to_string(),
-            (vec![Type::Boolean], Type::Void)
-        );
-
-        // String manipulation functions
-        self.function_table.insert(
-            "string_concat".to_string(),
-            (vec![Type::String, Type::String], Type::String)
-        );
-        
-        self.function_table.insert(
-            "string_compare".to_string(),
-            (vec![Type::String, Type::String], Type::Integer)
-        );
-
-        // Length and size functions
-        self.function_table.insert(
-            "length".to_string(),
-            (vec![Type::Any], Type::Integer)
-        );
-
-
-
-        // Enhanced assertion functions
-        self.function_table.insert(
-            "mustBeWithMessage".to_string(),
-            (vec![Type::Boolean, Type::String], Type::Void)
-        );
-
-        self.function_table.insert(
-            "mustBeEqual".to_string(),
-            (vec![Type::Any, Type::Any], Type::Void)
-        );
-
-        self.function_table.insert(
-            "mustNotBeEqual".to_string(),
-            (vec![Type::Any, Type::Any], Type::Void)
-        );
-
-
-
-        self.function_table.insert(
-            "mustBeFalse".to_string(),
-            (vec![Type::Boolean], Type::Void)
-        );
-
-        // Type checking functions
-        self.function_table.insert(
-            "isDefined".to_string(),
-            (vec![Type::Any], Type::Boolean)
-        );
-
-        self.function_table.insert(
-            "isNotDefined".to_string(),
-            (vec![Type::Any], Type::Boolean)
-        );
-
-        self.function_table.insert(
-            "isEmpty".to_string(),
-            (vec![Type::Any], Type::Boolean)
-        );
-
-        self.function_table.insert(
-            "isNotEmpty".to_string(),
-            (vec![Type::Any], Type::Boolean)
-        );
-
-        // Utility functions
-        self.function_table.insert(
-            "defaultInt".to_string(),
-            (vec![], Type::Integer)
-        );
-
-        self.function_table.insert(
-            "defaultFloat".to_string(),
-            (vec![], Type::Float)
-        );
-
-        self.function_table.insert(
-            "defaultBool".to_string(),
-            (vec![], Type::Boolean)
-        );
-
-        self.function_table.insert(
-            "keepBetween".to_string(),
-            (vec![Type::Integer, Type::Integer, Type::Integer], Type::Integer)
-        );
-
-        self.function_table.insert(
-            "keepBetweenFloat".to_string(),
-            (vec![Type::Float, Type::Float, Type::Float], Type::Float)
         );
 
         // HTTP functionality
@@ -1921,7 +1854,28 @@ impl SemanticAnalyzer {
         let right_type = self.check_expression(right)?;
 
         match op {
-            BinaryOperator::Add | BinaryOperator::Subtract | BinaryOperator::Multiply | BinaryOperator::Divide => {
+            BinaryOperator::Add => {
+                // Handle string concatenation
+                if left_type == Type::String && right_type == Type::String {
+                    Ok(Type::String)
+                }
+                // Handle numeric addition
+                else if matches!(left_type, Type::Integer | Type::Float) && matches!(right_type, Type::Integer | Type::Float) {
+                    // If either operand is float, result is float
+                    if matches!(left_type, Type::Float) || matches!(right_type, Type::Float) {
+                        Ok(Type::Float)
+                    } else {
+                        Ok(Type::Integer)
+                    }
+                } else {
+                    Err(CompilerError::type_error(
+                        format!("Cannot apply {:?} to types {:?} and {:?}", op, left_type, right_type),
+                        Some("Add operator requires either two strings (for concatenation) or two numeric types (for arithmetic)".to_string()),
+                        None
+                    ))
+                }
+            },
+            BinaryOperator::Subtract | BinaryOperator::Multiply | BinaryOperator::Divide => {
                 if matches!(left_type, Type::Integer | Type::Float) && matches!(right_type, Type::Integer | Type::Float) {
                     // If either operand is float, result is float
                     if matches!(left_type, Type::Float) || matches!(right_type, Type::Float) {
