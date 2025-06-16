@@ -1,5 +1,0 @@
-start()
-	string text = "hello"
-	string result = text.toUpper()
-	println:
-		"Debug test" 

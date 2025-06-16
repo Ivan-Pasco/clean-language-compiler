@@ -1,7 +1,0 @@
-functions:
-	void testPrint()
-		print("Hello from Clean Language!")
-		print("\n")
-
-start()
-	testPrint() 

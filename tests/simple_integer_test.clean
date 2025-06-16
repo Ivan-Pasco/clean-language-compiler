@@ -1,7 +1,0 @@
-functions:
-	void testInteger()
-		print(42)
- 
-start()
-	testInteger()
-	0 

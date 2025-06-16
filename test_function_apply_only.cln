@@ -1,6 +1,0 @@
-// Test Function Apply-Blocks Only
-
-start()
-	println:
-		"Hello"
-		"World" 

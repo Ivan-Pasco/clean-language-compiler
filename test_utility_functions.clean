@@ -1,0 +1,13 @@
+function start()
+	string text = "Hello World"
+	integer text_length = length(text)
+	
+	Array<integer> numbers = [1, 2, 3, 4, 5]
+	integer array_length = length(numbers)
+	
+	integer default_value = defaultInt()
+	integer bounded = keepBetween(15, 1, 10)
+	
+	assert(text_length > 0)
+	mustBeEqual(array_length, 5)
+	mustBeFalse(text_length == 0) 

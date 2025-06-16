@@ -1,5 +1,0 @@
-function test()
-	print(42)
-
-function start()
-	print(42) 

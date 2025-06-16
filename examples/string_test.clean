@@ -1,0 +1,222 @@
+// String Operations Test - Comprehensive demonstration of Clean Language string capabilities
+// This example showcases all the enhanced string manipulation functions
+
+import StringOps
+
+functions:
+    void start()
+        print("=== Clean Language String Operations Test ===")
+        
+        // Basic string operations
+        testBasicOperations()
+        
+        // Case operations
+        testCaseOperations()
+        
+        // Search and validation
+        testSearchOperations()
+        
+        // Text cleaning and formatting
+        testTextCleaning()
+        
+        // Advanced text manipulation
+        testAdvancedOperations()
+        
+        // Character operations
+        testCharacterOperations()
+        
+        // Validation helpers
+        testValidationHelpers()
+        
+        // Padding operations
+        testPaddingOperations()
+        
+        print("=== All String Tests Completed ===")
+
+    void testBasicOperations()
+        print("\n--- Basic String Operations ---")
+        
+        string text = "Hello"
+        string world = " World!"
+        
+        // Test length
+        number len = StringOps.length(text)
+        print("Length of '" + text + "': " + len)
+        
+        // Test concatenation
+        string combined = StringOps.concat(text, world)
+        print("Concatenated: " + combined)
+        
+        // Test substring
+        string sub = StringOps.substring(combined, 0, 5)
+        print("Substring (0-5): " + sub)
+        
+        string sub2 = StringOps.substring(combined, 6, 11)
+        print("Substring (6-11): " + sub2)
+
+    void testCaseOperations()
+        print("\n--- Case Operations ---")
+        
+        string mixedCase = "Hello World!"
+        
+        // Test case conversion
+        string upper = StringOps.toUpperCase(mixedCase)
+        print("Uppercase: " + upper)
+        
+        string lower = StringOps.toLowerCase(mixedCase)
+        print("Lowercase: " + lower)
+        
+        // Demonstrate case-insensitive comparison
+        string email1 = "USER@EXAMPLE.COM"
+        string email2 = "user@example.com"
+        string normalizedEmail1 = StringOps.toLowerCase(email1)
+        string normalizedEmail2 = StringOps.toLowerCase(email2)
+        print("Email comparison (normalized): " + normalizedEmail1 + " vs " + normalizedEmail2)
+
+    void testSearchOperations()
+        print("\n--- Search Operations ---")
+        
+        string text = "The quick brown fox jumps over the lazy dog"
+        string searchTerm = "fox"
+        
+        // Test contains
+        boolean hasWord = StringOps.contains(text, searchTerm)
+        print("Contains '" + searchTerm + "': " + hasWord)
+        
+        // Test indexOf
+        number firstPos = StringOps.indexOf(text, "the")
+        print("First 'the' at position: " + firstPos)
+        
+        // Test lastIndexOf
+        number lastPos = StringOps.lastIndexOf(text, "the")
+        print("Last 'the' at position: " + lastPos)
+        
+        // Test startsWith and endsWith
+        string filename = "document.pdf"
+        boolean isPdf = StringOps.endsWith(filename, ".pdf")
+        print("Is PDF file: " + isPdf)
+        
+        string url = "https://api.example.com"
+        boolean isHttps = StringOps.startsWith(url, "https://")
+        print("Is HTTPS URL: " + isHttps)
+
+    void testTextCleaning()
+        print("\n--- Text Cleaning ---")
+        
+        string messyText = "   Hello World!   "
+        
+        // Test trim operations
+        string trimmed = StringOps.trim(messyText)
+        print("Original: '" + messyText + "'")
+        print("Trimmed: '" + trimmed + "'")
+        
+        string leftTrimmed = StringOps.trimStart(messyText)
+        print("Left trimmed: '" + leftTrimmed + "'")
+        
+        string rightTrimmed = StringOps.trimEnd(messyText)
+        print("Right trimmed: '" + rightTrimmed + "'")
+
+    void testAdvancedOperations()
+        print("\n--- Advanced Text Manipulation ---")
+        
+        string text = "Hello World Hello Universe"
+        
+        // Test replace (first occurrence)
+        string replaced = StringOps.replace(text, "Hello", "Hi")
+        print("Replace first 'Hello': " + replaced)
+        
+        // Test replaceAll (all occurrences)
+        string replacedAll = StringOps.replaceAll(text, "Hello", "Hi")
+        print("Replace all 'Hello': " + replacedAll)
+        
+        // Demonstrate text cleaning
+        string messyText = "Hello    World"
+        string cleaned = StringOps.replaceAll(messyText, "    ", " ")
+        print("Cleaned spacing: '" + cleaned + "'")
+
+    void testCharacterOperations()
+        print("\n--- Character Operations ---")
+        
+        string word = "Hello"
+        
+        // Test charAt
+        string firstChar = StringOps.charAt(word, 0)
+        print("First character: " + firstChar)
+        
+        string lastChar = StringOps.charAt(word, 4)
+        print("Last character: " + lastChar)
+        
+        // Test charCodeAt
+        number charCode = StringOps.charCodeAt(word, 0)
+        print("Character code of 'H': " + charCode)
+        
+        number charCode2 = StringOps.charCodeAt(word, 1)
+        print("Character code of 'e': " + charCode2)
+
+    void testValidationHelpers()
+        print("\n--- Validation Helpers ---")
+        
+        string emptyString = ""
+        string whitespaceString = "   "
+        string validString = "Hello"
+        
+        // Test isEmpty
+        boolean empty1 = StringOps.isEmpty(emptyString)
+        boolean empty2 = StringOps.isEmpty(validString)
+        print("Empty string is empty: " + empty1)
+        print("Valid string is empty: " + empty2)
+        
+        // Test isNotEmpty
+        boolean notEmpty = StringOps.isNotEmpty(validString)
+        print("Valid string is not empty: " + notEmpty)
+        
+        // Test isBlank
+        boolean blank1 = StringOps.isBlank(emptyString)
+        boolean blank2 = StringOps.isBlank(whitespaceString)
+        boolean blank3 = StringOps.isBlank(validString)
+        print("Empty string is blank: " + blank1)
+        print("Whitespace string is blank: " + blank2)
+        print("Valid string is blank: " + blank3)
+
+    void testPaddingOperations()
+        print("\n--- Padding Operations ---")
+        
+        string number = "42"
+        string text = "Hello"
+        
+        // Test padStart
+        string paddedNumber = StringOps.padStart(number, 5, "0")
+        print("Padded number: '" + paddedNumber + "'")
+        
+        string paddedText = StringOps.padStart(text, 10, " ")
+        print("Right-aligned text: '" + paddedText + "'")
+        
+        // Test padEnd
+        string leftAligned = StringOps.padEnd(text, 10, " ")
+        print("Left-aligned text: '" + leftAligned + "'")
+        
+        string dashedLine = StringOps.padEnd("", 20, "-")
+        print("Dashed line: " + dashedLine)
+
+    void demonstrateRealWorldUsage()
+        print("\n--- Real-World Usage Examples ---")
+        
+        // Email validation
+        string email = "user@example.com"
+        boolean validEmail = StringOps.contains(email, "@") && StringOps.contains(email, ".")
+        print("Email validation for '" + email + "': " + validEmail)
+        
+        // File extension checking
+        string filename = "report.xlsx"
+        boolean isExcel = StringOps.endsWith(filename, ".xlsx") || StringOps.endsWith(filename, ".xls")
+        print("Is Excel file: " + isExcel)
+        
+        // URL processing
+        string apiUrl = "https://api.service.com/v1/users"
+        boolean isApiCall = StringOps.contains(apiUrl, "/api/") || StringOps.contains(apiUrl, "api.")
+        print("Is API URL: " + isApiCall)
+        
+        // Text formatting for display
+        string price = "19.99"
+        string formattedPrice = "$" + StringOps.padStart(price, 8, " ")
+        print("Formatted price: " + formattedPrice) 

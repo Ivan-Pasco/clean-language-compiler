@@ -1,9 +1,0 @@
-functions:
-	void testHttp()
-		string url = "https://api.example.com/users"
-		string response = Http.get(url)
-		print("HTTP test completed")
- 
-start()
-	testHttp()
-	0 

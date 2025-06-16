@@ -1,6 +1,0 @@
-functions:
-	void doMath()
-		5 + 10
-
-start()
-	doMath() 

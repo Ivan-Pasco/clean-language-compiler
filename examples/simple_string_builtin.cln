@@ -1,0 +1,7 @@
+function start()
+	string text = "Hello"
+	print("Text: " + text)
+	
+	string world = " World!"
+	string combined = text + world
+	print("Combined: " + combined) 

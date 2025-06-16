@@ -1,0 +1,24 @@
+function start()
+	// Test method-style type conversion functions
+	
+	// Integer conversions
+	integer number = 42
+	float numberAsFloat = number.toFloat()
+	string numberAsString = number.toString()
+	boolean numberAsBool = number.toBoolean()
+	
+	// Float conversions  
+	float pi = 3.14
+	integer piAsInt = pi.toInteger()
+	string piAsString = pi.toString()
+	boolean piAsBool = pi.toBoolean()
+	
+	// Zero values (should convert to false)
+	integer zero = 0
+	boolean zeroAsBool = zero.toBoolean()
+	
+	float zeroFloat = 0.0
+	boolean zeroFloatAsBool = zeroFloat.toBoolean()
+	
+	// Test chaining (method-style is so elegant!)
+	string result = number.toFloat().toString() 

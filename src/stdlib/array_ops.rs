@@ -73,6 +73,71 @@ impl ArrayManager {
             self.generate_array_map()
         )?;
 
+        // Register additional array functions
+        register_stdlib_function(
+            codegen,
+            "array_push",
+            &[WasmType::I32, WasmType::I32], // Array pointer and item
+            Some(WasmType::I32), // New array pointer
+            self.generate_array_push()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_pop",
+            &[WasmType::I32], // Array pointer
+            Some(WasmType::I32), // Popped element
+            self.generate_array_pop()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_contains",
+            &[WasmType::I32, WasmType::I32], // Array pointer and item
+            Some(WasmType::I32), // Boolean result
+            self.generate_array_contains()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_index_of",
+            &[WasmType::I32, WasmType::I32], // Array pointer and item
+            Some(WasmType::I32), // Index (-1 if not found)
+            self.generate_array_index_of()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_slice",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // Array pointer, start, end
+            Some(WasmType::I32), // New array pointer
+            self.generate_array_slice()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_concat",
+            &[WasmType::I32, WasmType::I32], // Array1 pointer, Array2 pointer
+            Some(WasmType::I32), // New array pointer
+            self.generate_array_concat()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_reverse",
+            &[WasmType::I32], // Array pointer
+            Some(WasmType::I32), // New array pointer
+            self.generate_array_reverse()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "array_join",
+            &[WasmType::I32, WasmType::I32], // Array pointer, separator string
+            Some(WasmType::I32), // Result string pointer
+            self.generate_array_join()
+        )?;
+
         Ok(())
     }
 
@@ -347,6 +412,428 @@ impl ArrayManager {
         
         // Return new array pointer
         instructions.push(Instruction::LocalGet(4));
+        
+        instructions
+    }
+
+    fn generate_array_push(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array pointer and item
+        instructions.push(Instruction::LocalGet(0)); // array pointer
+        instructions.push(Instruction::LocalGet(1)); // item to push
+        
+        // Get current array length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        }));
+        instructions.push(Instruction::LocalSet(2)); // Store length in local 2
+        
+        // Create new array with size + 1
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::Call(0)); // Call array.allocate
+        instructions.push(Instruction::LocalSet(3)); // Store new array pointer in local 3
+        
+        // Copy existing elements
+        instructions.push(Instruction::I32Const(0)); // index = 0
+        instructions.push(Instruction::LocalSet(4)); // Store index in local 4
+        
+        // Copy loop
+        instructions.push(Instruction::Block(BlockType::Empty));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if index < original length
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::BrIf(1)); // Break if done
+        
+        // Copy element from old to new array
+        instructions.push(Instruction::LocalGet(3)); // new array
+        instructions.push(Instruction::LocalGet(4)); // index
+        instructions.push(Instruction::LocalGet(0)); // old array
+        instructions.push(Instruction::LocalGet(4)); // index
+        instructions.push(Instruction::Call(1)); // Call array.get
+        instructions.push(Instruction::Call(2)); // Call array.set
+        
+        // Increment index
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(4));
+        
+        instructions.push(Instruction::Br(0)); // Continue loop
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::End);
+        
+        // Add new item at the end
+        instructions.push(Instruction::LocalGet(3)); // new array
+        instructions.push(Instruction::LocalGet(2)); // length (index for new item)
+        instructions.push(Instruction::LocalGet(1)); // item
+        instructions.push(Instruction::Call(2)); // Call array.set
+        
+        // Return new array
+        instructions.push(Instruction::LocalGet(3));
+        
+        instructions
+    }
+
+    fn generate_array_pop(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array pointer
+        instructions.push(Instruction::LocalGet(0));
+        
+        // Get array length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        }));
+        instructions.push(Instruction::LocalSet(1)); // Store length in local 1
+        
+        // Check if array is empty
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::I32Eq);
+        instructions.push(Instruction::If(BlockType::Empty));
+        instructions.push(Instruction::I32Const(0)); // Return null/0 for empty array
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Get last element
+        instructions.push(Instruction::LocalGet(0)); // array
+        instructions.push(Instruction::LocalGet(1)); // length
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Sub); // length - 1
+        instructions.push(Instruction::Call(1)); // Call array.get
+        
+        instructions
+    }
+
+    fn generate_array_contains(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array pointer and item
+        instructions.push(Instruction::LocalGet(0)); // array
+        instructions.push(Instruction::LocalGet(1)); // item
+        
+        // Call array_index_of
+        instructions.push(Instruction::Call(4)); // Assuming array_index_of is at index 4
+        
+        // Check if result is not -1
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::I32Ne); // result != -1
+        
+        instructions
+    }
+
+    fn generate_array_index_of(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array pointer and item
+        instructions.push(Instruction::LocalGet(0)); // array
+        instructions.push(Instruction::LocalGet(1)); // item to find
+        
+        // Get array length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        }));
+        instructions.push(Instruction::LocalSet(2)); // Store length in local 2
+        
+        // Initialize index to 0
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(3)); // Store index in local 3
+        
+        // Search loop
+        instructions.push(Instruction::Block(BlockType::Empty));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if index < length
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::BrIf(1)); // Break if done
+        
+        // Get current element
+        instructions.push(Instruction::LocalGet(0)); // array
+        instructions.push(Instruction::LocalGet(3)); // index
+        instructions.push(Instruction::Call(1)); // Call array.get
+        
+        // Compare with target item (simplified - assumes integer comparison)
+        instructions.push(Instruction::LocalGet(1)); // target item
+        instructions.push(Instruction::I32Eq);
+        instructions.push(Instruction::If(BlockType::Empty));
+        instructions.push(Instruction::LocalGet(3)); // Return current index
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Increment index
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(3));
+        
+        instructions.push(Instruction::Br(0)); // Continue loop
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::End);
+        
+        // Return -1 if not found
+        instructions.push(Instruction::I32Const(-1));
+        
+        instructions
+    }
+
+    fn generate_array_slice(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get parameters: array, start, end
+        instructions.push(Instruction::LocalGet(0)); // array
+        instructions.push(Instruction::LocalGet(1)); // start
+        instructions.push(Instruction::LocalGet(2)); // end
+        
+        // Calculate slice length
+        instructions.push(Instruction::LocalGet(2)); // end
+        instructions.push(Instruction::LocalGet(1)); // start
+        instructions.push(Instruction::I32Sub); // end - start
+        instructions.push(Instruction::LocalSet(3)); // Store slice length in local 3
+        
+        // Create new array with slice length
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::Call(0)); // Call array.allocate
+        instructions.push(Instruction::LocalSet(4)); // Store new array in local 4
+        
+        // Copy elements from start to end
+        instructions.push(Instruction::I32Const(0)); // dest index = 0
+        instructions.push(Instruction::LocalSet(5)); // Store dest index in local 5
+        
+        instructions.push(Instruction::LocalGet(1)); // src index = start
+        instructions.push(Instruction::LocalSet(6)); // Store src index in local 6
+        
+        // Copy loop
+        instructions.push(Instruction::Block(BlockType::Empty));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if src index < end
+        instructions.push(Instruction::LocalGet(6));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::BrIf(1)); // Break if done
+        
+        // Copy element
+        instructions.push(Instruction::LocalGet(4)); // dest array
+        instructions.push(Instruction::LocalGet(5)); // dest index
+        instructions.push(Instruction::LocalGet(0)); // src array
+        instructions.push(Instruction::LocalGet(6)); // src index
+        instructions.push(Instruction::Call(1)); // Call array.get
+        instructions.push(Instruction::Call(2)); // Call array.set
+        
+        // Increment indices
+        instructions.push(Instruction::LocalGet(5));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(5));
+        
+        instructions.push(Instruction::LocalGet(6));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(6));
+        
+        instructions.push(Instruction::Br(0)); // Continue loop
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::End);
+        
+        // Return new array
+        instructions.push(Instruction::LocalGet(4));
+        
+        instructions
+    }
+
+    fn generate_array_concat(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array1 and array2 pointers
+        instructions.push(Instruction::LocalGet(0)); // array1
+        instructions.push(Instruction::LocalGet(1)); // array2
+        
+        // Get lengths
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        }));
+        instructions.push(Instruction::LocalSet(2)); // Store length1 in local 2
+        
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        }));
+        instructions.push(Instruction::LocalSet(3)); // Store length2 in local 3
+        
+        // Calculate total length
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(4)); // Store total length in local 4
+        
+        // Create new array
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::Call(0)); // Call array.allocate
+        instructions.push(Instruction::LocalSet(5)); // Store result array in local 5
+        
+        // Copy first array
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(6)); // index = 0
+        
+        instructions.push(Instruction::Block(BlockType::Empty));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        instructions.push(Instruction::LocalGet(6));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::BrIf(1));
+        
+        // Copy element from array1
+        instructions.push(Instruction::LocalGet(5)); // result array
+        instructions.push(Instruction::LocalGet(6)); // index
+        instructions.push(Instruction::LocalGet(0)); // array1
+        instructions.push(Instruction::LocalGet(6)); // index
+        instructions.push(Instruction::Call(1)); // array.get
+        instructions.push(Instruction::Call(2)); // array.set
+        
+        instructions.push(Instruction::LocalGet(6));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(6));
+        
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::End);
+        
+        // Copy second array
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(7)); // src index = 0
+        
+        instructions.push(Instruction::Block(BlockType::Empty));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        instructions.push(Instruction::LocalGet(7));
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::BrIf(1));
+        
+        // Copy element from array2
+        instructions.push(Instruction::LocalGet(5)); // result array
+        instructions.push(Instruction::LocalGet(2)); // length1 (dest offset)
+        instructions.push(Instruction::LocalGet(7)); // src index
+        instructions.push(Instruction::I32Add); // length1 + src index
+        instructions.push(Instruction::LocalGet(1)); // array2
+        instructions.push(Instruction::LocalGet(7)); // src index
+        instructions.push(Instruction::Call(1)); // array.get
+        instructions.push(Instruction::Call(2)); // array.set
+        
+        instructions.push(Instruction::LocalGet(7));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(7));
+        
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::End);
+        
+        // Return result array
+        instructions.push(Instruction::LocalGet(5));
+        
+        instructions
+    }
+
+    fn generate_array_reverse(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array pointer
+        instructions.push(Instruction::LocalGet(0));
+        
+        // Get array length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg {
+            offset: 0,
+            align: 2,
+            memory_index: 0,
+        }));
+        instructions.push(Instruction::LocalSet(1)); // Store length in local 1
+        
+        // Create new array with same length
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::Call(0)); // Call array.allocate
+        instructions.push(Instruction::LocalSet(2)); // Store new array in local 2
+        
+        // Copy elements in reverse order
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(3)); // src index = 0
+        
+        instructions.push(Instruction::Block(BlockType::Empty));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::BrIf(1));
+        
+        // Copy element to reverse position
+        instructions.push(Instruction::LocalGet(2)); // dest array
+        instructions.push(Instruction::LocalGet(1)); // length
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Sub); // length - 1
+        instructions.push(Instruction::LocalGet(3)); // src index
+        instructions.push(Instruction::I32Sub); // (length - 1) - src index
+        instructions.push(Instruction::LocalGet(0)); // src array
+        instructions.push(Instruction::LocalGet(3)); // src index
+        instructions.push(Instruction::Call(1)); // array.get
+        instructions.push(Instruction::Call(2)); // array.set
+        
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(3));
+        
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::End);
+        
+        // Return new array
+        instructions.push(Instruction::LocalGet(2));
+        
+        instructions
+    }
+
+    fn generate_array_join(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get array and separator
+        instructions.push(Instruction::LocalGet(0)); // array
+        instructions.push(Instruction::LocalGet(1)); // separator string
+        
+        // For now, return empty string (placeholder implementation)
+        // Full implementation would require string concatenation logic
+        instructions.push(Instruction::I32Const(0));
         
         instructions
     }

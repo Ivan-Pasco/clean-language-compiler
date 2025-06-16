@@ -21,6 +21,9 @@ byteorder = "1.4.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
 # CLI
 clap = { version = "4.4", features = ["derive"] }
 
@@ -42,17 +45,7 @@ path = "syntax_checker.rs"
 name = "cleanc"
 path = "src/bin/cleanc.rs"
 
-[[bin]]
-name = "advanced-parser-test"
-path = "advanced_parser_standalone_test.rs"
 
-[[bin]]
-name = "parser-test"
-path = "parser_test_standalone.rs"
-
-[[bin]]
-name = "minimal-parser-test"
-path = "minimal_parser_test.rs"
 
 [[bin]]
 name = "parser_test"

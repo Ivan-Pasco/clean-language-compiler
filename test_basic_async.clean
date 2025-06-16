@@ -1,0 +1,20 @@
+// Basic test without async features to verify compilation works
+
+function string simpleTask()
+	printl("Executing simple task...")
+	return "Task completed"
+
+function start()
+	printl("Starting basic test...")
+	
+	// Call the function normally (not async)
+	string result = simpleTask()
+	printl("Result:")
+	printl(result)
+	
+	// Do some work
+	integer localWork = 21 * 2
+	printl("Local work result:")
+	printl(localWork)
+	
+	printl("Basic test completed!") 

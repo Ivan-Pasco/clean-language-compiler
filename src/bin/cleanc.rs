@@ -161,6 +161,26 @@ fn execute_file(input_file: &str) -> Result<(), CompilerError> {
 
 // Function to run a WebAssembly module with wasmtime
 fn run_wasm_with_wasmtime(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
+    // Try to use the enhanced async runtime first
+    if let Ok(rt) = tokio::runtime::Runtime::new() {
+        return rt.block_on(async {
+            match clean_language_compiler::runtime::run_clean_program_async(wasm_bytes).await {
+                Ok(()) => Ok(()),
+                Err(_) => {
+                    // Fall back to synchronous runtime
+                    println!("⚠️  Async runtime failed, falling back to synchronous execution");
+                    run_wasm_sync(wasm_bytes)
+                }
+            }
+        });
+    }
+    
+    // Fallback to synchronous execution
+    run_wasm_sync(wasm_bytes)
+}
+
+// Synchronous WebAssembly execution (fallback)
+fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     use wasmtime::{Config, Engine, Module, Store, Linker, Caller, Val};
     
     // Use default configuration - simpler and more compatible
@@ -355,6 +375,43 @@ fn run_wasm_with_wasmtime(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     })
     .map_err(|e| CompilerError::runtime_error(
         format!("Failed to create file_append function: {}", e),
+        None, None
+    ))?;
+    
+    // Add async runtime functions (simplified synchronous versions)
+    linker.func_wrap("env", "create_future", |_caller: Caller<'_, ()>, _future_name_ptr: i32, _future_name_len: i32| -> i32 {
+        println!("🔮 [SYNC] Created future (mock)");
+        1 // Return success
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create create_future function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "start_background_task", |_caller: Caller<'_, ()>, _task_name_ptr: i32, _task_name_len: i32| -> i32 {
+        println!("🔄 [SYNC] Started background task (mock)");
+        1 // Return task ID
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create start_background_task function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "execute_background", |_caller: Caller<'_, ()>, _operation_ptr: i32, _operation_len: i32| -> i32 {
+        println!("🔄 [SYNC] Executing background operation (mock)");
+        1 // Return success
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create execute_background function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "resolve_future", |_caller: Caller<'_, ()>, _future_id: i32, _value: i32| -> i32 {
+        println!("✅ [SYNC] Resolved future (mock)");
+        1 // Return success
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create resolve_future function: {}", e),
         None, None
     ))?;
     

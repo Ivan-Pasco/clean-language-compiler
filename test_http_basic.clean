@@ -1,5 +1,0 @@
-start()
-	print("HTTP Test Starting...")
-	print("Calling http_get...")
-	print(http_get("test-url"))
-	print("HTTP Test Complete!") 

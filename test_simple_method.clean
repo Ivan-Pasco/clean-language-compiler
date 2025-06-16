@@ -1,0 +1,6 @@
+function start()
+	string text = "Hello"
+	integer method_length = text.length()
+	
+	integer value = 50
+	integer bounded = value.keepBetween(0, 100) 

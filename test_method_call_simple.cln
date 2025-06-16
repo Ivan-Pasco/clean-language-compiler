@@ -1,5 +1,0 @@
-start()
-	string text = "Hello"
-	integer length = StringUtils.length(text)
-	println:
-		"Method call test" 

@@ -1,0 +1,35 @@
+function start()
+	// Test method-style syntax for utility functions
+	
+	// Traditional function style
+	string text = "Hello World"
+	integer text_length = length(text)
+	integer bounded_value = keepBetween(150, 0, 100)
+	
+	// New method-style syntax (more intuitive!)
+	integer method_length = text.length()
+	integer high_value = 150
+	integer method_bounded = high_value.keepBetween(0, 100)
+	
+	// Test with variables
+	integer score = 85
+	integer safe_score = score.keepBetween(0, 100)
+	
+	// Test checking functions
+	boolean text_defined = text.isDefined()
+	boolean text_empty = text.isEmpty()
+	boolean text_not_empty = text.isNotEmpty()
+	
+	// Test with arrays
+	Array<integer> numbers = [1, 2, 3, 4, 5]
+	integer array_length = numbers.length()
+	boolean array_empty = numbers.isEmpty()
+	
+	// Verify results
+	mustBeEqual(text_length, method_length)
+	mustBeEqual(bounded_value, method_bounded)
+	mustBeEqual(safe_score, 85)  // Should stay the same since 85 is between 0-100
+	assert(text_defined)
+	mustBeFalse(text_empty)
+	assert(text_not_empty)
+	mustBeFalse(array_empty) 

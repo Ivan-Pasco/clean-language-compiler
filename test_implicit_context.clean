@@ -1,9 +1,0 @@
-class Shape
-	string color
-	
-	constructor(string colorParam)
-		color = colorParam
-
-function start()
-	Shape shape = Shape("red")
-	print("Implicit context test successful") 

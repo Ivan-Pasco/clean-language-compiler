@@ -1,5 +1,0 @@
-function start()
-	integer a = 10
-	float b = 3.14
-	boolean d = true
-	integer result = a + 5 

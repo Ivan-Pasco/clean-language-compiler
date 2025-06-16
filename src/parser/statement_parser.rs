@@ -25,6 +25,8 @@ pub fn parse_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
         Rule::function_apply_block => parse_function_apply_block_statement(inner, ast_location),
         Rule::method_apply_block => parse_method_apply_block_statement(inner, ast_location),
         Rule::constant_apply_block => parse_constant_apply_block_statement(inner, ast_location),
+        Rule::later_assignment => parse_later_assignment_statement(inner, ast_location),
+        Rule::background_stmt => parse_background_statement(inner, ast_location),
         Rule::expression => {
             let expr = parse_expression(inner)?;
             Ok(Statement::Expression {
@@ -425,6 +427,28 @@ fn parse_constant_apply_block_statement(pair: Pair<Rule>, ast_location: crate::a
     
     Ok(Statement::ConstantApplyBlock {
         constants,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_later_assignment_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let variable = parts.next().unwrap().as_str().to_string();
+    let expression = parse_expression(parts.next().unwrap())?;
+
+    Ok(Statement::LaterAssignment {
+        variable,
+        expression,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_background_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let expression = parse_expression(parts.next().unwrap())?;
+
+    Ok(Statement::Background {
+        expression,
         location: Some(ast_location),
     })
 } 

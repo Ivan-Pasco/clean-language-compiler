@@ -14,6 +14,7 @@ pub mod collection_ops;
 pub mod list_ops;
 pub mod file_ops;
 pub mod http_ops;
+pub mod utility_ops;
 
 pub use date_ops::DateOperations;
 pub use format_ops::FormatOperations;
@@ -30,6 +31,7 @@ pub use matrix_ops::MatrixOperations;
 pub use error::StdlibError;
 pub use file_ops::FileOperations;
 pub use http_ops::HttpOperations;
+pub use utility_ops::UtilityOperations;
 
 use crate::error::CompilerError;
 use crate::codegen::{CodeGenerator, INTEGER_TYPE_ID};
@@ -205,6 +207,7 @@ pub struct StandardLibrary {
     matrix_ops: MatrixOperations,
     file_ops: FileOperations,
     http_ops: HttpOperations,
+    utility_ops: UtilityOperations,
 }
 
 impl StandardLibrary {
@@ -221,6 +224,7 @@ impl StandardLibrary {
             matrix_ops: MatrixOperations::new(heap_start),
             file_ops: FileOperations::new(heap_start),
             http_ops: HttpOperations::new(heap_start),
+            utility_ops: UtilityOperations::new(),
         }
     }
 
@@ -234,6 +238,7 @@ impl StandardLibrary {
         self.type_conv.register_functions(codegen)?;
         self.matrix_ops.register_functions(codegen)?;
         self.file_ops.register_functions(codegen)?;
+        self.utility_ops.register_functions(codegen)?;
         // Note: HTTP operations will be registered as imports, not as stdlib functions
         Ok(())
     }
@@ -273,6 +278,7 @@ pub struct StdLib {
     pub numeric_ops: NumericOperations,
     pub random_ops: RandomOperations,
     pub type_conv: TypeConvOperations,
+    pub utility_ops: UtilityOperations,
     pub heap_start: usize,
 }
 
@@ -287,6 +293,7 @@ impl StdLib {
             numeric_ops: NumericOperations::new(),
             random_ops: RandomOperations::new(),
             type_conv: TypeConvOperations::new(heap_start),
+            utility_ops: UtilityOperations::new(),
             heap_start,
         }
     }
@@ -313,6 +320,9 @@ impl StdLib {
         
         // Register type conversion operations
         self.type_conv.register_functions(codegen)?;
+        
+        // Register utility operations
+        self.utility_ops.register_functions(codegen)?;
         
         Ok(())
     }

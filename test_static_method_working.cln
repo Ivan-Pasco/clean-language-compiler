@@ -1,8 +1,0 @@
-class MathUtils
-	functions:
-		string add()
-			return "static method called"
- 
-start()
-	integer result = MathUtils.add(5, 3)
-	print result 

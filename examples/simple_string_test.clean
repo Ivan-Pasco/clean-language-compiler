@@ -1,0 +1,17 @@
+// Simple String Test - Testing basic string operations
+import:
+    StringOps
+
+functions:
+    void start()
+        print("=== Simple String Test ===")
+        
+        string text = "Hello"
+        number len = StringOps.length(text)
+        print("Length of '" + text + "': " + len)
+        
+        string world = " World!"
+        string combined = StringOps.concat(text, world)
+        print("Concatenated: " + combined)
+        
+        print("Test completed!") 

@@ -1,7 +1,0 @@
-// Test Constant Apply-Blocks Only
-
-start()
-	constant:
-		integer MAX_SIZE = 100
-		float PI = 3.14159
-		string VERSION = "1.0.0" 

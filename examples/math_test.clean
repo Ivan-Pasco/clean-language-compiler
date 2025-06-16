@@ -1,0 +1,58 @@
+// Math Test - Demonstrating mathematical operations in Clean Language
+// This example shows how to use the existing MathUtils module
+
+import MathUtils
+
+functions:
+    void start()
+        print("Clean Language Math Test")
+        print("========================")
+        print("")
+        
+        // Using existing MathUtils module functions
+        print("=== MathUtils Module Functions ===")
+        number a = 10.5
+        number b = 3.2
+        
+        print("a = " + a.toString())
+        print("b = " + b.toString())
+        print("abs(-15.7) = " + MathUtils.abs(-15.7).toString())
+        print("max(a, b) = " + MathUtils.max(a, b).toString())
+        print("min(a, b) = " + MathUtils.min(a, b).toString())
+        print("sqrt(25.0) = " + MathUtils.sqrt(25.0).toString())
+        print("pow(2, 3) = " + MathUtils.pow(2, 3).toString())
+        print("factorial(5) = " + MathUtils.factorial(5).toString())
+        print("")
+        
+        // Mathematical constants
+        print("=== Mathematical Constants ===")
+        print("π (pi) = " + MathUtils.pi().toString())
+        print("e = " + MathUtils.e().toString())
+        print("")
+        
+        // Circle calculations using existing MathUtils module
+        print("=== Circle Calculations (using existing MathUtils) ===")
+        number radius = 5.0
+        number area = MathUtils.pi() * radius * radius
+        number circumference = 2.0 * MathUtils.pi() * radius
+        
+        print("Circle with radius " + radius.toString() + ":")
+        print("Area = π × r² = " + area.toString())
+        print("Circumference = 2πr = " + circumference.toString())
+        print("")
+        
+        // Pythagorean theorem example
+        print("=== Pythagorean Theorem ===")
+        number side_a = 3.0
+        number side_b = 4.0
+        number hypotenuse = MathUtils.sqrt(MathUtils.pow(side_a, 2) + MathUtils.pow(side_b, 2))
+        
+        print("Right triangle with sides " + side_a.toString() + " and " + side_b.toString())
+        print("Hypotenuse = √(a² + b²) = " + hypotenuse.toString())
+        print("")
+        
+        // Note: Basic arithmetic operations (+, -, *, /) are built into the language
+        // Note: Advanced functions like floor, ceil, round would need to be added to MathUtils module
+        print("Math test completed successfully!")
+
+ 

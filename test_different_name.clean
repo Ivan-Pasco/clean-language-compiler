@@ -1,5 +1,0 @@
-function integer test()
-	return 42
-
-function start()
-	print(42) 

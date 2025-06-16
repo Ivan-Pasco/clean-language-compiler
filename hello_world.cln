@@ -1,4 +1,0 @@
-// Hello World program in Clean Language
-
-function start()
-    println("Hello, World!") 

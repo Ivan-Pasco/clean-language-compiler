@@ -1,7 +1,0 @@
-functions:
-	void testHttpGet()
-		string url = "https://httpbin.org/get"
-		string response = Http.get(url)
-
-start()
-	testHttpGet() 

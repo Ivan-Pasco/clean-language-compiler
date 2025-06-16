@@ -1,5 +1,0 @@
-function integer add()
-	return 42
-
-function start()
-	print(42) 

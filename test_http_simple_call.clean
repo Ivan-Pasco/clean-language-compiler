@@ -1,4 +1,0 @@
-start()
-	print("HTTP Test Starting")
-	http_get("test")
-	print("HTTP Test Complete") 

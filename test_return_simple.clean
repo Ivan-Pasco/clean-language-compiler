@@ -1,8 +1,0 @@
-function integer add()
-	input
-		integer a
-		integer b
-	return 42
-
-function start()
-	print(42) 

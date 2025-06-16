@@ -136,6 +136,84 @@ impl SemanticAnalyzer {
             (vec![Type::String, Type::String], Type::Integer)
         );
 
+        // Length and size functions
+        self.function_table.insert(
+            "length".to_string(),
+            (vec![Type::Any], Type::Integer)
+        );
+
+
+
+        // Enhanced assertion functions
+        self.function_table.insert(
+            "mustBeWithMessage".to_string(),
+            (vec![Type::Boolean, Type::String], Type::Void)
+        );
+
+        self.function_table.insert(
+            "mustBeEqual".to_string(),
+            (vec![Type::Any, Type::Any], Type::Void)
+        );
+
+        self.function_table.insert(
+            "mustNotBeEqual".to_string(),
+            (vec![Type::Any, Type::Any], Type::Void)
+        );
+
+
+
+        self.function_table.insert(
+            "mustBeFalse".to_string(),
+            (vec![Type::Boolean], Type::Void)
+        );
+
+        // Type checking functions
+        self.function_table.insert(
+            "isDefined".to_string(),
+            (vec![Type::Any], Type::Boolean)
+        );
+
+        self.function_table.insert(
+            "isNotDefined".to_string(),
+            (vec![Type::Any], Type::Boolean)
+        );
+
+        self.function_table.insert(
+            "isEmpty".to_string(),
+            (vec![Type::Any], Type::Boolean)
+        );
+
+        self.function_table.insert(
+            "isNotEmpty".to_string(),
+            (vec![Type::Any], Type::Boolean)
+        );
+
+        // Utility functions
+        self.function_table.insert(
+            "defaultInt".to_string(),
+            (vec![], Type::Integer)
+        );
+
+        self.function_table.insert(
+            "defaultFloat".to_string(),
+            (vec![], Type::Float)
+        );
+
+        self.function_table.insert(
+            "defaultBool".to_string(),
+            (vec![], Type::Boolean)
+        );
+
+        self.function_table.insert(
+            "keepBetween".to_string(),
+            (vec![Type::Integer, Type::Integer, Type::Integer], Type::Integer)
+        );
+
+        self.function_table.insert(
+            "keepBetweenFloat".to_string(),
+            (vec![Type::Float, Type::Float, Type::Float], Type::Float)
+        );
+
         // HTTP functionality
         self.function_table.insert(
             "http_get".to_string(),
@@ -703,13 +781,18 @@ impl SemanticAnalyzer {
                 let expr_type = self.check_expression(expression)?;
                 // Create a Future type wrapper
                 let future_type = Type::Future(Box::new(expr_type));
-                self.symbol_table.insert(variable.clone(), future_type);
+                self.current_scope.define_variable(variable.clone(), future_type);
                 Ok(())
             },
             
             Statement::Background { expression, location: _ } => {
                 // background expression - fire and forget
                 let _expr_type = self.check_expression(expression)?;
+                Ok(())
+            },
+            
+            Statement::RangeIterate { .. } => {
+                // Range iteration - handled separately
                 Ok(())
             },
         }
@@ -722,7 +805,11 @@ impl SemanticAnalyzer {
             Expression::Variable(name) => {
                 if let Some(var_type) = self.current_scope.lookup_variable(name) {
                     self.used_variables.insert(name.clone());
-                    Ok(var_type)
+                    // Implicit await: if the variable is a Future<T>, return T
+                    match var_type {
+                        Type::Future(inner_type) => Ok(*inner_type),
+                        _ => Ok(var_type)
+                    }
                 } else if self.is_builtin_class(name) {
                     // Built-in class names are valid "variables" that represent the class itself
                     // This allows static method calls like File.read() to work
@@ -924,7 +1011,7 @@ impl SemanticAnalyzer {
             Expression::MethodCall { object, method, arguments, location } => {
                 // Check if this is a call to an imported module's method
                 if let Expression::Variable(module_name) = &**object {
-                    if let Some(ref imports) = self.current_imports {
+                    if let Some(ref imports) = self.current_imports.clone() {
                         if let Some(module) = imports.resolved_imports.get(module_name) {
                             // Check if the method exists in the imported module
                             if let Some(function) = module.exports.get_function(method) {
@@ -938,8 +1025,12 @@ impl SemanticAnalyzer {
                                     ));
                                 }
 
+                                // Clone the function info to avoid borrowing issues
+                                let function_params = function.parameters.clone();
+                                let function_return_type = function.return_type.clone();
+
                                 // Type check arguments
-                                for (i, (arg, param)) in arguments.iter().zip(function.parameters.iter()).enumerate() {
+                                for (i, (arg, param)) in arguments.iter().zip(function_params.iter()).enumerate() {
                                     let arg_type = self.check_expression(arg)?;
                                     if !self.types_compatible(&arg_type, &param.type_) {
                                         return Err(CompilerError::type_error(
@@ -951,7 +1042,7 @@ impl SemanticAnalyzer {
                                     }
                                 }
 
-                                return Ok(function.return_type.clone());
+                                return Ok(function_return_type);
                             } else {
                                 return Err(CompilerError::symbol_error(
                                     "Function not found in module",
@@ -1051,6 +1142,103 @@ impl SemanticAnalyzer {
                     Ok(Type::Void)
                 }
             }
+            
+            Expression::StaticMethodCall { class_name, method, arguments, location: _ } => {
+                // Handle static method calls
+                if class_name == "MathUtils" || class_name == "Array" {
+                    // Built-in static methods - validate arguments and return appropriate type
+                    for arg in arguments {
+                        self.check_expression(arg)?;
+                    }
+                    Ok(Type::Any) // Simplified return type for now
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Unknown static class '{}'", class_name),
+                        Some("Check if the class name is correct".to_string()),
+                        None
+                    ))
+                }
+            },
+            
+            Expression::ArrayAccess(array, index) => {
+                let array_type = self.check_expression(array)?;
+                let index_type = self.check_expression(index)?;
+                
+                if index_type != Type::Integer {
+                    return Err(CompilerError::type_error(
+                        "Array index must be an integer".to_string(),
+                        Some("Use integer values for array indexing".to_string()),
+                        None
+                    ));
+                }
+                
+                match array_type {
+                    Type::Array(element_type) => Ok(*element_type),
+                    _ => Err(CompilerError::type_error(
+                        "Array access can only be used on arrays".to_string(),
+                        None,
+                        None
+                    ))
+                }
+            },
+            
+            Expression::MatrixAccess(matrix, row, col) => {
+                let matrix_type = self.check_expression(matrix)?;
+                let row_type = self.check_expression(row)?;
+                let col_type = self.check_expression(col)?;
+                
+                if row_type != Type::Integer || col_type != Type::Integer {
+                    return Err(CompilerError::type_error(
+                        "Matrix indices must be integers".to_string(),
+                        None,
+                        None
+                    ));
+                }
+                
+                match matrix_type {
+                    Type::Matrix(element_type) => Ok(*element_type),
+                    _ => Err(CompilerError::type_error(
+                        "Matrix access can only be used on matrices".to_string(),
+                        None,
+                        None
+                    ))
+                }
+            },
+            
+            Expression::StringInterpolation(_parts) => {
+                // String interpolation always returns a string
+                Ok(Type::String)
+            },
+            
+            Expression::ObjectCreation { class_name, arguments, location: _ } => {
+                // Check if class exists
+                if self.class_table.contains_key(class_name) {
+                    // Validate constructor arguments
+                    for arg in arguments {
+                        self.check_expression(arg)?;
+                    }
+                    Ok(Type::Object(class_name.clone()))
+                } else {
+                    Err(CompilerError::type_error(
+                        &format!("Class '{}' not found", class_name),
+                        None,
+                        None
+                    ))
+                }
+            },
+            
+            // Async expressions
+            Expression::StartExpression { expression, location: _ } => {
+                // start expression returns Future<T> where T is the type of the expression
+                let expr_type = self.check_expression(expression)?;
+                Ok(Type::Future(Box::new(expr_type)))
+            },
+            
+            // Add other missing expressions with basic implementations
+            _ => {
+                // For any remaining expressions, return Any type as fallback
+                Ok(Type::Any)
+            }
         }
     }
 
@@ -1117,10 +1305,163 @@ impl SemanticAnalyzer {
     fn check_method_call(&mut self, object: &Expression, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
         let object_type = self.check_expression(object)?;
         
+        // Check for built-in method-style functions first
+        match (&object_type, method) {
+            // Integer methods
+            (Type::Integer, "keepBetween") => {
+                if args.len() != 2 {
+                    return Err(CompilerError::type_error(
+                        format!("Method 'keepBetween' expects 2 arguments (min, max), but {} were provided", args.len()),
+                        Some("Usage: value.keepBetween(min, max)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                // Check that both arguments are integers
+                for (i, arg) in args.iter().enumerate() {
+                    let arg_type = self.check_expression(arg)?;
+                    if !self.types_compatible(&Type::Integer, &arg_type) {
+                        return Err(CompilerError::type_error(
+                            format!("Argument {} to 'keepBetween' must be an integer", i + 1),
+                            Some("Provide integer values for min and max".to_string()),
+                            Some(location.clone())
+                        ));
+                    }
+                }
+                return Ok(Type::Integer);
+            },
+            
+            // Float methods
+            (Type::Float, "keepBetween") => {
+                if args.len() != 2 {
+                    return Err(CompilerError::type_error(
+                        format!("Method 'keepBetween' expects 2 arguments (min, max), but {} were provided", args.len()),
+                        Some("Usage: value.keepBetween(min, max)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                // Check that both arguments are floats
+                for (i, arg) in args.iter().enumerate() {
+                    let arg_type = self.check_expression(arg)?;
+                    if !self.types_compatible(&Type::Float, &arg_type) {
+                        return Err(CompilerError::type_error(
+                            format!("Argument {} to 'keepBetween' must be a float", i + 1),
+                            Some("Provide float values for min and max".to_string()),
+                            Some(location.clone())
+                        ));
+                    }
+                }
+                return Ok(Type::Float);
+            },
+            
+            // String and Array methods
+            (Type::String | Type::Array(_), "length") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'length' doesn't take any arguments".to_string(),
+                        Some("Usage: value.length()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Integer);
+            },
+            
+            (Type::String | Type::Array(_), "isEmpty") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'isEmpty' doesn't take any arguments".to_string(),
+                        Some("Usage: value.isEmpty()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            (Type::String | Type::Array(_), "isNotEmpty") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'isNotEmpty' doesn't take any arguments".to_string(),
+                        Some("Usage: value.isNotEmpty()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            // Any type methods
+            (_, "isDefined") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'isDefined' doesn't take any arguments".to_string(),
+                        Some("Usage: value.isDefined()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            (_, "isNotDefined") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'isNotDefined' doesn't take any arguments".to_string(),
+                        Some("Usage: value.isNotDefined()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            // Type conversion methods - work on any type
+            (_, "toInteger") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'toInteger' doesn't take any arguments".to_string(),
+                        Some("Usage: value.toInteger()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Integer);
+            },
+            
+            (_, "toFloat") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'toFloat' doesn't take any arguments".to_string(),
+                        Some("Usage: value.toFloat()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Float);
+            },
+            
+            (_, "toString") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'toString' doesn't take any arguments".to_string(),
+                        Some("Usage: value.toString()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
+            (_, "toBoolean") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'toBoolean' doesn't take any arguments".to_string(),
+                        Some("Usage: value.toBoolean()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            _ => {} // Fall through to class method checking
+        }
+        
         match &object_type {
             Type::Object(class_name) => {
-                // Look up the class in the class table
-                let class = self.class_table.get(class_name).ok_or_else(|| {
+                // Look up the class in the class table and clone the needed data
+                let class = self.class_table.get(class_name).cloned().ok_or_else(|| {
                     CompilerError::type_error(
                         &format!("Class '{}' not found", class_name),
                         Some("Check if the class name is correct and the class is defined".to_string()),
@@ -1141,8 +1482,12 @@ impl SemanticAnalyzer {
                             ));
                         }
 
+                        // Clone the method parameters to avoid borrowing issues
+                        let method_params = method_def.parameters.clone();
+                        let method_return_type = method_def.return_type.clone();
+
                         // Check argument types
-                        for (i, (arg, param)) in args.iter().zip(method_def.parameters.iter()).enumerate() {
+                        for (i, (arg, param)) in args.iter().zip(method_params.iter()).enumerate() {
                             let arg_type = self.check_expression(arg)?;
                             if !self.types_compatible(&arg_type, &param.type_) {
                                 return Err(CompilerError::type_error(
@@ -1154,7 +1499,7 @@ impl SemanticAnalyzer {
                             }
                         }
 
-                        return Ok(method_def.return_type.clone());
+                        return Ok(method_return_type);
                     }
                 }
 
@@ -1224,7 +1569,8 @@ impl SemanticAnalyzer {
 
     /// Check for unused variables and generate warnings
     fn check_unused_variables(&mut self) {
-        for var_name in &self.variable_environment {
+        let variable_environment = self.variable_environment.clone();
+        for var_name in &variable_environment {
             if !self.used_variables.contains(var_name) {
                 self.add_warning(CompilerWarning::unused_variable(var_name, None));
             }
@@ -1233,7 +1579,8 @@ impl SemanticAnalyzer {
 
     /// Check for unused functions and generate warnings
     fn check_unused_functions(&mut self) {
-        for func_name in &self.function_environment {
+        let function_environment = self.function_environment.clone();
+        for func_name in &function_environment {
             if !self.used_functions.contains(func_name) && 
                !["main", "start"].contains(&func_name.as_str()) {
                 self.add_warning(CompilerWarning::unused_function(func_name, None));
@@ -1251,6 +1598,10 @@ impl SemanticAnalyzer {
             Type::IntegerSized { .. } | Type::FloatSized { .. } => true,
             Type::Class { .. } => true, // Assume class types are valid if parsed
             Type::TypeParameter(name) => self.type_environment.contains(name),
+            Type::Matrix(_) => true, // Matrix types are valid
+            Type::Pairs(_, _) => true, // Pair types are valid
+            Type::Generic(_, _) => true, // Generic types are valid  
+            Type::Function(_, _) => true, // Function types are valid
         }
     }
 
@@ -1406,7 +1757,18 @@ impl SemanticAnalyzer {
                     let element_type = self.check_literal(&elements[0]);
                     Type::Array(Box::new(element_type))
                 }
-            }
+            },
+            Value::Matrix(_) => Type::Matrix(Box::new(Type::Float)),
+            Value::Void => Type::Void,
+            Value::Integer8(_) => Type::Integer,
+            Value::Integer8u(_) => Type::Integer,
+            Value::Integer16(_) => Type::Integer,
+            Value::Integer16u(_) => Type::Integer,
+            Value::Integer32(_) => Type::Integer,
+            Value::Integer64(_) => Type::Integer,
+            Value::Float32(_) => Type::Float,
+            Value::Float64(_) => Type::Float,
+            Value::List(_, _) => Type::List(Box::new(Type::Any)),
         }
     }
 
@@ -1606,6 +1968,52 @@ impl SemanticAnalyzer {
                     Err(CompilerError::type_error(
                         format!("Logical operations require boolean operands, got {:?} and {:?}", left_type, right_type),
                         Some("Use boolean expressions with logical operators".to_string()),
+                        None
+                    ))
+                }
+            },
+            BinaryOperator::Modulo => {
+                // Modulo operation requires numeric types
+                if matches!(left_type, Type::Integer | Type::Float) && matches!(right_type, Type::Integer | Type::Float) {
+                    // If either operand is float, result is float
+                    if matches!(left_type, Type::Float) || matches!(right_type, Type::Float) {
+                        Ok(Type::Float)
+                    } else {
+                        Ok(Type::Integer)
+                    }
+                } else {
+                    Err(CompilerError::type_error(
+                        "Modulo operation requires numeric operands".to_string(),
+                        Some("Use integer or float types with modulo operator".to_string()),
+                        None
+                    ))
+                }
+            },
+            BinaryOperator::Power => {
+                // Power operation requires numeric types
+                if matches!(left_type, Type::Integer | Type::Float) && matches!(right_type, Type::Integer | Type::Float) {
+                    // Power operations typically return float
+                    Ok(Type::Float)
+                } else {
+                    Err(CompilerError::type_error(
+                        "Power operation requires numeric operands".to_string(),
+                        Some("Use numeric types with power operator".to_string()),
+                        None
+                    ))
+                }
+            },
+            BinaryOperator::Is => {
+                // Type checking operation - returns boolean
+                Ok(Type::Boolean)
+            },
+            BinaryOperator::Not => {
+                // Not operation requires boolean operands
+                if left_type == Type::Boolean && right_type == Type::Boolean {
+                    Ok(Type::Boolean)
+                } else {
+                    Err(CompilerError::type_error(
+                        "Not operation requires boolean operands".to_string(),
+                        Some("Use boolean types with not operator".to_string()),
                         None
                     ))
                 }

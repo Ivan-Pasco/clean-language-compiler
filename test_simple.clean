@@ -1,0 +1,10 @@
+// Simple test program for Clean Language
+function start()
+	printl("Hello from Clean Language!")
+	printl("Testing basic functionality...")
+	
+	integer x = 42
+	printl("Value of x:")
+	printl(x)
+	
+	printl("Test completed successfully!") 

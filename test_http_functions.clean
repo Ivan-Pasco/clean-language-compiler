@@ -1,6 +1,0 @@
-functions:
-	void testHttp()
-		Http.get("https://httpbin.org/json")
-
-start()
-	testHttp() 

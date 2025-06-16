@@ -7,6 +7,7 @@ pub mod validation;
 pub mod stdlib;
 pub mod types;
 pub mod module;
+pub mod runtime;
 
 use crate::parser::CleanParser;
 use crate::semantic::SemanticAnalyzer;

@@ -33,7 +33,7 @@ pub struct ModuleExports {
 }
 
 /// Import resolution result
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImportResolution {
     pub resolved_imports: HashMap<String, Module>,
     pub symbol_map: HashMap<String, String>, // alias -> actual_name

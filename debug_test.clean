@@ -1,6 +1,0 @@
-functions:
-	void testOther()
-		abs(42)
-
-start()
-	testOther() 

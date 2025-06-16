@@ -1176,81 +1176,431 @@ class Math
         float multiply(float a, float b)
         float divide(float a, float b)
         
-        // Advanced operations
+        // Core mathematical operations
         float sqrt(float x)
         float pow(float base, float exponent)
         float abs(float x)
+        float max(float a, float b)
+        float min(float a, float b)
         
-        // Trigonometry
-        float sin(float x)
-        float cos(float x)
-        float tan(float x)
+        // Rounding and precision functions
+        float floor(float x)    // Round down to nearest integer
+        float ceil(float x)     // Round up to nearest integer  
+        float round(float x)    // Round to nearest integer
+        float trunc(float x)    // Remove decimal part
+        float sign(float x)     // Returns -1, 0, or 1
         
-        // Constants
-        float pi()
-        float e()
+        // Trigonometric functions - work with radians
+        float sin(float x)      // Sine
+        float cos(float x)      // Cosine
+        float tan(float x)      // Tangent
+        float asin(float x)     // Arc sine (inverse sine)
+        float acos(float x)     // Arc cosine (inverse cosine)
+        float atan(float x)     // Arc tangent (inverse tangent)
+        float atan2(float y, float x)  // Two-argument arc tangent
+        
+        // Logarithmic and exponential functions
+        float ln(float x)       // Natural logarithm (base e)
+        float log10(float x)    // Base-10 logarithm
+        float log2(float x)     // Base-2 logarithm
+        float exp(float x)      // e raised to the power of x
+        float exp2(float x)     // 2 raised to the power of x
+        
+        // Hyperbolic functions - useful for advanced calculations
+        float sinh(float x)     // Hyperbolic sine
+        float cosh(float x)     // Hyperbolic cosine
+        float tanh(float x)     // Hyperbolic tangent
+        
+        // Mathematical constants
+        float pi()              // π ≈ 3.14159
+        float e()               // Euler's number ≈ 2.71828
+        float tau()             // τ = 2π ≈ 6.28318
 
-// Usage
+// Usage Examples
 functions:
     void start()
+        // Basic calculations
         float result = Math.add(5.0, 3.0)
-        float hypotenuse = Math.sqrt(Math.add(Math.pow(3.0, 2.0), Math.pow(4.0, 2.0)))
+        float maximum = Math.max(10.5, 7.2)
+        
+        // Geometry - calculate circle area
+        float radius = 5.0
+        float area = Math.multiply(Math.pi(), Math.pow(radius, 2.0))
+        
+        // Trigonometry - find triangle sides
+        float angle = Math.divide(Math.pi(), 4.0)  // 45 degrees in radians
+        float opposite = Math.multiply(10.0, Math.sin(angle))
+        float adjacent = Math.multiply(10.0, Math.cos(angle))
+        
+        // Rounding numbers for display
+        float price = 19.99567
+        float rounded = Math.round(price)  // 20.0
+        float floored = Math.floor(price)  // 19.0
+        
+        // Logarithmic calculations
+        float growth = Math.exp(0.05)      // e^0.05 for 5% growth
+        float halfLife = Math.log2(100.0)  // How many times to halve 100 to get 1
+        
+        // Distance calculations using Pythagorean theorem
+        float dx = 3.0
+        float dy = 4.0
+        float distance = Math.sqrt(Math.add(Math.pow(dx, 2.0), Math.pow(dy, 2.0)))
 ```
 
 ### String Class
+
+The String class provides powerful text manipulation capabilities. Whether you're processing user input, formatting output, or analyzing text data, String has all the tools you need for effective text handling.
 
 ```clean
 class String
     functions:
         // Basic operations
         integer length(string text)
+            // Returns the number of characters in the string
+            // Perfect for validation and loop bounds
+        
         string concat(string a, string b)
+            // Joins two strings together
+            // Creates a new string without modifying the originals
+        
         string substring(string text, integer start, integer end)
+            // Extracts a portion of the string from start to end position
+            // Great for parsing and text extraction
         
-        // Case operations
+        // Case operations - useful for user input normalization
         string toUpperCase(string text)
+            // Converts all letters to uppercase
+            // Perfect for case-insensitive comparisons
+        
         string toLowerCase(string text)
+            // Converts all letters to lowercase
+            // Ideal for standardizing user input
         
-        // Search operations
+        // Search and validation operations
         boolean contains(string text, string search)
-        integer indexOf(string text, string search)
+            // Checks if the text contains the search string
+            // Returns true if found, false otherwise
         
-        // Conversion
+        integer indexOf(string text, string search)
+            // Finds the first position of search string in text
+            // Returns -1 if not found, position index if found
+        
+        integer lastIndexOf(string text, string search)
+            // Finds the last position of search string in text
+            // Useful for finding file extensions or repeated patterns
+        
+        boolean startsWith(string text, string prefix)
+            // Checks if text begins with the given prefix
+            // Great for URL validation or command parsing
+        
+        boolean endsWith(string text, string suffix)
+            // Checks if text ends with the given suffix
+            // Perfect for file type checking
+        
+        // Text cleaning and formatting
+        string trim(string text)
+            // Removes whitespace from both ends of the string
+            // Essential for cleaning user input
+        
+        string trimStart(string text)
+            // Removes whitespace from the beginning only
+            // Useful for preserving trailing spaces
+        
+        string trimEnd(string text)
+            // Removes whitespace from the end only
+            // Helpful for cleaning line endings
+        
+        // Advanced text manipulation - powerful tools for text transformation
+        string replace(string text, string oldValue, string newValue)
+            // Replaces the first occurrence of oldValue with newValue
+            // Like find-and-replace in a word processor, but only changes the first match
+            // Example: replace("Hello Hello", "Hello", "Hi") → "Hi Hello"
+        
+        string replaceAll(string text, string oldValue, string newValue)
+            // Replaces ALL occurrences of oldValue with newValue
+            // Like find-and-replace-all - changes every match in the text
+            // Example: replaceAll("Hello Hello", "Hello", "Hi") → "Hi Hi"
+        
+        Array<string> split(string text, string delimiter)
+            // Breaks a string into pieces using a separator character
+            // Like cutting a rope at specific points - very useful for data processing
+            // Example: split("apple,banana,orange", ",") → ["apple", "banana", "orange"]
+        
+        string join(Array<string> parts, string separator)
+            // Combines an array of strings into one string with separators
+            // The opposite of split - like gluing pieces back together
+            // Example: join(["apple", "banana", "orange"], ", ") → "apple, banana, orange"
+        
+        // Character operations - work with individual letters and symbols
+        string charAt(string text, integer index)
+            // Gets the character (letter/symbol) at a specific position
+            // Like picking out the 3rd letter from a word
+            // Example: charAt("Hello", 1) → "e" (positions start at 0)
+        
+        integer charCodeAt(string text, integer index)
+            // Gets the numeric code of a character (useful for sorting or encoding)
+            // Every character has a number - 'A' is 65, 'a' is 97, etc.
+            // Example: charCodeAt("Hello", 0) → 72 (the code for 'H')
+        
+        // Validation helpers - check if text meets certain conditions
+        boolean isEmpty(string text)
+            // Checks if a string has no characters at all
+            // Like checking if a box is completely empty
+            // Example: isEmpty("") → true, isEmpty("Hi") → false
+        
+        boolean isBlank(string text)
+            // Checks if a string is empty OR contains only spaces/tabs
+            // More thorough than isEmpty - catches "invisible" content too
+            // Example: isBlank("   ") → true, isBlank("Hi") → false
+        
+        // Padding operations - add characters to make text a specific length
+        string padStart(string text, integer length, string padString)
+            // Adds characters to the beginning until the text reaches desired length
+            // Like adding zeros before a number: "42" becomes "00042"
+            // Example: padStart("42", 5, "0") → "00042"
+        
+        string padEnd(string text, integer length, string padString)
+            // Adds characters to the end until the text reaches desired length
+            // Like adding spaces after text to align it in columns
+            // Example: padEnd("Name", 10, " ") → "Name      "
+        
+        // Conversion utilities
         string toString(Any value)
+            // Converts any value to its string representation
+            // Universal conversion for display purposes
 
-// Usage
+// Usage Examples - Real-world string processing scenarios
 functions:
     void start()
-        integer len = String.length("hello")
-        string upper = String.toUpperCase("world")
-        string combined = String.concat("Hello, ", "World!")
+        // Basic text processing
+        string userInput = "  Hello World!  "
+        string cleaned = String.trim(userInput)        // "Hello World!"
+        integer length = String.length(cleaned)        // 12
+        
+        // Case normalization for comparisons
+        string email1 = "USER@EXAMPLE.COM"
+        string email2 = "user@example.com"
+        boolean same = String.toLowerCase(email1) == String.toLowerCase(email2)  // true
+        
+        // Text searching and validation
+        string filename = "document.pdf"
+        boolean isPdf = String.endsWith(filename, ".pdf")     // true
+        integer dotPos = String.lastIndexOf(filename, ".")    // 8
+        
+        // URL processing
+        string url = "https://api.example.com/users"
+        boolean isHttps = String.startsWith(url, "https://")  // true
+        boolean hasApi = String.contains(url, "api")          // true
+        
+        // Text parsing and reconstruction
+        string csvLine = "John,Doe,25,Engineer"
+        Array<string> fields = String.split(csvLine, ",")     // ["John", "Doe", "25", "Engineer"]
+        string fullName = String.join([fields[0], fields[1]], " ")  // "John Doe"
+        
+        // Text replacement and cleaning
+        string messyText = "Hello    World"
+        string cleaned = String.replaceAll(messyText, "    ", " ")  // "Hello World"
+        
+        // Formatting and padding
+        string number = "42"
+        string padded = String.padStart(number, 5, "0")       // "00042"
+        
+        // Character-level operations
+        string word = "Hello"
+        string firstChar = String.charAt(word, 0)             // "H"
+        integer charCode = String.charCodeAt(word, 0)         // 72 (ASCII for 'H')
+        
+        // Input validation
+        string userField = "   "
+        boolean isValid = !String.isBlank(userField)          // false
 ```
 
 ### Array Class
 
+The Array class provides powerful data collection capabilities. Whether you're managing lists of items, processing data sets, or organizing information, Array has all the tools you need for effective data manipulation.
+
 ```clean
 class Array
     functions:
-        // Basic operations
+        // Basic operations - fundamental array access
         integer length(Array<Any> array)
+            // Returns the number of elements in the array
+            // Like counting how many items are in a box
+            // Example: length([1, 2, 3]) → 3
+        
         Any get(Array<Any> array, integer index)
+            // Gets the element at the specified position
+            // Like picking out the 3rd item from a list
+            // Example: get([10, 20, 30], 1) → 20 (positions start at 0)
+        
         void set(Array<Any> array, integer index, Any value)
+            // Updates the element at the specified position
+            // Like replacing an item in a specific slot
+            // Example: set([1, 2, 3], 1, 99) → [1, 99, 3]
         
-        // Modification
-        void push(Array<Any> array, Any item)
+        // Modification operations - changing array contents
+        Array<Any> push(Array<Any> array, Any item)
+            // Adds an element to the end of the array
+            // Like adding a new item to the end of a list
+            // Example: push([1, 2], 3) → [1, 2, 3]
+        
         Any pop(Array<Any> array)
+            // Removes and returns the last element from the array
+            // Like taking the top item off a stack
+            // Example: pop([1, 2, 3]) → 3, array becomes [1, 2]
         
-        // Search
+        Array<Any> insert(Array<Any> array, integer index, Any item)
+            // Inserts an element at a specific position
+            // Like squeezing a new item into the middle of a line
+            // Example: insert([1, 3], 1, 2) → [1, 2, 3]
+        
+        Any remove(Array<Any> array, integer index)
+            // Removes and returns the element at the specified position
+            // Like taking out a specific item and closing the gap
+            // Example: remove([1, 2, 3], 1) → 2, array becomes [1, 3]
+        
+        // Search operations - finding elements in arrays
         boolean contains(Array<Any> array, Any item)
+            // Checks if the array contains the specified item
+            // Like looking through a box to see if something is there
+            // Example: contains([1, 2, 3], 2) → true
+        
         integer indexOf(Array<Any> array, Any item)
+            // Finds the first position of the item in the array
+            // Like finding where something is located in a list
+            // Example: indexOf([10, 20, 30], 20) → 1
+        
+        integer lastIndexOf(Array<Any> array, Any item)
+            // Finds the last position of the item in the array
+            // Useful when the same item appears multiple times
+            // Example: lastIndexOf([1, 2, 1, 3], 1) → 2
+        
+        // Array transformation operations - creating new arrays
+        Array<Any> slice(Array<Any> array, integer start, integer end)
+            // Creates a new array containing elements from start to end position
+            // Like cutting out a section of the original array
+            // Example: slice([1, 2, 3, 4, 5], 1, 4) → [2, 3, 4]
+        
+        Array<Any> concat(Array<Any> array1, Array<Any> array2)
+            // Combines two arrays into a single new array
+            // Like joining two lists together
+            // Example: concat([1, 2], [3, 4]) → [1, 2, 3, 4]
+        
+        Array<Any> reverse(Array<Any> array)
+            // Creates a new array with elements in reverse order
+            // Like flipping the array upside down
+            // Example: reverse([1, 2, 3]) → [3, 2, 1]
+        
+        Array<Any> sort(Array<Any> array)
+            // Creates a new array with elements sorted in ascending order
+            // Like organizing items from smallest to largest
+            // Example: sort([3, 1, 4, 2]) → [1, 2, 3, 4]
+        
+        // Functional programming operations - advanced array processing
+        Array<Any> map(Array<Any> array, function callback)
+            // Creates a new array by applying a function to each element
+            // Like transforming every item in the array using a rule
+            // Example: map([1, 2, 3], x => x * 2) → [2, 4, 6]
+        
+        Array<Any> filter(Array<Any> array, function callback)
+            // Creates a new array containing only elements that pass a test
+            // Like keeping only the items that meet certain criteria
+            // Example: filter([1, 2, 3, 4], x => x > 2) → [3, 4]
+        
+        Any reduce(Array<Any> array, function callback, Any initialValue)
+            // Reduces the array to a single value by applying a function
+            // Like combining all elements into one result
+            // Example: reduce([1, 2, 3, 4], (sum, x) => sum + x, 0) → 10
+        
+        void forEach(Array<Any> array, function callback)
+            // Executes a function for each element in the array
+            // Like doing something with every item in the array
+            // Example: forEach([1, 2, 3], x => print(x)) → prints 1, 2, 3
+        
+        // Utility operations - helpful array functions
+        boolean isEmpty(Array<Any> array)
+            // Checks if the array has no elements
+            // Like checking if a box is completely empty
+            // Example: isEmpty([]) → true, isEmpty([1]) → false
+        
+        boolean isNotEmpty(Array<Any> array)
+            // Checks if the array has at least one element
+            // Opposite of isEmpty - checks if there's something there
+            // Example: isNotEmpty([1, 2]) → true
+        
+        Any first(Array<Any> array)
+            // Gets the first element of the array
+            // Like looking at the item at the front of the line
+            // Example: first([10, 20, 30]) → 10
+        
+        Any last(Array<Any> array)
+            // Gets the last element of the array
+            // Like looking at the item at the back of the line
+            // Example: last([10, 20, 30]) → 30
+        
+        string join(Array<string> array, string separator)
+            // Combines all array elements into a single string with separators
+            // Like gluing text pieces together with a connector
+            // Example: join(["apple", "banana", "orange"], ", ") → "apple, banana, orange"
+        
+        // Array creation helpers - building new arrays
+        Array<Any> fill(integer size, Any value)
+            // Creates a new array of specified size filled with the same value
+            // Like making multiple copies of the same item
+            // Example: fill(3, "hello") → ["hello", "hello", "hello"]
+        
+        Array<integer> range(integer start, integer end)
+            // Creates an array of numbers from start to end
+            // Like counting from one number to another
+            // Example: range(1, 5) → [1, 2, 3, 4, 5]
 
-// Usage
+// Usage Examples - Real-world array processing scenarios
 functions:
     void start()
+        // Basic array operations
         Array<integer> numbers = [1, 2, 3]
-        integer size = Array.length(numbers)
-        Array.push(numbers, 4)
-        integer first = Array.get(numbers, 0)
+        integer size = Array.length(numbers)           // 3
+        integer first = Array.get(numbers, 0)          // 1
+        Array.set(numbers, 1, 99)                      // [1, 99, 3]
+        
+        // Building and modifying arrays
+        Array<string> fruits = ["apple", "banana"]
+        fruits = Array.push(fruits, "orange")          // ["apple", "banana", "orange"]
+        string lastFruit = Array.pop(fruits)           // "orange", fruits becomes ["apple", "banana"]
+        
+        // Searching through data
+        Array<integer> scores = [85, 92, 78, 96, 88]
+        boolean hasHighScore = Array.contains(scores, 96)     // true
+        integer position = Array.indexOf(scores, 92)          // 1
+        
+        // Data processing and transformation
+        Array<integer> data = [1, 2, 3, 4, 5]
+        Array<integer> doubled = Array.map(data, x => x * 2)  // [2, 4, 6, 8, 10]
+        Array<integer> evens = Array.filter(data, x => x % 2 == 0)  // [2, 4]
+        integer sum = Array.reduce(data, (total, x) => total + x, 0)  // 15
+        
+        // Array manipulation
+        Array<string> names1 = ["Alice", "Bob"]
+        Array<string> names2 = ["Charlie", "Diana"]
+        Array<string> allNames = Array.concat(names1, names2)  // ["Alice", "Bob", "Charlie", "Diana"]
+        Array<string> reversed = Array.reverse(allNames)       // ["Diana", "Charlie", "Bob", "Alice"]
+        
+        // Working with sections of arrays
+        Array<integer> bigList = [10, 20, 30, 40, 50]
+        Array<integer> middle = Array.slice(bigList, 1, 4)     // [20, 30, 40]
+        
+        // Text processing with arrays
+        Array<string> words = ["hello", "world", "from", "Clean"]
+        string sentence = Array.join(words, " ")               // "hello world from Clean"
+        
+        // Creating arrays programmatically
+        Array<string> greetings = Array.fill(3, "Hello")       // ["Hello", "Hello", "Hello"]
+        Array<integer> countdown = Array.range(5, 1)           // [5, 4, 3, 2, 1]
+        
+        // Validation and utility
+        boolean isEmpty = Array.isEmpty([])                    // true
+        string firstWord = Array.first(words)                  // "hello"
+        string lastWord = Array.last(words)                    // "Clean"
 ```
 
 ### File Class

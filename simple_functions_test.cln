@@ -1,7 +1,0 @@
-functions:
-	integer add()
-		return 42
-
-function start()
-	integer result = add()
-	println(result) 

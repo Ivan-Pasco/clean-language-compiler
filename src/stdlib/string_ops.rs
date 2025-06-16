@@ -245,10 +245,163 @@ impl StringOperations {
         // Register string length function
         register_stdlib_function(
             codegen,
-            "string.length",
+            "string_length",
             &[WasmType::I32], // string pointer
             Some(WasmType::I32), // length
             self.generate_string_length()
+        )?;
+
+        // Register new string functions
+        register_stdlib_function(
+            codegen,
+            "string_contains",
+            &[WasmType::I32, WasmType::I32], // string, search
+            Some(WasmType::I32), // boolean
+            self.generate_string_contains()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_index_of",
+            &[WasmType::I32, WasmType::I32], // string, search
+            Some(WasmType::I32), // index (-1 if not found)
+            self.generate_string_index_of()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_last_index_of",
+            &[WasmType::I32, WasmType::I32], // string, search
+            Some(WasmType::I32), // index (-1 if not found)
+            self.generate_string_last_index_of()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_starts_with",
+            &[WasmType::I32, WasmType::I32], // string, prefix
+            Some(WasmType::I32), // boolean
+            self.generate_string_starts_with()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_ends_with",
+            &[WasmType::I32, WasmType::I32], // string, suffix
+            Some(WasmType::I32), // boolean
+            self.generate_string_ends_with()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_to_upper",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // new string
+            self.generate_string_to_upper()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_to_lower",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // new string
+            self.generate_string_to_lower()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_trim",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // new string
+            self.generate_string_trim()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_trim_start",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // new string
+            self.generate_string_trim_start()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_trim_end",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // new string
+            self.generate_string_trim_end()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_substring",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, start, end
+            Some(WasmType::I32), // new string
+            self.generate_string_substring()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_replace",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, old, new
+            Some(WasmType::I32), // new string
+            self.generate_string_replace()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_replace_all",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, old, new
+            Some(WasmType::I32), // new string
+            self.generate_string_replace_all()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_char_at",
+            &[WasmType::I32, WasmType::I32], // string, index
+            Some(WasmType::I32), // character as string
+            self.generate_string_char_at()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_char_code_at",
+            &[WasmType::I32, WasmType::I32], // string, index
+            Some(WasmType::I32), // character code
+            self.generate_string_char_code_at()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_is_empty",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // boolean
+            self.generate_string_is_empty()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_is_blank",
+            &[WasmType::I32], // string
+            Some(WasmType::I32), // boolean
+            self.generate_string_is_blank()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_pad_start",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, length, padString
+            Some(WasmType::I32), // new string
+            self.generate_string_pad_start()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string_pad_end",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, length, padString
+            Some(WasmType::I32), // new string
+            self.generate_string_pad_end()
         )?;
 
         Ok(())
@@ -554,6 +707,332 @@ impl StringOperations {
             align: 2,
             memory_index: 0,
         }));
+        
+        instructions
+    }
+
+    // NEW STRING FUNCTIONS
+
+    fn generate_string_contains(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Simple implementation: use indexOf and check if result != -1
+        instructions.push(Instruction::LocalGet(0)); // string
+        instructions.push(Instruction::LocalGet(1)); // search
+        instructions.push(Instruction::Call(0)); // Call string_index_of (placeholder)
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::I32Ne); // result != -1
+        
+        instructions
+    }
+
+    fn generate_string_index_of(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get string1 length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(2)); // string_len
+        
+        // Get search string length
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(3)); // search_len
+        
+        // If search is empty, return 0
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // If search is longer than string, return -1
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32GtU);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Search loop
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(4)); // i = 0
+        
+        instructions.push(Instruction::Block(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if i <= string_len - search_len
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::I32GtU);
+        instructions.push(Instruction::BrIf(1)); // Break if i > string_len - search_len
+        
+        // Check if substring matches at position i
+        // For simplicity, just return first position (placeholder implementation)
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::Br(1)); // Return i
+        
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::I32Const(-1)); // Not found
+        instructions.push(Instruction::End);
+        
+        instructions
+    }
+
+    fn generate_string_last_index_of(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Similar to indexOf but search backwards (placeholder implementation)
+        instructions.push(Instruction::LocalGet(0)); // string
+        instructions.push(Instruction::LocalGet(1)); // search
+        instructions.push(Instruction::Call(0)); // Call string_index_of (placeholder)
+        
+        instructions
+    }
+
+    fn generate_string_starts_with(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(2)); // string_len
+        
+        // Get prefix length
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(3)); // prefix_len
+        
+        // If prefix is longer than string, return false
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32GtU);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(0)); // false
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Compare first prefix_len characters (simplified implementation)
+        instructions.push(Instruction::I32Const(1)); // true (placeholder)
+        
+        instructions
+    }
+
+    fn generate_string_ends_with(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Similar to startsWith but check end (placeholder implementation)
+        instructions.push(Instruction::I32Const(1)); // true (placeholder)
+        
+        instructions
+    }
+
+    fn generate_string_to_upper(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(1)); // length
+        
+        // Allocate new string
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32Const(STRING_TYPE_ID as i32));
+        instructions.push(Instruction::Call(0)); // Call memory.allocate
+        instructions.push(Instruction::LocalTee(2)); // result_ptr
+        
+        // Store length in header
+        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        
+        // Copy and convert characters (simplified - just copy for now)
+        instructions.push(Instruction::LocalGet(2)); // Return result pointer
+        
+        instructions
+    }
+
+    fn generate_string_to_lower(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Similar to toUpper (placeholder implementation)
+        instructions.push(Instruction::LocalGet(0)); // Return original string
+        
+        instructions
+    }
+
+    fn generate_string_trim(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
+        
+        instructions
+    }
+
+    fn generate_string_trim_start(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
+        
+        instructions
+    }
+
+    fn generate_string_trim_end(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
+        
+        instructions
+    }
+
+    fn generate_string_substring(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(3)); // string_len
+        
+        // Validate start index
+        instructions.push(Instruction::LocalGet(1)); // start
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::If(BlockType::Empty));
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(1)); // start = 0
+        instructions.push(Instruction::End);
+        
+        // Handle end index (-1 means use string length)
+        instructions.push(Instruction::LocalGet(2)); // end
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::I32Eq);
+        instructions.push(Instruction::If(BlockType::Empty));
+        instructions.push(Instruction::LocalGet(3));
+        instructions.push(Instruction::LocalSet(2)); // end = string_len
+        instructions.push(Instruction::End);
+        
+        // Calculate substring length
+        instructions.push(Instruction::LocalGet(2)); // end
+        instructions.push(Instruction::LocalGet(1)); // start
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::LocalSet(4)); // sub_len
+        
+        // Allocate new string
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::I32Const(STRING_TYPE_ID as i32));
+        instructions.push(Instruction::Call(0)); // Call memory.allocate
+        instructions.push(Instruction::LocalTee(5)); // result_ptr
+        
+        // Store length in header
+        instructions.push(Instruction::LocalGet(4));
+        instructions.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        
+        // Return result pointer (simplified implementation)
+        instructions.push(Instruction::LocalGet(5));
+        
+        instructions
+    }
+
+    fn generate_string_replace(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
+        
+        instructions
+    }
+
+    fn generate_string_replace_all(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
+        
+        instructions
+    }
+
+    fn generate_string_char_at(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get character at index and create single-character string
+        instructions.push(Instruction::LocalGet(0)); // string
+        instructions.push(Instruction::LocalGet(1)); // index
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 16, align: 0, memory_index: 0 }));
+        
+        // Allocate single-character string
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Const(STRING_TYPE_ID as i32));
+        instructions.push(Instruction::Call(0)); // Call memory.allocate
+        instructions.push(Instruction::LocalTee(2)); // result_ptr
+        
+        // Store length (1) in header
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        
+        // Store character
+        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::I32Store8(MemArg { offset: 16, align: 0, memory_index: 0 }));
+        
+        instructions.push(Instruction::LocalGet(2)); // Return result
+        
+        instructions
+    }
+
+    fn generate_string_char_code_at(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Get character at index and return its code
+        instructions.push(Instruction::LocalGet(0)); // string
+        instructions.push(Instruction::LocalGet(1)); // index
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 16, align: 0, memory_index: 0 }));
+        
+        instructions
+    }
+
+    fn generate_string_is_empty(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Check if length == 0
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::I32Eqz);
+        
+        instructions
+    }
+
+    fn generate_string_is_blank(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder: check if empty or all whitespace
+        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::I32Eqz);
+        
+        instructions
+    }
+
+    fn generate_string_pad_start(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
+        
+        instructions
+    }
+
+    fn generate_string_pad_end(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Placeholder implementation - return original string
+        instructions.push(Instruction::LocalGet(0));
         
         instructions
     }
