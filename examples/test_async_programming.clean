@@ -1,11 +1,11 @@
 // Test asynchronous programming features
 
-function downloadFile(string url) -> string
+function string downloadFile(string url)
 	// Simulate downloading a file
 	print("Downloading: " + url)
 	return "File content from " + url
 
-function processData(string data) -> string
+function string processData(string data)
 	// Simulate data processing
 	print("Processing: " + data)
 	return "Processed: " + data

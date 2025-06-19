@@ -13,10 +13,11 @@
 9. [Error Handling](#error-handling)
 10. [Classes and Objects](#classes-and-objects)
 11. [Modules and Imports](#modules-and-imports)
-12. [Standard Library](#standard-library)
-13. [Memory Management](#memory-management)
-14. [Advanced Types](#advanced-types)
-15. [Asynchronous Programming](#asynchronous-programming)
+12. [Package Management](#package-management)
+13. [Standard Library](#standard-library)
+14. [Memory Management](#memory-management)
+15. [Advanced Types](#advanced-types)
+16. [Asynchronous Programming](#asynchronous-programming)
 
 ## Overview
 
@@ -1932,7 +1933,403 @@ import:
     Json.decode as jd   # symbol alias
 ```
 
+## Package Management
+
+Clean Language includes a comprehensive package management system that makes it easy to share, discover, and use code libraries. Think of it as a **smart librarian** for your code - it helps you find, organize, and manage code packages that other developers have created.
+
+### What is Package Management?
+
+Package management in Clean Language allows you to:
+- **Organize your projects** with proper metadata and configuration
+- **Use external libraries** without copying code manually
+- **Share your code** with other developers easily
+- **Manage dependencies** and their versions automatically
+- **Build reproducible projects** that work the same way everywhere
+
+### Package Manifest (`package.clean.toml`)
+
+Every Clean Language project can have a `package.clean.toml` file that serves as the project's "recipe card." This file contains all the information about your project and what it needs to work.
+
+#### Basic Structure
+
+```toml
+[package]
+name = "my-awesome-app"
+version = "1.0.0"
+description = "An amazing Clean Language application"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+repository = "https://github.com/username/my-awesome-app"
+homepage = "https://my-awesome-app.com"
+keywords = ["web", "calculator", "utility"]
+categories = ["applications", "mathematics"]
+
+[dependencies]
+math-utils = "^1.0.0"
+http-client = "~2.1.0"
+json-parser = ">=1.5.0, <2.0.0"
+
+[dev_dependencies]
+test-framework = "latest"
+benchmark-tools = "^0.3.0"
+
+[build]
+target = "wasm32-unknown-unknown"
+optimization = "size"
+features = ["async", "networking"]
+exclude = [
+    "tests/",
+    "examples/",
+    "docs/"
+]
+```
+
+#### Package Information Fields
+
+- **`name`**: Your package's unique identifier (required)
+- **`version`**: Current version using semantic versioning (required)
+- **`description`**: Brief explanation of what your package does
+- **`authors`**: List of package maintainers
+- **`license`**: Software license (e.g., "MIT", "Apache-2.0")
+- **`repository`**: Source code repository URL
+- **`homepage`**: Project website
+- **`keywords`**: Search terms to help others find your package
+- **`categories`**: Classification tags for package discovery
+
+### Dependency Management
+
+#### Version Specifications
+
+Clean Language uses semantic versioning (semver) with flexible version requirements:
+
+```toml
+[dependencies]
+# Exact version
+exact-package = "1.2.3"
+
+# Caret requirements (compatible within major version)
+math-utils = "^1.0.0"      # >=1.0.0, <2.0.0
+
+# Tilde requirements (compatible within minor version)
+http-client = "~1.2.0"     # >=1.2.0, <1.3.0
+
+# Range requirements
+json-parser = ">=1.5.0, <2.0.0"
+
+# Latest version
+test-framework = "latest"
+
+# Git repositories
+git-package = { git = "https://github.com/user/repo.git", branch = "main" }
+
+# Local paths
+local-package = { path = "../my-local-package" }
+
+# With optional features
+web-framework = { version = "^2.0.0", features = ["async", "json"] }
+```
+
+#### Development vs Runtime Dependencies
+
+```toml
+# Runtime dependencies (needed when your package runs)
+[dependencies]
+math-utils = "^1.0.0"
+http-client = "^2.0.0"
+
+# Development dependencies (only needed during development/testing)
+[dev_dependencies]
+test-framework = "^1.0.0"
+benchmark-tools = "^0.5.0"
+documentation-generator = "latest"
+```
+
+### Package Manager Commands
+
+#### Project Initialization
+
+```bash
+# Create a new package in current directory
+clean package init
+
+# Create with specific details
+clean package init --name "my-app" --description "My awesome application"
+
+# Create with version
+clean package init --name "calculator" --version "0.1.0"
+```
+
+This creates:
+- `package.clean.toml` manifest file
+- `src/` directory for your source code
+- `src/main.clean` with a basic starter template
+
+#### Managing Dependencies
+
+```bash
+# Add a runtime dependency
+clean package add math-utils --version "^1.0.0"
+
+# Add a development dependency
+clean package add test-framework --dev
+
+# Add from Git repository
+clean package add web-utils --git "https://github.com/user/web-utils.git"
+
+# Add from local path
+clean package add my-lib --path "../my-library"
+
+# Remove a dependency
+clean package remove old-package
+
+# List all dependencies
+clean package list
+
+# Show dependency tree
+clean package list --tree
+```
+
+#### Installing and Updating
+
+```bash
+# Install all dependencies listed in package.clean.toml
+clean package install
+
+# Update all dependencies to latest compatible versions
+clean package update
+
+# Update specific package
+clean package update math-utils
+```
+
+#### Package Discovery
+
+```bash
+# Search for packages
+clean package search "math"
+clean package search "http client" --limit 20
+
+# Get information about a package
+clean package info math-utils
+clean package info web-framework --version "2.1.0"
+```
+
+#### Publishing Packages
+
+```bash
+# Publish to the default registry
+clean package publish
+
+# Dry run (see what would be published without actually doing it)
+clean package publish --dry-run
+
+# Publish to a specific registry
+clean package publish --registry "https://my-private-registry.com"
+```
+
+### Build Configuration
+
+The `[build]` section controls how your package is compiled:
+
+```toml
+[build]
+# Target platform (WebAssembly by default)
+target = "wasm32-unknown-unknown"
+
+# Optimization level
+optimization = "size"        # "size", "speed", or "debug"
+
+# Feature flags to enable
+features = [
+    "async",
+    "networking", 
+    "file-system"
+]
+
+# Files/directories to exclude from the package
+exclude = [
+    "tests/",
+    "examples/",
+    "docs/",
+    "*.tmp",
+    ".git/"
+]
+
+# Include only specific files (alternative to exclude)
+include = [
+    "src/",
+    "README.md",
+    "LICENSE"
+]
+```
+
+### Using Packages in Your Code
+
+Once you've added dependencies, you can import and use them in your Clean Language code:
+
+```clean
+# Import from packages in your dependencies
+import:
+    MathUtils                    # From math-utils package
+    HttpClient                   # From http-client package
+    JsonParser.parse as parseJson # From json-parser package
+
+functions:
+    void calculateAndSend()
+        # Use functions from imported packages
+        float result = MathUtils.sqrt(16.0)
+        string jsonData = JsonParser.stringify(result)
+        
+        HttpClient client = HttpClient.new()
+        client.post("https://api.example.com/data", jsonData)
+```
+
+### Package Registry
+
+Clean Language packages are distributed through the official package registry at `https://packages.cleanlang.org`. The registry provides:
+
+- **Package discovery** through search and browsing
+- **Version management** with automatic dependency resolution
+- **Security scanning** to ensure package safety
+- **Documentation hosting** for package APIs
+- **Download statistics** and popularity metrics
+
+### Best Practices
+
+#### Package Naming
+- Use lowercase with hyphens: `my-awesome-package`
+- Be descriptive but concise: `http-client` not `hc`
+- Avoid generic names: `json-parser` not `parser`
+
+#### Versioning
+- Follow semantic versioning: `MAJOR.MINOR.PATCH`
+- Increment MAJOR for breaking changes
+- Increment MINOR for new features
+- Increment PATCH for bug fixes
+
+#### Dependencies
+- Specify version ranges, not exact versions: `^1.0.0` not `1.0.0`
+- Keep dependencies minimal - only add what you actually need
+- Use development dependencies for tools that aren't needed at runtime
+
+#### Documentation
+- Include a clear description in your `package.clean.toml`
+- Add keywords to help others discover your package
+- Provide examples in your README
+
+### Example: Creating a Math Utilities Package
+
+Let's walk through creating and publishing a simple math utilities package:
+
+1. **Initialize the package:**
+```bash
+clean package init --name "advanced-math" --description "Advanced mathematical functions"
+```
+
+2. **Edit `package.clean.toml`:**
+```toml
+[package]
+name = "advanced-math"
+version = "1.0.0"
+description = "Advanced mathematical functions for Clean Language"
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+keywords = ["math", "mathematics", "utilities", "algorithms"]
+categories = ["mathematics", "algorithms"]
+
+[build]
+target = "wasm32-unknown-unknown"
+optimization = "size"
+```
+
+3. **Create your library in `src/main.clean`:**
+```clean
+functions:
+    # Calculate factorial
+    integer factorial(integer n)
+        if n <= 1
+            return 1
+        else
+            return n * factorial(n - 1)
+    
+    # Calculate greatest common divisor
+    integer gcd(integer a, integer b)
+        while b != 0
+            integer temp = b
+            b = a % b
+            a = temp
+        return a
+    
+    # Check if number is prime
+    boolean isPrime(integer n)
+        if n < 2
+            return false
+        
+        integer i = 2
+        while i * i <= n
+            if n % i == 0
+                return false
+            i = i + 1
+        
+        return true
+```
+
+4. **Test your package:**
+```bash
+clean package add test-framework --dev
+# Write tests and run them
+```
+
+5. **Publish your package:**
+```bash
+clean package publish --dry-run  # Check what will be published
+clean package publish            # Actually publish
+```
+
+6. **Others can now use your package:**
+```bash
+clean package add advanced-math
+```
+
+```clean
+import:
+    AdvancedMath
+
+functions:
+    void demonstrateMath()
+        integer fact = AdvancedMath.factorial(5)        # 120
+        integer divisor = AdvancedMath.gcd(48, 18)      # 6
+        boolean prime = AdvancedMath.isPrime(17)        # true
+```
+
+### Package Security and Trust
+
+The Clean Language package ecosystem includes several security measures:
+
+- **Package verification** ensures packages haven't been tampered with
+- **Dependency scanning** checks for known security vulnerabilities
+- **Author verification** confirms package ownership
+- **Automated testing** runs packages through security checks
+
+### Private Packages and Registries
+
+For organizations that need private package distribution:
+
+```toml
+# Use a private registry
+[package]
+name = "company-internal-tools"
+registry = "https://packages.company.com"
+
+# Or specify in dependencies
+[dependencies]
+secret-sauce = { version = "^1.0.0", registry = "https://packages.company.com" }
+```
+
+The package management system makes Clean Language development more collaborative, efficient, and maintainable. Whether you're building a simple script or a complex application, the package manager helps you leverage the broader Clean Language ecosystem while sharing your own contributions with the community.
+
 ## Asynchronous Programming
+
 Clean uses start and later for simple asynchronous execution.
 start begins a task in the background.
 later declares that the result will be available in the future.
@@ -1952,10 +2349,6 @@ function syncCache() background
     
 syncCache()    # runs in background automatically
 
-
-
 ## Memory Management
+
 Clean uses Automatic Reference Counting (ARC) for memory management.
-Each object tracks how many references point to it, and is automatically freed when no references remain.
-A lightweight cycle detector runs periodically to prevent memory leaks in circular structures.
-No manual memory handling is needed — memory is released as soon as it's no longer used.

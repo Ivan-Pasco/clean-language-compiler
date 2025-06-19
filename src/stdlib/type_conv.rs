@@ -1,7 +1,7 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use crate::stdlib::MemoryManager;
+
 use wasm_encoder::{Instruction, MemArg, BlockType, ValType};
 
 use crate::stdlib::register_stdlib_function;
@@ -557,11 +557,11 @@ mod tests {
     use super::*;
     use crate::codegen::CodeGenerator;
     use wasmtime::{Engine, Instance, Module, Store, Val};
-    use std::cell::RefCell;
+
 
     fn setup_test_environment() -> (Store<()>, Instance) {
             let mut codegen = CodeGenerator::new();
-        let memory = RefCell::new(MemoryManager::new(16, Some(1024))); // 16 pages, heap starts at 1024
+        // let memory = RefCell::new(MemoryManager::new(16, Some(1024))); // 16 pages, heap starts at 1024
         let type_conv = TypeConvOperations::new(1024);
         type_conv.register_functions(&mut codegen).unwrap();
 

@@ -1,0 +1,18 @@
+[package]
+name = "test-package"
+version = "0.1.0"
+description = "A test Clean Language package"
+license = "MIT"
+
+[dependencies]
+math-utils = "^1.0.0"
+
+[dev_dependencies]
+
+[build]
+target = "wasm32-unknown-unknown"
+optimization = "size"
+exclude = [
+    "tests/",
+    "examples/",
+]

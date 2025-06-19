@@ -6,11 +6,16 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use wasmtime::{Config, Engine, Module, Store, Linker, Caller, Val, Instance};
+use wasmtime::{Config, Engine, Module, Store, Linker, Caller};
 
 pub mod async_runtime;
 pub mod task_scheduler;
 pub mod future_resolver;
+pub mod http_client;
+pub mod file_io;
+
+use http_client::{init_http_client, get_http_client};
+use file_io::FileIO;
 
 /// Enhanced WebAssembly runtime with async support
 pub struct CleanRuntime {
@@ -60,6 +65,9 @@ pub struct FutureValue {
 impl CleanRuntime {
     /// Create a new Clean Language runtime with async support
     pub fn new() -> Result<Self, CompilerError> {
+        // Initialize HTTP client
+        init_http_client();
+        
         // Enable async support in Wasmtime configuration
         let mut config = Config::new();
         config.async_support(true);
@@ -189,10 +197,58 @@ impl CleanRuntime {
             format!("Failed to create println function: {}", e),
             None, None
         ))?;
+
+        // Add printl function (alias for println for compatibility)
+        linker.func_wrap("env", "printl", |mut caller: Caller<'_, ()>, str_ptr: i32, str_len: i32| {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    if str_ptr >= 0 && str_len >= 0 {
+                        let start = str_ptr as usize;
+                        let len = str_len as usize;
+                        if start + len <= data.len() {
+                            if let Ok(string) = std::str::from_utf8(&data[start..start + len]) {
+                                println!("{}", string);
+                            } else {
+                                println!("[invalid UTF-8]");
+                            }
+                        } else {
+                            println!("[out of bounds]");
+                        }
+                    } else {
+                        println!("[invalid pointer/length]");
+                    }
+                }
+            }
+            Ok(())
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create printl function: {}", e),
+            None, None
+        ))?;
+
+        // Add simple print functions for compatibility
+        linker.func_wrap("env", "print_simple", |_caller: Caller<'_, ()>, value: i32| {
+            print!("{}", value);
+            Ok(())
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create print_simple function: {}", e),
+            None, None
+        ))?;
+
+        linker.func_wrap("env", "printl_simple", |_caller: Caller<'_, ()>, value: i32| {
+            println!("{}", value);
+            Ok(())
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create printl_simple function: {}", e),
+            None, None
+        ))?;
         
         // Async task management functions
         let task_scheduler_clone = Arc::clone(&task_scheduler);
-        linker.func_wrap("env", "start_background_task", move |_caller: Caller<'_, ()>, task_name_ptr: i32, task_name_len: i32| -> i32 {
+        linker.func_wrap("env", "start_background_task", move |_caller: Caller<'_, ()>, _task_name_ptr: i32, _task_name_len: i32| -> i32 {
             let mut scheduler = task_scheduler_clone.lock().unwrap();
             let task_id = scheduler.create_task("background_task".to_string());
             println!("🔄 Started background task #{}", task_id);
@@ -205,7 +261,7 @@ impl CleanRuntime {
         
         // Future resolution functions
         let future_resolver_clone = Arc::clone(&future_resolver);
-        linker.func_wrap("env", "create_future", move |_caller: Caller<'_, ()>, future_name_ptr: i32, future_name_len: i32| -> i32 {
+        linker.func_wrap("env", "create_future", move |_caller: Caller<'_, ()>, _future_name_ptr: i32, _future_name_len: i32| -> i32 {
             let mut resolver = future_resolver_clone.lock().unwrap();
             let future_id = format!("future_{}", resolver.futures.len());
             resolver.create_future(future_id.clone());
@@ -232,7 +288,7 @@ impl CleanRuntime {
         
         // Background processing function
         let background_tasks_clone = Arc::clone(&background_tasks);
-        linker.func_wrap("env", "execute_background", move |_caller: Caller<'_, ()>, operation_ptr: i32, operation_len: i32| -> i32 {
+        linker.func_wrap("env", "execute_background", move |_caller: Caller<'_, ()>, _operation_ptr: i32, _operation_len: i32| -> i32 {
             let mut tasks = background_tasks_clone.lock().unwrap();
             let task = BackgroundTask {
                 id: tasks.len() as u32,
@@ -432,49 +488,311 @@ impl CleanRuntime {
             None, None
         ))?;
         
-        // HTTP functions with async simulation
-        linker.func_wrap("env", "http_get", |_caller: Caller<'_, ()>, _url_ptr: i32, _url_len: i32| -> i32 {
-            println!("🌐 [HTTP GET] Simulating async request...");
-            thread::sleep(Duration::from_millis(50)); // Simulate network delay
-            println!("✅ [HTTP GET] Request completed");
-            0 // Return mock string pointer
+        // HTTP functions with real network requests
+        linker.func_wrap("env", "http_get", |mut caller: Caller<'_, ()>, url_ptr: i32, url_len: i32| -> i32 {
+            // Extract URL from memory
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if url_ptr >= 0 && url_len >= 0 {
+                        let start = url_ptr as usize;
+                        let len = url_len as usize;
+                        
+                        if start + len <= data.len() {
+                            if let Ok(url) = std::str::from_utf8(&data[start..start + len]) {
+                                // Make real HTTP request
+                                let client = get_http_client();
+                                match client.get(url) {
+                                    Ok(response) => {
+                                        // For now, just return success (1) - in a full implementation
+                                        // we would store the response body in memory and return a pointer
+                                        println!("✅ [HTTP GET] Real response received: {} bytes", response.body.len());
+                                        return 1; // Success indicator
+                                    }
+                                    Err(e) => {
+                                        println!("❌ [HTTP GET] Request failed: {}", e);
+                                        return 0; // Failure indicator
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [HTTP GET] Invalid URL parameters");
+            0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
             format!("Failed to create http_get function: {}", e),
             None, None
         ))?;
         
-        linker.func_wrap("env", "http_post", |_caller: Caller<'_, ()>, _url_ptr: i32, _url_len: i32, _body_ptr: i32, _body_len: i32| -> i32 {
-            println!("🌐 [HTTP POST] Simulating async request...");
-            thread::sleep(Duration::from_millis(75)); // Simulate network delay
-            println!("✅ [HTTP POST] Request completed");
-            0 // Return mock string pointer
+        linker.func_wrap("env", "http_post", |mut caller: Caller<'_, ()>, url_ptr: i32, url_len: i32, body_ptr: i32, body_len: i32| -> i32 {
+            // Extract URL and body from memory
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    // Extract URL
+                    if url_ptr >= 0 && url_len >= 0 && body_ptr >= 0 && body_len >= 0 {
+                        let url_start = url_ptr as usize;
+                        let url_length = url_len as usize;
+                        let body_start = body_ptr as usize;
+                        let body_length = body_len as usize;
+                        
+                        if url_start + url_length <= data.len() && body_start + body_length <= data.len() {
+                            if let (Ok(url), Ok(body)) = (
+                                std::str::from_utf8(&data[url_start..url_start + url_length]),
+                                std::str::from_utf8(&data[body_start..body_start + body_length])
+                            ) {
+                                // Make real HTTP POST request
+                                let client = get_http_client();
+                                match client.post(url, body) {
+                                    Ok(response) => {
+                                        println!("✅ [HTTP POST] Real response received: {} bytes", response.body.len());
+                                        return 1; // Success indicator
+                                    }
+                                    Err(e) => {
+                                        println!("❌ [HTTP POST] Request failed: {}", e);
+                                        return 0; // Failure indicator
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [HTTP POST] Invalid parameters");
+            0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
             format!("Failed to create http_post function: {}", e),
             None, None
         ))?;
+
+        // Add missing HTTP methods for compatibility
+        linker.func_wrap("env", "http_put", |_caller: Caller<'_, ()>, _url_ptr: i32, _url_len: i32, _body_ptr: i32, _body_len: i32| -> i32 {
+            println!("[HTTP PUT] Mock response");
+            0 // Return mock string pointer
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create http_put function: {}", e),
+            None, None
+        ))?;
+
+        linker.func_wrap("env", "http_patch", |_caller: Caller<'_, ()>, _url_ptr: i32, _url_len: i32, _body_ptr: i32, _body_len: i32| -> i32 {
+            println!("[HTTP PATCH] Mock response");
+            0 // Return mock string pointer
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create http_patch function: {}", e),
+            None, None
+        ))?;
+
+        linker.func_wrap("env", "http_delete", |_caller: Caller<'_, ()>, _url_ptr: i32, _url_len: i32| -> i32 {
+            println!("[HTTP DELETE] Mock response");
+            0 // Return mock string pointer
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create http_delete function: {}", e),
+            None, None
+        ))?;
         
-        // File I/O functions with async simulation
-        linker.func_wrap("env", "file_read", |_caller: Caller<'_, ()>, _path_ptr: i32, _path_len: i32| -> i32 {
-            println!("📁 [FILE READ] Simulating async file read...");
-            thread::sleep(Duration::from_millis(25)); // Simulate disk I/O
-            println!("✅ [FILE READ] File read completed");
-            0 // Return mock content pointer
+        // File I/O functions with real filesystem operations
+        linker.func_wrap("env", "file_read", |mut caller: Caller<'_, ()>, path_ptr: i32, path_len: i32, _result_ptr: i32| -> i32 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if path_ptr >= 0 && path_len >= 0 {
+                        let start = path_ptr as usize;
+                        let len = path_len as usize;
+                        
+                        if start + len <= data.len() {
+                            if let Ok(path) = std::str::from_utf8(&data[start..start + len]) {
+                                // Make real file read
+                                match FileIO::read_file(path) {
+                                    Ok(content) => {
+                                        // Store content in memory and return pointer
+                                        let mut data = memory.data_mut(&mut caller);
+                                        let content_bytes = content.as_bytes();
+                                        let total_size = 4 + content_bytes.len();
+                                        
+                                        // Find a place to store the content
+                                        let mut offset = 1024;
+                                        while offset + total_size < data.len() {
+                                            let is_free = data[offset..offset + total_size].iter().all(|&b| b == 0);
+                                            if is_free {
+                                                break;
+                                            }
+                                            offset += 32;
+                                        }
+                                        
+                                        if offset + total_size < data.len() {
+                                            // Store length
+                                            data[offset..offset + 4].copy_from_slice(&(content_bytes.len() as u32).to_le_bytes());
+                                            // Store content
+                                            data[offset + 4..offset + 4 + content_bytes.len()].copy_from_slice(content_bytes);
+                                            return offset as i32;
+                                        }
+                                    }
+                                    Err(_) => {
+                                        return -1; // Error indicator
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [FILE READ] Invalid path parameters");
+            -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
             format!("Failed to create file_read function: {}", e),
             None, None
         ))?;
         
-        linker.func_wrap("env", "file_write", |_caller: Caller<'_, ()>, _path_ptr: i32, _path_len: i32, _content_ptr: i32, _content_len: i32| -> i32 {
-            println!("📁 [FILE WRITE] Simulating async file write...");
-            thread::sleep(Duration::from_millis(30)); // Simulate disk I/O
-            println!("✅ [FILE WRITE] File write completed");
-            0 // Return success
+        linker.func_wrap("env", "file_write", |mut caller: Caller<'_, ()>, path_ptr: i32, path_len: i32, content_ptr: i32, content_len: i32| -> i32 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if path_ptr >= 0 && path_len >= 0 && content_ptr >= 0 && content_len >= 0 {
+                        let path_start = path_ptr as usize;
+                        let path_length = path_len as usize;
+                        let content_start = content_ptr as usize;
+                        let content_length = content_len as usize;
+                        
+                        if path_start + path_length <= data.len() && content_start + content_length <= data.len() {
+                            if let (Ok(path), Ok(content)) = (
+                                std::str::from_utf8(&data[path_start..path_start + path_length]),
+                                std::str::from_utf8(&data[content_start..content_start + content_length])
+                            ) {
+                                // Make real file write
+                                match FileIO::write_file(path, content) {
+                                    Ok(()) => {
+                                        return 0; // Success
+                                    }
+                                    Err(_) => {
+                                        return -1; // Error
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [FILE WRITE] Invalid parameters");
+            -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
             format!("Failed to create file_write function: {}", e),
+            None, None
+        ))?;
+
+        linker.func_wrap("env", "file_exists", |mut caller: Caller<'_, ()>, path_ptr: i32, path_len: i32| -> i32 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if path_ptr >= 0 && path_len >= 0 {
+                        let start = path_ptr as usize;
+                        let len = path_len as usize;
+                        
+                        if start + len <= data.len() {
+                            if let Ok(path) = std::str::from_utf8(&data[start..start + len]) {
+                                // Check if file exists
+                                return if FileIO::file_exists(path) { 1 } else { 0 };
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [FILE EXISTS] Invalid path parameters");
+            0 // File doesn't exist or error
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create file_exists function: {}", e),
+            None, None
+        ))?;
+
+        linker.func_wrap("env", "file_delete", |mut caller: Caller<'_, ()>, path_ptr: i32, path_len: i32| -> i32 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if path_ptr >= 0 && path_len >= 0 {
+                        let start = path_ptr as usize;
+                        let len = path_len as usize;
+                        
+                        if start + len <= data.len() {
+                            if let Ok(path) = std::str::from_utf8(&data[start..start + len]) {
+                                // Delete file
+                                match FileIO::delete_file(path) {
+                                    Ok(()) => {
+                                        return 0; // Success
+                                    }
+                                    Err(_) => {
+                                        return -1; // Error
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [FILE DELETE] Invalid path parameters");
+            -1 // Error indicator
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create file_delete function: {}", e),
+            None, None
+        ))?;
+
+        linker.func_wrap("env", "file_append", |mut caller: Caller<'_, ()>, path_ptr: i32, path_len: i32, content_ptr: i32, content_len: i32| -> i32 {
+            if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    
+                    if path_ptr >= 0 && path_len >= 0 && content_ptr >= 0 && content_len >= 0 {
+                        let path_start = path_ptr as usize;
+                        let path_length = path_len as usize;
+                        let content_start = content_ptr as usize;
+                        let content_length = content_len as usize;
+                        
+                        if path_start + path_length <= data.len() && content_start + content_length <= data.len() {
+                            if let (Ok(path), Ok(content)) = (
+                                std::str::from_utf8(&data[path_start..path_start + path_length]),
+                                std::str::from_utf8(&data[content_start..content_start + content_length])
+                            ) {
+                                // Append to file
+                                match FileIO::append_file(path, content) {
+                                    Ok(()) => {
+                                        return 0; // Success
+                                    }
+                                    Err(_) => {
+                                        return -1; // Error
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            println!("❌ [FILE APPEND] Invalid parameters");
+            -1 // Error indicator
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create file_append function: {}", e),
             None, None
         ))?;
         

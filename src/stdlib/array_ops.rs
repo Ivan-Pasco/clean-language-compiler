@@ -917,7 +917,7 @@ impl ArrayManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasmtime::{Engine, Module, Store, Instance, Val, Func, FuncType};
+    use wasmtime::{Engine, Module, Store, Instance, Val};
 
     #[test]
     fn test_array_operations() {

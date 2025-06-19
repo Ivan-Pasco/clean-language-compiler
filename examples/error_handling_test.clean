@@ -1,0 +1,20 @@
+// Error Handling Test
+// Testing onError expressions
+
+function start()
+	// Test simple onError expression with numbers
+	integer result1 = 10 / 2 onError 0
+	println("Result 1: {result1}")
+	
+	// Test onError with string operations  
+	string message = "Hello" onError "Unknown"
+	println("Message: {message}")
+	
+	// Test string interpolation with onError
+	string name = "World" onError "Unknown"
+	string greeting = "Hello, {name}!" onError "Error in greeting"
+	println("Greeting: {greeting}")
+	
+	// Test simple addition without onError nesting
+	integer result4 = 20 + 2
+	println("Result 4: {result4}") 

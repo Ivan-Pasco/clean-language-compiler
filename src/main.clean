@@ -1,0 +1,4 @@
+// test-package - Clean Language Package
+
+function start()
+	print("Hello from test-package!")

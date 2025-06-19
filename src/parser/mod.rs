@@ -1,5 +1,5 @@
 use pest_derive::Parser;
-use crate::ast::{Program, Expression};
+use crate::ast::{Program};
 use crate::error::CompilerError;
 use crate::module::ModuleResolver;
 
@@ -64,7 +64,7 @@ impl CleanParser {
 /// Parse a program with module resolution support
 pub fn parse_with_modules(source: &str, file_path: &str) -> Result<Program, CompilerError> {
     // Parse the basic program first
-    let mut program = parse_with_file(source, file_path)?;
+    let program = parse_with_file(source, file_path)?;
     
     // If there are imports, resolve them
     if !program.imports.is_empty() {
@@ -116,7 +116,7 @@ pub fn parse_with_modules_and_recovery(source: &str, file_path: &str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::*;
+    
 
     #[test]
     fn test_minimal_parsing() {

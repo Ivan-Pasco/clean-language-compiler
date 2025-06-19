@@ -5,7 +5,7 @@ use crate::ast::{self, Expression, BinaryOperator, Value, Statement, SourceLocat
 use crate::types::WasmType;
 use crate::error::CompilerError;
 
-use super::memory::{DEFAULT_ALIGN};
+// Removed unused import DEFAULT_ALIGN
 use super::type_manager::TypeManager;
 
 /// Represents a local variable in a function
@@ -398,7 +398,7 @@ impl InstructionGenerator {
                         
                         instructions.push(Instruction::I32Load(MemArg {
                             offset: 0,
-                            align: DEFAULT_ALIGN,
+                            align: 4, // 4-byte alignment for i32
                             memory_index: 0,
                         }));
                         instructions.push(Instruction::LocalSet(iterator_index));
@@ -429,7 +429,7 @@ impl InstructionGenerator {
                 self.generate_expression(expr, instructions)?;
                 instructions.push(Instruction::Drop);
             },
-            Statement::Test { name: _, body, location: _ } => {
+            Statement::Test { name: _, body: _, location: _ } => {
                 #[cfg(test)]
                 for stmt in body {
                     self.generate_statement(stmt, instructions)?;
@@ -693,8 +693,8 @@ impl InstructionGenerator {
     pub(crate) fn generate_error_handler_blocks(
         &mut self,
         try_block: &[Statement],
-        error_variable: Option<&str>,
-        catch_block: &[Statement],
+        _error_variable: Option<&str>,
+        _catch_block: &[Statement],
         _location: &Option<SourceLocation>,
         instructions: &mut Vec<Instruction>
     ) -> Result<(), CompilerError> {

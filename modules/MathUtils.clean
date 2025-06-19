@@ -1,59 +1,18 @@
-// MathUtils module - Mathematical utility functions
-// All functions are public and can be imported by other modules
+// MathUtils - Mathematical utility functions for testing module system
 
-public function abs(number value) -> number
-    if value < 0 then
-        return -value
+function integer max(integer a, integer b)
+	integer result = 0
+	if a > b
+		result = a
     else
-        return value
+		result = b
+	return result
 
-public function max(number a, number b) -> number
-    if a > b then
-        return a
-    else
-        return b
+function integer min(integer a, integer b)
+	if a < b then return a else return b
 
-public function min(number a, number b) -> number
-    if a < b then
-        return a
-    else
-        return b
+function float sqrt(float x)
+	return x ^ 0.5
 
-public function sqrt(number value) -> number
-    // Newton's method approximation
-    if value < 0 then
-        return 0  // Invalid input
-    
-    number guess = value / 2
-    number epsilon = 0.0001
-    
-    while abs(guess * guess - value) > epsilon do
-        guess = (guess + value / guess) / 2
-    
-    return guess
-
-public function pow(number base, number exponent) -> number
-    if exponent == 0 then
-        return 1
-    
-    number result = 1
-    number count = 0
-    
-    while count < exponent do
-        result = result * base
-        count = count + 1
-    
-    return result
-
-public function factorial(number n) -> number
-    if n <= 1 then
-        return 1
-    else
-        return n * factorial(n - 1)
-
-// Advanced mathematical constants (as functions since we don't have constants yet)
-public function pi() -> number
-    return 3.14159265359
-
-public function e() -> number
-    return 2.71828182846 
+function integer abs(integer x)
+	if x < 0 then return -x else return x 

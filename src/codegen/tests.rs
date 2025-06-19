@@ -3,8 +3,10 @@
 // Make parent module items accessible
 use super::*;
 // Import ast module for tests if needed for constructing test cases
-use crate::ast;
-use crate::ast::{Expression, Statement, Value, Type, BinaryOperator, Program, Parameter, Function as AstFunction, FunctionSyntax, Visibility, SourceLocation};
+
+use crate::ast::{Expression, Statement, Value, Type, BinaryOperator, Program, Parameter, Function as AstFunction, FunctionSyntax, Visibility, SourceLocation, FunctionModifier};
+
+// StringPool has been removed as it was unused
 // use wasmtime::{Engine, Module, Store, Instance, Val};
 // use wasm_encoder::{Instruction, ConstExpr, GlobalType, ValType};
 
@@ -13,6 +15,7 @@ fn test_code_generation() {
     let mut codegen = CodeGenerator::new();
     // Example Program structure 
     let program = Program {
+        imports: vec![],
         functions: vec![
             AstFunction {
                 name: "add".to_string(),
@@ -34,9 +37,10 @@ fn test_code_generation() {
                         location: None
                      }
                 ],
-                location: None,
-                syntax: FunctionSyntax::Simple,
-                visibility: Visibility::Public,
+                        location: None,
+        syntax: FunctionSyntax::Simple,
+        visibility: Visibility::Public,
+        modifier: FunctionModifier::None,
             }
         ],
         classes: vec![],
@@ -76,40 +80,17 @@ fn test_add_global() {
 }
 */
 
-#[test]
-fn test_string_pool() {
-    let mut pool = StringPool::new();
-    
-    // Test adding a new string
-    let index1 = pool.add_string("hello");
-    assert_eq!(index1, 0);
-    
-    // Test retrieving the string
-    let retrieved = pool.get_string(index1);
-    assert_eq!(retrieved, Some("hello"));
-    
-    // Test adding the same string again (should return same index)
-    let index2 = pool.add_string("hello");
-    assert_eq!(index1, index2);
-    
-    // Test adding a different string
-    let index3 = pool.add_string("world");
-    assert_eq!(index3, 1);
-    
-    // Test nonexistent index
-    let nonexistent = pool.get_string(99);
-    assert_eq!(nonexistent, None);
-}
+// Removed test_string_pool as StringPool was removed
 
 #[test]
 fn test_memory_utils() {
-    let mut memory_utils = memory::MemoryUtils::new(memory::HEAP_START);
+    let mut memory_utils = memory::MemoryUtils::new(65536); // Use literal instead of removed constant
     
     // Test string allocation
     let string_result = memory_utils.allocate_string("hello");
     assert!(string_result.is_ok(), "Failed to allocate string: {:?}", string_result.err());
     let string_ptr = string_result.unwrap();
-    assert!(string_ptr >= memory::HEAP_START, "String pointer should be >= HEAP_START");
+    assert!(string_ptr >= 65536, "String pointer should be >= heap start");
     
     // Test array allocation
     let array_values = vec![Value::Integer(1), Value::Integer(2), Value::Integer(3)];
@@ -251,7 +232,7 @@ fn test_iterate_statement() {
     };
     
     // Create a function with the iterate statement
-    let function = ast::Function {
+    let function = AstFunction {
         name: "test_iterate".to_string(),
         description: None,
         type_parameters: vec![],
@@ -262,6 +243,7 @@ fn test_iterate_statement() {
         location: None,
         syntax: FunctionSyntax::Simple,
         visibility: Visibility::Public,
+        modifier: FunctionModifier::None,
     };
     
     // Generate code

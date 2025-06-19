@@ -1,0 +1,30 @@
+function start()
+	// Test string handling in file operations
+	print("Testing file operations with string debugging")
+	
+	// Test with a simple string literal
+	string fileName = "test_debug.txt"
+	string content = "Hello World"
+	
+	// First test - write to file
+	print("Writing to file: ")
+	print(fileName)
+	integer writeResult = File.write(fileName, content)
+	print("Write result: ")
+	print(writeResult)
+	
+	// Second test - check if file exists
+	print("Checking if file exists...")
+	integer exists = File.exists(fileName)
+	print("File exists: ")
+	print(exists)
+	
+	// Third test - read from file
+	print("Reading from file...")
+	string fileContent = File.read(fileName)
+	print("File content: ")
+	print(fileContent)
+	
+	// Clean up
+	File.delete(fileName)
+	print("Test completed") 

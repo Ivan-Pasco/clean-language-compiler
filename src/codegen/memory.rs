@@ -1,28 +1,19 @@
 //! Module for memory operations during code generation.
 
-use wasm_encoder::{DataSection, ConstExpr, Instruction, ValType, MemArg, BlockType};
+use wasm_encoder::{Instruction, ValType, DataSection, ConstExpr};
 use crate::error::{CompilerError};
 use crate::ast::Value;
 use crate::types::WasmType;
 use std::collections::HashMap;
 
-// Memory constants
-pub const PAGE_SIZE: u32 = 65536;
+// Essential constants
 pub const HEADER_SIZE: u32 = 16;  // 16-byte header for memory blocks
-pub const MIN_ALLOCATION: u32 = 32;  // Increased for better alignment
-pub const HEAP_START: usize = 65536;  // Start heap at 64KB
-pub const DEFAULT_ALIGN: u32 = 2;
-pub const DEFAULT_OFFSET: u32 = 0;
 pub const ALIGNMENT: usize = 8;
 
-// Memory type IDs
-pub const INTEGER_TYPE_ID: u32 = 1;
-pub const FLOAT_TYPE_ID: u32 = 2;
+// Memory type IDs (keep only the ones actually used)
 pub const STRING_TYPE_ID: u32 = 3;
 pub const ARRAY_TYPE_ID: u32 = 4;
 pub const MATRIX_TYPE_ID: u32 = 5;
-pub const OBJECT_TYPE_ID: u32 = 6;
-pub const FUNCTION_TYPE_ID: u32 = 7;
 
 // Memory pool sizes for efficient allocation
 const SMALL_POOL_SIZE: usize = 64;
@@ -61,7 +52,7 @@ impl MemoryPool {
         }
     }
 
-    fn allocate(&mut self, heap_start: usize, current_address: &mut usize) -> Option<usize> {
+    fn allocate(&mut self, _heap_start: usize, current_address: &mut usize) -> Option<usize> {
         if let Some(address) = self.free_blocks.pop() {
             Some(address)
         } else {

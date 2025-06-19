@@ -241,9 +241,18 @@ constructor_type = {
     type_parameter
 }
 
-// Import statements
-import_item = { identifier ~ ("as" ~ identifier)? }
-import_list = { import_item ~ ("," ~ import_item)* }
+// Import statements - supports specification syntax
+// import: Math                    # whole module
+// import: Math.sqrt              # single symbol  
+// import: Utils as U             # module alias
+// import: Json.decode as jd      # symbol alias
+import_item = { 
+    (identifier ~ "." ~ identifier ~ "as" ~ identifier) |  // Math.sqrt as msqrt
+    (identifier ~ "." ~ identifier) |                      // Math.sqrt
+    (identifier ~ "as" ~ identifier) |                     // Utils as U
+    identifier                                             // Math
+}
+import_list = { import_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_item)* }
 import_stmt = { "import" ~ ":" ~ NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_list }
 
 // Async expressions and statements

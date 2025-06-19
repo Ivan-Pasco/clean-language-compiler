@@ -1,12 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use crate::ast::*;
-use crate::error::{CompilerError, CompilerWarning, WarningType};
+use crate::error::{CompilerError, CompilerWarning};
 use crate::module::{ModuleResolver, ImportResolution};
 
 mod scope;
 use scope::Scope;
-mod type_constraint;
-use type_constraint::{TypeConstraint, NumericTypeConstraint, BaseTypeConstraint, AnyTypeConstraint};
 
 pub struct SemanticAnalyzer {
     symbol_table: HashMap<String, Type>,
@@ -26,10 +24,11 @@ pub struct SemanticAnalyzer {
     used_variables: HashSet<String>,
     used_functions: HashSet<String>,
     error_context_depth: i32,
-    type_constraints: HashMap<String, Box<dyn TypeConstraint>>,
-    // Module system integration
     module_resolver: ModuleResolver,
     current_imports: Option<ImportResolution>,
+    scope_stack: Vec<Scope>,
+    errors: Vec<CompilerError>,
+    imported_modules: HashSet<String>,
 }
 
 impl SemanticAnalyzer {
@@ -52,9 +51,11 @@ impl SemanticAnalyzer {
             used_variables: HashSet::new(),
             used_functions: HashSet::new(),
             error_context_depth: 0,
-            type_constraints: HashMap::new(),
             module_resolver: ModuleResolver::new(),
             current_imports: None,
+            scope_stack: Vec::new(),
+            errors: Vec::new(),
+            imported_modules: HashSet::new(),
         };
         
         analyzer.register_builtin_functions();
@@ -172,12 +173,68 @@ impl SemanticAnalyzer {
             "http_patch".to_string(),
             (vec![Type::String, Type::String], Type::String)
         );
+
+        // File I/O functionality
+        self.function_table.insert(
+            "file_read".to_string(),
+            (vec![Type::String], Type::String)
+        );
+        
+        self.function_table.insert(
+            "file_write".to_string(),
+            (vec![Type::String, Type::String], Type::Integer)
+        );
+        
+        self.function_table.insert(
+            "file_append".to_string(),
+            (vec![Type::String, Type::String], Type::Integer)
+        );
+        
+        self.function_table.insert(
+            "file_exists".to_string(),
+            (vec![Type::String], Type::Boolean)
+        );
+        
+        self.function_table.insert(
+            "file_delete".to_string(),
+            (vec![Type::String], Type::Boolean)
+        );
     }
 
     pub fn analyze(&mut self, program: &Program) -> Result<Program, CompilerError> {
         // First, resolve imports if any
         if !program.imports.is_empty() {
             let import_resolution = self.module_resolver.resolve_imports(program)?;
+            
+            // Add imported symbols to our function and class tables
+            for (module_name, module) in &import_resolution.resolved_imports {
+                // Add imported functions with qualified names
+                for (func_name, function) in &module.exports.functions {
+                    let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
+                    let qualified_name = format!("{}.{}", module_name, func_name);
+                    self.function_table.insert(qualified_name, (param_types, function.return_type.clone()));
+                }
+                
+                // Add imported classes with qualified names
+                for (class_name, class) in &module.exports.classes {
+                    let qualified_name = format!("{}.{}", module_name, class_name);
+                    self.class_table.insert(qualified_name, class.clone());
+                }
+            }
+            
+            // Add single symbol imports directly (without qualification)
+            for (symbol_name, (module_name, actual_symbol)) in &import_resolution.single_symbols {
+                if let Some(module) = import_resolution.resolved_imports.get(module_name) {
+                    if let Some(function) = module.exports.functions.get(actual_symbol) {
+                        let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
+                        self.function_table.insert(symbol_name.clone(), (param_types, function.return_type.clone()));
+                    }
+                    if let Some(class) = module.exports.classes.get(actual_symbol) {
+                        self.class_table.insert(symbol_name.clone(), class.clone());
+                    }
+                }
+            }
+            
             self.current_imports = Some(import_resolution);
         }
 
@@ -703,9 +760,44 @@ impl SemanticAnalyzer {
             },
             
             // Module and async statements
-            Statement::Import { imports: _, location: _ } => {
-                // For now, imports are just validated for syntax but not resolved
-                // TODO: Implement module resolution and validation
+            Statement::Import { imports, location } => {
+                // Imports are already resolved in the analyze phase
+                // Here we just validate that all imports were successfully resolved
+                if let Some(ref import_resolution) = self.current_imports {
+                    for import_item in imports {
+                        // Check if this import was successfully resolved
+                        let import_name = import_item.alias.as_ref().unwrap_or(&import_item.name);
+                        
+                        // For single symbol imports, check if the symbol exists
+                        if import_item.name.contains('.') {
+                            let (module_name, symbol_name) = import_item.name.split_once('.').unwrap();
+                            if let Some(module) = import_resolution.resolved_imports.get(module_name) {
+                                if !module.exports.has_function(symbol_name) && !module.exports.has_class(symbol_name) {
+                                    return Err(CompilerError::symbol_error(
+                                        format!("Symbol '{}' not found in module '{}'", symbol_name, module_name),
+                                        symbol_name,
+                                        Some(module_name)
+                                    ));
+                                }
+                            } else {
+                                return Err(CompilerError::import_error(
+                                    format!("Module '{}' not found", module_name),
+                                    module_name,
+                                    location.clone()
+                                ));
+                            }
+                        } else {
+                            // Whole module import - check if module exists
+                            if !import_resolution.resolved_imports.contains_key(import_name) {
+                                return Err(CompilerError::import_error(
+                                    format!("Module '{}' not found", import_name),
+                                    import_name,
+                                    location.clone()
+                                ));
+                            }
+                        }
+                    }
+                }
                 Ok(())
             },
             
@@ -844,14 +936,15 @@ impl SemanticAnalyzer {
                         ));
                     }
 
-                    for (i, (arg, param_type)) in args.iter().zip(param_types.iter()).enumerate() {
+                    for (i, (arg, expected_type)) in args.iter().zip(param_types.iter()).enumerate() {
                         let arg_type = self.check_expression(arg)?;
-                        if !self.types_compatible(&param_type, &arg_type) {
-                    return Err(CompilerError::type_error(
-                                &format!("Argument {} has type {:?}, but parameter expects {:?}", 
-                                    i + 1, arg_type, param_type),
-                                Some("Provide arguments of the correct type".to_string()),
-                                None
+                        if !self.types_compatible(expected_type, &arg_type) {
+                    return Err(CompilerError::enhanced_type_error(
+                                format!("Argument {} of function '{}' has incorrect type", i + 1, name),
+                                Some(format!("{:?}", expected_type)),
+                                Some(format!("{:?}", arg_type)),
+                                None,
+                                vec![format!("Convert argument to {:?} or use a different function", expected_type)]
                             ));
                         }
                     }
@@ -1076,9 +1169,9 @@ impl SemanticAnalyzer {
                 }
             }
             
-            Expression::StaticMethodCall { class_name, method, arguments, location: _ } => {
+            Expression::StaticMethodCall { class_name, method: _, arguments, location: _ } => {
                 // Handle static method calls
-                if class_name == "MathUtils" || class_name == "Array" {
+                if class_name == "MathUtils" || class_name == "Array" || class_name == "File" {
                     // Built-in static methods - validate arguments and return appropriate type
                     for arg in arguments {
                         self.check_expression(arg)?;
@@ -1393,6 +1486,16 @@ impl SemanticAnalyzer {
         
         match &object_type {
             Type::Object(class_name) => {
+                // Special handling for built-in classes
+                if self.is_builtin_class(class_name) {
+                    // For built-in classes, we allow any method call and return Type::Any
+                    // The actual validation happens at the codegen level
+                    for arg in args {
+                        self.check_expression(arg)?;
+                    }
+                    return Ok(Type::Any);
+                }
+                
                 // Look up the class in the class table and clone the needed data
                 let class = self.class_table.get(class_name).cloned().ok_or_else(|| {
                     CompilerError::type_error(
@@ -1538,109 +1641,41 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn check_function_call(&mut self, name: &str, args: &[Expression], call_location: &SourceLocation) -> Result<Type, CompilerError> {
-        // Check if it's a built-in function first
+    fn check_function_call(&mut self, name: &str, args: &[Expression], location: Option<SourceLocation>) -> Result<Type, CompilerError> {
+        // Check if this is a method-style function being called as traditional function
+        let method_functions = ["length", "isEmpty", "isNotEmpty", "isDefined", "isNotDefined", "keepBetween"];
+        if method_functions.contains(&name) {
+            return Err(CompilerError::method_suggestion_error(name, location, None));
+        }
+
         if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
-            // Add to used functions for warning analysis
-            if self.function_environment.contains(name) {
-                self.used_functions.insert(name.to_string());
-            }
-
-            // Generic functions that accept any type don't need strict checking
-            if let Some(Type::Any) = param_types.first() {
-                self.used_functions.insert(name.to_string());
-                // For generic functions, just check that some arguments are provided
-                if name == "print" || name == "println" || name == "printl" {
-                    self.used_functions.insert(name.to_string());
-                    if args.is_empty() {
-                        return Err(CompilerError::type_error(
-                            &format!("Function '{}' requires at least one argument", name),
-                            Some("Provide an argument to print".to_string()),
-                            Some(call_location.clone())
-                        ));
-                    }
-                    // Check that all arguments are valid expressions
-                    for arg in args {
-                        self.check_expression(arg)?;
-                    }
-                    return Ok(return_type);
-                }
-
-                if name == "abs" {
-                    self.used_functions.insert(name.to_string());
-                    if args.len() != 1 {
-                        return Err(CompilerError::type_error(
-                            &format!("Function '{}' expects 1 argument, but {} were provided", name, args.len()),
-                            Some("Provide exactly one argument".to_string()),
-                            Some(call_location.clone())
-                        ));
-                    }
-                    let arg_type = self.check_expression(&args[0])?;
-                    // Return the same type as the argument for abs
-                    return Ok(arg_type);
-                }
-            }
-
-            // For other functions, do strict type checking
             if args.len() != param_types.len() {
                 return Err(CompilerError::type_error(
-                    &format!("Function '{}' expects {} arguments, but {} were provided",
-                        name, param_types.len(), args.len()),
-                    Some("Provide the correct number of arguments".to_string()),
-                    Some(call_location.clone())
+                    format!("Function '{}' expects {} arguments, but {} were provided", name, param_types.len(), args.len()),
+                    Some(format!("Expected {} arguments", param_types.len())),
+                    location
                 ));
             }
 
             for (i, (arg, expected_type)) in args.iter().zip(param_types.iter()).enumerate() {
                 let arg_type = self.check_expression(arg)?;
                 if !self.types_compatible(expected_type, &arg_type) {
-                    return Err(CompilerError::type_error(
-                        &format!("Argument {} has incorrect type. Expected {:?}, got {:?}",
-                            i + 1, expected_type, arg_type),
-                        Some("Provide an argument of the correct type".to_string()),
-                        Some(call_location.clone())
+                    return Err(CompilerError::enhanced_type_error(
+                        format!("Argument {} of function '{}' has incorrect type", i + 1, name),
+                        Some(format!("{:?}", expected_type)),
+                        Some(format!("{:?}", arg_type)),
+                        location,
+                        vec![format!("Convert argument to {:?} or use a different function", expected_type)]
                     ));
                 }
             }
 
-            return Ok(return_type);
+            Ok(return_type)
+        } else {
+            // Get available function names for suggestions
+            let available_functions: Vec<&str> = self.function_table.keys().map(|s| s.as_str()).collect();
+            Err(CompilerError::function_not_found_error(name, &available_functions, location.unwrap_or_default()))
         }
-
-        // Check if it's a user-defined function
-        if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
-            // Mark function as used
-            self.used_functions.insert(name.to_string());
-
-            if args.len() != param_types.len() {
-                return Err(CompilerError::type_error(
-                    &format!("Function '{}' expects {} arguments, but {} were provided",
-                        name, param_types.len(), args.len()),
-                    Some("Check the function definition and provide the correct number of arguments".to_string()),
-                    Some(call_location.clone())
-                ));
-            }
-
-            for (i, (arg, expected_type)) in args.iter().zip(param_types.iter()).enumerate() {
-                let arg_type = self.check_expression(arg)?;
-                if !self.types_compatible(expected_type, &arg_type) {
-                    return Err(CompilerError::type_error(
-                        &format!("Argument {} to function '{}' has incorrect type. Expected {:?}, got {:?}",
-                            i + 1, name, expected_type, arg_type),
-                        Some("Provide arguments of the correct type".to_string()),
-                        Some(call_location.clone())
-                    ));
-                }
-            }
-
-            return Ok(return_type);
-        }
-
-        // Function not found
-        Err(CompilerError::type_error(
-            &format!("Function '{}' not found", name),
-            Some("Check if the function name is correct and the function is defined".to_string()),
-            Some(call_location.clone())
-        ))
     }
 
     fn check_this_access(&mut self, location: &SourceLocation) -> Result<Type, CompilerError> {
@@ -1788,7 +1823,7 @@ impl SemanticAnalyzer {
     }
 
     fn is_builtin_class(&self, name: &str) -> bool {
-        matches!(name, "Array" | "List" | "String" | "Object")
+        matches!(name, "Array" | "List" | "String" | "Object" | "File" | "MathUtils")
     }
 
     fn is_builtin_type_constructor(&self, name: &str) -> bool {

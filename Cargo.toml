@@ -9,17 +9,21 @@ edition = "2021"
 pest = "2.5.5"
 pest_derive = "2.5.5"
 lazy_static = "1.4"
+
+# WebAssembly
 wasm-encoder = "0.20.0"
 wasmparser = "0.121"
 wasmtime = "0.35.2"
+wat = "1.0"
+
+# Error handling
 thiserror = "1.0.40"
 anyhow = "1.0"
-wat = "1.0"
-regex = "1.10.2"
-parity-wasm = "0.42.2"
-byteorder = "1.4.3"
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+toml = "0.8"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
@@ -27,46 +31,32 @@ tokio = { version = "1.0", features = ["full"] }
 # CLI
 clap = { version = "4.4", features = ["derive"] }
 
+# Package management
+dirs = "5.0"
+
+# Utilities (only used in specific utility binaries)
+regex = "1.10.2"
+
+# HTTP client for real network requests
+# HTTP client temporarily disabled
+
 [dev-dependencies]
 # Testing
 insta = "1.34"
 pretty_assertions = "1.4"
 tempfile = "3.8"
 
+# Main compiler binary
 [[bin]]
 name = "clean-language-compiler"
 path = "src/main.rs"
 
-[[bin]]
-name = "syntax-checker"
-path = "syntax_checker.rs"
-
+# Core compiler binary (alternative interface)
 [[bin]]
 name = "cleanc"
 path = "src/bin/cleanc.rs"
 
-
-
-[[bin]]
-name = "parser_test"
-path = "src/bin/parser_test.rs"
-
-[[bin]]
-name = "wat2wasm"
-path = "src/bin/wat2wasm.rs"
-
-[[bin]]
-name = "wasm2wat"
-path = "src/bin/wasm2wat.rs"
-
-[[bin]]
-name = "wasm_simple_test"
-path = "src/bin/wasm_simple_test.rs"
-
-[[bin]]
-name = "direct_compiler"
-path = "src/bin/direct_compiler.rs"
-
+# Essential debugging tools
 [[bin]]
 name = "debug_parser"
 path = "src/bin/debug_parser.rs"
@@ -75,10 +65,16 @@ path = "src/bin/debug_parser.rs"
 name = "debug_wasm"
 path = "src/bin/debug_wasm.rs"
 
+# WebAssembly utilities
 [[bin]]
-name = "debug_parse_tree"
-path = "debug_parse_tree.rs"
+name = "wat2wasm"
+path = "src/bin/wat2wasm.rs"
 
+[[bin]]
+name = "wasm2wat"
+path = "src/bin/wasm2wat.rs"
+
+# Runtime testing
 [[bin]]
 name = "wasmtime_runner"
 path = "src/bin/wasmtime_runner.rs"
@@ -98,3 +94,4 @@ path = "src/lib.rs"
 #[workspace.dependencies]
 #pest = "2.7"
 #pest_derive = "2.7" 
+# HTTP client temporarily disabled

@@ -533,17 +533,6 @@ pub struct Program {
     pub start_function: Option<Function>,
 }
 
-impl Program {
-        pub fn new(functions: Vec<Function>, classes: Vec<Class>) -> Self {
-        Self {
-            imports: Vec::new(),
-            functions,
-            classes,
-            start_function: None,
-        }
-    }
-}
-
 // Display implementations for better error messages
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
