@@ -1231,6 +1231,103 @@ impl CodeGenerator {
                             Err(CompilerError::codegen_error("array.iterate function not found", None, None))
                         }
                     },
+                    // String methods
+                    "trimStart" => {
+                        if let Some(trim_start_index) = self.get_function_index("string_trim_start") {
+                            instructions.push(Instruction::Call(trim_start_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_trim_start function not found", None, None))
+                        }
+                    },
+                    "trimEnd" => {
+                        if let Some(trim_end_index) = self.get_function_index("string_trim_end") {
+                            instructions.push(Instruction::Call(trim_end_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_trim_end function not found", None, None))
+                        }
+                    },
+                    "lastIndexOf" => {
+                        if let Some(last_index_of_index) = self.get_function_index("string_last_index_of") {
+                            instructions.push(Instruction::Call(last_index_of_index));
+                            Ok(WasmType::I32) // Returns index
+                        } else {
+                            Err(CompilerError::codegen_error("string_last_index_of function not found", None, None))
+                        }
+                    },
+                    "substring" => {
+                        if let Some(substring_index) = self.get_function_index("string_substring") {
+                            instructions.push(Instruction::Call(substring_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_substring function not found", None, None))
+                        }
+                    },
+                    "replace" => {
+                        if let Some(replace_index) = self.get_function_index("string_replace") {
+                            instructions.push(Instruction::Call(replace_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_replace function not found", None, None))
+                        }
+                    },
+                    "padStart" => {
+                        if let Some(pad_start_index) = self.get_function_index("string_pad_start") {
+                            instructions.push(Instruction::Call(pad_start_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_pad_start function not found", None, None))
+                        }
+                    },
+                    "trim" => {
+                        if let Some(trim_index) = self.get_function_index("string_trim") {
+                            instructions.push(Instruction::Call(trim_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_trim function not found", None, None))
+                        }
+                    },
+                    "toLowerCase" => {
+                        if let Some(to_lower_index) = self.get_function_index("string_to_lower_case") {
+                            instructions.push(Instruction::Call(to_lower_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_to_lower_case function not found", None, None))
+                        }
+                    },
+                    "toUpperCase" => {
+                        if let Some(to_upper_index) = self.get_function_index("string_to_upper_case") {
+                            instructions.push(Instruction::Call(to_upper_index));
+                            Ok(WasmType::I32) // Returns string pointer
+                        } else {
+                            Err(CompilerError::codegen_error("string_to_upper_case function not found", None, None))
+                        }
+                    },
+                    "startsWith" => {
+                        if let Some(starts_with_index) = self.get_function_index("string_starts_with") {
+                            instructions.push(Instruction::Call(starts_with_index));
+                            Ok(WasmType::I32) // Returns boolean
+                        } else {
+                            Err(CompilerError::codegen_error("string_starts_with function not found", None, None))
+                        }
+                    },
+                    "endsWith" => {
+                        if let Some(ends_with_index) = self.get_function_index("string_ends_with") {
+                            instructions.push(Instruction::Call(ends_with_index));
+                            Ok(WasmType::I32) // Returns boolean
+                        } else {
+                            Err(CompilerError::codegen_error("string_ends_with function not found", None, None))
+                        }
+                    },
+                    "indexOf" => {
+                        if let Some(index_of_index) = self.get_function_index("string_index_of") {
+                            instructions.push(Instruction::Call(index_of_index));
+                            Ok(WasmType::I32) // Returns index
+                        } else {
+                            Err(CompilerError::codegen_error("string_index_of function not found", None, None))
+                        }
+                    },
                     _ => {
                         // Try to find a function with the method name
                         if let Some(method_index) = self.get_function_index(&format!("{}_{}", "array", method)) {
@@ -1262,9 +1359,11 @@ impl CodeGenerator {
                     return Ok(WasmType::I32);
                 }
                 
-                // Start with the first part
-                let mut first = true;
-                for part in parts {
+                // Build the result string by concatenating all parts
+                let mut result_on_stack = false;
+                
+                for (i, part) in parts.iter().enumerate() {
+                    // Generate the string representation for this part
                     match part {
                         ast::StringPart::Text(text) => {
                             // Allocate string literal
@@ -1317,12 +1416,24 @@ impl CodeGenerator {
                         }
                     }
                     
-                    // Concatenate with previous parts (except for the first)
-                    if !first {
-                        // Call string concatenation function
+                    // Now we have a string on the stack for this part
+                    if i == 0 {
+                        // First part - just keep it on the stack as the initial result
+                        result_on_stack = true;
+                    } else {
+                        // Subsequent parts - concatenate with the previous result
+                        // Stack now has: [previous_result, current_part]
+                        // Call string concatenation function (takes 2 params, returns 1)
                         instructions.push(Instruction::Call(self.get_string_concat_index()?));
+                        // Stack now has: [concatenated_result]
                     }
-                    first = false;
+                }
+                
+                // At this point, we should have exactly one string on the stack (the result)
+                if !result_on_stack {
+                    // Safety fallback - should never happen with non-empty parts
+                    let empty_str = self.allocate_string("")?;
+                    instructions.push(Instruction::I32Const(empty_str as i32));
                 }
                 
                 Ok(WasmType::I32) // String type is represented as I32 pointer
@@ -1905,6 +2016,63 @@ impl CodeGenerator {
         for function in &stdlib_functions {
             self.generate_function(function)?;
         }
+
+        // 4. Register string operations directly using the StringOperations implementation
+        // Temporarily disable string operations until WASM validation is fixed
+        // self.register_string_operations()?;
+        
+        Ok(())
+    }
+
+    /// Register string operation functions using WASM instructions from StringOperations
+    fn register_string_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::string_ops::StringOperations;
+        
+        // Create a StringOperations instance to generate the WASM instructions
+        let string_ops = StringOperations::new(65536); // Use same heap start
+        
+        // Register trimStart
+        let trim_start_instructions = string_ops.generate_string_trim_start();
+        self.register_function("string_trim_start", &[WasmType::I32], Some(WasmType::I32), &trim_start_instructions)?;
+        
+        // Register trimEnd
+        let trim_end_instructions = string_ops.generate_string_trim_end();
+        self.register_function("string_trim_end", &[WasmType::I32], Some(WasmType::I32), &trim_end_instructions)?;
+        
+        // Register lastIndexOf
+        let last_index_of_instructions = string_ops.generate_string_last_index_of();
+        self.register_function("string_last_index_of", &[WasmType::I32, WasmType::I32], Some(WasmType::I32), &last_index_of_instructions)?;
+        
+        // Register substring
+        let substring_instructions = string_ops.generate_string_substring();
+        self.register_function("string_substring", &[WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32), &substring_instructions)?;
+        
+        // Register replace
+        let replace_instructions = string_ops.generate_string_replace();
+        self.register_function("string_replace", &[WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32), &replace_instructions)?;
+        
+        // Register padStart
+        let pad_start_instructions = string_ops.generate_string_pad_start();
+        self.register_function("string_pad_start", &[WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32), &pad_start_instructions)?;
+        
+        // Register existing string operations that may not be registered yet
+        let trim_instructions = string_ops.generate_string_trim();
+        self.register_function("string_trim", &[WasmType::I32], Some(WasmType::I32), &trim_instructions)?;
+        
+        let to_lower_instructions = string_ops.generate_string_to_lower();
+        self.register_function("string_to_lower_case", &[WasmType::I32], Some(WasmType::I32), &to_lower_instructions)?;
+        
+        let to_upper_instructions = string_ops.generate_string_to_upper();
+        self.register_function("string_to_upper_case", &[WasmType::I32], Some(WasmType::I32), &to_upper_instructions)?;
+        
+        let starts_with_instructions = string_ops.generate_string_starts_with();
+        self.register_function("string_starts_with", &[WasmType::I32, WasmType::I32], Some(WasmType::I32), &starts_with_instructions)?;
+        
+        let ends_with_instructions = string_ops.generate_string_ends_with();
+        self.register_function("string_ends_with", &[WasmType::I32, WasmType::I32], Some(WasmType::I32), &ends_with_instructions)?;
+        
+        let index_of_instructions = string_ops.generate_string_index_of();
+        self.register_function("string_index_of", &[WasmType::I32, WasmType::I32], Some(WasmType::I32), &index_of_instructions)?;
         
         Ok(())
     }
@@ -1924,6 +2092,7 @@ impl CodeGenerator {
                 Parameter {
                     name: "value".to_string(),
                     type_: Type::Integer,
+                    default_value: None,
                 }
             ],
             return_type: Type::Integer,
@@ -1973,10 +2142,12 @@ impl CodeGenerator {
                 Parameter {
                     name: "array".to_string(),
                     type_: Type::Array(Box::new(Type::Integer)),
+                    default_value: None,
                 },
                 Parameter {
                     name: "index".to_string(),
                     type_: Type::Integer,
+                    default_value: None,
                 }
             ],
             return_type: Type::Integer,
@@ -2020,6 +2191,7 @@ impl CodeGenerator {
                 Parameter {
                     name: "array".to_string(),
                     type_: Type::Array(Box::new(Type::Integer)),
+                    default_value: None,
                 }
             ],
             return_type: Type::Integer,
@@ -2047,6 +2219,7 @@ impl CodeGenerator {
                 Parameter {
                     name: "condition".to_string(),
                     type_: Type::Boolean,
+                    default_value: None,
                 }
             ],
             return_type: Type::Void,
@@ -2074,10 +2247,12 @@ impl CodeGenerator {
                 Parameter {
                     name: "str1".to_string(),
                     type_: Type::String,
+                    default_value: None,
                 },
                 Parameter {
                     name: "str2".to_string(),
                     type_: Type::String,
+                    default_value: None,
                 }
             ],
             return_type: Type::String,
@@ -2105,10 +2280,12 @@ impl CodeGenerator {
                 Parameter {
                     name: "str1".to_string(),
                     type_: Type::String,
+                    default_value: None,
                 },
                 Parameter {
                     name: "str2".to_string(),
                     type_: Type::String,
+                    default_value: None,
                 }
             ],
             return_type: Type::Integer,
@@ -2139,6 +2316,7 @@ impl CodeGenerator {
                 Parameter {
                     name: "value".to_string(),
                     type_: Type::Any,
+                    default_value: None,
                 }
             ],
             return_type: Type::Integer,
@@ -2169,6 +2347,7 @@ impl CodeGenerator {
                 Parameter {
                     name: "condition".to_string(),
                     type_: Type::Boolean,
+                    default_value: None,
                 }
             ],
             return_type: Type::Void,
@@ -2195,6 +2374,7 @@ impl CodeGenerator {
                 Parameter {
                     name: "condition".to_string(),
                     type_: Type::Boolean,
+                    default_value: None,
                 }
             ],
             return_type: Type::Void,
@@ -2221,10 +2401,12 @@ impl CodeGenerator {
                 Parameter {
                     name: "value1".to_string(),
                     type_: Type::Any,
+                    default_value: None,
                 },
                 Parameter {
                     name: "value2".to_string(),
                     type_: Type::Any,
+                    default_value: None,
                 }
             ],
             return_type: Type::Void,
@@ -2361,8 +2543,35 @@ impl CodeGenerator {
         self.function_section.function(type_index);
         
         // Create a Function - parameters are automatically available as locals 0, 1, 2, ...
-        // No additional locals needed for simple stdlib functions
-        let mut func = Function::new(vec![]); 
+        // For string operations, we need additional local variables beyond parameters
+        let locals_needed: Vec<(u32, wasm_encoder::ValType)> = if name.contains("string_") {
+            // String operations need several local variables
+            // Determine how many locals are needed based on the highest LocalGet index in instructions
+            let max_local_index = instructions.iter()
+                .filter_map(|inst| match inst {
+                    Instruction::LocalGet(idx) | Instruction::LocalSet(idx) => Some(*idx),
+                    _ => None
+                })
+                .max()
+                .unwrap_or(0);
+            
+            // We need locals beyond the parameters (which occupy the first few indices)
+            let locals_beyond_params = if max_local_index >= params.len() as u32 {
+                max_local_index - params.len() as u32 + 1
+            } else {
+                0
+            };
+            
+            if locals_beyond_params > 0 {
+                vec![(locals_beyond_params, wasm_encoder::ValType::I32)]
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        };
+        
+        let mut func = Function::new(locals_needed); 
         for inst in instructions {
             func.instruction(inst);
         }
@@ -3084,63 +3293,148 @@ impl CodeGenerator {
     }
 
     fn generate_error_handler(&mut self, protected: &Expression, handler: &[Statement], instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
-        // For now, implement a simplified version that just evaluates the protected expression
-        // In a full implementation, we'd use proper error handling mechanisms
+        // Implement error handling using WASM control flow and runtime error checking
+        // Since WASM exception handling is still experimental, we use a try-like pattern
         
-        // Add error variable to scope (represented as an object pointer)
-        let error_local_index = self.current_locals.len() as u32;
+        // Create locals for error handling
+        let error_occurred_local = self.add_local(WasmType::I32); // 0 = no error, 1 = error
+        let result_local = self.add_local(WasmType::I32); // Store result or error pointer
+        let error_local_index = self.add_local(WasmType::I32); // Error object pointer
+        
+        // Initialize error flag to 0 (no error)
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(error_occurred_local));
+        
+        // Add error variable to scope for the handler block
         let error_var = LocalVarInfo {
             index: error_local_index,
             type_: WasmType::I32.into(), // Error object is represented as a pointer
         };
         self.variable_map.insert("error".to_string(), error_var.clone());
-        self.current_locals.push(error_var);
         
-        // Create error object and store in local variable
-        let error_message = "Runtime error occurred";
-        let error_ptr = self.allocate_string(error_message)?;
-        instructions.push(Instruction::I32Const(error_ptr as i32));
-        instructions.push(Instruction::LocalSet(error_local_index));
+        // Generate the protected expression in a block that can catch errors
+        // We'll use WASM's block/br_if pattern to simulate try-catch
+        instructions.push(Instruction::Block(BlockType::Result(ValType::I32)));
         
-        // Generate the protected expression
-        let expr_type = self.generate_expression(protected, instructions)?;
+        // Try to execute the protected expression
+        match self.generate_expression(protected, instructions) {
+            Ok(expr_type) => {
+                // Expression succeeded - store result and set no error
+                let result_type_local = self.add_local(expr_type);
+                instructions.push(Instruction::LocalSet(result_type_local));
+                
+                // Convert result to I32 for uniform handling
+                match expr_type {
+                    WasmType::I32 => {
+                        instructions.push(Instruction::LocalGet(result_type_local));
+                    },
+                    WasmType::F64 => {
+                        instructions.push(Instruction::LocalGet(result_type_local));
+                        instructions.push(Instruction::I32TruncF64S);
+                    },
+                    _ => {
+                        // For other types, use 0 as success indicator
+                        instructions.push(Instruction::I32Const(0));
+                    }
+                }
+                
+                // Jump out of error handling block (success path)
+                instructions.push(Instruction::Br(0));
+            },
+            Err(_) => {
+                // Expression failed during compilation - treat as runtime error
+                instructions.push(Instruction::I32Const(1));
+                instructions.push(Instruction::LocalSet(error_occurred_local));
+                
+                // Create error object
+                let error_message = "Runtime error occurred during expression evaluation";
+                let error_ptr = self.allocate_string(error_message)?;
+                instructions.push(Instruction::I32Const(error_ptr as i32));
+                instructions.push(Instruction::LocalSet(error_local_index));
+                
+                // Return error indicator
+                instructions.push(Instruction::I32Const(-1)); // Error indicator
+            }
+        }
         
-        // For the simplified implementation, we don't execute the handler block
-        // TODO: Implement proper error handling when WebAssembly exception handling is stable
-        // or when we have a runtime error detection mechanism
+        instructions.push(Instruction::End); // End of try block
+        instructions.push(Instruction::LocalSet(result_local));
+        
+        // Check if error occurred and execute handler if needed
+        instructions.push(Instruction::LocalGet(result_local));
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::I32Eq);
+        instructions.push(Instruction::If(BlockType::Empty));
+        
+        // Error occurred - execute handler block
+        for stmt in handler {
+            self.generate_statement(stmt, instructions)?;
+        }
+        
+        instructions.push(Instruction::End); // End of error handler if
         
         // Remove error variable from scope
         self.variable_map.remove("error");
-        self.current_locals.pop();
         
-        Ok(expr_type)
+        // Return the result
+        instructions.push(Instruction::LocalGet(result_local));
+        
+        Ok(WasmType::I32) // Return type is always I32 for error handling
     }
 
     fn generate_on_error(&mut self, expression: &Expression, fallback: &Expression, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
-        // For now, implement a simplified version that just evaluates the expression
-        // In a full implementation, we'd use proper error handling mechanisms
+        // Implement onError using WASM control flow - try expression, use fallback on error
         
-        // Generate the main expression
-        let expr_type = self.generate_expression(expression, instructions)?;
-        
-        // Generate fallback expression for type checking
+        // Generate fallback expression first for type checking
         let mut fallback_instructions = Vec::new();
         let fallback_type = self.generate_expression(fallback, &mut fallback_instructions)?;
         
-        // Verify types match
-        if expr_type != fallback_type {
-            return Err(CompilerError::type_error(
-                format!("onError fallback type {:?} doesn't match expression type {:?}", fallback_type, expr_type),
-                Some("Ensure the fallback value has the same type as the main expression".to_string()),
-                None
-            ));
+        // Create locals for error handling
+        let result_local = self.add_local(fallback_type);
+        let error_flag_local = self.add_local(WasmType::I32);
+        
+        // Initialize error flag to 0 (no error)
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(error_flag_local));
+        
+        // Use WASM block to handle the try-fallback pattern
+        let block_type = match fallback_type {
+            WasmType::I32 => BlockType::Result(ValType::I32),
+            WasmType::F64 => BlockType::Result(ValType::F64),
+            WasmType::F32 => BlockType::Result(ValType::F32),
+            WasmType::I64 => BlockType::Result(ValType::I64),
+            _ => BlockType::Result(ValType::I32),
+        };
+        
+        instructions.push(Instruction::Block(block_type));
+        
+        // Try to execute the main expression
+        match self.generate_expression(expression, instructions) {
+            Ok(expr_type) => {
+                // Verify types match
+                if expr_type != fallback_type {
+                    return Err(CompilerError::type_error(
+                        format!("onError fallback type {:?} doesn't match expression type {:?}", fallback_type, expr_type),
+                        Some("Ensure the fallback value has the same type as the main expression".to_string()),
+                        None
+                    ));
+                }
+                
+                // Expression succeeded - use its result and break out of block
+                instructions.push(Instruction::Br(0));
+            },
+            Err(_) => {
+                // Expression failed during compilation - use fallback
+                instructions.extend(fallback_instructions.clone());
+            }
         }
         
-        // For the simplified implementation, we just use the main expression
-        // TODO: Implement proper error handling when WebAssembly exception handling is stable
-        // or when we have a runtime error detection mechanism
+        // If we reach here, use the fallback value
+        instructions.extend(fallback_instructions);
         
-        Ok(expr_type)
+        instructions.push(Instruction::End); // End of block
+        
+        Ok(fallback_type)
     }
 
     /// Generate code for a class

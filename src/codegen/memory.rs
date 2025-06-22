@@ -452,7 +452,7 @@ impl MemoryUtils {
         if let Some(&existing_ptr) = self.string_pool.get(s) {
             // Increment reference count for existing string
             self.retain(existing_ptr + HEADER_SIZE as usize)?;
-            return Ok(existing_ptr + HEADER_SIZE as usize);
+            return Ok(existing_ptr);
         }
 
         let bytes = s.as_bytes();
@@ -471,17 +471,20 @@ impl MemoryUtils {
         // Allocate memory for the string (length + content)
         let ptr = self.allocate(len + 4, STRING_TYPE_ID)?;
         
+        // The string pointer should point to the length field, not after the header
+        let string_ptr = ptr - HEADER_SIZE as usize;
+        
         // Add to string pool
-        self.string_pool.insert(s.to_string(), ptr - HEADER_SIZE as usize);
+        self.string_pool.insert(s.to_string(), string_ptr);
         
         // Create data segment for length
         let len_bytes = (len as u32).to_le_bytes();
-        self.add_data_segment((ptr - HEADER_SIZE as usize) as u32, &len_bytes);
+        self.add_data_segment(string_ptr as u32, &len_bytes);
         
         // Create data segment for the string content
-        self.add_data_segment((ptr + 4 - HEADER_SIZE as usize) as u32, bytes);
+        self.add_data_segment((string_ptr + 4) as u32, bytes);
         
-        Ok(ptr)
+        Ok(string_ptr)
     }
 
     /// Allocates memory for an array with proper ARC

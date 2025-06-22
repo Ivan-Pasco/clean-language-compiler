@@ -1,0 +1,3 @@
+function start()
+	integer x = 5
+	integer y = 10 

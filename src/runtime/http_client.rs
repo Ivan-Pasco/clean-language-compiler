@@ -62,6 +62,20 @@ impl HttpClient {
         self.send_request(&host, &request)
     }
     
+    /// Make an HTTP PATCH request
+    pub fn patch(&self, url: &str, body: &str) -> Result<HttpResponse, CompilerError> {
+        println!("🌐 [HTTP PATCH] Making real request to: {}", url);
+        
+        let (host, path) = self.parse_url(url)?;
+        
+        let request = format!(
+            "PATCH {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: Clean-Language/1.0\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            path, host, body.len(), body
+        );
+        
+        self.send_request(&host, &request)
+    }
+    
     /// Make an HTTP DELETE request
     pub fn delete(&self, url: &str) -> Result<HttpResponse, CompilerError> {
         println!("🌐 [HTTP DELETE] Making real request to: {}", url);

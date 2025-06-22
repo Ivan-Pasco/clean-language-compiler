@@ -1,0 +1,4 @@
+function start()
+	println("Starting input test...")
+	string name = input("Enter your name: ")
+	println("You entered: " + name) 

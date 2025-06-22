@@ -96,7 +96,7 @@ input_type = {
     generic_type |
     type_parameter
 }
-input_declaration = { input_type ~ identifier }
+input_declaration = { input_type ~ identifier ~ ("=" ~ expression)? }
 input_block = { "input" ~ indented_input_block }
 indented_input_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ input_declaration ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ input_declaration)* }
 indented_block_with_declarations = { NEWLINE ~ INDENT+ ~ input_declaration ~ (NEWLINE ~ INDENT+ ~ input_declaration)* }
@@ -190,7 +190,7 @@ return_stmt = { "return" ~ expression? }
 // Standalone function definition (Clean Language syntax: function ReturnType name())
 standalone_function = { "function" ~ function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ function_body }
 parameter_list = { parameter ~ ("," ~ parameter)* }
-parameter = { type_ ~ identifier }
+parameter = { type_ ~ identifier ~ ("=" ~ expression)? }
 
 // Functions block (the main supported syntax for function declarations)
 functions_block = { "functions" ~ ":" ~ indented_functions_block }

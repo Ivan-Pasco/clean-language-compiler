@@ -1,0 +1,25 @@
+function start()
+	string text = "  Hello World  "
+	println("Original: '" + text + "'")
+	
+	string trimmed_start = text.trimStart()
+	println("TrimStart: '" + trimmed_start + "'")
+	
+	string trimmed_end = text.trimEnd()  
+	println("TrimEnd: '" + trimmed_end + "'")
+	
+	string fully_trimmed = text.trim()
+	println("Trim: '" + fully_trimmed + "'")
+	
+	string sub1 = fully_trimmed.substring(0, 5)
+	println("Substring(0,5): '" + sub1 + "'")
+	
+	string original = "Hello World Hello"
+	string replaced = original.replace("Hello", "Hi")
+	println("Replace: '" + replaced + "'")
+	
+	string short_num = "5"
+	string padded = short_num.padStart(3, "0")
+	println("PadStart: '" + padded + "'")
+	
+	println("String methods test completed!") 

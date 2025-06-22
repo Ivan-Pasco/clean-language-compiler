@@ -114,11 +114,16 @@ pub enum UnaryOperator {
 pub struct Parameter {
     pub name: String,
     pub type_: Type,
+    pub default_value: Option<Expression>,
 }
 
 impl Parameter {
     pub fn new(name: String, type_: Type) -> Self {
-        Self { name, type_ }
+        Self { name, type_, default_value: None }
+    }
+    
+    pub fn new_with_default(name: String, type_: Type, default_value: Expression) -> Self {
+        Self { name, type_, default_value: Some(default_value) }
     }
 }
 

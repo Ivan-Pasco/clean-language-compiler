@@ -1,0 +1,18 @@
+functions:
+    string greet(string name = "World")
+        return "Hello, " + name
+    
+    integer calculateArea()
+        input
+            integer width = 10
+            integer height = 5
+        return width * height
+    
+    void start()
+        // Test default parameters
+        println(greet())           // Should print "Hello, World"
+        println(greet("Alice"))    // Should print "Hello, Alice"
+        
+        // Test input block defaults
+        integer area = calculateArea()
+        println("Area: " + area.toString())  // Should print "Area: 50" 

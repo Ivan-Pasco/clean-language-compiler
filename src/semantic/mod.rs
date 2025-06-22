@@ -8,7 +8,7 @@ use scope::Scope;
 
 pub struct SemanticAnalyzer {
     symbol_table: HashMap<String, Type>,
-    function_table: HashMap<String, (Vec<Type>, Type)>, // (parameter types, return type)
+    function_table: HashMap<String, (Vec<Type>, Type, usize)>, // (parameter types, return type, required_param_count)
     class_table: HashMap<String, Class>,
     current_class: Option<String>,
     current_function: Option<String>,
@@ -67,28 +67,28 @@ impl SemanticAnalyzer {
         // Register standard library functions
         self.function_table.insert(
             "print".to_string(),
-            (vec![Type::String], Type::Void)
+            (vec![Type::String], Type::Void, 1)
         );
 
         self.function_table.insert(
             "printl".to_string(),
-            (vec![Type::String], Type::Void)
+            (vec![Type::String], Type::Void, 1)
         );
 
         // Assertion functions (keep as traditional functions)
         self.function_table.insert(
             "mustBeTrue".to_string(),
-            (vec![Type::Boolean], Type::Void)
+            (vec![Type::Boolean], Type::Void, 1)
         );
 
         self.function_table.insert(
             "mustBeFalse".to_string(),
-            (vec![Type::Boolean], Type::Void)
+            (vec![Type::Boolean], Type::Void, 1)
         );
 
         self.function_table.insert(
             "mustBeEqual".to_string(),
-            (vec![Type::Any, Type::Any], Type::Void)
+            (vec![Type::Any, Type::Any], Type::Void, 2)
         );
 
         // Array and string operations (removed - now only available as methods)
@@ -98,106 +98,199 @@ impl SemanticAnalyzer {
         // Math functions
         self.function_table.insert(
             "abs".to_string(),
-            (vec![Type::Integer], Type::Integer)
+            (vec![Type::Integer], Type::Integer, 1)
         );
 
         self.function_table.insert(
             "sqrt".to_string(),
-            (vec![Type::Float], Type::Float)
+            (vec![Type::Float], Type::Float, 1)
         );
 
         self.function_table.insert(
             "pow".to_string(),
-            (vec![Type::Float, Type::Float], Type::Float)
+            (vec![Type::Float, Type::Float], Type::Float, 2)
         );
 
         self.function_table.insert(
             "sin".to_string(),
-            (vec![Type::Float], Type::Float)
+            (vec![Type::Float], Type::Float, 1)
         );
 
         self.function_table.insert(
             "cos".to_string(),
-            (vec![Type::Float], Type::Float)
+            (vec![Type::Float], Type::Float, 1)
         );
 
         self.function_table.insert(
             "tan".to_string(),
-            (vec![Type::Float], Type::Float)
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        // Additional mathematical functions
+        self.function_table.insert(
+            "ln".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "log10".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "log2".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "exp".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "exp2".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "sinh".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "cosh".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "tanh".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "asin".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "acos".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "atan".to_string(),
+            (vec![Type::Float], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "pi".to_string(),
+            (vec![], Type::Float, 0)
+        );
+
+        self.function_table.insert(
+            "e".to_string(),
+            (vec![], Type::Float, 0)
+        );
+
+        // Type conversion functions
+        self.function_table.insert(
+            "float_to_string".to_string(),
+            (vec![Type::Float], Type::String, 1)
+        );
+
+        // Console input functions
+        self.function_table.insert(
+            "input".to_string(),
+            (vec![Type::String], Type::String, 1)
+        );
+
+        self.function_table.insert(
+            "input_integer".to_string(),
+            (vec![Type::String], Type::Integer, 1)
+        );
+
+        self.function_table.insert(
+            "input_float".to_string(),
+            (vec![Type::String], Type::Float, 1)
+        );
+
+        self.function_table.insert(
+            "input_yesno".to_string(),
+            (vec![Type::String], Type::Boolean, 1)
         );
 
         // String operations
         self.function_table.insert(
             "string_concat".to_string(),
-            (vec![Type::String, Type::String], Type::String)
+            (vec![Type::String, Type::String], Type::String, 2)
         );
 
         self.function_table.insert(
             "string_compare".to_string(),
-            (vec![Type::String, Type::String], Type::Integer)
+            (vec![Type::String, Type::String], Type::Integer, 2)
         );
 
         // Array operations
         self.function_table.insert(
             "array_get".to_string(),
-            (vec![Type::Array(Box::new(Type::Any)), Type::Integer], Type::Any)
+            (vec![Type::Array(Box::new(Type::Any)), Type::Integer], Type::Any, 2)
         );
 
         self.function_table.insert(
             "array_length".to_string(),
-            (vec![Type::Array(Box::new(Type::Any))], Type::Integer)
+            (vec![Type::Array(Box::new(Type::Any))], Type::Integer, 1)
         );
 
         // HTTP functionality
         self.function_table.insert(
             "http_get".to_string(),
-            (vec![Type::String], Type::String)
+            (vec![Type::String], Type::String, 1)
         );
         
         self.function_table.insert(
             "http_post".to_string(),
-            (vec![Type::String, Type::String], Type::String)
+            (vec![Type::String, Type::String], Type::String, 2)
         );
         
         self.function_table.insert(
             "http_put".to_string(),
-            (vec![Type::String, Type::String], Type::String)
+            (vec![Type::String, Type::String], Type::String, 2)
         );
         
         self.function_table.insert(
             "http_delete".to_string(),
-            (vec![Type::String], Type::String)
+            (vec![Type::String], Type::String, 1)
         );
         
         self.function_table.insert(
             "http_patch".to_string(),
-            (vec![Type::String, Type::String], Type::String)
+            (vec![Type::String, Type::String], Type::String, 2)
         );
 
         // File I/O functionality
         self.function_table.insert(
             "file_read".to_string(),
-            (vec![Type::String], Type::String)
+            (vec![Type::String], Type::String, 1)
         );
         
         self.function_table.insert(
             "file_write".to_string(),
-            (vec![Type::String, Type::String], Type::Integer)
+            (vec![Type::String, Type::String], Type::Integer, 2)
         );
         
         self.function_table.insert(
             "file_append".to_string(),
-            (vec![Type::String, Type::String], Type::Integer)
+            (vec![Type::String, Type::String], Type::Integer, 2)
         );
         
         self.function_table.insert(
             "file_exists".to_string(),
-            (vec![Type::String], Type::Boolean)
+            (vec![Type::String], Type::Boolean, 1)
         );
         
         self.function_table.insert(
             "file_delete".to_string(),
-            (vec![Type::String], Type::Boolean)
+            (vec![Type::String], Type::Boolean, 1)
         );
     }
 
@@ -211,8 +304,11 @@ impl SemanticAnalyzer {
                 // Add imported functions with qualified names
                 for (func_name, function) in &module.exports.functions {
                     let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
+                    let required_param_count = function.parameters.iter()
+                        .take_while(|p| p.default_value.is_none())
+                        .count();
                     let qualified_name = format!("{}.{}", module_name, func_name);
-                    self.function_table.insert(qualified_name, (param_types, function.return_type.clone()));
+                    self.function_table.insert(qualified_name, (param_types, function.return_type.clone(), required_param_count));
                 }
                 
                 // Add imported classes with qualified names
@@ -227,7 +323,10 @@ impl SemanticAnalyzer {
                 if let Some(module) = import_resolution.resolved_imports.get(module_name) {
                     if let Some(function) = module.exports.functions.get(actual_symbol) {
                         let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
-                        self.function_table.insert(symbol_name.clone(), (param_types, function.return_type.clone()));
+                        let required_param_count = function.parameters.iter()
+                            .take_while(|p| p.default_value.is_none())
+                            .count();
+                        self.function_table.insert(symbol_name.clone(), (param_types, function.return_type.clone(), required_param_count));
                     }
                     if let Some(class) = module.exports.classes.get(actual_symbol) {
                         self.class_table.insert(symbol_name.clone(), class.clone());
@@ -250,22 +349,30 @@ impl SemanticAnalyzer {
 
         for function in &program.functions {
             let param_types = function.parameters.iter().map(|p| p.type_.clone()).collect();
+            // Calculate required parameter count (parameters without default values)
+            let required_param_count = function.parameters.iter()
+                .take_while(|p| p.default_value.is_none())
+                .count();
             // Don't overwrite builtin functions like print, printl, etc.
             if !self.is_builtin_function(&function.name) {
                 self.function_table.insert(
                     function.name.clone(),
-                    (param_types, function.return_type.clone())
+                    (param_types, function.return_type.clone(), required_param_count)
                 );
             }
         }
 
         if let Some(start_fn) = &program.start_function {
             let param_types = start_fn.parameters.iter().map(|p| p.type_.clone()).collect();
+            // Calculate required parameter count (parameters without default values)
+            let required_param_count = start_fn.parameters.iter()
+                .take_while(|p| p.default_value.is_none())
+                .count();
             // Don't overwrite builtin functions like print, printl, etc.
             if !self.is_builtin_function(&start_fn.name) {
                 self.function_table.insert(
                     start_fn.name.clone(),
-                    (param_types, start_fn.return_type.clone())
+                    (param_types, start_fn.return_type.clone(), required_param_count)
                 );
             }
         }
@@ -920,7 +1027,7 @@ impl SemanticAnalyzer {
 
                 self.used_functions.insert(name.clone());
                 
-                if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
+                if let Some((param_types, return_type, _param_count)) = self.function_table.get(name).cloned() {
                     // Special case: if this is a print function but it has wrong parameter count in function table,
                     // use the builtin print function validation instead
                     if (name == "print" || name == "printl" || name == "println") && param_types.len() != 1 {
@@ -1413,6 +1520,207 @@ impl SemanticAnalyzer {
                 return Ok(Type::Boolean);
             },
             
+            // String-specific methods
+            (Type::String, "startsWith") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'startsWith' expects exactly 1 argument".to_string(),
+                        Some("Usage: text.startsWith(prefix)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let arg_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(&Type::String, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        "Method 'startsWith' expects a string argument".to_string(),
+                        Some("Usage: text.startsWith(\"prefix\")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            (Type::String, "endsWith") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'endsWith' expects exactly 1 argument".to_string(),
+                        Some("Usage: text.endsWith(suffix)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let arg_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(&Type::String, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        "Method 'endsWith' expects a string argument".to_string(),
+                        Some("Usage: text.endsWith(\"suffix\")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            (Type::String, "indexOf") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'indexOf' expects exactly 1 argument".to_string(),
+                        Some("Usage: text.indexOf(searchString)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let arg_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(&Type::String, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        "Method 'indexOf' expects a string argument".to_string(),
+                        Some("Usage: text.indexOf(\"search\")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Integer);
+            },
+            
+            (Type::String, "toLowerCase") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'toLowerCase' doesn't take any arguments".to_string(),
+                        Some("Usage: text.toLowerCase()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "toUpperCase") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'toUpperCase' doesn't take any arguments".to_string(),
+                        Some("Usage: text.toUpperCase()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "trim") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'trim' doesn't take any arguments".to_string(),
+                        Some("Usage: text.trim()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "trimStart") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'trimStart' doesn't take any arguments".to_string(),
+                        Some("Usage: text.trimStart()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "trimEnd") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'trimEnd' doesn't take any arguments".to_string(),
+                        Some("Usage: text.trimEnd()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "lastIndexOf") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'lastIndexOf' expects exactly 1 argument".to_string(),
+                        Some("Usage: text.lastIndexOf(searchString)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let arg_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(&Type::String, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        "Method 'lastIndexOf' expects a string argument".to_string(),
+                        Some("Usage: text.lastIndexOf(\"search\")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Integer);
+            },
+            
+            (Type::String, "substring") => {
+                if args.len() != 1 && args.len() != 2 {
+                    return Err(CompilerError::type_error(
+                        "Method 'substring' expects 1 or 2 arguments".to_string(),
+                        Some("Usage: text.substring(start) or text.substring(start, end)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                for (i, arg) in args.iter().enumerate() {
+                    let arg_type = self.check_expression(arg)?;
+                    if !self.types_compatible(&Type::Integer, &arg_type) {
+                        return Err(CompilerError::type_error(
+                            format!("Argument {} to 'substring' must be an integer", i + 1),
+                            Some("Usage: text.substring(0, 5)".to_string()),
+                            Some(location.clone())
+                        ));
+                    }
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "replace") => {
+                if args.len() != 2 {
+                    return Err(CompilerError::type_error(
+                        "Method 'replace' expects exactly 2 arguments".to_string(),
+                        Some("Usage: text.replace(searchValue, replaceValue)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                for (i, arg) in args.iter().enumerate() {
+                    let arg_type = self.check_expression(arg)?;
+                    if !self.types_compatible(&Type::String, &arg_type) {
+                        return Err(CompilerError::type_error(
+                            format!("Argument {} to 'replace' must be a string", i + 1),
+                            Some("Usage: text.replace(\"old\", \"new\")".to_string()),
+                            Some(location.clone())
+                        ));
+                    }
+                }
+                return Ok(Type::String);
+            },
+            
+            (Type::String, "padStart") => {
+                if args.len() != 2 {
+                    return Err(CompilerError::type_error(
+                        "Method 'padStart' expects exactly 2 arguments".to_string(),
+                        Some("Usage: text.padStart(targetLength, padString)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let length_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(&Type::Integer, &length_type) {
+                    return Err(CompilerError::type_error(
+                        "First argument to 'padStart' must be an integer (target length)".to_string(),
+                        Some("Usage: text.padStart(5, \"0\")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let pad_type = self.check_expression(&args[1])?;
+                if !self.types_compatible(&Type::String, &pad_type) {
+                    return Err(CompilerError::type_error(
+                        "Second argument to 'padStart' must be a string (pad string)".to_string(),
+                        Some("Usage: text.padStart(5, \"0\")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
             // Any type methods
             (_, "isDefined") => {
                 if !args.is_empty() {
@@ -1648,11 +1956,21 @@ impl SemanticAnalyzer {
             return Err(CompilerError::method_suggestion_error(name, location, None));
         }
 
-        if let Some((param_types, return_type)) = self.function_table.get(name).cloned() {
-            if args.len() != param_types.len() {
+        if let Some((param_types, return_type, required_param_count)) = self.function_table.get(name).cloned() {
+            // Check if we have enough arguments (must have at least required_param_count)
+            if args.len() < required_param_count {
                 return Err(CompilerError::type_error(
-                    format!("Function '{}' expects {} arguments, but {} were provided", name, param_types.len(), args.len()),
-                    Some(format!("Expected {} arguments", param_types.len())),
+                    format!("Function '{}' requires at least {} arguments, but {} were provided", name, required_param_count, args.len()),
+                    Some(format!("Required {} arguments", required_param_count)),
+                    location
+                ));
+            }
+            
+            // Check if we have too many arguments (can't exceed total parameter count)
+            if args.len() > param_types.len() {
+                return Err(CompilerError::type_error(
+                    format!("Function '{}' accepts at most {} arguments, but {} were provided", name, param_types.len(), args.len()),
+                    Some(format!("Maximum {} arguments", param_types.len())),
                     location
                 ));
             }

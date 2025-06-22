@@ -29,6 +29,7 @@ Clean Language is a modern, type-safe programming language designed to compile t
 - **Performance**: Efficient compilation to WebAssembly
 - **Expressiveness**: First-class support for mathematical operations and data structures
 - **Error Handling**: Comprehensive error handling and recovery mechanisms
+- **Developer Experience**: Default parameter values for cleaner APIs and optional configuration
 
 ### File Extension
 Clean Language source files use the `.cln` extension.
@@ -738,6 +739,55 @@ println:
 
 The block syntax allows for cleaner formatting when printing multiple values sequentially, maintaining consistency with other Clean Language block constructs like `functions:`, `string:`, etc.
 
+### Console Input
+
+Console input in Clean lets you ask the user for a value with a simple prompt. Use `input()` for text, `input.integer()` and `input.float()` for numbers, and `input.yesNo()` for true/false — all with safe defaults and clear syntax.
+
+```clean
+// Get text input from user
+string name = input("What's your name? ")
+string message = input()  // Simple prompt with no text
+
+// Get numeric input with automatic conversion
+integer age = input.integer("How old are you? ")
+float height = input.float("Your height in meters: ")
+
+// Get yes/no input as boolean
+boolean confirmed = input.yesNo("Are you sure? ")
+boolean subscribe = input.yesNo("Subscribe to newsletter? ")
+```
+
+#### Input Features
+
+- **Safe defaults**: Invalid input automatically retries with helpful messages
+- **Type conversion**: `input.integer()` and `input.float()` handle numeric conversion safely
+- **Boolean parsing**: `input.yesNo()` accepts "yes"/"no", "y"/"n", "true"/"false", "1"/"0"
+- **Clean prompts**: Prompts are displayed clearly and wait for user input
+- **Error handling**: Invalid input shows friendly error messages and asks again
+
+#### Usage Examples
+
+```clean
+functions:
+    void start()
+        // Basic user interaction
+        string userName = input("Enter your name: ")
+        println("Hello, " + userName + "!")
+        
+        // Numeric calculations
+        integer num1 = input.integer("First number: ")
+        integer num2 = input.integer("Second number: ")
+        integer sum = num1 + num2
+        println("Sum: " + sum.toString())
+        
+        // Decision making
+        boolean wantsCoffee = input.yesNo("Would you like coffee? ")
+        if wantsCoffee
+            println("Great! Coffee coming right up.")
+        else
+            println("No problem, maybe next time.")
+```
+
 ### Return Statement
 
 ```clean
@@ -818,6 +868,92 @@ functions:
             integer x
             integer y
         return x + y
+```
+
+### Default Parameter Values
+
+Clean Language supports default parameter values in both function declarations and input blocks. This feature enhances code readability and provides sensible defaults for optional parameters.
+
+#### Input Block Default Values
+
+Default values are particularly useful in input blocks, allowing functions to work with sensible defaults when parameters are not provided:
+
+```clean
+functions:
+    integer calculateArea()
+        description "Calculate area with default dimensions"
+        input
+            integer width = 10      // Default width
+            integer height = 5      // Default height
+        return width * height
+
+    string formatMessage()
+        description "Format a message with optional parameters"
+        input
+            string text = "Hello"   // Default message
+            string prefix = ">> "   // Default prefix
+            boolean uppercase = false  // Default formatting
+        if uppercase
+            return prefix + text.toUpperCase()
+        else
+            return prefix + text
+```
+
+#### Function Parameter Default Values
+
+Default values can also be used in regular function parameters:
+
+```clean
+functions:
+    string greet(string name = "World")
+        return "Hello, " + name
+    
+    integer power(integer base, integer exponent = 2)
+        // Default exponent of 2 for squaring
+        return Math.pow(base, exponent)
+    
+    void logMessage(string message, string level = "INFO")
+        print("[" + level + "] " + message)
+```
+
+#### Usage Examples
+
+```clean
+functions:
+    void start()
+        // Using functions with default values
+        print(greet())              // "Hello, World" (uses default)
+        print(greet("Alice"))       // "Hello, Alice" (overrides default)
+        
+        integer squared = power(5)  // 25 (uses default exponent=2)
+        integer cubed = power(5, 3) // 125 (overrides exponent)
+        
+        logMessage("System started")           // [INFO] System started
+        logMessage("Error occurred", "ERROR")  // [ERROR] Error occurred
+        
+        // Input blocks with defaults work seamlessly
+        integer area1 = calculateArea()        // Uses defaults: 10 * 5 = 50
+        // When calling functions with input blocks, defaults are applied automatically
+```
+
+#### Default Value Rules
+
+1. **Expression Support**: Default values can be any valid Clean Language expression
+2. **Type Compatibility**: Default values must match the parameter's declared type
+3. **Evaluation Time**: Default values are evaluated at function call time
+4. **Optional Nature**: Parameters with default values become optional in function calls
+
+**Examples of Valid Default Values:**
+```clean
+functions:
+    void examples()
+        input
+            integer count = 42                    // Literal value
+            string message = "Default text"       // String literal
+            boolean flag = true                   // Boolean literal
+            float ratio = 3.14                    // Float literal
+            integer calculated = 10 + 5           // Expression
+            string formatted = "Value: " + "test" // String concatenation
 ```
 
 ### Method Calls (Require Parentheses)
@@ -1180,7 +1316,8 @@ class Math
         // Core mathematical operations
         float sqrt(float x)
         float pow(float base, float exponent)
-        float abs(float x)
+        float abs(float x)          // Absolute value for floats
+        integer abs(integer x)      // Absolute value for integers
         float max(float a, float b)
         float min(float a, float b)
         
@@ -1246,6 +1383,10 @@ functions:
         float dx = 3.0
         float dy = 4.0
         float distance = Math.sqrt(Math.add(Math.pow(dx, 2.0), Math.pow(dy, 2.0)))
+        
+        // Absolute values for different types
+        float floatAbs = Math.abs(-5.7)    // 5.7
+        integer intAbs = Math.abs(-42)     // 42
 ```
 
 ### String Class

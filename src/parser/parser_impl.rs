@@ -292,10 +292,11 @@ pub fn parse_standalone_function(pair: Pair<Rule>) -> Result<Function, CompilerE
     })
 }
 
-/// Parse a parameter from a parameter list: type identifier
+/// Parse a parameter from a parameter list: type identifier [= default_value]
 fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
     let mut param_type = None;
     let mut param_name = String::new();
+    let mut default_value = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -304,6 +305,10 @@ fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
             },
             Rule::identifier => {
                 param_name = inner.as_str().to_string();
+            },
+            Rule::expression => {
+                // Parse default value expression
+                default_value = Some(crate::parser::expression_parser::parse_expression(inner)?);
             },
             _ => {}
         }
@@ -323,7 +328,11 @@ fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
         ));
     }
 
+    if let Some(default_expr) = default_value {
+        Ok(Parameter::new_with_default(param_name, param_type, default_expr))
+    } else {
     Ok(Parameter::new(param_name, param_type))
+    }
 }
 
 pub fn get_location(pair: &Pair<Rule>) -> super::SourceLocation {
@@ -575,14 +584,19 @@ fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Para
                 if input_decl.as_rule() == Rule::input_declaration {
                     let mut param_type = None;
                     let mut param_name = String::new();
+                    let mut default_value = None;
                     for param_decl in input_decl.into_inner() {
                         match param_decl.as_rule() {
                             Rule::input_type => param_type = Some(parse_type(param_decl)?),
                             Rule::identifier => param_name = param_decl.as_str().to_string(),
+                            Rule::expression => {
+                                // Parse default value expression
+                                default_value = Some(crate::parser::expression_parser::parse_expression(param_decl)?);
+                            },
                             _ => {}
                         }
                     }
-                    // TODO: Support default values or annotations for parameters in the future
+                    // Fixed: Now supports default values for parameters
                     if let Some(pt) = param_type {
                         if !seen_names.insert(param_name.clone()) {
                             return Err(CompilerError::parse_error(
@@ -591,7 +605,11 @@ fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Para
                                 None,
                             ));
                         }
+                        if let Some(default_expr) = default_value {
+                            parameters.push(Parameter::new_with_default(param_name, pt, default_expr));
+                        } else {
                         parameters.push(Parameter::new(param_name, pt));
+                        }
                     } else {
                         return Err(CompilerError::parse_error(
                             "Missing type in input parameter declaration",
@@ -800,8 +818,6 @@ fn parse_import_item(pair: Pair<Rule>) -> Result<ImportItem, CompilerError> {
 }
 
 /// Parse a later assignment statement
-// Removed unused function parse_later_assignment
-
 fn _unused_parse_later_assignment(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
     let location = Some(convert_to_ast_location(&get_location(&pair)));
     let mut variable = String::new();
@@ -813,8 +829,8 @@ fn _unused_parse_later_assignment(pair: Pair<Rule>) -> Result<Statement, Compile
                 variable = inner.as_str().to_string();
             },
             Rule::expression => {
-                // TODO: Replace with proper expression parsing
-                expression = Some(Expression::Literal(Value::String("placeholder".to_string())));
+                // Fixed: Use proper expression parsing instead of placeholder
+                expression = Some(crate::parser::expression_parser::parse_expression(inner)?);
             },
             _ => {}
         }
@@ -842,16 +858,14 @@ fn _unused_parse_later_assignment(pair: Pair<Rule>) -> Result<Statement, Compile
 }
 
 /// Parse a background statement
-// Removed unused function parse_background_statement
-
 fn _unused_parse_background_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
     let location = Some(convert_to_ast_location(&get_location(&pair)));
     let mut expression = None;
     
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::expression {
-            // TODO: Replace with proper expression parsing
-            expression = Some(Expression::Literal(Value::String("placeholder".to_string())));
+            // Fixed: Use proper expression parsing instead of placeholder
+            expression = Some(crate::parser::expression_parser::parse_expression(inner)?);
             break;
         }
     }
@@ -869,16 +883,14 @@ fn _unused_parse_background_statement(pair: Pair<Rule>) -> Result<Statement, Com
 }
 
 /// Parse a start expression for async programming
-// Removed unused function parse_start_expression
-
 fn _unused_parse_start_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let location = convert_to_ast_location(&get_location(&pair));
     let mut expression = None;
     
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::expression {
-            // TODO: Replace with proper expression parsing
-            expression = Some(Box::new(Expression::Literal(Value::String("placeholder".to_string()))));
+            // Fixed: Use proper expression parsing instead of placeholder
+            expression = Some(Box::new(crate::parser::expression_parser::parse_expression(inner)?));
             break;
         }
     }
@@ -896,12 +908,14 @@ fn _unused_parse_start_expression(pair: Pair<Rule>) -> Result<Expression, Compil
 }
 
 // Note: We'll need to add parse_expression function - this is a placeholder reference
-// Removed unused function parse_expression
-
 fn _unused_parse_expression(_pair: Pair<Rule>) -> Result<Expression, CompilerError> {
-    // This function should be implemented elsewhere in the parser
-    // For now, return a placeholder
-    Ok(Expression::Literal(Value::Void))
+    // Fixed: This function should delegate to the proper expression parser
+    // For now, return an error indicating this shouldn't be used
+    Err(CompilerError::parse_error(
+        "This function is deprecated - use crate::parser::expression_parser::parse_expression instead".to_string(),
+        None,
+        Some("Use the expression_parser module for parsing expressions".to_string())
+    ))
 }
 
 #[cfg(test)]

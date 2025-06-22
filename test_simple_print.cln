@@ -1,0 +1,3 @@
+function start()
+	println("Hello, World!")
+	println("Testing basic functionality...") 

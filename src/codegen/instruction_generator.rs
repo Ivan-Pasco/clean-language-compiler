@@ -633,10 +633,80 @@ impl InstructionGenerator {
                 instructions.push(Instruction::F64Const(*f));
                 Ok(WasmType::F64)
             },
-            Value::List(_, _) => {
-                // TODO: Implement list literal generation
-                instructions.push(Instruction::I32Const(0)); // Placeholder - pointer to list
-                Ok(WasmType::I32)
+            Value::List(items, _behavior) => {
+                // Implement real list literal generation
+                // 1. Allocate memory for the list structure
+                // 2. Store list metadata (length, capacity, behavior)
+                // 3. Store each item in the list
+                // 4. Return pointer to the list
+                
+                let list_length = items.len() as i32;
+                
+                // For now, implement a simple list as: [length][item1][item2]...[itemN]
+                // Each item is 4 bytes (I32), plus 4 bytes for length = (n+1)*4 bytes total
+                let list_size = (list_length + 1) * 4;
+                
+                // Allocate memory for the list
+                if let Some(alloc_fn) = self.get_function_index("allocate_memory") {
+                    instructions.push(Instruction::I32Const(list_size));
+                    instructions.push(Instruction::Call(alloc_fn));
+                    
+                    // Store the list pointer in a local variable
+                    let list_ptr_local = self.current_locals.len() as u32;
+                    self.current_locals.push(LocalVarInfo {
+                        index: list_ptr_local,
+                        type_: wasm_encoder::ValType::I32,
+                    });
+                    instructions.push(Instruction::LocalSet(list_ptr_local));
+                    
+                    // Store the length at the beginning of the list
+                    instructions.push(Instruction::LocalGet(list_ptr_local));
+                    instructions.push(Instruction::I32Const(list_length));
+                    instructions.push(Instruction::I32Store(wasm_encoder::MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: 0,
+                    }));
+                    
+                    // Store each item in the list
+                    for (i, item) in items.iter().enumerate() {
+                        instructions.push(Instruction::LocalGet(list_ptr_local));
+                        
+                        // Generate the item value
+                        let item_type = self.generate_value(item, instructions)?;
+                        
+                        // Convert to I32 if needed (for simplicity, store everything as I32)
+                        match item_type {
+                            WasmType::I32 => {}, // Already correct type
+                            WasmType::F32 => {
+                                // Convert F32 to I32 (reinterpret bits)
+                                instructions.push(Instruction::I32ReinterpretF32);
+                            },
+                            WasmType::F64 => {
+                                // Convert F64 to I32 (truncate and cast)
+                                instructions.push(Instruction::I32TruncF64S);
+                            },
+                            _ => {
+                                // For other types, just use as-is (already I32)
+                            }
+                        }
+                        
+                        // Store at offset (i+1)*4 (skip the length field)
+                        instructions.push(Instruction::I32Store(wasm_encoder::MemArg {
+                            offset: ((i + 1) * 4) as u64,
+                            align: 2,
+                            memory_index: 0,
+                        }));
+                    }
+                    
+                    // Return the list pointer
+                    instructions.push(Instruction::LocalGet(list_ptr_local));
+                    Ok(WasmType::I32)
+                } else {
+                    // Fallback: create empty list if no allocator available
+                    instructions.push(Instruction::I32Const(0));
+                    Ok(WasmType::I32)
+                }
             },
         }
     }

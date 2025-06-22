@@ -1,0 +1,19 @@
+function start()
+	// Test text input
+	string name = input("What's your name? ")
+	println("Hello, " + name + "!")
+	
+	// Test integer input
+	integer age = input_integer("How old are you? ")
+	println("You are " + age.toString() + " years old.")
+	
+	// Test float input
+	float height = input_float("Your height in meters: ")
+	println("Your height is " + height.toString() + " meters.")
+	
+	// Test yes/no input
+	boolean likesClean = input_yesno("Do you like Clean Language? ")
+	if likesClean
+		println("Great! Clean Language is awesome!")
+	else
+		println("That's okay, maybe you'll like it more later.") 

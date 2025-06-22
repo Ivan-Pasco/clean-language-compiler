@@ -1,84 +1,108 @@
-# Testing Plan for Clean Language Compiler
+# Testing Plan for Critical Clean Language Compiler Issues
 
 ## Overview
-This document outlines the testing strategy for the remaining high-priority tasks in the Clean Language compiler. We now have a working end-to-end test framework that verifies basic compilation and execution of Clean Language programs.
+This document outlines the testing strategy for the 3 critical WASM validation issues that must be resolved immediately, plus testing for the remaining high-priority tasks.
 
-## Completed Tests
-- ✓ Basic end-to-end compilation and execution testing
-- ✓ Return value verification from compiled WebAssembly
+## 🔥 **CRITICAL ISSUE TESTING (IMMEDIATE)**
 
-## High Priority Test Areas
+### **1. String Interpolation Stack Management Testing**
+**Target:** `src/codegen/mod.rs` (line 1350-1370)
 
-### Parser Testing
-1. **Error Recovery Tests**
-   - Test that the parser can recover from syntax errors and continue parsing
-   - Verify error messages include correct file path and line number information
-   - Test complex nested expressions to ensure robust parsing
+**Test Cases Needed:**
+- Simple string interpolation: `"Hello ${name}"`
+- Multiple interpolations: `"User ${name} is ${age} years old"`
+- Nested interpolations with expressions: `"Result: ${calculate(x + y)}"`
+- Complex interpolations with method calls: `"Length: ${text.length()}"`
 
-2. **Edge Case Testing**
-   - Test unusual but valid syntax combinations
-   - Verify handling of Unicode characters in identifiers and strings
-   - Test maximum nesting levels for expressions and blocks
+**Validation:**
+- Generated WASM must pass wasmtime validation
+- Stack must be properly balanced for each interpolation part
+- Concatenation operations must have correct operands on stack
 
-### Module Integration Testing
-1. **Type Propagation Tests**
-   - Verify that types are correctly propagated between compiler phases
-   - Test type checking for complex expressions and functions
-   - Verify semantic analysis catches type mismatches
+### **2. Exception Handling Testing**
+**Target:** `src/codegen/instruction_generator.rs` (lines 708, 2402)
 
-2. **Error Message Tests**
-   - Test that error messages are helpful and include context
-   - Verify line numbers and source locations in error messages
+**Test Cases Needed:**
+- Basic try/catch blocks
+- Try/catch/finally combinations
+- Nested exception handling
+- Exception propagation through function calls
 
-### Code Generation Testing
-1. **WASM Validation Tests**
-   - Verify that generated WASM is always valid
-   - Test memory management in the generated code
-   - Verify correct handling of different numeric types
+**Validation:**
+- Replace `I32Const(0)` placeholders with real exception handling
+- WASM must validate without "unknown instruction" errors
+- Exception flow control must work correctly
 
-2. **Optimization Tests**
-   - Compare optimized vs unoptimized code
-   - Check that optimizations don't change program behavior
+### **3. Memory Operations Testing**
+**Target:** `src/codegen/instruction_generator.rs` (lines 2084, 2115)
 
-## Medium Priority Tests
+**Test Cases Needed:**
+- Dynamic memory allocation for strings and arrays
+- Memory deallocation and cleanup
+- Bounds checking for memory operations
+- Memory leak prevention
 
-### Benchmark Tests
-1. **Performance Testing**
-   - Measure compilation time for various program sizes
-   - Benchmark execution speed of generated WASM
+**Validation:**
+- Replace placeholder memory operations with real WASM instructions
+- Memory allocation must return valid pointers
+- Deallocation must properly free memory
 
-### Complex Feature Tests
-1. **Language Feature Tests**
-   - Test more complex language constructs like classes and inheritance
-   - Verify array and matrix operations
-   - Test string manipulation
+## ⚠️ **HIGH PRIORITY TESTING**
 
-## Testing Tools
+### **4. Parser Error Recovery Testing**
+**Test Cases:**
+- Syntax errors with recovery and continued parsing
+- Missing semicolons, brackets, and other common errors
+- Complex nested expression parsing
+- File path reporting in error messages
 
-Our testing infrastructure now includes:
+### **5. Async Runtime Integration Testing**
+**Test Cases:**
+- Future creation and resolution
+- Background task execution
+- Async/await functionality
+- Integration between sync and async runtimes
 
-1. **Unit Tests**
-   - Cargo's test framework for component testing
+## 📋 **TEST EXECUTION PRIORITY**
 
-2. **End-to-End Tests**
-   - Automated test that compiles and executes Clean Language programs
-   - Verifies the expected return values from execution
+### **Phase 1: Critical WASM Validation (URGENT)**
+1. Create test files for each critical issue
+2. Verify current failures with `cargo build` and `wasmtime validate`
+3. Test fixes incrementally as they're implemented
+4. Ensure all WASM validation errors are resolved
 
-3. **Planned: Fuzzing Tests**
-   - Generate random but valid Clean Language programs
-   - Verify that the compiler handles them correctly
+### **Phase 2: Functional Testing**
+1. End-to-end testing of fixed features
+2. Integration testing between compiler phases
+3. Performance testing of generated WASM
 
-## Test Execution Strategy
+### **Phase 3: Regression Testing**
+1. Verify all previously working features still function
+2. Test edge cases and boundary conditions
+3. Comprehensive test suite execution
 
-Tests should be run:
-1. Before submitting any changes
-2. As part of the CI/CD pipeline
-3. With both debug and release builds
+## 🎯 **SUCCESS CRITERIA**
 
-## Success Criteria
+**Critical Issues Resolved When:**
+1. ✅ String interpolation generates valid WASM without stack errors
+2. ✅ Exception handling compiles to real WASM instructions (not placeholders)
+3. ✅ Memory operations use real allocation/deallocation (not placeholders)
+4. ✅ All test programs compile and execute successfully
+5. ✅ `wasmtime validate` passes for all generated WASM files
 
-The testing will be considered successful when:
-1. All tests pass consistently
-2. Edge cases are handled correctly
-3. The compiler provides helpful error messages
-4. Generated WASM is always valid and executes correctly 
+**Testing Infrastructure:**
+- Automated test suite for critical issues
+- WASM validation integration in CI/CD
+- Performance benchmarks for generated code
+- Regression test coverage for all major features
+
+## 🚨 **IMMEDIATE ACTION REQUIRED**
+
+**Next Steps:**
+1. Create test cases for the 3 critical WASM validation issues
+2. Implement fixes for string interpolation stack management
+3. Replace exception handling placeholders with real implementations
+4. Implement real memory allocation/deallocation operations
+5. Verify all fixes with comprehensive testing
+
+**Timeline:** These critical issues should be resolved within the next development cycle to restore basic compiler functionality. 

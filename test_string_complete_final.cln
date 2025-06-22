@@ -1,0 +1,23 @@
+function start()
+	string text = "  Hello, world!  "
+	println("Original: '" + text + "'")
+	
+	string trimmed_start = text.trimStart()
+	println("TrimStart: '" + trimmed_start + "'")
+	
+	string trimmed_end = text.trimEnd()
+	println("TrimEnd: '" + trimmed_end + "'")
+	
+	string clean_text = "Hello, world!"
+	string sub = clean_text.substring(0, 5)
+	println("Substring(0,5): '" + sub + "'")
+	
+	integer last_o = clean_text.lastIndexOf("o")
+	println("LastIndexOf('o'): " + last_o.toString())
+	
+	string replaced = clean_text.replace("world", "universe")
+	println("Replace: '" + replaced + "'")
+	
+	string hi = "Hi"
+	string padded = hi.padStart(20, "*")
+	println("PadStart: '" + padded + "'") 

@@ -501,6 +501,116 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
         None, None
     ))?;
 
+    // String concatenation function
+    linker.func_wrap("env", "string_concat", |mut caller: Caller<'_, ()>, str1_ptr: i32, str2_ptr: i32| -> i32 {
+        if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let mut data = memory.data_mut(&mut caller);
+                
+                // Read first string
+                let str1 = if str1_ptr >= 0 && (str1_ptr as usize) + 4 < data.len() {
+                    let len_bytes = &data[str1_ptr as usize..str1_ptr as usize + 4];
+                    let str1_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                    
+                    if str1_ptr as usize + 4 + str1_len < data.len() {
+                        let str1_data = &data[str1_ptr as usize + 4..str1_ptr as usize + 4 + str1_len];
+                        std::str::from_utf8(str1_data).unwrap_or("")
+                    } else { "" }
+                } else { "" };
+                
+                // Read second string
+                let str2 = if str2_ptr >= 0 && (str2_ptr as usize) + 4 < data.len() {
+                    let len_bytes = &data[str2_ptr as usize..str2_ptr as usize + 4];
+                    let str2_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                    
+                    if str2_ptr as usize + 4 + str2_len < data.len() {
+                        let str2_data = &data[str2_ptr as usize + 4..str2_ptr as usize + 4 + str2_len];
+                        std::str::from_utf8(str2_data).unwrap_or("")
+                    } else { "" }
+                } else { "" };
+                
+                // Concatenate strings
+                let result = format!("{}{}", str1, str2);
+                let result_bytes = result.as_bytes();
+                
+                // For now, use a simple approach: find space in existing memory
+                // This is a placeholder - proper memory management would be more complex
+                let result_len = result_bytes.len() as u32;
+                let total_size = 4 + result_len as usize; // 4 bytes for length + string content
+                
+                // Look for free space in memory (starting from offset 1024)
+                let mut allocation_ptr = 1024;
+                while allocation_ptr + total_size < data.len() {
+                    // Check if this space is free (first 4 bytes are 0)
+                    let check_bytes = &data[allocation_ptr..allocation_ptr + 4];
+                    if check_bytes == [0, 0, 0, 0] {
+                        // Found free space, write the string here
+                        // Write length
+                        let len_bytes = result_len.to_le_bytes();
+                        data[allocation_ptr..allocation_ptr + 4].copy_from_slice(&len_bytes);
+                        
+                        // Write string content
+                        data[allocation_ptr + 4..allocation_ptr + 4 + result_bytes.len()].copy_from_slice(result_bytes);
+                        
+                        return allocation_ptr as i32;
+                    }
+                    allocation_ptr += 16; // Check next 16-byte aligned position
+                }
+                
+                // If no free space found, return 0 (allocation failed)
+                return 0;
+            }
+        }
+        0
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create string_concat function: {}", e),
+        None, None
+    ))?;
+    
+    // String comparison function
+    linker.func_wrap("env", "string_compare", |mut caller: Caller<'_, ()>, str1_ptr: i32, str2_ptr: i32| -> i32 {
+        if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                
+                // Read first string
+                let str1 = if str1_ptr >= 0 && (str1_ptr as usize) + 4 < data.len() {
+                    let len_bytes = &data[str1_ptr as usize..str1_ptr as usize + 4];
+                    let str1_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                    
+                    if str1_ptr as usize + 4 + str1_len < data.len() {
+                        let str1_data = &data[str1_ptr as usize + 4..str1_ptr as usize + 4 + str1_len];
+                        std::str::from_utf8(str1_data).unwrap_or("")
+                    } else { "" }
+                } else { "" };
+                
+                // Read second string
+                let str2 = if str2_ptr >= 0 && (str2_ptr as usize) + 4 < data.len() {
+                    let len_bytes = &data[str2_ptr as usize..str2_ptr as usize + 4];
+                    let str2_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                    
+                    if str2_ptr as usize + 4 + str2_len < data.len() {
+                        let str2_data = &data[str2_ptr as usize + 4..str2_ptr as usize + 4 + str2_len];
+                        std::str::from_utf8(str2_data).unwrap_or("")
+                    } else { "" }
+                } else { "" };
+                
+                // Compare strings and return result
+                return match str1.cmp(str2) {
+                    std::cmp::Ordering::Less => -1,
+                    std::cmp::Ordering::Equal => 0,
+                    std::cmp::Ordering::Greater => 1,
+                };
+            }
+        }
+        0
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create string_compare function: {}", e),
+        None, None
+    ))?;
+
     // Add memory management functions
     linker.func_wrap("env", "memory_allocate", |mut caller: Caller<'_, ()>, size: i32, type_id: i32| -> i32 {
         if let Some(memory) = caller.get_export("memory") {
@@ -911,6 +1021,393 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     })
     .map_err(|e| CompilerError::runtime_error(
         format!("Failed to create resolve_future function: {}", e),
+        None, None
+    ))?;
+    
+    // Add mathematical functions
+    linker.func_wrap("env", "pow", |_caller: Caller<'_, ()>, base: f64, exponent: f64| -> f64 {
+        base.powf(exponent)
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create pow function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "sin", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.sin()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create sin function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "cos", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.cos()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create cos function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "tan", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.tan()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create tan function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "ln", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.ln()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create ln function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "log10", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.log10()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create log10 function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "log2", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.log2()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create log2 function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "exp", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.exp()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create exp function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "exp2", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.exp2()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create exp2 function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "sqrt", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.sqrt()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create sqrt function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "sinh", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.sinh()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create sinh function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "cosh", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.cosh()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create cosh function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "tanh", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.tanh()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create tanh function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "asin", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.asin()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create asin function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "acos", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.acos()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create acos function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "atan", |_caller: Caller<'_, ()>, x: f64| -> f64 {
+        x.atan()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create atan function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "pi", |_caller: Caller<'_, ()>| -> f64 {
+        std::f64::consts::PI
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create pi function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "e", |_caller: Caller<'_, ()>| -> f64 {
+        std::f64::consts::E
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create e function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "abs", |_caller: Caller<'_, ()>, x: i32| -> i32 {
+        x.abs()
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create abs function: {}", e),
+        None, None
+    ))?;
+    
+    // Console input functions
+    linker.func_wrap("env", "input", |mut caller: Caller<'_, ()>, prompt_ptr: i32, prompt_len: i32| -> i32 {
+        // Extract prompt from memory
+        let prompt = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if prompt_ptr >= 0 && prompt_len >= 0 {
+                    let start = prompt_ptr as usize;
+                    let len = prompt_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("")
+                    } else {
+                        ""
+                    }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            }
+        } else {
+            ""
+        };
+        
+        // Display prompt and get user input
+        print!("{}", prompt);
+        use std::io::{self, Write};
+        io::stdout().flush().unwrap();
+        
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(_) => {
+                input = input.trim().to_string();
+                
+                // Store the input string in memory
+                if let Some(memory) = caller.get_export("memory") {
+                    if let Some(memory) = memory.into_memory() {
+                        let mut data = memory.data_mut(&mut caller);
+                        
+                        let string_bytes = input.as_bytes();
+                        let total_size = 4 + string_bytes.len();
+                        
+                        // Find a place to store the string
+                        let mut offset = 1024;
+                        while offset + total_size < data.len() {
+                            let is_free = data[offset..offset + total_size].iter().all(|&b| b == 0);
+                            if is_free {
+                                break;
+                            }
+                            offset += 32;
+                        }
+                        
+                        if offset + total_size < data.len() {
+                            // Store length
+                            data[offset..offset + 4].copy_from_slice(&(string_bytes.len() as u32).to_le_bytes());
+                            // Store string data
+                            data[offset + 4..offset + 4 + string_bytes.len()].copy_from_slice(string_bytes);
+                            return offset as i32;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("❌ [INPUT] Error reading input: {}", e);
+            }
+        }
+        
+        0 // Return null pointer on failure
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create input function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "input_integer", |mut caller: Caller<'_, ()>, prompt_ptr: i32, prompt_len: i32| -> i32 {
+        // Extract prompt from memory
+        let prompt = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if prompt_ptr >= 0 && prompt_len >= 0 {
+                    let start = prompt_ptr as usize;
+                    let len = prompt_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("")
+                    } else {
+                        ""
+                    }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            }
+        } else {
+            ""
+        };
+        
+        // Get integer input with validation and retry
+        use std::io::{self, Write};
+        loop {
+            print!("{}", prompt);
+            io::stdout().flush().unwrap();
+            
+            let mut input = String::new();
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    let input = input.trim();
+                    match input.parse::<i32>() {
+                        Ok(value) => return value,
+                        Err(_) => {
+                            println!("❌ Invalid integer. Please enter a valid number.");
+                            continue;
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("❌ [INPUT INTEGER] Error reading input: {}", e);
+                    return 0;
+                }
+            }
+        }
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create input_integer function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "input_float", |mut caller: Caller<'_, ()>, prompt_ptr: i32, prompt_len: i32| -> f64 {
+        // Extract prompt from memory
+        let prompt = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if prompt_ptr >= 0 && prompt_len >= 0 {
+                    let start = prompt_ptr as usize;
+                    let len = prompt_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("")
+                    } else {
+                        ""
+                    }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            }
+        } else {
+            ""
+        };
+        
+        // Get float input with validation and retry
+        use std::io::{self, Write};
+        loop {
+            print!("{}", prompt);
+            io::stdout().flush().unwrap();
+            
+            let mut input = String::new();
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    let input = input.trim();
+                    match input.parse::<f64>() {
+                        Ok(value) => return value,
+                        Err(_) => {
+                            println!("❌ Invalid number. Please enter a valid decimal number.");
+                            continue;
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("❌ [INPUT FLOAT] Error reading input: {}", e);
+                    return 0.0;
+                }
+            }
+        }
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create input_float function: {}", e),
+        None, None
+    ))?;
+    
+    linker.func_wrap("env", "input_yesno", |mut caller: Caller<'_, ()>, prompt_ptr: i32, prompt_len: i32| -> i32 {
+        // Extract prompt from memory
+        let prompt = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if prompt_ptr >= 0 && prompt_len >= 0 {
+                    let start = prompt_ptr as usize;
+                    let len = prompt_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("")
+                    } else {
+                        ""
+                    }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            }
+        } else {
+            ""
+        };
+        
+        // Get yes/no input with validation and retry
+        use std::io::{self, Write};
+        loop {
+            print!("{}", prompt);
+            io::stdout().flush().unwrap();
+            
+            let mut input = String::new();
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    let input = input.trim().to_lowercase();
+                    match input.as_str() {
+                        "yes" | "y" | "true" | "1" => return 1,
+                        "no" | "n" | "false" | "0" => return 0,
+                        _ => {
+                            println!("❌ Please enter 'yes'/'no', 'y'/'n', 'true'/'false', or '1'/'0'.");
+                            continue;
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("❌ [INPUT YES/NO] Error reading input: {}", e);
+                    return 0;
+                }
+            }
+        }
+    })
+    .map_err(|e| CompilerError::runtime_error(
+        format!("Failed to create input_yesno function: {}", e),
         None, None
     ))?;
     

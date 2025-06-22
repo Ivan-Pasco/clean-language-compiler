@@ -803,7 +803,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_index_of(&self) -> Vec<Instruction> {
+    pub fn generate_string_index_of(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Get string1 length
@@ -860,7 +860,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_last_index_of(&self) -> Vec<Instruction> {
+    pub fn generate_string_last_index_of(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Similar to indexOf but search backwards (placeholder implementation)
@@ -871,7 +871,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_starts_with(&self) -> Vec<Instruction> {
+    pub fn generate_string_starts_with(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Get string length
@@ -899,7 +899,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_ends_with(&self) -> Vec<Instruction> {
+    pub fn generate_string_ends_with(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Similar to startsWith but check end (placeholder implementation)
@@ -908,7 +908,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_to_upper(&self) -> Vec<Instruction> {
+    pub fn generate_string_to_upper(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Get string length
@@ -932,7 +932,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_to_lower(&self) -> Vec<Instruction> {
+    pub fn generate_string_to_lower(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Similar to toUpper (placeholder implementation)
@@ -941,7 +941,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_trim(&self) -> Vec<Instruction> {
+    pub fn generate_string_trim(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Placeholder implementation - return original string
@@ -950,7 +950,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_trim_start(&self) -> Vec<Instruction> {
+    pub fn generate_string_trim_start(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Placeholder implementation - return original string
@@ -959,7 +959,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_trim_end(&self) -> Vec<Instruction> {
+    pub fn generate_string_trim_end(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Placeholder implementation - return original string
@@ -968,7 +968,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_substring(&self) -> Vec<Instruction> {
+    pub fn generate_string_substring(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Get string length
@@ -1016,7 +1016,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_replace(&self) -> Vec<Instruction> {
+    pub fn generate_string_replace(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Placeholder implementation - return original string
@@ -1096,7 +1096,7 @@ impl StringOperations {
         instructions
     }
 
-    fn generate_string_pad_start(&self) -> Vec<Instruction> {
+    pub fn generate_string_pad_start(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
         // Placeholder implementation - return original string

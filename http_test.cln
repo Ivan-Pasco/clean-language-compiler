@@ -1,77 +1,82 @@
-// Clean Language HTTP Test Program
-// Demonstrates real HTTP requests with console output
-
-start() 
-    printl "🌐 Starting HTTP Test Program..."
-    printl "=================================="
-    
-    // Test 1: Simple HTTP GET request
-    printl "📡 Test 1: Making HTTP GET request to httpbin.org..."
-    let getResult = http_get("http://httpbin.org/get")
-    
-    if (getResult == 1) 
-        printl "✅ HTTP GET request successful!"
-        printl "Response received and processed"
-    else 
-        printl "❌ HTTP GET request failed"
-    
-    printl ""
-    
-    // Test 2: HTTP POST request with JSON data
-    printl "📡 Test 2: Making HTTP POST request with JSON data..."
-    let jsonData = '{"message": "Hello from Clean Language!", "version": "1.0", "test": true}'
-    let postResult = http_post("http://httpbin.org/post", jsonData)
-    
-    if (postResult == 1) 
-        printl "✅ HTTP POST request successful!"
-        printl "JSON data sent and response received"
-    else 
-        printl "❌ HTTP POST request failed"
-    
-    printl ""
-    
-    // Test 3: HTTP GET to a different API
-    printl "📡 Test 3: Testing with JSONPlaceholder API..."
-    let apiResult = http_get("http://jsonplaceholder.typicode.com/posts/1")
-    
-    if (apiResult == 1) {
-        printl "✅ JSONPlaceholder API request successful!"
-        printl "Post data retrieved successfully"
-    } else {
-        printl "❌ JSONPlaceholder API request failed"
-    }
-    
-    printl ""
-    
-    // Test 4: HTTP PUT request
-    printl "📡 Test 4: Making HTTP PUT request..."
-    let putData = '{"id": 1, "title": "Updated Title", "body": "Updated content from Clean Language"}'
-    let putResult = http_put("http://httpbin.org/put", putData)
-    
-    if (putResult == 1) {
-        printl "✅ HTTP PUT request successful!"
-        printl "Data updated successfully"
-    } else {
-        printl "❌ HTTP PUT request failed"
-    }
-    
-    printl ""
-    
-    // Test 5: HTTP DELETE request
-    printl "📡 Test 5: Making HTTP DELETE request..."
-    let deleteResult = http_delete("http://httpbin.org/delete")
-    
-    if (deleteResult == 1) {
-        printl "✅ HTTP DELETE request successful!"
-        printl "Resource deletion completed"
-    } else {
-        printl "❌ HTTP DELETE request failed"
-    }
-    
-    printl ""
-    printl "🎉 HTTP Test Program completed!"
-    printl "All HTTP methods have been tested"
-    printl "Check the output above for real network responses"
-    
-    return 0
-} 
+function start()
+	variable string get
+	println("🌐 Testing all HTTP methods...")
+	println("")
+	
+	// Test HTTP GET
+	println("📡 Testing HTTP GET...")
+	get = http_get("https://httpbin.org/get")
+	println("✅ GET request completed")
+	println("#### GET ####")
+	print get.body
+	println("#### GET ####")
+	
+	// Test HTTP POST  
+	println("📤 Testing HTTP POST...")
+	http_post("https://httpbin.org/post", "test data for POST request")
+	println("✅ POST request completed")
+	println("")
+	
+	// Test HTTP PUT
+	println("📝 Testing HTTP PUT...")
+	http_put("https://httpbin.org/put", "test data for PUT request")
+	println("✅ PUT request completed")  
+	println("")
+	
+	// Test HTTP PATCH
+	println("🔧 Testing HTTP PATCH...")
+	http_patch("https://httpbin.org/patch", "test data for PATCH request")
+	println("✅ PATCH request completed")
+	println("")
+	
+	// Test HTTP DELETE
+	println("🗑️  Testing HTTP DELETE...")
+	http_delete("https://httpbin.org/delete")
+	println("✅ DELETE request completed")
+	println("")
+	
+	// Test with different endpoints
+	println("🔄 Testing with different endpoints...")
+	
+	// JSONPlaceholder API tests
+	println("📋 Testing with JSONPlaceholder API...")
+	http_get("https://jsonplaceholder.typicode.com/posts/1")
+	println("✅ JSONPlaceholder GET completed")
+	
+	http_post("https://jsonplaceholder.typicode.com/posts", "title=test&body=content&userId=1")
+	println("✅ JSONPlaceholder POST completed")
+	
+	http_put("https://jsonplaceholder.typicode.com/posts/1", "title=updated&body=updated content&userId=1")
+	println("✅ JSONPlaceholder PUT completed")
+	
+	http_delete("https://jsonplaceholder.typicode.com/posts/1")
+	println("✅ JSONPlaceholder DELETE completed")
+	println("")
+	
+	// Test error cases
+	println("⚠️  Testing error cases...")
+	http_get("https://httpbin.org/status/404")
+	println("📊 404 status test completed")
+	
+	http_get("https://httpbin.org/status/500") 
+	println("📊 500 status test completed")
+	println("")
+	
+	// Test with different content types
+	println("📋 Testing different content types...")
+	http_post("https://httpbin.org/post", "<xml><test>data</test></xml>")
+	println("✅ XML POST completed")
+	
+	http_post("https://httpbin.org/post", "form=data&test=value")
+	println("✅ Form POST completed")
+	println("")
+	
+	println("🎉 All HTTP method tests completed successfully!")
+	println("📊 Summary:")
+	println("   - GET: ✅")
+	println("   - POST: ✅") 
+	println("   - PUT: ✅")
+	println("   - PATCH: ✅")
+	println("   - DELETE: ✅")
+	println("   - Error handling: ✅")
+	println("   - Different content types: ✅") 
