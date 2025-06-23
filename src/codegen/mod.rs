@@ -767,8 +767,7 @@ impl CodeGenerator {
                     // Generate type-safe print call - this handles the stack properly
                     self.generate_type_safe_print_call(func_name, &args[0], instructions)?;
                     // Print functions are void - they don't leave anything on the stack
-                    // We need to indicate this to the expression system without pushing a dummy value
-                    return Ok(WasmType::I32); // Void represented as I32, but no actual stack value
+                    return Ok(WasmType::Unit); // Void functions return Unit type
                 }
                 
                 // Special handling for HTTP functions - call import functions directly
@@ -1699,6 +1698,18 @@ impl CodeGenerator {
                     ast::BinaryOperator::Greater => { instructions.push(Instruction::I32GtS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::I32LeS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::I32GeS); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::Power => {
+                        // Convert integers to floats for power operations
+                        instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S); // Convert left operand
+                        instructions.insert(instructions.len() - 1, Instruction::F64ConvertI32S); // Convert right operand
+                        
+                        // Generate power calculation using exp(y * ln(x))
+                        self.generate_power_operation(instructions);
+                        
+                        // Convert result back to integer
+                        instructions.push(Instruction::I32TruncF64S);
+                        Ok(WasmType::I32)
+                    },
                     // ast::BinaryOperator::And => { instructions.push(Instruction::I32And); Ok(WasmType::I32) }, // Assuming And/Or are in AST
                     // ast::BinaryOperator::Or => { instructions.push(Instruction::I32Or); Ok(WasmType::I32) },
                      _ => Err(CompilerError::type_error(format!("Unsupported I32 binary operator: {:?}", op), None, None)),
@@ -1747,6 +1758,11 @@ impl CodeGenerator {
                         instructions.push(Instruction::F64Ge); 
                         Ok(WasmType::I32) 
                     }, 
+                    ast::BinaryOperator::Power => {
+                        // Generate power calculation using exp(y * ln(x))
+                        self.generate_power_operation(instructions);
+                        Ok(WasmType::F64)
+                    },
                     _ => Err(CompilerError::type_error(format!("Unsupported F64 binary operator: {:?}", op), None, None))
                 }
             },
@@ -2021,6 +2037,13 @@ impl CodeGenerator {
         // Temporarily disable string operations until WASM validation is fixed
         // self.register_string_operations()?;
         
+        // 5. Register memory allocation functions
+        self.register_memory_functions()?;
+        
+        // 6. Register numeric operations (mathematical functions)
+        let numeric_ops = crate::stdlib::numeric_ops::NumericOperations::new();
+        numeric_ops.register_functions(self)?;
+        
         Ok(())
     }
 
@@ -2077,58 +2100,136 @@ impl CodeGenerator {
         Ok(())
     }
     
+    /// Register memory allocation and management functions
+    fn register_memory_functions(&mut self) -> Result<(), CompilerError> {
+        // Register allocate_memory function for dynamic memory allocation
+        let allocate_memory_instructions = vec![
+            // allocate_memory(size: i32) -> i32
+            // This function allocates memory and returns a pointer
+            
+            // Get the size parameter (local 0)
+            Instruction::LocalGet(0),
+            
+            // For now, use a simple memory allocation strategy
+            // In a real implementation, this would call the memory manager
+            
+            // Get current memory size in pages
+            Instruction::MemorySize(0),
+            
+            // Convert pages to bytes (multiply by 65536)
+            Instruction::I32Const(65536),
+            Instruction::I32Mul,
+            
+            // This gives us the current memory end, which we'll use as our allocation pointer
+            // In a more sophisticated implementation, we'd maintain a heap pointer
+            
+            // Store the allocation pointer (return value)
+            Instruction::LocalTee(1), // Store in local 1 and keep on stack
+            
+            // Calculate new memory end: current_end + size
+            Instruction::LocalGet(0), // size
+            Instruction::I32Add,
+            
+            // Check if we need to grow memory
+            Instruction::I32Const(65536),
+            Instruction::I32DivU, // Convert bytes to pages
+            
+            // Get current memory size
+            Instruction::MemorySize(0),
+            
+            // Check if we need more pages
+            Instruction::I32Sub,
+            Instruction::LocalTee(2), // Store pages needed in local 2
+            
+            // If pages_needed > 0, grow memory
+            Instruction::I32Const(0),
+            Instruction::I32GtS,
+            Instruction::If(wasm_encoder::BlockType::Empty),
+                Instruction::LocalGet(2), // pages to grow
+                Instruction::MemoryGrow(0),
+                Instruction::Drop, // Ignore grow result
+            Instruction::End,
+            
+            // Return the allocation pointer
+            Instruction::LocalGet(1),
+        ];
+        
+        // For now, use a simplified allocate_memory function that just returns a fixed pointer
+        // This avoids the local variable issues while still providing basic functionality
+        let simple_allocate_instructions = vec![
+            // Simple allocation: just return current memory end
+            Instruction::MemorySize(0),
+            Instruction::I32Const(65536),
+            Instruction::I32Mul,
+            // Return the memory end as allocation pointer
+        ];
+        
+        // Register the allocate_memory function
+        self.register_function(
+            "allocate_memory",
+            &[WasmType::I32], // size parameter
+            Some(WasmType::I32), // returns pointer
+            &simple_allocate_instructions
+        )?;
+        
+        // Register deallocate_memory function (placeholder for now)
+        let deallocate_memory_instructions = vec![
+            // deallocate_memory(ptr: i32) -> void
+            // For now, this is a no-op since we don't have garbage collection
+            // In a real implementation, this would mark memory as free
+            Instruction::LocalGet(0), // ptr parameter
+            Instruction::Drop, // Just ignore it for now
+        ];
+        
+        self.register_function(
+            "deallocate_memory",
+            &[WasmType::I32], // ptr parameter
+            None, // void return
+            &deallocate_memory_instructions
+        )?;
+        
+        // Register memory_copy function for copying memory blocks
+        let memory_copy_instructions = vec![
+            // memory_copy(dest: i32, src: i32, size: i32) -> void
+            Instruction::LocalGet(0), // dest
+            Instruction::LocalGet(1), // src  
+            Instruction::LocalGet(2), // size
+            Instruction::MemoryCopy { dst_mem: 0, src_mem: 0 },
+        ];
+        
+        self.register_function(
+            "memory_copy",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // dest, src, size
+            None, // void return
+            &memory_copy_instructions
+        )?;
+        
+        // Register memory_fill function for filling memory with a value
+        let memory_fill_instructions = vec![
+            // memory_fill(dest: i32, value: i32, size: i32) -> void
+            Instruction::LocalGet(0), // dest
+            Instruction::LocalGet(1), // value (will be truncated to u8)
+            Instruction::LocalGet(2), // size
+            Instruction::MemoryFill(0),
+        ];
+        
+        self.register_function(
+            "memory_fill",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // dest, value, size
+            None, // void return
+            &memory_fill_instructions
+        )?;
+        
+        Ok(())
+    }
+    
     /// Create AST function definitions for stdlib functions
     fn create_stdlib_ast_functions(&self) -> Result<Vec<ast::Function>, CompilerError> {
         use crate::ast::{Parameter, FunctionSyntax, Visibility, FunctionModifier};
         
         let mut functions = Vec::new();
         
-        // abs(value: Integer) -> Integer
-        functions.push(AstFunction {
-            name: "abs".to_string(),
-            type_parameters: vec![],
-            type_constraints: vec![],
-            parameters: vec![
-                Parameter {
-                    name: "value".to_string(),
-                    type_: Type::Integer,
-                    default_value: None,
-                }
-            ],
-            return_type: Type::Integer,
-            body: vec![
-                // if value < 0 then -value else value
-                Statement::If {
-                    condition: Expression::Binary(
-                        Box::new(Expression::Variable("value".to_string())),
-                        ast::BinaryOperator::Less,
-                        Box::new(Expression::Literal(Value::Integer(0)))
-                    ),
-                    then_branch: vec![
-                        Statement::Return {
-                            value: Some(Expression::Binary(
-                                Box::new(Expression::Literal(Value::Integer(0))),
-                                ast::BinaryOperator::Subtract,
-                                Box::new(Expression::Variable("value".to_string()))
-                            )),
-                            location: None,
-                        }
-                    ],
-                    else_branch: Some(vec![
-                        Statement::Return {
-                            value: Some(Expression::Variable("value".to_string())),
-                            location: None,
-                        }
-                    ]),
-                    location: None,
-                }
-            ],
-            description: Some("Returns the absolute value of an integer".to_string()),
-            syntax: FunctionSyntax::Simple,
-            visibility: Visibility::Public,
-            modifier: FunctionModifier::None,
-            location: None,
-        });
+        // Note: abs function is now provided by NumericOperations with float type
         
         // Note: print and printl functions are now imported from the host environment
         // instead of being defined as stdlib functions
@@ -2456,16 +2557,16 @@ impl CodeGenerator {
         if let Some(index) = self.function_map.get(name) {
             *index
         } else {
-            // Create a placeholder function index for async runtime functions
-            let index = self.function_count;
-            self.function_count += 1;
-            self.function_map.insert(name.to_string(), index);
+            // For async runtime functions, we need to register them as imports
+            // Import function indices start from 0 and are separate from local functions
+            let import_count = self.function_map.len() as u32;
+            self.function_map.insert(name.to_string(), import_count);
             self.function_names.push(name.to_string());
             
             // Add to import section for runtime functions
             match name {
                 "create_future" => {
-                    let func_type = self.add_function_type(&[WasmType::I32], Some(WasmType::I32)).unwrap();
+                    let func_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32)).unwrap();
                     self.import_section.import(
                         "env",
                         name,
@@ -2507,7 +2608,7 @@ impl CodeGenerator {
                 }
             }
             
-            index
+            import_count
         }
     }
 
@@ -4303,7 +4404,7 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_test_statement(&mut self, _body: &[Statement], _instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
+    fn generate_test_statement(&mut self, body: &[Statement], instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         #[cfg(test)]
         for stmt in body {
             self.generate_statement(stmt, instructions)?;
@@ -4502,34 +4603,134 @@ impl CodeGenerator {
     }
 
     fn generate_background_statement(&mut self, expression: &Expression, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
-        let task_name = format!("bg_task_{}", self.function_count);
-        let task_name_ptr = self.add_string_to_pool(&task_name);
-        let task_name_len = task_name.len() as i32;
+        // ARCHITECTURAL FIX: Remove async injection from WASM
+        // Background operations are now handled as immediate synchronous execution
+        // This fixes WASM validation errors while we implement proper host-side async runtime
         
-        instructions.push(Instruction::I32Const(task_name_ptr as i32));
-        instructions.push(Instruction::I32Const(task_name_len));
-        let start_task_index = self.get_or_create_function_index("start_background_task");
-        instructions.push(Instruction::Call(start_task_index));
-        
-        let task_id_local = self.add_local(WasmType::I32);
-        instructions.push(Instruction::LocalSet(task_id_local));
-        
+        // Execute the expression immediately in synchronous context
+        // This maintains Clean Language semantics while avoiding WASM stack issues
         let expr_type = self.generate_expression(expression, instructions)?;
         
+        // Handle return values based on expression type
         match expr_type {
+            WasmType::Unit => {
+                // Void expressions (like print) don't leave values on stack - no action needed
+            },
             WasmType::I32 | WasmType::I64 | WasmType::F32 | WasmType::F64 => {
+                // Drop return values since background operations are fire-and-forget
                 instructions.push(Instruction::Drop);
             },
-            _ => {}
+            _ => {
+                // For other types, also drop them
+                instructions.push(Instruction::Drop);
+            }
         }
         
-        instructions.push(Instruction::I32Const(task_name_ptr as i32));
-        instructions.push(Instruction::I32Const(task_name_len));
-        let execute_bg_index = self.get_or_create_function_index("execute_background");
-        instructions.push(Instruction::Call(execute_bg_index));
-        instructions.push(Instruction::Drop);
+        // Note: This is a temporary synchronous implementation
+        // Future architecture will move async handling to host-side runtime
+        // See docs/async_architecture_fix.md for the complete solution
         
-        self.function_count += 1;
         Ok(())
+    }
+
+    /// Generate power operation using exp(y * ln(x)) for x^y
+    /// Assumes two F64 values are already on the stack (x, y)
+    fn generate_power_operation(&self, instructions: &mut Vec<Instruction>) {
+        
+        // Stack: [x, y]
+        // We need to compute x^y = exp(y * ln(x))
+        
+        // For now, implement a simplified version that calls the power function
+        // The proper implementation would inline the exp/ln Taylor series
+        
+        // Use the power implementation from NumericOperations
+        // This is the same logic as generate_pow_function() but inlined
+        
+        // Store operands in locals
+        instructions.push(Instruction::LocalSet(1)); // Store y in local 1
+        instructions.push(Instruction::LocalSet(0)); // Store x in local 0
+        
+        // Check for special cases
+        // If y == 0, return 1
+        instructions.push(Instruction::LocalGet(1)); // Get y
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Eq);
+        instructions.push(Instruction::If(BlockType::Result(ValType::F64)));
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::Else);
+        
+        // If y == 1, return x
+        instructions.push(Instruction::LocalGet(1)); // Get y
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Eq);
+        instructions.push(Instruction::If(BlockType::Result(ValType::F64)));
+        instructions.push(Instruction::LocalGet(0)); // Return x
+        instructions.push(Instruction::Else);
+        
+        // General case: x^y = exp(y * ln(x))
+        // Calculate ln(x)
+        instructions.push(Instruction::LocalGet(0)); // Get x
+        
+        // Simplified ln(x) using Taylor series around x=1
+        // ln(x) = (x-1) - (x-1)²/2 + (x-1)³/3 - (x-1)⁴/4 + ...
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Sub); // x - 1
+        instructions.push(Instruction::LocalTee(2)); // Store (x-1) in local 2, keep on stack
+        
+        // First few terms of Taylor series
+        // Term 1: (x-1)
+        instructions.push(Instruction::LocalGet(2)); // (x-1)
+        
+        // Term 2: -(x-1)²/2
+        instructions.push(Instruction::LocalGet(2)); // (x-1)
+        instructions.push(Instruction::LocalGet(2)); // (x-1)
+        instructions.push(Instruction::F64Mul); // (x-1)²
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div); // (x-1)²/2
+        instructions.push(Instruction::F64Sub); // (x-1) - (x-1)²/2
+        
+        // Term 3: +(x-1)³/3
+        instructions.push(Instruction::LocalGet(2)); // (x-1)
+        instructions.push(Instruction::LocalGet(2)); // (x-1)
+        instructions.push(Instruction::F64Mul); // (x-1)²
+        instructions.push(Instruction::LocalGet(2)); // (x-1)
+        instructions.push(Instruction::F64Mul); // (x-1)³
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Div); // (x-1)³/3
+        instructions.push(Instruction::F64Add); // ln(x) approximation
+        
+        // Multiply by y: y * ln(x)
+        instructions.push(Instruction::LocalGet(1)); // Get y
+        instructions.push(Instruction::F64Mul); // y * ln(x)
+        instructions.push(Instruction::LocalTee(3)); // Store in local 3
+        
+        // Calculate exp(y * ln(x)) using Taylor series
+        // exp(x) = 1 + x + x²/2! + x³/3! + x⁴/4! + ...
+        instructions.push(Instruction::F64Const(1.0)); // Term 0: 1
+        
+        // Term 1: x
+        instructions.push(Instruction::LocalGet(3)); // y * ln(x)
+        instructions.push(Instruction::F64Add); // 1 + x
+        
+        // Term 2: x²/2!
+        instructions.push(Instruction::LocalGet(3)); // y * ln(x)
+        instructions.push(Instruction::LocalGet(3)); // y * ln(x)
+        instructions.push(Instruction::F64Mul); // (y * ln(x))²
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div); // x²/2!
+        instructions.push(Instruction::F64Add); // 1 + x + x²/2!
+        
+        // Term 3: x³/3!
+        instructions.push(Instruction::LocalGet(3)); // y * ln(x)
+        instructions.push(Instruction::LocalGet(3)); // y * ln(x)
+        instructions.push(Instruction::F64Mul); // (y * ln(x))²
+        instructions.push(Instruction::LocalGet(3)); // y * ln(x)
+        instructions.push(Instruction::F64Mul); // (y * ln(x))³
+        instructions.push(Instruction::F64Const(6.0)); // 3! = 6
+        instructions.push(Instruction::F64Div); // x³/3!
+        instructions.push(Instruction::F64Add); // 1 + x + x²/2! + x³/3!
+        
+        instructions.push(Instruction::End); // End of y != 1 case
+        instructions.push(Instruction::End); // End of y != 0 case
     }
 }

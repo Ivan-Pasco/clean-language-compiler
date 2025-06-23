@@ -910,7 +910,7 @@ functions:
     
     integer power(integer base, integer exponent = 2)
         // Default exponent of 2 for squaring
-        return Math.pow(base, exponent)
+        return base ^ exponent
     
     void logMessage(string message, string level = "INFO")
         print("[" + level + "] " + message)
@@ -1315,7 +1315,6 @@ class Math
         
         // Core mathematical operations
         float sqrt(float x)
-        float pow(float base, float exponent)
         float abs(float x)          // Absolute value for floats
         integer abs(integer x)      // Absolute value for integers
         float max(float a, float b)
@@ -1363,7 +1362,7 @@ functions:
         
         // Geometry - calculate circle area
         float radius = 5.0
-        float area = Math.multiply(Math.pi(), Math.pow(radius, 2.0))
+        float area = Math.multiply(Math.pi(), radius ^ 2.0)
         
         // Trigonometry - find triangle sides
         float angle = Math.divide(Math.pi(), 4.0)  // 45 degrees in radians
@@ -1382,7 +1381,7 @@ functions:
         // Distance calculations using Pythagorean theorem
         float dx = 3.0
         float dy = 4.0
-        float distance = Math.sqrt(Math.add(Math.pow(dx, 2.0), Math.pow(dy, 2.0)))
+        float distance = Math.sqrt(Math.add(dx ^ 2.0, dy ^ 2.0))
         
         // Absolute values for different types
         float floatAbs = Math.abs(-5.7)    // 5.7

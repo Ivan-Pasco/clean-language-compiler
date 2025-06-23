@@ -295,13 +295,13 @@ start()
     print(result)
 ```
 
-### math.pow
+### Exponentiation (^)
 
-Raises a number to the power of another number.
+Raises a number to the power of another number using the `^` operator.
 
-**Signature**
+**Syntax**
 ```
-function math.pow(base: float, exponent: float): float
+base ^ exponent
 ```
 
 **Parameters**
@@ -316,7 +316,7 @@ function math.pow(base: float, exponent: float): float
 start()
     base = 2
     exponent = 3
-    result = math.pow(base, exponent)  // 8.0
+    result = base ^ exponent  // 8.0
     print(result)
 ```
 

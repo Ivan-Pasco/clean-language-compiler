@@ -1,6 +1,0 @@
-function start()
-	string text = "  Hello, world!  "
-	println("Original: '" + text + "'")
-	
-	string trimmed = text.trimStart()
-	println("TrimStart: '" + trimmed + "'") 

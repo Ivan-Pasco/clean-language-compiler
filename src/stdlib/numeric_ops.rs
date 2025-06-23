@@ -262,14 +262,7 @@ impl NumericOperations {
             ]
         )?;
         
-        // Power function (x^y)
-        register_stdlib_function(
-            codegen,
-            "pow",
-            &[WasmType::F64, WasmType::F64],
-            Some(WasmType::F64),
-            self.generate_pow_function()
-        )?;
+        // Note: Power function is now implemented as the ^ operator in the code generator
         
         // Maximum of two numbers
         register_stdlib_function(
@@ -487,16 +480,92 @@ impl NumericOperations {
     // Helper functions to generate complex mathematical operations
     
     fn generate_pow_function(&self) -> Vec<Instruction> {
-        // Simplified power function using repeated multiplication for integer exponents
-        // For more complex cases, would use exp(y * ln(x))
-        vec![
-            // For now, use a simple implementation for positive integer powers
-            // TODO: Implement full power function with exp/ln
-            Instruction::LocalGet(0), // base
-            Instruction::LocalGet(1), // exponent
-            // This is a placeholder - would need a more complex implementation
-            Instruction::F64Mul, // Simplified multiplication
-        ]
+        // Power function: x^y = exp(y * ln(x))
+        let mut instructions = Vec::new();
+        
+        // Handle special cases first
+        // If base <= 0 and exponent is not integer, return NaN
+        instructions.push(Instruction::LocalGet(0)); // base
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Le);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        instructions.push(Instruction::F64Const(f64::NAN)); // Return NaN for negative base
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Special case: x^0 = 1
+        instructions.push(Instruction::LocalGet(1)); // exponent
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Eq);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        instructions.push(Instruction::F64Const(1.0)); // Return 1 for any^0
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Special case: 1^y = 1
+        instructions.push(Instruction::LocalGet(0)); // base
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Eq);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        instructions.push(Instruction::F64Const(1.0)); // Return 1 for 1^any
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Calculate y * ln(x)
+        // First calculate ln(x) using simplified approach
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Sub);      // x - 1
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Add);      // x + 1
+        instructions.push(Instruction::F64Div);      // (x-1)/(x+1) = u
+        instructions.push(Instruction::LocalSet(2)); // u
+        
+        // Calculate ln(x) ≈ 2u (simplified)
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::LocalGet(2)); // u
+        instructions.push(Instruction::F64Mul);      // 2u ≈ ln(x)
+        instructions.push(Instruction::LocalSet(3)); // ln_x
+        
+        // Calculate y * ln(x)
+        instructions.push(Instruction::LocalGet(1)); // y
+        instructions.push(Instruction::LocalGet(3)); // ln_x
+        instructions.push(Instruction::F64Mul);      // y * ln_x
+        instructions.push(Instruction::LocalSet(4)); // y_ln_x
+        
+        // Calculate exp(y * ln(x)) using Taylor series
+        // exp(u) = 1 + u + u²/2! + u³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // result = 1
+        instructions.push(Instruction::LocalSet(5));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(6));
+        
+        // Add u term
+        instructions.push(Instruction::LocalGet(6)); // term
+        instructions.push(Instruction::LocalGet(4)); // y_ln_x
+        instructions.push(Instruction::F64Mul);      // term * y_ln_x
+        instructions.push(Instruction::LocalSet(6)); // term = term * y_ln_x
+        instructions.push(Instruction::LocalGet(5)); // result
+        instructions.push(Instruction::LocalGet(6)); // term
+        instructions.push(Instruction::F64Add);      // result + term
+        instructions.push(Instruction::LocalSet(5)); // result = result + term
+        
+        // Add u²/2! term
+        instructions.push(Instruction::LocalGet(6)); // term
+        instructions.push(Instruction::LocalGet(4)); // y_ln_x
+        instructions.push(Instruction::F64Mul);      // term * y_ln_x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * y_ln_x / 2!
+        instructions.push(Instruction::LocalSet(6)); // term = term * y_ln_x / 2!
+        instructions.push(Instruction::LocalGet(5)); // result
+        instructions.push(Instruction::LocalGet(6)); // term
+        instructions.push(Instruction::F64Add);      // result + term
+        
+        instructions.push(Instruction::LocalGet(5)); // Return final result
+        
+        instructions
     }
     
     fn generate_sign_function(&self) -> Vec<Instruction> {
@@ -717,46 +786,258 @@ impl NumericOperations {
     
     fn generate_tan(&self) -> Vec<Instruction> {
         // tan(x) = sin(x) / cos(x)
-        vec![
-            Instruction::LocalGet(0), // x
-            // Call sin(x)
-            // Call cos(x)
-            // Divide sin by cos
-            // Placeholder implementation
-        ]
+        // Using Taylor series: tan(x) = x + x³/3 + 2x⁵/15 + 17x⁷/315 + ...
+        let mut instructions = Vec::new();
+        
+        // For small angles, use Taylor series approximation
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalTee(1)); // result = x
+        
+        // Calculate x³/3 term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Div);      // x³/3
+        instructions.push(Instruction::LocalGet(1)); // result
+        instructions.push(Instruction::F64Add);      // result + x³/3
+        instructions.push(Instruction::LocalTee(1)); // result = result + x³/3
+        
+        // Calculate 2x⁵/15 term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x⁴
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x⁵
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Mul);      // 2x⁵
+        instructions.push(Instruction::F64Const(15.0));
+        instructions.push(Instruction::F64Div);      // 2x⁵/15
+        instructions.push(Instruction::LocalGet(1)); // result
+        instructions.push(Instruction::F64Add);      // result + 2x⁵/15
+        
+        instructions
     }
     
     fn generate_asin(&self) -> Vec<Instruction> {
-        // Inverse sine approximation
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for asin implementation
-        ]
+        // Inverse sine approximation using Taylor series
+        // asin(x) = x + x³/6 + 3x⁵/40 + 5x⁷/112 + ... for |x| ≤ 1
+        let mut instructions = Vec::new();
+        
+        // Check bounds: |x| > 1 should return NaN
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Abs);
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Gt);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        instructions.push(Instruction::F64Const(f64::NAN));
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Taylor series approximation
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalTee(1)); // result = x
+        
+        // Add x³/6 term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::F64Const(6.0));
+        instructions.push(Instruction::F64Div);      // x³/6
+        instructions.push(Instruction::LocalGet(1)); // result
+        instructions.push(Instruction::F64Add);      // result + x³/6
+        instructions.push(Instruction::LocalTee(1)); // result = result + x³/6
+        
+        // Add 3x⁵/40 term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x⁴
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x⁵
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Mul);      // 3x⁵
+        instructions.push(Instruction::F64Const(40.0));
+        instructions.push(Instruction::F64Div);      // 3x⁵/40
+        instructions.push(Instruction::LocalGet(1)); // result
+        instructions.push(Instruction::F64Add);      // result + 3x⁵/40
+        
+        instructions
     }
     
     fn generate_acos(&self) -> Vec<Instruction> {
         // Inverse cosine approximation
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for acos implementation
-        ]
+        // acos(x) = π/2 - asin(x) for |x| ≤ 1
+        let mut instructions = Vec::new();
+        
+        // Check bounds: |x| > 1 should return NaN
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Abs);
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Gt);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        instructions.push(Instruction::F64Const(f64::NAN));
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Calculate asin(x) using the same Taylor series as above
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalTee(1)); // asin_result = x
+        
+        // Add x³/6 term for asin
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::F64Const(6.0));
+        instructions.push(Instruction::F64Div);      // x³/6
+        instructions.push(Instruction::LocalGet(1)); // asin_result
+        instructions.push(Instruction::F64Add);      // asin_result + x³/6
+        instructions.push(Instruction::LocalSet(1)); // asin_result = asin_result + x³/6
+        
+        // Calculate π/2 - asin(x)
+        instructions.push(Instruction::F64Const(std::f64::consts::FRAC_PI_2)); // π/2
+        instructions.push(Instruction::LocalGet(1)); // asin_result
+        instructions.push(Instruction::F64Sub);      // π/2 - asin(x)
+        
+        instructions
     }
     
     fn generate_atan(&self) -> Vec<Instruction> {
-        // Inverse tangent approximation
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for atan implementation
-        ]
+        // Inverse tangent approximation using Taylor series
+        // atan(x) = x - x³/3 + x⁵/5 - x⁷/7 + ... for |x| ≤ 1
+        let mut instructions = Vec::new();
+        
+        // For |x| > 1, use atan(x) = π/2 - atan(1/x) for x > 0
+        //                        = -π/2 - atan(1/x) for x < 0
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Abs);
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Gt);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        
+        // Handle |x| > 1 case
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Gt);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        instructions.push(Instruction::F64Const(std::f64::consts::FRAC_PI_2)); // π/2 for x > 0
+        instructions.push(Instruction::Else);
+        instructions.push(Instruction::F64Const(-std::f64::consts::FRAC_PI_2)); // -π/2 for x < 0
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Taylor series for |x| ≤ 1
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalTee(1)); // result = x
+        
+        // Subtract x³/3 term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Div);      // x³/3
+        instructions.push(Instruction::LocalGet(1)); // result
+        instructions.push(Instruction::F64Sub);      // result - x³/3
+        instructions.push(Instruction::LocalTee(1)); // result = result - x³/3
+        
+        // Add x⁵/5 term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x²
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x³
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x⁴
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // x⁵
+        instructions.push(Instruction::F64Const(5.0));
+        instructions.push(Instruction::F64Div);      // x⁵/5
+        instructions.push(Instruction::LocalGet(1)); // result
+        instructions.push(Instruction::F64Add);      // result + x⁵/5
+        
+        instructions
     }
     
     fn generate_atan2(&self) -> Vec<Instruction> {
-        // Two-argument arctangent
-        vec![
-            Instruction::LocalGet(0), // y
-            Instruction::LocalGet(1), // x
-            // Placeholder for atan2 implementation
-        ]
+        // Two-argument arctangent: atan2(y, x)
+        // Returns the angle θ such that x = r*cos(θ) and y = r*sin(θ)
+        let mut instructions = Vec::new();
+        
+        // Handle special cases first
+        // If x > 0: atan2(y,x) = atan(y/x)
+        instructions.push(Instruction::LocalGet(1)); // x
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Gt);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        
+        // x > 0: return atan(y/x)
+        instructions.push(Instruction::LocalGet(0)); // y
+        instructions.push(Instruction::LocalGet(1)); // x
+        instructions.push(Instruction::F64Div);      // y/x
+        
+        // Simplified atan calculation for y/x
+        instructions.push(Instruction::LocalTee(2)); // ratio = y/x
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::F64Mul);      // ratio²
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::F64Mul);      // ratio³
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Div);      // ratio³/3
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::F64Sub);      // ratio - ratio³/3
+        
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // If x < 0 and y >= 0: atan2(y,x) = atan(y/x) + π
+        instructions.push(Instruction::LocalGet(1)); // x
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Lt);
+        instructions.push(Instruction::LocalGet(0)); // y
+        instructions.push(Instruction::F64Const(0.0));
+        instructions.push(Instruction::F64Ge);
+        instructions.push(Instruction::I32And);
+        instructions.push(Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)));
+        
+        instructions.push(Instruction::LocalGet(0)); // y
+        instructions.push(Instruction::LocalGet(1)); // x
+        instructions.push(Instruction::F64Div);      // y/x
+        instructions.push(Instruction::LocalTee(2)); // ratio = y/x
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::F64Mul);      // ratio²
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::F64Mul);      // ratio³
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Div);      // ratio³/3
+        instructions.push(Instruction::LocalGet(2)); // ratio
+        instructions.push(Instruction::F64Sub);      // ratio - ratio³/3 (atan approximation)
+        instructions.push(Instruction::F64Const(std::f64::consts::PI)); // π
+        instructions.push(Instruction::F64Add);      // atan(y/x) + π
+        
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Default case: return 0 (simplified)
+        instructions.push(Instruction::F64Const(0.0));
+        
+        instructions
     }
     
     fn generate_log10(&self) -> Vec<Instruction> {
@@ -780,35 +1061,279 @@ impl NumericOperations {
     }
     
     fn generate_exp2(&self) -> Vec<Instruction> {
-        // 2^x function
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for exp2 implementation
-        ]
+        // 2^x function using exp2(x) = exp(x * ln(2))
+        let mut instructions = Vec::new();
+        
+        // Calculate x * ln(2)
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Const(std::f64::consts::LN_2)); // ln(2)
+        instructions.push(Instruction::F64Mul);      // x * ln(2)
+        instructions.push(Instruction::LocalSet(1)); // Store x * ln(2)
+        
+        // Calculate exp(x * ln(2)) using Taylor series
+        // exp(u) = 1 + u + u²/2! + u³/3! + u⁴/4! + ...
+        instructions.push(Instruction::F64Const(1.0)); // result = 1
+        instructions.push(Instruction::LocalSet(2));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(3));
+        
+        // Add u term (where u = x * ln(2))
+        instructions.push(Instruction::LocalGet(3)); // term
+        instructions.push(Instruction::LocalGet(1)); // u = x * ln(2)
+        instructions.push(Instruction::F64Mul);      // term * u
+        instructions.push(Instruction::F64Const(1.0));
+        instructions.push(Instruction::F64Div);      // term * u / 1!
+        instructions.push(Instruction::LocalSet(3)); // term = term * u / 1!
+        instructions.push(Instruction::LocalGet(2)); // result
+        instructions.push(Instruction::LocalGet(3)); // term
+        instructions.push(Instruction::F64Add);      // result + term
+        instructions.push(Instruction::LocalSet(2)); // result = result + term
+        
+        // Add u²/2! term
+        instructions.push(Instruction::LocalGet(3)); // term
+        instructions.push(Instruction::LocalGet(1)); // u
+        instructions.push(Instruction::F64Mul);      // term * u
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * u / 2!
+        instructions.push(Instruction::LocalSet(3)); // term = term * u / 2!
+        instructions.push(Instruction::LocalGet(2)); // result
+        instructions.push(Instruction::LocalGet(3)); // term
+        instructions.push(Instruction::F64Add);      // result + term
+        instructions.push(Instruction::LocalSet(2)); // result = result + term
+        
+        // Add u³/3! term
+        instructions.push(Instruction::LocalGet(3)); // term
+        instructions.push(Instruction::LocalGet(1)); // u
+        instructions.push(Instruction::F64Mul);      // term * u
+        instructions.push(Instruction::F64Const(3.0));
+        instructions.push(Instruction::F64Div);      // term * u / 3!
+        instructions.push(Instruction::LocalSet(3)); // term = term * u / 3!
+        instructions.push(Instruction::LocalGet(2)); // result
+        instructions.push(Instruction::LocalGet(3)); // term
+        instructions.push(Instruction::F64Add);      // result + term
+        
+        instructions.push(Instruction::LocalGet(2)); // Return final result
+        
+        instructions
     }
     
     fn generate_sinh(&self) -> Vec<Instruction> {
         // sinh(x) = (e^x - e^(-x)) / 2
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for sinh implementation
-        ]
+        let mut instructions = Vec::new();
+        
+        // Calculate e^x using Taylor series: exp(x) = 1 + x + x²/2! + x³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // exp_x = 1
+        instructions.push(Instruction::LocalSet(1));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(2));
+        
+        // Add x term for e^x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::LocalSet(2)); // term = term * x
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::F64Add);      // exp_x + term
+        instructions.push(Instruction::LocalSet(1)); // exp_x = exp_x + term
+        
+        // Add x²/2! term for e^x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * x / 2!
+        instructions.push(Instruction::LocalSet(2)); // term = term * x / 2!
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::F64Add);      // exp_x + term
+        instructions.push(Instruction::LocalSet(1)); // exp_x = exp_x + term
+        
+        // Calculate e^(-x) using Taylor series: exp(-x) = 1 - x + x²/2! - x³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // exp_neg_x = 1
+        instructions.push(Instruction::LocalSet(3));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(4));
+        
+        // Subtract x term for e^(-x)
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::LocalSet(4)); // term = term * x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::F64Sub);      // exp_neg_x - term
+        instructions.push(Instruction::LocalSet(3)); // exp_neg_x = exp_neg_x - term
+        
+        // Add x²/2! term for e^(-x)
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * x / 2!
+        instructions.push(Instruction::LocalSet(4)); // term = term * x / 2!
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::F64Add);      // exp_neg_x + term
+        instructions.push(Instruction::LocalSet(3)); // exp_neg_x = exp_neg_x + term
+        
+        // Calculate (e^x - e^(-x)) / 2
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::F64Sub);      // exp_x - exp_neg_x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // (exp_x - exp_neg_x) / 2
+        
+        instructions
     }
     
     fn generate_cosh(&self) -> Vec<Instruction> {
         // cosh(x) = (e^x + e^(-x)) / 2
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for cosh implementation
-        ]
+        let mut instructions = Vec::new();
+        
+        // Calculate e^x using Taylor series: exp(x) = 1 + x + x²/2! + x³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // exp_x = 1
+        instructions.push(Instruction::LocalSet(1));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(2));
+        
+        // Add x term for e^x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::LocalSet(2)); // term = term * x
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::F64Add);      // exp_x + term
+        instructions.push(Instruction::LocalSet(1)); // exp_x = exp_x + term
+        
+        // Add x²/2! term for e^x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * x / 2!
+        instructions.push(Instruction::LocalSet(2)); // term = term * x / 2!
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::F64Add);      // exp_x + term
+        instructions.push(Instruction::LocalSet(1)); // exp_x = exp_x + term
+        
+        // Calculate e^(-x) using Taylor series: exp(-x) = 1 - x + x²/2! - x³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // exp_neg_x = 1
+        instructions.push(Instruction::LocalSet(3));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(4));
+        
+        // Subtract x term for e^(-x)
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::LocalSet(4)); // term = term * x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::F64Sub);      // exp_neg_x - term
+        instructions.push(Instruction::LocalSet(3)); // exp_neg_x = exp_neg_x - term
+        
+        // Add x²/2! term for e^(-x)
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * x / 2!
+        instructions.push(Instruction::LocalSet(4)); // term = term * x / 2!
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::F64Add);      // exp_neg_x + term
+        instructions.push(Instruction::LocalSet(3)); // exp_neg_x = exp_neg_x + term
+        
+        // Calculate (e^x + e^(-x)) / 2
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::F64Add);      // exp_x + exp_neg_x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // (exp_x + exp_neg_x) / 2
+        
+        instructions
     }
     
     fn generate_tanh(&self) -> Vec<Instruction> {
-        // tanh(x) = sinh(x) / cosh(x)
-        vec![
-            Instruction::LocalGet(0), // x
-            // Placeholder for tanh implementation
-        ]
+        // tanh(x) = sinh(x) / cosh(x) = (e^x - e^(-x)) / (e^x + e^(-x))
+        let mut instructions = Vec::new();
+        
+        // Calculate e^x using Taylor series: exp(x) = 1 + x + x²/2! + x³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // exp_x = 1
+        instructions.push(Instruction::LocalSet(1));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(2));
+        
+        // Add x term for e^x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::LocalSet(2)); // term = term * x
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::F64Add);      // exp_x + term
+        instructions.push(Instruction::LocalSet(1)); // exp_x = exp_x + term
+        
+        // Add x²/2! term for e^x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * x / 2!
+        instructions.push(Instruction::LocalSet(2)); // term = term * x / 2!
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(2)); // term
+        instructions.push(Instruction::F64Add);      // exp_x + term
+        instructions.push(Instruction::LocalSet(1)); // exp_x = exp_x + term
+        
+        // Calculate e^(-x) using Taylor series: exp(-x) = 1 - x + x²/2! - x³/3! + ...
+        instructions.push(Instruction::F64Const(1.0)); // exp_neg_x = 1
+        instructions.push(Instruction::LocalSet(3));
+        
+        instructions.push(Instruction::F64Const(1.0)); // term = 1
+        instructions.push(Instruction::LocalSet(4));
+        
+        // Subtract x term for e^(-x)
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::LocalSet(4)); // term = term * x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::F64Sub);      // exp_neg_x - term
+        instructions.push(Instruction::LocalSet(3)); // exp_neg_x = exp_neg_x - term
+        
+        // Add x²/2! term for e^(-x)
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::LocalGet(0)); // x
+        instructions.push(Instruction::F64Mul);      // term * x
+        instructions.push(Instruction::F64Const(2.0));
+        instructions.push(Instruction::F64Div);      // term * x / 2!
+        instructions.push(Instruction::LocalSet(4)); // term = term * x / 2!
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::LocalGet(4)); // term
+        instructions.push(Instruction::F64Add);      // exp_neg_x + term
+        instructions.push(Instruction::LocalSet(3)); // exp_neg_x = exp_neg_x + term
+        
+        // Calculate tanh(x) = (e^x - e^(-x)) / (e^x + e^(-x))
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::F64Sub);      // exp_x - exp_neg_x (numerator)
+        instructions.push(Instruction::LocalGet(1)); // exp_x
+        instructions.push(Instruction::LocalGet(3)); // exp_neg_x
+        instructions.push(Instruction::F64Add);      // exp_x + exp_neg_x (denominator)
+        instructions.push(Instruction::F64Div);      // (exp_x - exp_neg_x) / (exp_x + exp_neg_x)
+        
+        instructions
     }
 }
 

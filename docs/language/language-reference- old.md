@@ -398,7 +398,7 @@ import function1, function2 from "module"
 | Function | Description | Example |
 |----------|-------------|---------|
 | `math.sqrt(x)` | Square root | `math.sqrt(16)` |
-| `math.pow(x, y)` | Power | `math.pow(2, 3)` |
+| `x ^ y` | Exponentiation | `2 ^ 3` |
 | `math.abs(x)` | Absolute value | `math.abs(-5)` |
 | `math.floor(x)` | Floor | `math.floor(3.7)` |
 | `math.ceil(x)` | Ceiling | `math.ceil(3.2)` |

@@ -429,7 +429,7 @@ impl InstructionGenerator {
                 self.generate_expression(expr, instructions)?;
                 instructions.push(Instruction::Drop);
             },
-            Statement::Test { name: _, body: _, location: _ } => {
+            Statement::Test { name: _, body, location: _ } => {
                 #[cfg(test)]
                 for stmt in body {
                     self.generate_statement(stmt, instructions)?;

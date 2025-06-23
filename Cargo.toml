@@ -36,6 +36,7 @@ dirs = "5.0"
 
 # Utilities (only used in specific utility binaries)
 regex = "1.10.2"
+rand = "0.8"
 
 # HTTP client for real network requests
 # HTTP client temporarily disabled

@@ -23,8 +23,8 @@ fn test_code_generation() {
                 type_parameters: vec![],
                 type_constraints: vec![],
                 parameters: vec![
-                    Parameter { name: "a".to_string(), type_: Type::Integer },
-                    Parameter { name: "b".to_string(), type_: Type::Integer },
+                    Parameter { name: "a".to_string(), type_: Type::Integer, default_value: None },
+                    Parameter { name: "b".to_string(), type_: Type::Integer, default_value: None },
                 ],
                 return_type: Type::Integer,
                 body: vec![

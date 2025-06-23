@@ -1,6 +1,0 @@
-function string greet(string name = "World")
-	return "Hello, " + name
-
-function start()
-	print(greet())
-	print(greet("Alice")) 

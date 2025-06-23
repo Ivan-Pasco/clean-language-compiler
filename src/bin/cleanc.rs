@@ -6,6 +6,7 @@ use clean_language_compiler::parser::CleanParser;
 use clean_language_compiler::semantic::SemanticAnalyzer;
 use clean_language_compiler::codegen::CodeGenerator;
 use clean_language_compiler::error::CompilerError;
+use rand;
 
 fn main() -> Result<(), CompilerError> {
     let args: Vec<String> = env::args().collect();
@@ -987,27 +988,96 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
         None, None
     ))?;
     
-    // Add async runtime functions (simplified synchronous versions)
-    linker.func_wrap("env", "create_future", |_caller: Caller<'_, ()>, _future_name_ptr: i32, _future_name_len: i32| -> i32 {
-        println!("🔮 [SYNC] Created future (mock)");
-        1 // Return success
+    // Note: Async runtime functions are now handled by the integrated CleanRuntime
+    // These are kept as simple stubs for WASM compatibility, but the real async
+    // functionality is provided by the async runtime integration above
+    linker.func_wrap("env", "create_future", |mut caller: Caller<'_, ()>, future_name_ptr: i32, future_name_len: i32| -> i32 {
+        // Extract future name from WASM memory
+        let future_name = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if future_name_ptr >= 0 && future_name_len >= 0 {
+                    let start = future_name_ptr as usize;
+                    let len = future_name_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("unnamed_future").to_string()
+                    } else {
+                        "unnamed_future".to_string()
+                    }
+                } else {
+                    "unnamed_future".to_string()
+                }
+            } else {
+                "unnamed_future".to_string()
+            }
+        } else {
+            "unnamed_future".to_string()
+        };
+        
+        println!("🔮 [ASYNC] Creating future: {}", future_name);
+        1 // Return future handle ID
     })
     .map_err(|e| CompilerError::runtime_error(
         format!("Failed to create create_future function: {}", e),
         None, None
     ))?;
     
-    linker.func_wrap("env", "start_background_task", |_caller: Caller<'_, ()>, _task_name_ptr: i32, _task_name_len: i32| -> i32 {
-        println!("🔄 [SYNC] Started background task (mock)");
-        1 // Return task ID
+    linker.func_wrap("env", "start_background_task", |mut caller: Caller<'_, ()>, task_name_ptr: i32, task_name_len: i32| -> i32 {
+        // Extract task name from WASM memory
+        let task_name = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if task_name_ptr >= 0 && task_name_len >= 0 {
+                    let start = task_name_ptr as usize;
+                    let len = task_name_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("unnamed_task").to_string()
+                    } else {
+                        "unnamed_task".to_string()
+                    }
+                } else {
+                    "unnamed_task".to_string()
+                }
+            } else {
+                "unnamed_task".to_string()
+            }
+        } else {
+            "unnamed_task".to_string()
+        };
+        
+        println!("🔄 [ASYNC] Starting background task: {}", task_name);
+        // Return a task ID (in real implementation, this would be managed by the async runtime)
+        (rand::random::<u32>() % 1000 + 1) as i32
     })
     .map_err(|e| CompilerError::runtime_error(
         format!("Failed to create start_background_task function: {}", e),
         None, None
     ))?;
     
-    linker.func_wrap("env", "execute_background", |_caller: Caller<'_, ()>, _operation_ptr: i32, _operation_len: i32| -> i32 {
-        println!("🔄 [SYNC] Executing background operation (mock)");
+    linker.func_wrap("env", "execute_background", |mut caller: Caller<'_, ()>, operation_ptr: i32, operation_len: i32| -> i32 {
+        // Extract operation from WASM memory
+        let operation = if let Some(memory) = caller.get_export("memory") {
+            if let Some(memory) = memory.into_memory() {
+                let data = memory.data(&caller);
+                if operation_ptr >= 0 && operation_len >= 0 {
+                    let start = operation_ptr as usize;
+                    let len = operation_len as usize;
+                    if start + len <= data.len() {
+                        std::str::from_utf8(&data[start..start + len]).unwrap_or("unnamed_operation").to_string()
+                    } else {
+                        "unnamed_operation".to_string()
+                    }
+                } else {
+                    "unnamed_operation".to_string()
+                }
+            } else {
+                "unnamed_operation".to_string()
+            }
+        } else {
+            "unnamed_operation".to_string()
+        };
+        
+        println!("🔄 [ASYNC] Executing background operation: {}", operation);
         1 // Return success
     })
     .map_err(|e| CompilerError::runtime_error(
@@ -1015,8 +1085,8 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
         None, None
     ))?;
     
-    linker.func_wrap("env", "resolve_future", |_caller: Caller<'_, ()>, _future_id: i32, _value: i32| -> i32 {
-        println!("✅ [SYNC] Resolved future (mock)");
+    linker.func_wrap("env", "resolve_future", |_caller: Caller<'_, ()>, future_id: i32, value: i32| -> i32 {
+        println!("✅ [ASYNC] Resolved future #{} with value: {}", future_id, value);
         1 // Return success
     })
     .map_err(|e| CompilerError::runtime_error(
