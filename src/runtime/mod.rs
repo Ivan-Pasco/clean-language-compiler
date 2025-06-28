@@ -331,6 +331,7 @@ impl CleanRuntime {
     }
     
     /// Add standard library functions (HTTP, File I/O, etc.)
+    #[allow(unused_mut)]
     fn add_stdlib_functions(&self, linker: &mut Linker<()>) -> Result<(), CompilerError> {
         // Type conversion functions - CRITICAL for runtime functionality
         linker.func_wrap("env", "int_to_string", |mut caller: Caller<'_, ()>, value: i32| -> i32 {

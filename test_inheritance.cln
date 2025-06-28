@@ -1,0 +1,10 @@
+class Shape
+	string color
+	
+	constructor(color)
+	
+class Circle is Shape
+	float radius
+	
+	constructor(color, radius)
+		super(color) 

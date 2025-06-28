@@ -439,12 +439,14 @@ impl StringOperations {
         instructions.push(Instruction::I32Add); // length1 + length2
         instructions.push(Instruction::LocalTee(6)); // store total length in local 6
         
-        // Allocate new string
-        instructions.push(Instruction::I32Const(STRING_TYPE_ID as i32));
-        instructions.push(Instruction::Call(0)); // Call memory.allocate
-        instructions.push(Instruction::LocalTee(7)); // store result pointer in local 7
+        // Allocate new string (simplified approach)
+        // For now, use a fixed memory location for result
+        // In a real implementation, this would call a proper memory allocator
+        instructions.push(Instruction::I32Const(1024)); // Fixed memory location
+        instructions.push(Instruction::LocalSet(7)); // store result pointer in local 7
         
         // Store total length in header
+        instructions.push(Instruction::LocalGet(7));
         instructions.push(Instruction::LocalGet(6));
         instructions.push(Instruction::I32Store(MemArg {
             offset: 0,
@@ -461,32 +463,29 @@ impl StringOperations {
         instructions.push(Instruction::Block(BlockType::Empty));
         instructions.push(Instruction::Loop(BlockType::Empty));
         
-        // Check if i < length1
+        // Check if i >= length1 (exit condition)
         instructions.push(Instruction::LocalGet(8));
         instructions.push(Instruction::LocalGet(3));
-        instructions.push(Instruction::I32LtU);
-        instructions.push(Instruction::BrIf(0)); // Continue loop if true
-        
-        // Break loop if condition is false
-        instructions.push(Instruction::Br(1));
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::BrIf(1)); // Break outer block if true
         
         // Loop body: copy character
-        instructions.push(Instruction::LocalGet(7)); // result ptr
-        instructions.push(Instruction::LocalGet(8)); // index
-        instructions.push(Instruction::I32Add); // result ptr + index
-        
+        // First, load the character from string1
         instructions.push(Instruction::LocalGet(2)); // string1 ptr
         instructions.push(Instruction::LocalGet(8)); // index
         instructions.push(Instruction::I32Add); // string1 ptr + index
-        
-        // Load char from string1
         instructions.push(Instruction::I32Load8U(MemArg {
             offset: 16, // Skip header
             align: 0,
             memory_index: 0,
         }));
+        instructions.push(Instruction::LocalSet(9)); // Store char in local 9
         
-        // Store char to result
+        // Then, store the character to result
+        instructions.push(Instruction::LocalGet(7)); // result ptr
+        instructions.push(Instruction::LocalGet(8)); // index
+        instructions.push(Instruction::I32Add); // result ptr + index
+        instructions.push(Instruction::LocalGet(9)); // char value
         instructions.push(Instruction::I32Store8(MemArg {
             offset: 16, // Skip header
             align: 0,
@@ -515,34 +514,31 @@ impl StringOperations {
         instructions.push(Instruction::Block(BlockType::Empty));
         instructions.push(Instruction::Loop(BlockType::Empty));
         
-        // Check if i < length2
+        // Check if i >= length2 (exit condition)
         instructions.push(Instruction::LocalGet(8));
         instructions.push(Instruction::LocalGet(5));
-        instructions.push(Instruction::I32LtU);
-        instructions.push(Instruction::BrIf(0)); // Continue loop if true
-        
-        // Break loop if condition is false
-        instructions.push(Instruction::Br(1));
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::BrIf(1)); // Break outer block if true
         
         // Loop body: copy character
-        instructions.push(Instruction::LocalGet(7)); // result ptr
-        instructions.push(Instruction::LocalGet(3)); // length1 (offset for string2)
-        instructions.push(Instruction::LocalGet(8)); // index
-        instructions.push(Instruction::I32Add); // length1 + index
-        instructions.push(Instruction::I32Add); // result ptr + length1 + index
-        
+        // First, load the character from string2
         instructions.push(Instruction::LocalGet(4)); // string2 ptr
         instructions.push(Instruction::LocalGet(8)); // index
         instructions.push(Instruction::I32Add); // string2 ptr + index
-        
-        // Load char from string2
         instructions.push(Instruction::I32Load8U(MemArg {
             offset: 16, // Skip header
             align: 0,
             memory_index: 0,
         }));
+        instructions.push(Instruction::LocalSet(9)); // Store char in local 9
         
-        // Store char to result
+        // Then, store the character to result
+        instructions.push(Instruction::LocalGet(7)); // result ptr
+        instructions.push(Instruction::LocalGet(3)); // length1 (offset for string2)
+        instructions.push(Instruction::LocalGet(8)); // index
+        instructions.push(Instruction::I32Add); // length1 + index
+        instructions.push(Instruction::I32Add); // result ptr + length1 + index
+        instructions.push(Instruction::LocalGet(9)); // char value
         instructions.push(Instruction::I32Store8(MemArg {
             offset: 16, // Skip header
             align: 0,
@@ -806,56 +802,124 @@ impl StringOperations {
     pub fn generate_string_index_of(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
-        // Get string1 length
-        instructions.push(Instruction::LocalGet(0));
+        // string_index_of(string_ptr: i32, search_ptr: i32) -> i32
+        // Returns index of first occurrence of search string, or -1 if not found
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
         instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
         instructions.push(Instruction::LocalSet(2)); // string_len
         
         // Get search string length
-        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::LocalGet(1)); // search_ptr
         instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
         instructions.push(Instruction::LocalSet(3)); // search_len
         
-        // If search is empty, return 0
-        instructions.push(Instruction::LocalGet(3));
+        // If search string is empty, return 0
+        instructions.push(Instruction::LocalGet(3)); // search_len
         instructions.push(Instruction::I32Eqz);
         instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
         instructions.push(Instruction::I32Const(0));
         instructions.push(Instruction::Return);
         instructions.push(Instruction::End);
         
-        // If search is longer than string, return -1
-        instructions.push(Instruction::LocalGet(3));
-        instructions.push(Instruction::LocalGet(2));
+        // If search string is longer than string, return -1
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::LocalGet(2)); // string_len
         instructions.push(Instruction::I32GtU);
         instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
         instructions.push(Instruction::I32Const(-1));
         instructions.push(Instruction::Return);
         instructions.push(Instruction::End);
         
-        // Search loop
+        // Initialize loop counter
         instructions.push(Instruction::I32Const(0));
         instructions.push(Instruction::LocalSet(4)); // i = 0
         
-        instructions.push(Instruction::Block(BlockType::Result(ValType::I32)));
+        // Calculate max search position
+        instructions.push(Instruction::LocalGet(2)); // string_len
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(5)); // max_pos = string_len - search_len + 1
+        
+        // Main search loop
         instructions.push(Instruction::Loop(BlockType::Empty));
         
-        // Check if i <= string_len - search_len
-        instructions.push(Instruction::LocalGet(4));
-        instructions.push(Instruction::LocalGet(2));
-        instructions.push(Instruction::LocalGet(3));
-        instructions.push(Instruction::I32Sub);
-        instructions.push(Instruction::I32GtU);
-        instructions.push(Instruction::BrIf(1)); // Break if i > string_len - search_len
+        // Check if we've reached the end
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::LocalGet(5)); // max_pos
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        instructions.push(Instruction::I32Const(-1)); // Not found
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
         
         // Check if substring matches at position i
-        // For simplicity, just return first position (placeholder implementation)
-        instructions.push(Instruction::LocalGet(4));
-        instructions.push(Instruction::Br(1)); // Return i
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(6)); // j = 0 (inner loop counter)
         
+        // Inner loop to compare characters
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've compared all characters
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Match found, return current position i
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::Return);
         instructions.push(Instruction::End);
-        instructions.push(Instruction::I32Const(-1)); // Not found
+        
+        // Load character from string at position i + j
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Load character from search string at position j
+        instructions.push(Instruction::LocalGet(1)); // search_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Compare characters
+        instructions.push(Instruction::I32Ne);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Characters don't match, break inner loop
+        instructions.push(Instruction::Br(1));
         instructions.push(Instruction::End);
+        
+        // Increment inner loop counter
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(6)); // j++
+        
+        // Continue inner loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End inner loop
+        
+        // Increment outer loop counter
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(4)); // i++
+        
+        // Continue outer loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End outer loop
+        
+        // Should never reach here, but return -1 as fallback
+        instructions.push(Instruction::I32Const(-1));
         
         instructions
     }
@@ -863,10 +927,132 @@ impl StringOperations {
     pub fn generate_string_last_index_of(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
-        // Similar to indexOf but search backwards (placeholder implementation)
-        instructions.push(Instruction::LocalGet(0)); // string
-        instructions.push(Instruction::LocalGet(1)); // search
-        instructions.push(Instruction::Call(0)); // Call string_index_of (placeholder)
+        // string_last_index_of(string_ptr: i32, search_ptr: i32) -> i32
+        // Returns index of last occurrence of search string, or -1 if not found
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(2)); // string_len
+        
+        // Get search string length
+        instructions.push(Instruction::LocalGet(1)); // search_ptr
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(3)); // search_len
+        
+        // If search string is empty, return string length
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::LocalGet(2)); // string_len
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // If search string is longer than string, return -1
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::LocalGet(2)); // string_len
+        instructions.push(Instruction::I32GtU);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Initialize last found position to -1
+        instructions.push(Instruction::I32Const(-1));
+        instructions.push(Instruction::LocalSet(4)); // last_found = -1
+        
+        // Initialize loop counter to start from the end
+        instructions.push(Instruction::LocalGet(2)); // string_len
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::LocalSet(5)); // i = string_len - search_len
+        
+        // Main search loop (searching backwards)
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've reached the beginning
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::I32LtS);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Return the last found position
+        instructions.push(Instruction::LocalGet(4)); // last_found
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Check if substring matches at position i
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(6)); // j = 0 (inner loop counter)
+        instructions.push(Instruction::I32Const(1)); // match_found = true initially
+        instructions.push(Instruction::LocalSet(7));
+        
+        // Inner loop to compare characters
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've compared all characters
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::LocalGet(3)); // search_len
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Finished comparing, check if match was found
+        instructions.push(Instruction::LocalGet(7)); // match_found
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Match found, update last_found and continue searching
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::LocalSet(4)); // last_found = i
+        instructions.push(Instruction::End);
+        instructions.push(Instruction::Br(1)); // Break inner loop
+        instructions.push(Instruction::End);
+        
+        // Load character from string at position i + j
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Load character from search string at position j
+        instructions.push(Instruction::LocalGet(1)); // search_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Compare characters
+        instructions.push(Instruction::I32Ne);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Characters don't match, set match_found to false and break inner loop
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(7)); // match_found = false
+        instructions.push(Instruction::Br(1)); // Break inner loop
+        instructions.push(Instruction::End);
+        
+        // Increment inner loop counter
+        instructions.push(Instruction::LocalGet(6)); // j
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(6)); // j++
+        
+        // Continue inner loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End inner loop
+        
+        // Decrement outer loop counter (search backwards)
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::LocalSet(5)); // i--
+        
+        // Continue outer loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End outer loop
+        
+        // Return the last found position
+        instructions.push(Instruction::LocalGet(4)); // last_found
         
         instructions
     }
@@ -874,27 +1060,89 @@ impl StringOperations {
     pub fn generate_string_starts_with(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
+        // string_starts_with(string_ptr: i32, prefix_ptr: i32) -> i32
+        // Returns 1 if string starts with prefix, 0 otherwise
+        
         // Get string length
-        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
         instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
         instructions.push(Instruction::LocalSet(2)); // string_len
         
         // Get prefix length
-        instructions.push(Instruction::LocalGet(1));
+        instructions.push(Instruction::LocalGet(1)); // prefix_ptr
         instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
         instructions.push(Instruction::LocalSet(3)); // prefix_len
         
+        // If prefix is empty, return true
+        instructions.push(Instruction::LocalGet(3)); // prefix_len
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(1)); // true
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
         // If prefix is longer than string, return false
-        instructions.push(Instruction::LocalGet(3));
-        instructions.push(Instruction::LocalGet(2));
+        instructions.push(Instruction::LocalGet(3)); // prefix_len
+        instructions.push(Instruction::LocalGet(2)); // string_len
         instructions.push(Instruction::I32GtU);
         instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
         instructions.push(Instruction::I32Const(0)); // false
         instructions.push(Instruction::Return);
         instructions.push(Instruction::End);
         
-        // Compare first prefix_len characters (simplified implementation)
-        instructions.push(Instruction::I32Const(1)); // true (placeholder)
+        // Compare characters from the beginning
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(4)); // i = 0
+        
+        // Loop to compare characters
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've compared all prefix characters
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::LocalGet(3)); // prefix_len
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // All characters matched, return true
+        instructions.push(Instruction::I32Const(1)); // true
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Load character from string at position i
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Load character from prefix at position i
+        instructions.push(Instruction::LocalGet(1)); // prefix_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Compare characters
+        instructions.push(Instruction::I32Ne);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Characters don't match, return false
+        instructions.push(Instruction::I32Const(0)); // false
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Increment loop counter
+        instructions.push(Instruction::LocalGet(4)); // i
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(4)); // i++
+        
+        // Continue loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End loop
+        
+        // Should never reach here, but return false as fallback
+        instructions.push(Instruction::I32Const(0)); // false
         
         instructions
     }
@@ -902,8 +1150,97 @@ impl StringOperations {
     pub fn generate_string_ends_with(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
-        // Similar to startsWith but check end (placeholder implementation)
-        instructions.push(Instruction::I32Const(1)); // true (placeholder)
+        // string_ends_with(string_ptr: i32, suffix_ptr: i32) -> i32
+        // Returns 1 if string ends with suffix, 0 otherwise
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(2)); // string_len
+        
+        // Get suffix length
+        instructions.push(Instruction::LocalGet(1)); // suffix_ptr
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(3)); // suffix_len
+        
+        // If suffix is empty, return true
+        instructions.push(Instruction::LocalGet(3)); // suffix_len
+        instructions.push(Instruction::I32Eqz);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(1)); // true
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // If suffix is longer than string, return false
+        instructions.push(Instruction::LocalGet(3)); // suffix_len
+        instructions.push(Instruction::LocalGet(2)); // string_len
+        instructions.push(Instruction::I32GtU);
+        instructions.push(Instruction::If(BlockType::Result(ValType::I32)));
+        instructions.push(Instruction::I32Const(0)); // false
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Calculate starting position in string (string_len - suffix_len)
+        instructions.push(Instruction::LocalGet(2)); // string_len
+        instructions.push(Instruction::LocalGet(3)); // suffix_len
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::LocalSet(4)); // start_pos
+        
+        // Compare characters from the end
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(5)); // i = 0
+        
+        // Loop to compare characters
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've compared all suffix characters
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::LocalGet(3)); // suffix_len
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // All characters matched, return true
+        instructions.push(Instruction::I32Const(1)); // true
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Load character from string at position start_pos + i
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(4)); // start_pos
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Load character from suffix at position i
+        instructions.push(Instruction::LocalGet(1)); // suffix_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Compare characters
+        instructions.push(Instruction::I32Ne);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Characters don't match, return false
+        instructions.push(Instruction::I32Const(0)); // false
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Increment loop counter
+        instructions.push(Instruction::LocalGet(5)); // i
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(5)); // i++
+        
+        // Continue loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End loop
+        
+        // Should never reach here, but return false as fallback
+        instructions.push(Instruction::I32Const(0)); // false
         
         instructions
     }
@@ -911,23 +1248,89 @@ impl StringOperations {
     pub fn generate_string_to_upper(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
+        // string_to_upper(string_ptr: i32) -> i32
+        // Returns pointer to new string with all characters converted to uppercase
+        
         // Get string length
-        instructions.push(Instruction::LocalGet(0));
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
         instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
-        instructions.push(Instruction::LocalSet(1)); // length
+        instructions.push(Instruction::LocalSet(1)); // string_len
         
-        // Allocate new string
-        instructions.push(Instruction::LocalGet(1));
-        instructions.push(Instruction::I32Const(STRING_TYPE_ID as i32));
-        instructions.push(Instruction::Call(0)); // Call memory.allocate
-        instructions.push(Instruction::LocalTee(2)); // result_ptr
+        // Allocate memory for new string (16 bytes header + string_len)
+        instructions.push(Instruction::I32Const(16));
+        instructions.push(Instruction::LocalGet(1)); // string_len
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::Call(0)); // Call memory allocation function
+        instructions.push(Instruction::LocalSet(2)); // new_string_ptr
         
-        // Store length in header
-        instructions.push(Instruction::LocalGet(1));
+        // Copy string header (length and other metadata)
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
+        instructions.push(Instruction::LocalGet(1)); // string_len
         instructions.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }));
         
-        // Copy and convert characters (simplified - just copy for now)
-        instructions.push(Instruction::LocalGet(2)); // Return result pointer
+        // Initialize loop counter
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(3)); // i = 0
+        
+        // Loop through each character
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've processed all characters
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::LocalGet(1)); // string_len
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Finished, return new string pointer
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Load character from original string
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(4)); // char
+        
+        // Check if character is lowercase letter (a-z: 97-122)
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Const(97)); // 'a'
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Const(122)); // 'z'
+        instructions.push(Instruction::I32LeU);
+        instructions.push(Instruction::I32And);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Convert to uppercase by subtracting 32
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Const(32));
+        instructions.push(Instruction::I32Sub);
+        instructions.push(Instruction::LocalSet(4)); // char = char - 32
+        instructions.push(Instruction::End);
+        
+        // Store converted character in new string
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Store8(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Increment loop counter
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(3)); // i++
+        
+        // Continue loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End loop
+        
+        // Should never reach here, but return new string pointer as fallback
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
         
         instructions
     }
@@ -935,8 +1338,89 @@ impl StringOperations {
     pub fn generate_string_to_lower(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
         
-        // Similar to toUpper (placeholder implementation)
-        instructions.push(Instruction::LocalGet(0)); // Return original string
+        // string_to_lower(string_ptr: i32) -> i32
+        // Returns pointer to new string with all characters converted to lowercase
+        
+        // Get string length
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(1)); // string_len
+        
+        // Allocate memory for new string (16 bytes header + string_len)
+        instructions.push(Instruction::I32Const(16));
+        instructions.push(Instruction::LocalGet(1)); // string_len
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::Call(0)); // Call memory allocation function
+        instructions.push(Instruction::LocalSet(2)); // new_string_ptr
+        
+        // Copy string header (length and other metadata)
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
+        instructions.push(Instruction::LocalGet(1)); // string_len
+        instructions.push(Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }));
+        
+        // Initialize loop counter
+        instructions.push(Instruction::I32Const(0));
+        instructions.push(Instruction::LocalSet(3)); // i = 0
+        
+        // Loop through each character
+        instructions.push(Instruction::Loop(BlockType::Empty));
+        
+        // Check if we've processed all characters
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::LocalGet(1)); // string_len
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Finished, return new string pointer
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
+        instructions.push(Instruction::Return);
+        instructions.push(Instruction::End);
+        
+        // Load character from original string
+        instructions.push(Instruction::LocalGet(0)); // string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        instructions.push(Instruction::LocalSet(4)); // char
+        
+        // Check if character is uppercase letter (A-Z: 65-90)
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Const(65)); // 'A'
+        instructions.push(Instruction::I32GeU);
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Const(90)); // 'Z'
+        instructions.push(Instruction::I32LeU);
+        instructions.push(Instruction::I32And);
+        instructions.push(Instruction::If(BlockType::Empty));
+        // Convert to lowercase by adding 32
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Const(32));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(4)); // char = char + 32
+        instructions.push(Instruction::End);
+        
+        // Store converted character in new string
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
+        instructions.push(Instruction::I32Const(16)); // Skip header
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalGet(4)); // char
+        instructions.push(Instruction::I32Store8(MemArg { offset: 0, align: 0, memory_index: 0 }));
+        
+        // Increment loop counter
+        instructions.push(Instruction::LocalGet(3)); // i
+        instructions.push(Instruction::I32Const(1));
+        instructions.push(Instruction::I32Add);
+        instructions.push(Instruction::LocalSet(3)); // i++
+        
+        // Continue loop
+        instructions.push(Instruction::Br(0));
+        instructions.push(Instruction::End); // End loop
+        
+        // Should never reach here, but return new string pointer as fallback
+        instructions.push(Instruction::LocalGet(2)); // new_string_ptr
         
         instructions
     }
@@ -1113,6 +1597,7 @@ impl StringOperations {
         
         instructions
     }
+
 }
 
 #[cfg(test)]
@@ -1155,7 +1640,7 @@ mod tests {
         string_ops.register_functions(&mut codegen).unwrap();
         
         // Generate WebAssembly module
-        let wasm_bytes = codegen.finish();
+        let wasm_bytes = codegen.generate_test_module().unwrap();
         let module = wasmtime::Module::new(&engine, &wasm_bytes).unwrap();
         let mut store = wasmtime::Store::new(&engine, ());
         let instance = wasmtime::Instance::new(&mut store, &module, &[]).unwrap();
@@ -1194,7 +1679,7 @@ mod tests {
         string_ops.register_functions(&mut codegen).unwrap();
         
         // Generate WebAssembly module
-        let wasm_bytes = codegen.finish();
+        let wasm_bytes = codegen.generate_test_module().unwrap();
         let module = wasmtime::Module::new(&engine, &wasm_bytes).unwrap();
         let mut store = wasmtime::Store::new(&engine, ());
         let instance = wasmtime::Instance::new(&mut store, &module, &[]).unwrap();

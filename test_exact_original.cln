@@ -1,0 +1,13 @@
+class Shape
+	string color
+	
+	constructor(color)
+	
+class Circle is Shape
+	float radius
+	
+	constructor(color, radius)
+		super(color)
+	
+function start()
+	circle = Circle("red", 5.0) 

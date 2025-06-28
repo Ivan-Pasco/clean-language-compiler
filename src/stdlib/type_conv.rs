@@ -560,15 +560,14 @@ mod tests {
 
 
     fn setup_test_environment() -> (Store<()>, Instance) {
-            let mut codegen = CodeGenerator::new();
-        // let memory = RefCell::new(MemoryManager::new(16, Some(1024))); // 16 pages, heap starts at 1024
+        let mut codegen = CodeGenerator::new();
         let type_conv = TypeConvOperations::new(1024);
         type_conv.register_functions(&mut codegen).unwrap();
 
         let engine = Engine::default();
-        let wasm_bytes = codegen.finish();
+        let wasm_bytes = codegen.generate_test_module().unwrap();
         let module = Module::new(&engine, &wasm_bytes).unwrap();
-            let mut store = Store::new(&engine, ());
+        let mut store = Store::new(&engine, ());
         let instance = Instance::new(&mut store, &module, &[]).unwrap();
         (store, instance)
     }

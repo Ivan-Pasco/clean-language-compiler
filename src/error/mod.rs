@@ -546,7 +546,7 @@ impl CompilerError {
                 .with_help(help)
                 .with_error_code("E005")
         }
-            }
+    }
 
     /// Method suggestion error for traditional function syntax
     pub fn method_suggestion_error<T: Into<String>>(
@@ -624,7 +624,7 @@ impl CompilerError {
             .with_suggestions(error_suggestions)
             .with_error_code("E012")
         }
-            }
+    }
 
     /// Indentation error with helpful guidance
     pub fn indentation_error<T: Into<String>>(
@@ -636,7 +636,7 @@ impl CompilerError {
         CompilerError::Syntax {
             context: ErrorContext::indentation_error(message, location, expected_indent, actual_indent)
         }
-            }
+    }
 
     /// Missing block error (like missing function body)
     pub fn missing_block_error<T: Into<String>>(
@@ -654,7 +654,7 @@ impl CompilerError {
             context: ErrorContext::new(message, help, ErrorType::Module, location)
                 .with_error_code("E013")
         }
-            }
+    }
 
     /// Import resolution error
     pub fn import_error<T: Into<String>>(message: T, import_name: &str, location: Option<SourceLocation>) -> Self {
@@ -663,8 +663,8 @@ impl CompilerError {
         CompilerError::Module {
             context: ErrorContext::new(detailed_message, help, ErrorType::Import, location)
                 .with_error_code("E014")
-            }
         }
+    }
 
     /// Symbol resolution error
     pub fn symbol_error<T: Into<String>>(message: T, symbol_name: &str, module_name: Option<&str>) -> Self {
@@ -743,14 +743,11 @@ impl CompilerError {
     
     /// Create a serialization error
     pub fn serialization_error<T: Into<String>>(message: T) -> Self {
-        CompilerError::IO {
-            context: ErrorContext::new(
-                message,
-                Some("Failed to serialize data".to_string()),
-                ErrorType::IO,
-                None,
-            ).with_error_code("E019"),
-        }
+        CompilerError::io_error(
+            format!("Serialization error: {}", message.into()),
+            Some("Check data format and serialization process".to_string()),
+            None,
+        )
     }
 }
 
@@ -1049,7 +1046,7 @@ impl ErrorUtils {
     ) -> CompilerError {
         let (location, error_span) = match pest_error.location {
             pest::error::InputLocation::Pos(pos) => {
-                let (line, col) = Self::calculate_line_column(source, pos);
+                let (line, col) = ErrorUtils::calculate_line_column(source, pos);
                 let location = SourceLocation {
                     line,
                     column: col,
@@ -1058,7 +1055,7 @@ impl ErrorUtils {
                 (Some(location), (pos, pos))
             },
             pest::error::InputLocation::Span((start_pos, end_pos)) => {
-                let (line, col) = Self::calculate_line_column(source, start_pos);
+                let (line, col) = ErrorUtils::calculate_line_column(source, start_pos);
                 let location = SourceLocation {
                     line,
                     column: col,
@@ -1069,12 +1066,12 @@ impl ErrorUtils {
         };
 
         let source_snippet = if let Some(loc) = &location {
-            Some(Self::extract_enhanced_source_snippet(source, error_span, loc))
+            Some(ErrorUtils::extract_enhanced_source_snippet(source, error_span, loc))
         } else {
             None
         };
 
-        let (enhanced_message, suggestions, help) = Self::enhance_pest_error_message(&pest_error, source, error_span);
+        let (enhanced_message, suggestions, help) = ErrorUtils::enhance_pest_error_message(&pest_error, source, error_span);
 
         CompilerError::enhanced_syntax_error(
             enhanced_message,
@@ -1167,11 +1164,10 @@ impl ErrorUtils {
             ErrorVariant::ParsingError { positives, negatives } => {
                 let mut message = String::new();
                 let mut suggestions = Vec::new();
-                let mut help = None;
 
                 if !positives.is_empty() {
                     let expected: Vec<String> = positives.iter()
-                        .map(|rule| Self::rule_to_friendly_name(rule))
+                        .map(|rule| ErrorUtils::rule_to_friendly_name(rule))
                         .collect();
                     
                     message = if expected.len() == 1 {
@@ -1181,12 +1177,12 @@ impl ErrorUtils {
                     };
 
                     // Add context-specific suggestions
-                    suggestions.extend(Self::get_context_specific_suggestions(&expected, source, error_span));
+                    suggestions.extend(ErrorUtils::get_context_specific_suggestions(&expected, source, error_span));
                 }
 
                 if !negatives.is_empty() {
                     let unexpected: Vec<String> = negatives.iter()
-                        .map(|rule| Self::rule_to_friendly_name(rule))
+                        .map(|rule| ErrorUtils::rule_to_friendly_name(rule))
                         .collect();
                     
                     if !message.is_empty() {
@@ -1197,12 +1193,12 @@ impl ErrorUtils {
                 }
 
                 // Add helpful context
-                help = Some(Self::get_contextual_help(&message, source, error_span));
+                let help = Some(ErrorUtils::get_contextual_help(&message, source, error_span));
 
                 (message, suggestions, help)
             },
             ErrorVariant::CustomError { message } => {
-                let suggestions = Self::suggest_syntax_fixes(message);
+                let suggestions = ErrorUtils::suggest_syntax_fixes(message);
                 let help = Some("Check the Clean Language syntax documentation".to_string());
                 (message.clone(), suggestions, help)
             },
@@ -1291,25 +1287,194 @@ impl ErrorUtils {
 
     /// Get contextual help based on the error message and surrounding code
     fn get_contextual_help(message: &str, source: &str, error_span: (usize, usize)) -> String {
-        let context = if error_span.0 > 0 && error_span.0 <= source.len() {
-            &source[error_span.0.saturating_sub(100)..std::cmp::min(error_span.1 + 100, source.len())]
+        let error_context = &source[error_span.0.saturating_sub(20)..std::cmp::min(error_span.1 + 20, source.len())];
+        
+        if error_context.contains("function") {
+            "Try checking the function declaration syntax".to_string()
+        } else if error_context.contains("=") {
+            "Check if you have a complete assignment statement".to_string()
+        } else if error_context.contains("if") {
+            "Verify the if statement has proper condition and body".to_string()
+        } else if error_context.contains("print") {
+            "Check the print statement syntax and arguments".to_string()
         } else {
-            ""
+            format!("Error in: '{}'", message)
+        }
+    }
+
+    /// Enhanced error message generation with context-aware suggestions
+    pub fn from_pest_error_with_recovery(
+        pest_error: pest::error::Error<crate::parser::Rule>,
+        source: &str,
+        file_path: &str,
+        recovery_suggestions: Vec<String>,
+    ) -> CompilerError {
+        let error_span = match pest_error.location {
+            pest::error::InputLocation::Pos(pos) => (pos, pos),
+            pest::error::InputLocation::Span((start, end)) => (start, end),
         };
 
-        if message.contains("identifier") && context.contains("function") {
-            "Function declarations require a valid function name after the 'function' keyword".to_string()
-        } else if message.contains("type annotation") {
-            "Clean Language uses type-first syntax: 'type variable_name = value'".to_string()
-        } else if message.contains("indented block") {
-            "Clean Language uses indentation to define code blocks. Use tabs for indentation".to_string()
-        } else if message.contains("expression") && context.contains("=") {
-            "Assignments require a value after the '=' operator".to_string()
-        } else if message.contains("newline") {
-            "Statements in Clean Language must be separated by newlines".to_string()
+        let (line, column) = ErrorUtils::calculate_line_column(source, error_span.0);
+        let location = SourceLocation {
+            line,
+            column,
+            file: file_path.to_string(),
+        };
+
+        let source_snippet = ErrorUtils::extract_enhanced_source_snippet(source, error_span, &location);
+        let (enhanced_message, mut suggestions, help) = ErrorUtils::enhance_pest_error_message(&pest_error, source, error_span);
+        
+        // Add recovery-specific suggestions
+        suggestions.extend(recovery_suggestions);
+        
+        // Add context-specific suggestions based on error type
+        suggestions.extend(ErrorUtils::get_recovery_suggestions(&pest_error, source, error_span));
+
+        CompilerError::enhanced_syntax_error(
+            enhanced_message,
+            Some(location),
+            Some(source_snippet),
+            suggestions,
+            help,
+        )
+    }
+
+    /// Generate recovery-specific suggestions based on the error context
+    pub fn get_recovery_suggestions(
+        _pest_error: &pest::error::Error<crate::parser::Rule>,
+        source: &str,
+        error_span: (usize, usize),
+    ) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        // Get the context around the error
+        let error_context = if error_span.1 < source.len() {
+            &source[error_span.0.saturating_sub(50)..std::cmp::min(error_span.1 + 50, source.len())]
         } else {
-            "Refer to the Clean Language syntax guide for proper formatting".to_string()
+            &source[error_span.0.saturating_sub(50)..]
+        };
+
+        // Add syntax-specific recovery suggestions based on context
+        if error_context.contains("func ") {
+            suggestions.push("Use 'function' instead of 'func' for function declarations".to_string());
         }
+        
+        if error_context.contains("->") {
+            suggestions.push("Clean Language uses 'function returnType name()' syntax, not '->' arrows".to_string());
+        }
+        
+        if error_context.contains("let ") {
+            suggestions.push("Use explicit types instead of 'let': 'integer x = 5' not 'let x = 5'".to_string());
+        }
+
+        if error_context.contains(" + ") || error_context.contains(" - ") {
+            suggestions.push("Check if you have a complete expression on both sides of the operator".to_string());
+        }
+        
+        if error_context.contains("= ") {
+            suggestions.push("Make sure the assignment has a value after the '=' sign".to_string());
+        }
+
+        if error_context.contains("(") && !error_context.contains(")") {
+            suggestions.push("Missing closing parenthesis ')'".to_string());
+        }
+        
+        if error_context.contains("[") && !error_context.contains("]") {
+            suggestions.push("Missing closing bracket ']'".to_string());
+        }
+
+        if error_context.contains("\"") && error_context.matches("\"").count() % 2 == 1 {
+            suggestions.push("Missing closing quote '\"' for string".to_string());
+        }
+
+        suggestions
+    }
+
+    /// Generate detailed error analysis for multiple errors
+    pub fn analyze_multiple_errors(errors: &[CompilerError]) -> Vec<String> {
+        let mut analysis = Vec::new();
+        
+        if errors.is_empty() {
+            return analysis;
+        }
+
+        analysis.push(format!("\n📊 Error Analysis ({} errors found):", errors.len()));
+        analysis.push("═".repeat(50));
+
+        // Categorize errors by type
+        let mut syntax_errors = 0;
+        let mut type_errors = 0;
+        let mut other_errors = 0;
+        let mut error_locations = Vec::new();
+
+        for error in errors {
+            match error {
+                CompilerError::Syntax { context } => {
+                    syntax_errors += 1;
+                    if let Some(loc) = &context.location {
+                        error_locations.push((loc.line, "Syntax"));
+                    }
+                },
+                CompilerError::Type { context } => {
+                    type_errors += 1;
+                    if let Some(loc) = &context.location {
+                        error_locations.push((loc.line, "Type"));
+                    }
+                },
+                _ => {
+                    other_errors += 1;
+                }
+            }
+        }
+
+        // Summary
+        if syntax_errors > 0 {
+            analysis.push(format!("🔸 Syntax Errors: {}", syntax_errors));
+        }
+        if type_errors > 0 {
+            analysis.push(format!("🔸 Type Errors: {}", type_errors));
+        }
+        if other_errors > 0 {
+            analysis.push(format!("🔸 Other Errors: {}", other_errors));
+        }
+
+        // Error distribution by line
+        if !error_locations.is_empty() {
+            analysis.push("\n📍 Error Locations:".to_string());
+            error_locations.sort_by_key(|(line, _)| *line);
+            for (line, error_type) in error_locations {
+                analysis.push(format!("   Line {}: {}", line, error_type));
+            }
+        }
+
+        // Common patterns and suggestions
+        analysis.push("\n💡 Recovery Suggestions:".to_string());
+        
+        if syntax_errors > type_errors {
+            analysis.push("• Focus on syntax errors first - they often cause cascading issues".to_string());
+            analysis.push("• Check for missing brackets, parentheses, or quotes".to_string());
+            analysis.push("• Verify proper indentation with tabs".to_string());
+        }
+
+        if errors.len() > 10 {
+            analysis.push("• Large number of errors detected - consider fixing the first few and re-parsing".to_string());
+        }
+
+        // Specific pattern detection
+        let all_messages: String = errors.iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        if all_messages.contains("expected primary") {
+            analysis.push("• Multiple 'expected primary' errors suggest incomplete expressions".to_string());
+        }
+        
+        if all_messages.contains("missing") {
+            analysis.push("• Missing elements detected - check for incomplete statements".to_string());
+        }
+
+        analysis
     }
 }
 

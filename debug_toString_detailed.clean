@@ -1,0 +1,7 @@
+start()
+	integer value = 42
+	string str_result = value.toString()
+	print("Method result stored in variable:")
+	print(str_result)
+	print("Direct method call:")
+	print(value.toString())

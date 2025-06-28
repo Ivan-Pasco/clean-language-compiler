@@ -1,0 +1,5 @@
+start()
+	integer value = 42
+	string result = value.toString()
+	print("Result:")
+	print(result)

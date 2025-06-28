@@ -378,6 +378,12 @@ pub enum Statement {
         location: Option<SourceLocation>,
     },
     
+    // Tests block
+    TestsBlock {
+        tests: Vec<TestCase>,
+        location: Option<SourceLocation>,
+    },
+    
     // Expression statement
     Expression {
         expr: Expression,
@@ -426,6 +432,14 @@ pub struct ConstantAssignment {
 pub struct ImportItem {
     pub name: String,
     pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestCase {
+    pub description: Option<String>,  // None for anonymous tests
+    pub test_expression: Expression,
+    pub expected_value: Expression,
+    pub location: Option<SourceLocation>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -536,6 +550,7 @@ pub struct Program {
     pub functions: Vec<Function>,
     pub classes: Vec<Class>,
     pub start_function: Option<Function>,
+    pub tests: Vec<TestCase>,
 }
 
 // Display implementations for better error messages

@@ -1,0 +1,12 @@
+// Simple test
+functions:
+	integer add(integer a, integer b)
+		return a + b
+
+tests:
+	"simple addition": add(2, 3) = 5
+	add(10, 5) = 15
+
+function start()
+	integer result = add(1, 2) 
+	print(result)

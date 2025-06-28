@@ -1,0 +1,4 @@
+// Test integers
+function start()
+	integer x = 5
+	print(x)

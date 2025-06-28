@@ -109,40 +109,7 @@ impl InstructionGenerator {
         // This would need to be implemented with proper type inference
         
         match (left_type, right_type) {
-            (WasmType::I32, WasmType::I32) => {
-                match op {
-                    ast::BinaryOperator::Add => { instructions.push(Instruction::I32Add); Ok(WasmType::I32) },
-                    ast::BinaryOperator::Subtract => { instructions.push(Instruction::I32Sub); Ok(WasmType::I32) },
-                    ast::BinaryOperator::Multiply => { instructions.push(Instruction::I32Mul); Ok(WasmType::I32) },
-                    ast::BinaryOperator::Divide => { instructions.push(Instruction::I32DivS); Ok(WasmType::I32) },
-                    ast::BinaryOperator::Equal => { instructions.push(Instruction::I32Eq); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::NotEqual => { instructions.push(Instruction::I32Ne); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::Less => { instructions.push(Instruction::I32LtS); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::Greater => { instructions.push(Instruction::I32GtS); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::LessEqual => { instructions.push(Instruction::I32LeS); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::I32GeS); Ok(WasmType::I32) }, 
-                    _ => Err(CompilerError::type_error(
-                        format!("Unsupported I32 binary operator: {:?}", op), None, None
-                    )),
-                }
-            },
-            (WasmType::F64, WasmType::F64) => {
-                match op {
-                    ast::BinaryOperator::Add => { instructions.push(Instruction::F64Add); Ok(WasmType::F64) },
-                    ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
-                    ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
-                    ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
-                    ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) }, 
-                    ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) }, 
-                    _ => Err(CompilerError::type_error(
-                        format!("Unsupported F64 binary operator: {:?}", op), None, None
-                    ))
-                }
-            },
+            // Handle string operations first (with guard condition)
             (WasmType::I32, WasmType::I32) if self.type_manager.is_string_type(left) || self.type_manager.is_string_type(right) => {
                 match op {
                     ast::BinaryOperator::Add => { 
@@ -153,7 +120,7 @@ impl InstructionGenerator {
                             Err(CompilerError::codegen_error("String concatenation function not found", None, None))
                         }
                     },
-                    ast::BinaryOperator::Equal | ast::BinaryOperator::NotEqual | 
+                                        ast::BinaryOperator::Equal | ast::BinaryOperator::NotEqual | 
                     ast::BinaryOperator::Less | ast::BinaryOperator::Greater | 
                     ast::BinaryOperator::LessEqual | ast::BinaryOperator::GreaterEqual => {
                         if let Some(string_compare_index) = self.get_function_index("string_compare") {
@@ -180,7 +147,9 @@ impl InstructionGenerator {
                                     instructions.push(Instruction::I32Const(0)); 
                                     instructions.push(Instruction::I32GeS); 
                                 },
-                                _ => unreachable!(), 
+                                _ => {
+                                    return Err(CompilerError::codegen_error("Invalid comparison operator for strings", None, None));
+                                }
                             }
                             Ok(WasmType::I32)
                         } else {
@@ -192,13 +161,79 @@ impl InstructionGenerator {
                     )),
                 }
             },
+            // Handle regular I32 operations
+            (WasmType::I32, WasmType::I32) => {
+                match op {
+                    ast::BinaryOperator::Add => { instructions.push(Instruction::I32Add); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Subtract => { instructions.push(Instruction::I32Sub); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Multiply => { instructions.push(Instruction::I32Mul); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Divide => { instructions.push(Instruction::I32DivS); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Equal => { instructions.push(Instruction::I32Eq); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::NotEqual => { instructions.push(Instruction::I32Ne); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::Less => { instructions.push(Instruction::I32LtS); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::Greater => { instructions.push(Instruction::I32GtS); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::LessEqual => { instructions.push(Instruction::I32LeS); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::I32GeS); Ok(WasmType::I32) }, 
+                    _ => Err(CompilerError::type_error(
+                        format!("Unsupported I32 binary operator: {:?}", op), None, None
+                    )),
+                }
+            },
+            // Handle F64 operations
+            (WasmType::F64, WasmType::F64) => {
+                match op {
+                    ast::BinaryOperator::Add => { instructions.push(Instruction::F64Add); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) }, 
+                    _ => Err(CompilerError::type_error(
+                        format!("Unsupported F64 binary operator: {:?}", op), None, None
+                    ))
+                }
+            },
             (WasmType::I32, WasmType::F64) => {
-                instructions.insert(instructions.len() - 1, Instruction::F64ConvertI32S);
-                self.generate_binary_operation(left, op, right, instructions)
+                // Convert I32 to F64 and perform F64 operation
+                instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                match op {
+                    ast::BinaryOperator::Add => { instructions.push(Instruction::F64Add); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) },
+                    ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) },
+                    ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) },
+                    _ => Err(CompilerError::type_error(
+                        format!("Unsupported mixed I32/F64 binary operator: {:?}", op), None, None
+                    ))
+                }
             },
             (WasmType::F64, WasmType::I32) => {
+                // Convert I32 to F64 and perform F64 operation
                 instructions.push(Instruction::F64ConvertI32S);
-                self.generate_binary_operation(left, op, right, instructions)
+                match op {
+                    ast::BinaryOperator::Add => { instructions.push(Instruction::F64Add); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) },
+                    ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) },
+                    ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) },
+                    _ => Err(CompilerError::type_error(
+                        format!("Unsupported mixed F64/I32 binary operator: {:?}", op), None, None
+                    ))
+                }
             },
             _ => Err(CompilerError::type_error(
                 format!("Type mismatch: Cannot apply {:?} to {:?} and {:?}", op, left_type, right_type),
@@ -429,9 +464,9 @@ impl InstructionGenerator {
                 self.generate_expression(expr, instructions)?;
                 instructions.push(Instruction::Drop);
             },
-            Statement::Test { name: _, body, location: _ } => {
+            Statement::Test { name: _, body: _body, location: _ } => {
                 #[cfg(test)]
-                for stmt in body {
+                for stmt in _body {
                     self.generate_statement(stmt, instructions)?;
                 }
             },

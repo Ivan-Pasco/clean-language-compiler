@@ -1,9 +1,10 @@
 use pest::{Parser, iterators::Pair};
-use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Value, Class, Field, Constructor, FunctionModifier, ImportItem};
+use crate::ast::{Program, Function, Type, Parameter, FunctionSyntax, Visibility, Statement, Expression, Class, Field, Constructor, FunctionModifier, ImportItem, TestCase};
 use crate::error::{CompilerError, ErrorUtils};
 use super::{CleanParser, convert_to_ast_location};
 use super::statement_parser::parse_statement;
 use super::type_parser::parse_type;
+use super::expression_parser::parse_expression;
 use super::Rule;
 
 /// Parse context to track file information and improve error reporting
@@ -23,6 +24,9 @@ pub struct ErrorRecoveringParser {
     pub source: String,
     pub file_path: String,
     pub errors: Vec<CompilerError>,
+    pub warnings: Vec<crate::error::CompilerWarning>,
+    pub recovery_points: Vec<usize>,
+    pub max_errors: usize,
 }
 
 impl ErrorRecoveringParser {
@@ -31,12 +35,24 @@ impl ErrorRecoveringParser {
             source: source.to_string(),
             file_path: file_path.to_string(),
             errors: Vec::new(),
+            warnings: Vec::new(),
+            recovery_points: Vec::new(),
+            max_errors: 100, // Prevent infinite error cascades
         }
     }
 
-    /// Parse with error recovery - collects multiple errors instead of stopping at the first one
+    pub fn with_max_errors(mut self, max_errors: usize) -> Self {
+        self.max_errors = max_errors;
+        self
+    }
+
+    /// Parse with comprehensive error recovery - collects multiple errors and continues parsing
     pub fn parse_with_recovery(&mut self, source: &str) -> Result<Program, Vec<CompilerError>> {
-        match self.parse_internal(source) {
+        // First, try to identify recovery points in the source
+        self.identify_recovery_points(source);
+        
+        // Attempt to parse the entire program with recovery
+        match self.parse_with_error_recovery(source) {
             Ok(program) => {
                 if self.errors.is_empty() {
                     Ok(program)
@@ -44,20 +60,296 @@ impl ErrorRecoveringParser {
                     Err(self.errors.clone())
                 }
             }
-            Err(error) => {
-                self.errors.push(error);
-                Err(self.errors.clone())
+            Err(mut parse_errors) => {
+                // Merge any additional errors we collected during recovery
+                parse_errors.extend(self.errors.clone());
+                Err(parse_errors)
             }
         }
+    }
+
+    /// Identify synchronization points for error recovery
+    fn identify_recovery_points(&mut self, source: &str) {
+        let mut pos = 0;
+        let chars: Vec<char> = source.chars().collect();
+        
+        while pos < chars.len() {
+            // Look for function boundaries
+            if pos + 8 < chars.len() && chars[pos..pos+8].iter().collect::<String>() == "function" {
+                self.recovery_points.push(pos);
+            }
+            
+            // Look for class boundaries
+            if pos + 5 < chars.len() && chars[pos..pos+5].iter().collect::<String>() == "class" {
+                self.recovery_points.push(pos);
+            }
+            
+            // Look for statement boundaries (lines starting with tabs/spaces)
+            if pos == 0 || chars[pos-1] == '\n' {
+                if pos < chars.len() && (chars[pos] == '\t' || chars[pos] == ' ') {
+                    self.recovery_points.push(pos);
+                }
+            }
+            
+            pos += 1;
+        }
+    }
+
+    /// Parse with error recovery using synchronization points
+    fn parse_with_error_recovery(&mut self, source: &str) -> Result<Program, Vec<CompilerError>> {
+        let mut collected_errors = Vec::new();
+        
+        // Try to parse the whole program first
+        match self.parse_internal(source) {
+            Ok(program) => return Ok(program),
+            Err(initial_error) => {
+                collected_errors.push(initial_error);
+                
+                // If we have too many errors already, stop
+                if collected_errors.len() >= self.max_errors {
+                    return Err(collected_errors);
+                }
+            }
+        }
+        
+        // If full parsing failed, try recovery parsing
+        // Split source into segments and try to parse each segment
+        let segments = self.split_into_recoverable_segments(source);
+        let mut functions = Vec::new();
+        let mut classes = Vec::new();
+        let mut imports = Vec::new();
+        let mut start_function = None;
+        
+        for segment in segments {
+            match self.parse_segment(&segment) {
+                Ok(segment_result) => {
+                    // Merge successful parse results
+                    functions.extend(segment_result.functions);
+                    classes.extend(segment_result.classes);
+                    imports.extend(segment_result.imports);
+                    if segment_result.start_function.is_some() {
+                        start_function = segment_result.start_function;
+                    }
+                }
+                Err(segment_error) => {
+                    collected_errors.push(segment_error);
+                    
+                    // Try to create a partial AST node for the failed segment
+                    if let Some(partial) = self.create_partial_node(&segment) {
+                        match partial {
+                            PartialNode::Function(f) => functions.push(f),
+                            PartialNode::Class(c) => classes.push(c),
+                            // Add other cases as needed
+                        }
+                    }
+                }
+            }
+            
+            if collected_errors.len() >= self.max_errors {
+                break;
+            }
+        }
+        
+        // Create a program from recovered parts
+        let recovered_program = Program {
+            imports,
+            functions,
+            classes,
+            start_function,
+            tests: Vec::new(),
+        };
+        
+        if collected_errors.is_empty() {
+            Ok(recovered_program)
+        } else {
+            self.errors.extend(collected_errors.clone());
+            Err(collected_errors)
+        }
+    }
+
+    /// Split source into segments that can be parsed independently
+    fn split_into_recoverable_segments(&self, source: &str) -> Vec<String> {
+        let lines: Vec<&str> = source.lines().collect();
+        let mut segments = Vec::new();
+        let mut current_segment = String::new();
+        let mut in_function = false;
+        for line in lines {
+            let trimmed = line.trim();
+            
+            // Detect function start
+            if trimmed.starts_with("function ") {
+                if !current_segment.trim().is_empty() {
+                    segments.push(current_segment.clone());
+                    current_segment.clear();
+                }
+                in_function = true;
+            }
+            
+            current_segment.push_str(line);
+            current_segment.push('\n');
+            
+            // Track indentation to detect function end
+            if in_function {
+                if trimmed.is_empty() || trimmed.starts_with("//") {
+                    continue; // Skip empty lines and comments
+                }
+                
+                if !line.starts_with('\t') && !line.starts_with(' ') && !trimmed.is_empty() {
+                    // End of function - line at root level
+                    if trimmed.starts_with("function ") || trimmed.starts_with("class ") {
+                        // Start of new function/class
+                        segments.push(current_segment.clone());
+                        current_segment.clear();
+                        current_segment.push_str(line);
+                        current_segment.push('\n');
+                    } else {
+                        // End of current function
+                        segments.push(current_segment.clone());
+                        current_segment.clear();
+                        in_function = false;
+                    }
+                }
+            }
+        }
+        
+        if !current_segment.trim().is_empty() {
+            segments.push(current_segment);
+        }
+        
+        segments
+    }
+
+    /// Parse a single segment with error handling
+    fn parse_segment(&mut self, segment: &str) -> Result<Program, CompilerError> {
+        let trimmed_segment = segment.trim();
+        
+        // Try to parse as a complete program first
+        match CleanParser::parse(Rule::program, trimmed_segment) {
+            Ok(pairs) => parse_program_ast(pairs),
+            Err(pest_error) => {
+                // Try to parse as individual components
+                if trimmed_segment.starts_with("function ") {
+                    self.parse_function_segment(trimmed_segment)
+                } else if trimmed_segment.starts_with("class ") {
+                    self.parse_class_segment(trimmed_segment)
+                } else {
+                    Err(crate::error::ErrorUtils::from_pest_error(pest_error, segment, &self.file_path))
+                }
+            }
+        }
+    }
+
+    /// Parse a function segment with recovery
+    fn parse_function_segment(&mut self, segment: &str) -> Result<Program, CompilerError> {
+        // Try to parse as start function first
+        if let Ok(pairs) = CleanParser::parse(Rule::start_function, segment) {
+            let start_func = parse_start_function(pairs.into_iter().next().unwrap())?;
+            return Ok(Program {
+                imports: Vec::new(),
+                functions: Vec::new(),
+                classes: Vec::new(),
+                start_function: Some(start_func),
+                tests: Vec::new(),
+            });
+        }
+        
+        // Try to parse as standalone function
+        if let Ok(pairs) = CleanParser::parse(Rule::standalone_function, segment) {
+            let func = parse_standalone_function(pairs.into_iter().next().unwrap())?;
+            return Ok(Program {
+                imports: Vec::new(),
+                functions: vec![func],
+                classes: Vec::new(),
+                start_function: None,
+                tests: Vec::new(),
+            });
+        }
+        
+        Err(CompilerError::parse_error(
+            format!("Could not parse function segment: {}", segment.lines().next().unwrap_or("").trim()),
+            None,
+            Some("Check function syntax: function name() or function returnType name()".to_string())
+        ))
+    }
+
+    /// Parse a class segment with recovery
+    fn parse_class_segment(&mut self, segment: &str) -> Result<Program, CompilerError> {
+        match CleanParser::parse(Rule::class_decl, segment) {
+            Ok(pairs) => {
+                let class = parse_class_decl(pairs.into_iter().next().unwrap())?;
+                Ok(Program {
+                    imports: Vec::new(),
+                    functions: Vec::new(),
+                    classes: vec![class],
+                    start_function: None,
+                    tests: Vec::new(),
+                })
+            }
+            Err(pest_error) => {
+                Err(crate::error::ErrorUtils::from_pest_error(pest_error, segment, &self.file_path))
+            }
+        }
+    }
+
+    /// Create partial AST nodes for failed segments
+    fn create_partial_node(&self, segment: &str) -> Option<PartialNode> {
+        let trimmed = segment.trim();
+        
+        // Try to extract function name even if parsing failed
+        if trimmed.starts_with("function ") {
+            if let Some(name) = self.extract_function_name(trimmed) {
+                return Some(PartialNode::Function(Function {
+                    name,
+                    type_parameters: Vec::new(),
+                    type_constraints: Vec::new(),
+                    parameters: Vec::new(),
+                    return_type: Type::Void,
+                    body: Vec::new(), // Empty body for failed parse
+                    description: Some("// Parse error - function body could not be parsed".to_string()),
+                    syntax: FunctionSyntax::Simple,
+                    visibility: Visibility::Public,
+                    modifier: FunctionModifier::None,
+                    location: None,
+                }));
+            }
+        }
+        
+        None
+    }
+
+    /// Extract function name from malformed function declaration
+    fn extract_function_name(&self, segment: &str) -> Option<String> {
+        // Look for pattern: function [type] name(
+        let words: Vec<&str> = segment.split_whitespace().collect();
+        if words.len() >= 2 && words[0] == "function" {
+            // Case 1: function name(
+            if words[1].contains('(') {
+                return Some(words[1].split('(').next().unwrap().to_string());
+            }
+            // Case 2: function type name(
+            if words.len() >= 3 && words[2].contains('(') {
+                return Some(words[2].split('(').next().unwrap().to_string());
+            }
+            // Case 3: just function name
+            return Some(words[1].to_string());
+        }
+        None
     }
 
     fn parse_internal(&mut self, source: &str) -> Result<Program, CompilerError> {
         let trimmed_source = source.trim();
         let pairs = CleanParser::parse(Rule::program, trimmed_source)
-            .map_err(|e| ErrorUtils::from_pest_error(e, source, &self.file_path))?;
+            .map_err(|e| crate::error::ErrorUtils::from_pest_error(e, source, &self.file_path))?;
 
         parse_program_ast(pairs)
     }
+}
+
+/// Represents partial AST nodes created during error recovery
+#[derive(Debug, Clone)]
+enum PartialNode {
+    Function(Function),
+    Class(Class),
 }
 
 pub fn parse(source: &str) -> Result<Program, CompilerError> {
@@ -81,6 +373,8 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
     let mut classes = Vec::new();
     let mut start_function = None;
     let mut imports = Vec::new();
+    let mut tests = Vec::new();
+    let mut top_level_statements = Vec::new();
 
     for pair in pairs {
         match pair.as_rule() {
@@ -115,9 +409,14 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
                                         let class = parse_class_decl(program_item_inner)?;
                                         classes.push(class);
                                     },
+                                    Rule::tests_block => {
+                                        let test_cases = parse_tests_block(program_item_inner)?;
+                                        tests.extend(test_cases);
+                                    },
                                     Rule::statement => {
                                         // Handle top-level statements - these should be added to the start function
-                                        // For now, we'll ignore them as the codegen expects a start function
+                                        let stmt = parse_statement(program_item_inner)?;
+                                        top_level_statements.push(stmt);
                                     },
                                     _ => {}
                                 }
@@ -132,11 +431,29 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
         }
     }
 
+    // If we have top-level statements but no explicit start function, create an implicit one
+    if !top_level_statements.is_empty() && start_function.is_none() {
+        start_function = Some(Function {
+            name: "start".to_string(),
+            type_parameters: Vec::new(),
+            type_constraints: Vec::new(),
+            parameters: Vec::new(),
+            return_type: Type::Void,
+            body: top_level_statements,
+            description: None,
+            syntax: FunctionSyntax::Simple,
+            visibility: Visibility::Public,
+            modifier: FunctionModifier::None,
+            location: None,
+        });
+    }
+
     let program = Program {
         imports,
         functions,
         classes,
         start_function,
+        tests,
     };
 
     Ok(program)
@@ -364,6 +681,96 @@ pub fn parse_functions_block(functions_block: Pair<Rule>) -> Result<Vec<Function
 }
 
 /// Parse a class declaration
+pub fn parse_tests_block(tests_pair: Pair<Rule>) -> Result<Vec<TestCase>, CompilerError> {
+    let mut test_cases = Vec::new();
+    
+    for inner in tests_pair.into_inner() {
+        match inner.as_rule() {
+            Rule::indented_tests_block => {
+                for test_pair in inner.into_inner() {
+                    if test_pair.as_rule() == Rule::test_case {
+                        test_cases.push(parse_test_case(test_pair)?);
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Ok(test_cases)
+}
+
+pub fn parse_test_case(test_pair: Pair<Rule>) -> Result<TestCase, CompilerError> {
+    let location = Some(convert_to_ast_location(&get_location(&test_pair)));
+    
+    for inner in test_pair.into_inner() {
+        match inner.as_rule() {
+            Rule::named_test => {
+                let mut description = None;
+                let mut test_expression = None;
+                let mut expected_value = None;
+                
+                for named_inner in inner.into_inner() {
+                    match named_inner.as_rule() {
+                        Rule::string => {
+                            if description.is_none() {
+                                description = Some(named_inner.as_str().trim_matches('"').to_string());
+                            }
+                        },
+                        Rule::expression => {
+                            if test_expression.is_none() {
+                                test_expression = Some(parse_expression(named_inner)?);
+                            } else if expected_value.is_none() {
+                                expected_value = Some(parse_expression(named_inner)?);
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+                
+                if let (Some(test_expr), Some(expected)) = (test_expression, expected_value) {
+                    return Ok(TestCase {
+                        description,
+                        test_expression: test_expr,
+                        expected_value: expected,
+                        location,
+                    });
+                }
+            },
+            Rule::anonymous_test => {
+                let mut test_expression = None;
+                let mut expected_value = None;
+                
+                for anon_inner in inner.into_inner() {
+                    if anon_inner.as_rule() == Rule::expression {
+                        if test_expression.is_none() {
+                            test_expression = Some(parse_expression(anon_inner)?);
+                        } else if expected_value.is_none() {
+                            expected_value = Some(parse_expression(anon_inner)?);
+                        }
+                    }
+                }
+                
+                if let (Some(test_expr), Some(expected)) = (test_expression, expected_value) {
+                    return Ok(TestCase {
+                        description: None,
+                        test_expression: test_expr,
+                        expected_value: expected,
+                        location,
+                    });
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    Err(CompilerError::parse_error(
+        "Invalid test case format".to_string(),
+        location.clone(),
+        Some("Tests should be in format 'expression = expected' or '\"description\": expression = expected'".to_string())
+    ))
+}
+
 pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> {
     let mut class_name = String::new();
     let mut type_parameters = Vec::new();
@@ -575,6 +982,90 @@ fn parse_constructor_parameter(param_pair: Pair<Rule>) -> Result<Parameter, Comp
 /// Expects a Pair<Rule> for input_block, which contains an indented_input_block.
 /// Each input_declaration is parsed as a parameter (type and name).
 /// Returns a Vec<Parameter>.
+/// Parse a single standalone_input_declaration as a Parameter
+/// Used when input declarations appear directly in function bodies
+fn parse_standalone_input_declaration_as_parameter(input_decl: Pair<Rule>) -> Result<crate::ast::Parameter, CompilerError> {
+    let mut param_type = None;
+    let mut param_name = String::new();
+    let mut default_value = None;
+    
+    for param_decl in input_decl.into_inner() {
+        match param_decl.as_rule() {
+            Rule::input_type => param_type = Some(parse_type(param_decl)?),
+            Rule::identifier => param_name = param_decl.as_str().to_string(),
+            Rule::expression => {
+                // Parse default value expression
+                default_value = Some(crate::parser::expression_parser::parse_expression(param_decl)?);
+            },
+            _ => {}
+        }
+    }
+    
+    if let Some(pt) = param_type {
+        if param_name.is_empty() {
+            return Err(CompilerError::parse_error(
+                "Missing parameter name in standalone input declaration",
+                None,
+                None,
+            ));
+        }
+        
+        if let Some(default_expr) = default_value {
+            Ok(crate::ast::Parameter::new_with_default(param_name, pt, default_expr))
+        } else {
+            Ok(crate::ast::Parameter::new(param_name, pt))
+        }
+    } else {
+        Err(CompilerError::parse_error(
+            "Missing type in standalone input parameter declaration",
+            None,
+            None,
+        ))
+    }
+}
+
+/// Parse a single input_declaration as a Parameter
+/// Used when input declarations appear directly in function bodies
+fn parse_input_declaration_as_parameter(input_decl: Pair<Rule>) -> Result<crate::ast::Parameter, CompilerError> {
+    let mut param_type = None;
+    let mut param_name = String::new();
+    let mut default_value = None;
+    
+    for param_decl in input_decl.into_inner() {
+        match param_decl.as_rule() {
+            Rule::input_type => param_type = Some(parse_type(param_decl)?),
+            Rule::identifier => param_name = param_decl.as_str().to_string(),
+            Rule::expression => {
+                // Parse default value expression
+                default_value = Some(crate::parser::expression_parser::parse_expression(param_decl)?);
+            },
+            _ => {}
+        }
+    }
+    
+    if let Some(pt) = param_type {
+        if param_name.is_empty() {
+            return Err(CompilerError::parse_error(
+                "Missing parameter name in input declaration",
+                None,
+                None,
+            ));
+        }
+        
+        if let Some(default_expr) = default_value {
+            Ok(crate::ast::Parameter::new_with_default(param_name, pt, default_expr))
+        } else {
+            Ok(crate::ast::Parameter::new(param_name, pt))
+        }
+    } else {
+        Err(CompilerError::parse_error(
+            "Missing type in input parameter declaration",
+            None,
+            None,
+        ))
+    }
+}
+
 fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Parameter>, CompilerError> {
     let mut parameters = Vec::new();
     let mut seen_names = std::collections::HashSet::new();
@@ -695,10 +1186,30 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
                         },
                         Rule::function_statements => {
                             found_body = true;
-                            // Only add statements from the function_statements to the function body
+                            // Process statements, handling input_declaration specially
                             for stmt_pair in body_item.into_inner() {
-                                if stmt_pair.as_rule() == Rule::statement {
-                                    body.push(parse_statement(stmt_pair)?);
+                                match stmt_pair.as_rule() {
+                                    Rule::statement => {
+                                        // Check if this statement contains an input_declaration
+                                        let inner = stmt_pair.clone().into_inner().next().unwrap();
+                                        if inner.as_rule() == Rule::standalone_input_declaration {
+                                            // Parse as parameter and add to parameters list
+                                            let param = parse_standalone_input_declaration_as_parameter(inner)?;
+                                            // Check for duplicate parameter names
+                                            if parameters.iter().any(|p| p.name == param.name) {
+                                                return Err(CompilerError::parse_error(
+                                                    format!("Duplicate parameter name '{}' in function '{}'", param.name, func_name),
+                                                    location.clone(),
+                                                    None,
+                                                ));
+                                            }
+                                            parameters.push(param);
+                                        } else {
+                                            // Regular statement
+                                            body.push(parse_statement(stmt_pair)?);
+                                        }
+                                    },
+                                    _ => {}
                                 }
                             }
                         },

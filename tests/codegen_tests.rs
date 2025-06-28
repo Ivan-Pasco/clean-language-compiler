@@ -1,7 +1,6 @@
 use clean_language_compiler::{
     ast::Program,
     codegen::CodeGenerator,
-    validation::Validator,
 };
 mod test_utils;
 use wasmtime::{Store, Module, Instance, Engine};
@@ -11,16 +10,18 @@ fn test_empty_program() {
     let mut codegen = CodeGenerator::new();
     
     // Create a basic start function  
-    use clean_language_compiler::ast::{Function, FunctionSyntax, Visibility, Type, SourceLocation};
+    use clean_language_compiler::ast::{Function, FunctionSyntax, Visibility, Type, SourceLocation, FunctionModifier};
     let start_function = Function {
         name: "start".to_string(),
         type_parameters: vec![],
+        type_constraints: vec![],
         parameters: vec![],
         return_type: Type::Void,
         body: vec![],
         description: None,
         syntax: FunctionSyntax::Simple,
         visibility: Visibility::Public,
+        modifier: FunctionModifier::None,
         location: Some(SourceLocation {
             line: 1,
             column: 1,
@@ -32,6 +33,8 @@ fn test_empty_program() {
         start_function: Some(start_function),
         functions: vec![],
         classes: vec![],
+        imports: vec![],
+        tests: vec![],
     };
     
     let result = codegen.generate(&program);
@@ -40,14 +43,14 @@ fn test_empty_program() {
     let wasm_binary = result.unwrap();
     assert!(!wasm_binary.is_empty(), "Generated WASM binary is empty");
     
-    // Validate WASM binary
-    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
+    // Simple WASM validation - check if it starts with WASM magic bytes
+    assert_eq!(&wasm_binary[0..4], b"\0asm", "Invalid WASM magic bytes");
     
     // Test basic WebAssembly functionality
     let engine = Engine::default();
-    let mut store = Store::new(&engine, ());
-    let module = Module::new(&engine, &wasm_binary).expect("Failed to create module");
-    let _instance = Instance::new(&mut store, &module, &[]).expect("Failed to instantiate module");
+    let module = wasmtime::Module::new(&engine, &wasm_binary).expect("Failed to create module");
+    let mut store = wasmtime::Store::new(&engine, ());
+    let _instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("Failed to instantiate module");
 }
 
 #[test]

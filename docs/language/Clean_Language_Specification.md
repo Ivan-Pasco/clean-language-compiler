@@ -9,15 +9,16 @@
 5. [Expressions](#expressions)
 6. [Statements](#statements)
 7. [Functions](#functions)
-8. [Control Flow](#control-flow)
-9. [Error Handling](#error-handling)
-10. [Classes and Objects](#classes-and-objects)
-11. [Modules and Imports](#modules-and-imports)
-12. [Package Management](#package-management)
-13. [Standard Library](#standard-library)
-14. [Memory Management](#memory-management)
-15. [Advanced Types](#advanced-types)
-16. [Asynchronous Programming](#asynchronous-programming)
+8. [Testing](#testing)
+9. [Control Flow](#control-flow)
+10. [Error Handling](#error-handling)
+11. [Classes and Objects](#classes-and-objects)
+12. [Modules and Imports](#modules-and-imports)
+13. [Package Management](#package-management)
+14. [Standard Library](#standard-library)
+15. [Memory Management](#memory-management)
+16. [Advanced Types](#advanced-types)
+17. [Asynchronous Programming](#asynchronous-programming)
 
 ## Overview
 
@@ -170,9 +171,9 @@ Reserved keywords in Clean Language:
 and        class       constructor  else        error       false      
 for        from        function     if          import      in         
 iterate    not         onError      or          print       println    
-return     start       step         test        this        to         
-true       while       is           returns     description input      
-unit       private     constant     functions
+return     start       step         test        tests       this        
+to         true        while        is          returns     description 
+input      unit        private      constant    functions
 ```
 
 ### Literals
@@ -699,7 +700,7 @@ obj.property = val  // Property assignment
 
 ### Print Statements
 
-Clean Language supports two print syntaxes: simple inline syntax and block syntax with colon.
+Clean Language supports two print syntaxes: simple inline syntax and block syntax with colon. Print functions automatically convert any value to a string representation, making output simple and intuitive.
 
 #### Simple Syntax
 The print statement does not require parentheses. Write `print value` for simple cases. Parentheses are optional for grouping expressions.
@@ -719,6 +720,73 @@ print("Hello")          // Also valid
 println("Hello")        // Also valid
 print(variable)         // Also valid
 ```
+
+#### Automatic String Conversion
+
+**Print functions work seamlessly with all data types through the toString() method system**. The compiler automatically handles string conversion when needed:
+
+```clean
+// toString() method calls work perfectly
+integer age = 25
+float price = 19.99
+boolean isValid = true
+
+print(age.toString())       // Prints: 25
+print(price.toString())     // Prints: 19.99  
+print(isValid.toString())   // Prints: true
+
+// String variables and literals work directly
+string name = "Alice"
+print(name)                 // Prints: Alice
+print("Hello World")        // Prints: Hello World
+
+// Mixed usage in the same program
+print("Age:")
+print(age.toString())
+print("Price:")
+print(price.toString())
+```
+
+**Implementation Status:**
+- ✅ **toString() method calls**: `print(value.toString())` works perfectly
+- ✅ **String variables**: `print(string_var)` works perfectly  
+- ✅ **String literals**: `print("text")` works perfectly
+- ✅ **Variable assignment**: `string result = value.toString()` works perfectly
+
+#### Default toString() Behavior
+
+Every type in Clean Language has a built-in `toString()` method with sensible defaults:
+
+**Built-in Types:**
+- **Integers**: `42` → `"42"`
+- **Floats**: `3.14` → `"3.14"`
+- **Booleans**: `true` → `"true"`, `false` → `"false"`
+- **Strings**: `"hello"` → `"hello"` (no change)
+- **Arrays**: `[1, 2, 3]` → `"[1, 2, 3]"`
+- **Objects**: `MyClass` instance → `"MyClass"` (default) or custom representation
+
+**Custom Classes:**
+```clean
+class Person
+    string name
+    integer age
+    
+    // Optional: Override default toString() for custom output
+    functions:
+        string toString()
+            return name + " (" + age.toString() + " years old)"
+
+// Usage
+Person user = Person("Alice", 30)
+print(user)             // Prints: Alice (30 years old)
+
+// Without custom toString(), would print: Person
+```
+
+**Default Class Behavior:**
+- Classes without custom `toString()` method print their class name
+- You can override `toString()` in any class for custom string representation
+- The custom `toString()` method is automatically used by print functions
 
 #### Block Syntax
 For multiple values or complex formatting, use the block syntax with colon (consistent with Clean Language's block patterns):
@@ -997,6 +1065,156 @@ functions:
     string greet(string name)
         "Hello, " + name    // Automatically returned
 ```
+
+## Testing
+
+Clean Language includes a built-in testing framework with a simple and readable syntax. Tests can be embedded directly in your source code using the `tests:` block.
+
+### Test Block Syntax
+
+Tests are defined within a `tests:` block and can be either named or anonymous:
+
+```clean
+tests:
+    // Named tests with descriptions
+    "adds numbers": add(2, 3) = 5
+    "squares a number": square(4) = 16
+    "detects empty string": String.isEmpty("") = true
+    
+    // Anonymous tests (no description)
+    String.toUpperCase("hi") = "HI"
+    Math.abs(-42) = 42
+    [1, 2, 3].length() = 3
+```
+
+### Test Syntax Rules
+
+1. **Named Tests**: `"description": expression = expected`
+   - The description is a string literal that will be used as a label in test output
+   - The colon (`:`) separates the description from the test expression
+   - Useful for documenting what the test is verifying
+
+2. **Anonymous Tests**: `expression = expected`
+   - No description provided - the expression itself serves as documentation
+   - Simpler syntax for obvious test cases
+
+3. **Test Expressions**: Can be any valid Clean Language expression
+   - Function calls: `add(2, 3)`
+   - Method calls: `String.isEmpty("")`
+   - Complex expressions: `(x + y) * 2`
+   - Object creation and method chaining: `Point(3, 4).distanceFromOrigin()`
+
+4. **Expected Values**: The right side of `=` is the expected result
+   - Must be a compile-time evaluable expression or literal
+   - Type must match the test expression's return type
+
+### Test Execution
+
+When a Clean program contains a `tests:` block, the compiler can run tests in several ways:
+
+```bash
+# Run tests during compilation
+cleanc --test myprogram.cln
+
+# Compile and run tests separately
+cleanc myprogram.cln --include-tests
+./myprogram --run-tests
+```
+
+### Test Output Format
+
+The test runner provides clear, readable output:
+
+```
+Running tests for myprogram.cln...
+
+✅ adds numbers: add(2, 3) = 5 (PASS)
+✅ squares a number: square(4) = 16 (PASS) 
+❌ detects empty string: String.isEmpty("") = true (FAIL: expected true, got false)
+✅ String.toUpperCase("hi") = "HI" (PASS)
+
+Test Results: 3 passed, 1 failed, 4 total
+```
+
+### Advanced Testing Features
+
+#### Testing Functions with Error Handling
+
+```clean
+functions:
+    integer safeDivide(integer a, integer b)
+        if b == 0
+            error("Division by zero")
+        return a / b
+
+tests:
+    "normal division": safeDivide(10, 2) = 5
+    "division by zero throws error": safeDivide(10, 0) = error("Division by zero")
+```
+
+#### Testing Object Methods
+
+```clean
+class Calculator
+    integer value
+    
+    constructor(integer initialValue)
+        value = initialValue
+    
+    functions:
+        integer add(integer x)
+            value = value + x
+            return value
+
+tests:
+    "calculator addition": Calculator(10).add(5) = 15
+    "calculator chaining": Calculator(0).add(3).add(7) = 10
+```
+
+#### Testing Array and String Operations
+
+```clean
+tests:
+    "array operations": [1, 2, 3].length() = 3
+    "array contains": [1, 2, 3].contains(2) = true
+    "string operations": "hello".toUpperCase() = "HELLO"
+    "string indexing": "world".indexOf("r") = 2
+```
+
+### Best Practices
+
+1. **Descriptive Test Names**: Use clear, descriptive names for complex tests
+   ```clean
+   tests:
+       "calculates compound interest correctly": calculateCompoundInterest(1000, 0.05, 2) = 1102.5
+   ```
+
+2. **Test Edge Cases**: Include tests for boundary conditions
+   ```clean
+   tests:
+       "handles empty array": [].length() = 0
+       "handles single character": "a".toUpperCase() = "A"
+       "handles zero input": factorial(0) = 1
+   ```
+
+3. **Group Related Tests**: Organize tests logically within the `tests:` block
+   ```clean
+   tests:
+       // Basic arithmetic
+       "addition": add(2, 3) = 5
+       "subtraction": subtract(5, 2) = 3
+       
+       // String operations  
+       "uppercase conversion": "hello".toUpperCase() = "HELLO"
+       "lowercase conversion": "WORLD".toLowerCase() = "world"
+   ```
+
+4. **Test Both Success and Failure Cases**: Include tests for error conditions
+   ```clean
+   tests:
+       "valid input": processInput("valid") = "processed: valid"
+       "invalid input": processInput("") = error("Input cannot be empty")
+   ```
 
 ## Control Flow
 

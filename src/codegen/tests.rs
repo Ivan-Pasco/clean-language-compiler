@@ -45,6 +45,7 @@ fn test_code_generation() {
         ],
         classes: vec![],
         start_function: None,
+        tests: vec![],
     };
     
     let result = codegen.generate(&program);
@@ -183,7 +184,7 @@ fn test_group_locals() {
 
 #[test]
 fn test_memory_operations() {
-    let mut codegen = CodeGenerator::new();
+    let mut codegen = CodeGenerator::new_for_testing().unwrap();
     // Test string allocation
     let hello_str = "hello";
     let string_ptr_result = codegen.allocate_string(hello_str);
@@ -204,7 +205,7 @@ fn test_memory_operations() {
 
 #[test]
 fn test_iterate_statement() {
-    let mut codegen = CodeGenerator::new();
+    let mut codegen = CodeGenerator::new_for_testing().unwrap();
     
     // Create an array literal with values 1, 2, 3, 4, 5
     let array_values = vec![
@@ -269,7 +270,7 @@ fn test_iterate_statement() {
 
 #[test]
 fn test_from_to_statement() {
-    let mut codegen = CodeGenerator::new();
+    let mut codegen = CodeGenerator::new_for_testing().unwrap();
     
     // Create a range iterate statement (from 1 to 10)
     let range_iterate_stmt = Statement::RangeIterate {

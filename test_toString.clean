@@ -1,0 +1,4 @@
+start()
+	integer value = 42
+	print("Value: " + value.toString())
+	print("Direct: " + "42")

@@ -108,7 +108,9 @@ fn test_string_manipulation() {
     let message_ptr = results[0].unwrap_i32();
     // Read string from memory
     let message_len = memory.data(&store)[message_ptr as usize] as usize;
-    let message_bytes = &memory.data(&store)[(message_ptr + 1) as usize..(message_ptr + 1 + message_len) as usize];
+    let start_pos = (message_ptr + 1) as usize;
+    let end_pos = start_pos + message_len;
+    let message_bytes = &memory.data(&store)[start_pos..end_pos];
     let message = String::from_utf8_lossy(message_bytes);
     
     assert_eq!(message, "Hello, World!");

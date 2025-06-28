@@ -183,6 +183,11 @@ impl SemanticAnalyzer {
         );
 
         self.function_table.insert(
+            "atan2".to_string(),
+            (vec![Type::Float, Type::Float], Type::Float, 2)
+        );
+
+        self.function_table.insert(
             "pi".to_string(),
             (vec![], Type::Float, 0)
         );
@@ -230,6 +235,36 @@ impl SemanticAnalyzer {
             (vec![Type::String, Type::String], Type::Integer, 2)
         );
 
+        self.function_table.insert(
+            "indexOf".to_string(),
+            (vec![Type::String, Type::String], Type::Integer, 2)
+        );
+
+        self.function_table.insert(
+            "lastIndexOf".to_string(),
+            (vec![Type::String, Type::String], Type::Integer, 2)
+        );
+
+        self.function_table.insert(
+            "startsWith".to_string(),
+            (vec![Type::String, Type::String], Type::Boolean, 2)
+        );
+
+        self.function_table.insert(
+            "endsWith".to_string(),
+            (vec![Type::String, Type::String], Type::Boolean, 2)
+        );
+
+        self.function_table.insert(
+            "toUpperCase".to_string(),
+            (vec![Type::String], Type::String, 1)
+        );
+
+        self.function_table.insert(
+            "toLowerCase".to_string(),
+            (vec![Type::String], Type::String, 1)
+        );
+
         // Array operations
         self.function_table.insert(
             "array_get".to_string(),
@@ -239,6 +274,11 @@ impl SemanticAnalyzer {
         self.function_table.insert(
             "array_length".to_string(),
             (vec![Type::Array(Box::new(Type::Any))], Type::Integer, 1)
+        );
+
+        self.function_table.insert(
+            "array_join".to_string(),
+            (vec![Type::Array(Box::new(Type::Any)), Type::String], Type::String, 2)
         );
 
         // HTTP functionality
@@ -842,6 +882,24 @@ impl SemanticAnalyzer {
                 Ok(())
             },
 
+            Statement::TestsBlock { tests, location: _ } => {
+                // Check each test case
+                for test in tests {
+                    // Check that test expression and expected value have compatible types
+                    let test_type = self.check_expression(&test.test_expression)?;
+                    let expected_type = self.check_expression(&test.expected_value)?;
+                    
+                    if !self.types_compatible(&test_type, &expected_type) {
+                        return Err(CompilerError::type_error(
+                            &format!("Test expression type {:?} doesn't match expected type {:?}", test_type, expected_type),
+                            Some("Ensure the test expression and expected value have compatible types".to_string()),
+                            test.location.clone()
+                        ));
+                    }
+                }
+                Ok(())
+            },
+
             Statement::Expression { expr, location: _ } => {
                 self.check_expression(expr)?;
                 Ok(())
@@ -1278,7 +1336,7 @@ impl SemanticAnalyzer {
             
             Expression::StaticMethodCall { class_name, method: _, arguments, location: _ } => {
                 // Handle static method calls
-                if class_name == "MathUtils" || class_name == "Array" || class_name == "File" {
+                if class_name == "MathUtils" || class_name == "Array" || class_name == "File" || class_name == "Http" {
                     // Built-in static methods - validate arguments and return appropriate type
                     for arg in arguments {
                         self.check_expression(arg)?;
@@ -1721,6 +1779,26 @@ impl SemanticAnalyzer {
                 return Ok(Type::String);
             },
             
+            // Array-specific methods
+            (Type::Array(_), "join") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'join' expects exactly 1 argument".to_string(),
+                        Some("Usage: array.join(separator)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let separator_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(&Type::String, &separator_type) {
+                    return Err(CompilerError::type_error(
+                        "Argument to 'join' must be a string (separator)".to_string(),
+                        Some("Usage: array.join(\", \")".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::String);
+            },
+            
             // Any type methods
             (_, "isDefined") => {
                 if !args.is_empty() {
@@ -2141,7 +2219,7 @@ impl SemanticAnalyzer {
     }
 
     fn is_builtin_class(&self, name: &str) -> bool {
-        matches!(name, "Array" | "List" | "String" | "Object" | "File" | "MathUtils")
+        matches!(name, "Array" | "List" | "String" | "Object" | "File" | "MathUtils" | "Http")
     }
 
     fn is_builtin_type_constructor(&self, name: &str) -> bool {

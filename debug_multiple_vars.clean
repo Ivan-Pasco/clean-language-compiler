@@ -1,0 +1,8 @@
+start()
+	integer value = 42
+	string result1 = value.toString()
+	string result2 = value.toString()
+	print("Variable stored result:")
+	print(result1)
+	print("Second variable stored result:")
+	print(result2)

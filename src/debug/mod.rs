@@ -1,109 +1,145 @@
 use crate::error::CompilerError;
-use crate::ast::{Program, Function, Statement, Expression};
+use crate::ast::{Program, Function, Statement, Expression, Type};
 use crate::error::{CompilerWarning};
+use crate::parser::Rule;
+use std::fmt::Write;
 
 /// Debug utilities for Clean Language development
 pub struct DebugUtils;
 
 impl DebugUtils {
-    /// Pretty print the AST structure for debugging
+    /// Print a detailed AST structure for debugging
     pub fn print_ast(program: &Program) {
-        println!("=== Clean Language AST Debug ===");
+        println!("🌳 AST Structure:");
+        println!("{}", "═".repeat(50));
         
-        if let Some(start_fn) = &program.start_function {
-            println!("Start Function:");
-            Self::print_function(start_fn, 1);
-        }
-        
-        if !program.functions.is_empty() {
-            println!("Functions:");
-            for func in &program.functions {
-                Self::print_function(func, 1);
+        if !program.imports.is_empty() {
+            println!("📦 Imports ({}):", program.imports.len());
+            for (i, import) in program.imports.iter().enumerate() {
+                println!("  {}. {}", i + 1, import.name);
             }
+            println!();
         }
-        
+
+        if !program.functions.is_empty() {
+            println!("🔧 Functions ({}):", program.functions.len());
+            for (i, func) in program.functions.iter().enumerate() {
+                Self::print_function_summary(func, i + 1);
+            }
+            println!();
+        }
+
+        if let Some(start_func) = &program.start_function {
+            println!("🚀 Start Function:");
+            Self::print_function_details(start_func, 1);
+            println!();
+        }
+
         if !program.classes.is_empty() {
-            println!("Classes:");
-            for class in &program.classes {
-                println!("  Class: {}", class.name);
+            println!("🏗️  Classes ({}):", program.classes.len());
+            for (i, class) in program.classes.iter().enumerate() {
+                println!("  {}. {} (fields: {}, methods: {})", 
+                    i + 1, class.name, class.fields.len(), class.methods.len());
             }
         }
     }
-    
-    /// Print function details with indentation
-    fn print_function(func: &Function, indent: usize) {
-        let indent_str = "  ".repeat(indent);
-        println!("{}Function: {} -> {:?}", indent_str, func.name, func.return_type);
+
+    /// Print a summary of a function
+    fn print_function_summary(func: &Function, index: usize) {
+        println!("  {}. {} -> {} (params: {}, statements: {})", 
+            index, func.name, Self::type_to_string(&func.return_type), 
+            func.parameters.len(), func.body.len());
+    }
+
+    /// Print detailed function information
+    fn print_function_details(func: &Function, indent: usize) {
+        let prefix = "  ".repeat(indent);
+        println!("{}📋 Name: {}", prefix, func.name);
+        println!("{}📤 Return Type: {}", prefix, Self::type_to_string(&func.return_type));
         
         if !func.parameters.is_empty() {
-            println!("{}  Parameters:", indent_str);
+            println!("{}📥 Parameters:", prefix);
             for param in &func.parameters {
-                println!("{}    {}: {:?}", indent_str, param.name, param.type_);
+                println!("{}  • {} : {}", prefix, param.name, Self::type_to_string(&param.type_));
             }
         }
-        
+
         if !func.body.is_empty() {
-            println!("{}  Body:", indent_str);
-            for stmt in &func.body {
-                println!("{}    {}", indent_str, Self::statement_summary(stmt));
+            println!("{}📝 Body ({} statements):", prefix, func.body.len());
+            for (i, stmt) in func.body.iter().enumerate() {
+                println!("{}  {}. {}", prefix, i + 1, Self::statement_to_string(stmt));
             }
         }
     }
-    
-    /// Get a summary string for a statement
-    fn statement_summary(stmt: &Statement) -> String {
+
+    /// Convert a type to a readable string
+    fn type_to_string(type_: &Type) -> String {
+        match type_ {
+            Type::Integer => "integer".to_string(),
+            Type::Float => "float".to_string(),
+            Type::Boolean => "boolean".to_string(),
+            Type::String => "string".to_string(),
+            Type::Void => "void".to_string(),
+            Type::Array(inner) => format!("Array<{}>", Self::type_to_string(inner)),
+            Type::Object(name) => name.clone(),
+            Type::Any => "any".to_string(),
+            _ => format!("{:?}", type_),
+        }
+    }
+
+    /// Convert a statement to a readable string
+    fn statement_to_string(stmt: &Statement) -> String {
         match stmt {
             Statement::VariableDecl { name, type_, .. } => {
-                format!("Variable: {} : {:?}", name, type_)
+                format!("var {} : {}", name, Self::type_to_string(type_))
             },
-            Statement::Assignment { target, .. } => format!("Assignment: {}", target),
-            Statement::Print { .. } => "Print statement".to_string(),
-            Statement::PrintBlock { .. } => "Print block".to_string(),
-            Statement::Return { .. } => "Return statement".to_string(),
-            Statement::If { .. } => "If statement".to_string(),
-            Statement::Iterate { iterator, .. } => format!("Iterate: {}", iterator),
-            Statement::RangeIterate { iterator, .. } => format!("Range iterate: {}", iterator),
-            Statement::Test { name, .. } => format!("Test: {}", name),
-            Statement::Expression { .. } => "Expression statement".to_string(),
-            Statement::Error { .. } => "Error statement".to_string(),
-            Statement::Import { .. } => "Import statement".to_string(),
-            Statement::LaterAssignment { variable, .. } => format!("Later assignment: {}", variable),
-            Statement::Background { .. } => "Background statement".to_string(),
-            Statement::TypeApplyBlock { .. } => "Type apply block".to_string(),
-            Statement::FunctionApplyBlock { .. } => "Function apply block".to_string(),
-            Statement::MethodApplyBlock { .. } => "Method apply block".to_string(),
-            Statement::ConstantApplyBlock { .. } => "Constant apply block".to_string(),
+            Statement::Assignment { target, .. } => {
+                format!("assign to {}", target)
+            },
+            Statement::Expression { expr, .. } => {
+                format!("expr: {}", Self::expression_to_string(expr))
+            },
+            Statement::Print { expression, .. } => {
+                format!("print({})", Self::expression_to_string(expression))
+            },
+            Statement::Return { value, .. } => {
+                if let Some(val) = value {
+                    format!("return {}", Self::expression_to_string(val))
+                } else {
+                    "return".to_string()
+                }
+            },
+            Statement::If { condition, then_branch, else_branch, .. } => {
+                let mut result = format!("if {} (then: {} stmts", 
+                    Self::expression_to_string(condition), then_branch.len());
+                if let Some(else_stmts) = else_branch {
+                    result.push_str(&format!(", else: {} stmts", else_stmts.len()));
+                }
+                result.push(')');
+                result
+            },
+            _ => format!("{:?}", stmt).chars().take(50).collect::<String>() + "...",
         }
     }
-    
-    /// Get a summary string for an expression
-    fn expression_summary(expr: &Expression) -> String {
+
+    /// Convert an expression to a readable string
+    fn expression_to_string(expr: &Expression) -> String {
         match expr {
-            Expression::Literal(_) => "Literal".to_string(),
-            Expression::Variable(name) => format!("Variable({})", name),
-            Expression::Call(name, _) => format!("Call({})", name),
-            Expression::MethodCall { method, .. } => format!("MethodCall({})", method),
-            Expression::PropertyAccess { property, .. } => format!("PropertyAccess({})", property),
-            Expression::Binary(_, operator, _) => format!("BinaryOp({:?})", operator),
-            Expression::Unary(operator, _) => format!("UnaryOp({:?})", operator),
-            Expression::ArrayAccess(_, _) => "ArrayAccess".to_string(),
-            Expression::MatrixAccess(_, _, _) => "MatrixAccess".to_string(),
-            Expression::StringInterpolation(_) => "StringInterpolation".to_string(),
-            Expression::ObjectCreation { class_name, .. } => format!("ObjectCreation({})", class_name),
-            Expression::OnError { .. } => "OnError".to_string(),
-            Expression::OnErrorBlock { .. } => "OnErrorBlock".to_string(),
-            Expression::ErrorVariable { .. } => "ErrorVariable".to_string(),
-            Expression::Conditional { .. } => "Conditional".to_string(),
-            Expression::BaseCall { .. } => "BaseCall".to_string(),
-            Expression::StartExpression { .. } => "StartExpression".to_string(),
-            Expression::LaterAssignment { variable, .. } => format!("LaterAssignment({})", variable),
-            Expression::StaticMethodCall { class_name, method, .. } => {
-                format!("StaticMethodCall({}.{})", class_name, method)
+            Expression::Literal(val) => format!("{:?}", val),
+            Expression::Variable(name) => name.clone(),
+            Expression::Call(name, arguments) => {
+                format!("{}({})", name, arguments.len())
             },
-            Expression::PropertyAssignment { property, .. } => format!("PropertyAssignment({})", property),
+            Expression::Binary(left, operator, right) => {
+                format!("{} {:?} {}", 
+                    Self::expression_to_string(left), 
+                    operator, 
+                    Self::expression_to_string(right))
+            },
+            _ => format!("{:?}", expr).chars().take(30).collect::<String>() + "...",
         }
     }
-    
+
     /// Analyze code complexity and provide suggestions
     pub fn analyze_complexity(program: &Program) -> Vec<String> {
         let mut suggestions = Vec::new();
@@ -344,6 +380,130 @@ impl DebugUtils {
             report.push_str(&format!("🎨 Style Issues: {}\n", style_issues.len()));
             for issue in style_issues {
                 report.push_str(&format!("  - {}\n", issue));
+            }
+        }
+        
+        report
+    }
+
+    /// Generate a parse tree visualization for debugging
+    pub fn visualize_parse_tree(source: &str, rule_name: &str) -> Result<String, String> {
+        use crate::parser::CleanParser;
+        use pest::Parser;
+        
+        let rule = match rule_name {
+            "program" => Rule::program,
+            "function" => Rule::start_function,
+            "statement" => Rule::statement,
+            "expression" => Rule::expression,
+            "primary" => Rule::primary,
+            _ => return Err(format!("Unknown rule: {}", rule_name)),
+        };
+
+        match CleanParser::parse(rule, source) {
+            Ok(pairs) => {
+                let mut result = String::new();
+                for pair in pairs {
+                    Self::format_parse_tree(&mut result, &pair, 0);
+                }
+                Ok(result)
+            },
+            Err(e) => Err(format!("Parse error: {}", e)),
+        }
+    }
+
+    /// Format a parse tree for visualization
+    fn format_parse_tree(output: &mut String, pair: &pest::iterators::Pair<Rule>, depth: usize) {
+        let indent = "  ".repeat(depth);
+        writeln!(output, "{}{:?}: \"{}\"", indent, pair.as_rule(), pair.as_str().chars().take(50).collect::<String>()).unwrap();
+        
+        for inner_pair in pair.clone().into_inner() {
+            Self::format_parse_tree(output, &inner_pair, depth + 1);
+        }
+    }
+
+    /// Generate error recovery suggestions based on common patterns
+    pub fn suggest_error_fixes(source: &str, errors: &[CompilerError]) -> Vec<String> {
+        let mut suggestions = Vec::new();
+        
+        // Analyze source for common patterns
+        let lines: Vec<&str> = source.lines().collect();
+        
+        // Check for common syntax issues
+        for (line_num, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            
+            // Detect incomplete expressions
+            if trimmed.ends_with(" +") || trimmed.ends_with(" -") || trimmed.ends_with(" *") || trimmed.ends_with(" /") {
+                suggestions.push(format!("Line {}: Incomplete expression - missing right operand", line_num + 1));
+            }
+            
+            // Detect missing closing brackets/parentheses
+            let open_parens = trimmed.matches('(').count();
+            let close_parens = trimmed.matches(')').count();
+            if open_parens > close_parens {
+                suggestions.push(format!("Line {}: Missing {} closing parenthesis(es)", line_num + 1, open_parens - close_parens));
+            }
+            
+            let open_brackets = trimmed.matches('[').count();
+            let close_brackets = trimmed.matches(']').count();
+            if open_brackets > close_brackets {
+                suggestions.push(format!("Line {}: Missing {} closing bracket(s)", line_num + 1, open_brackets - close_brackets));
+            }
+            
+            // Detect incorrect function syntax
+            if trimmed.starts_with("func ") {
+                suggestions.push(format!("Line {}: Use 'function' instead of 'func'", line_num + 1));
+            }
+            
+            // Detect arrow function syntax
+            if trimmed.contains("->") {
+                suggestions.push(format!("Line {}: Clean Language doesn't use '->' syntax. Use 'function returnType name()' format", line_num + 1));
+            }
+            
+            // Detect let keyword
+            if trimmed.contains("let ") {
+                suggestions.push(format!("Line {}: Use explicit types instead of 'let': 'integer x = 5' not 'let x = 5'", line_num + 1));
+            }
+        }
+        
+        // Add general suggestions based on error count
+        if errors.len() > 5 {
+            suggestions.push("Consider fixing the first few errors and re-parsing - many errors may be cascading from earlier issues".to_string());
+        }
+        
+        suggestions
+    }
+
+    /// Create a comprehensive error report
+    pub fn create_error_report(source: &str, errors: &[CompilerError]) -> String {
+        let mut report = String::new();
+        
+        writeln!(report, "🚨 Clean Language Parser Error Report").unwrap();
+        writeln!(report, "{}", "═".repeat(60)).unwrap();
+        writeln!(report, "📄 File: {} lines", source.lines().count()).unwrap();
+        writeln!(report, "❌ Errors: {}", errors.len()).unwrap();
+        writeln!(report).unwrap();
+        
+        // Show each error with context
+        for (i, error) in errors.iter().enumerate() {
+            writeln!(report, "Error {} of {}:", i + 1, errors.len()).unwrap();
+            writeln!(report, "{}", error).unwrap();
+            writeln!(report, "{}", "─".repeat(40)).unwrap();
+        }
+        
+        // Add analysis
+        let analysis = crate::error::ErrorUtils::analyze_multiple_errors(errors);
+        for line in analysis {
+            writeln!(report, "{}", line).unwrap();
+        }
+        
+        // Add fix suggestions
+        let suggestions = Self::suggest_error_fixes(source, errors);
+        if !suggestions.is_empty() {
+            writeln!(report, "\n🔧 Specific Fix Suggestions:").unwrap();
+            for suggestion in suggestions {
+                writeln!(report, "• {}", suggestion).unwrap();
             }
         }
         

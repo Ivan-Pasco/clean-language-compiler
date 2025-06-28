@@ -1,11 +1,11 @@
 use clean_language_compiler::{
     parser::CleanParser,
     codegen::CodeGenerator,
-    validation::Validator,
 };
 use std::fs;
 
 mod test_utils;
+use test_utils::validate_wasm;
 
 #[test]
 fn test_arithmetic_program() {
@@ -19,7 +19,7 @@ fn test_arithmetic_program() {
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = codegen.finish();
-    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
+    assert!(validate_wasm(&wasm_binary));
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();
@@ -46,7 +46,7 @@ fn test_matrix_program() {
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = codegen.finish();
-    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
+    assert!(validate_wasm(&wasm_binary));
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();
@@ -89,7 +89,7 @@ fn test_function_program() {
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = codegen.finish();
-    assert!(Validator::validate_wasm(&wasm_binary).is_ok());
+    assert!(validate_wasm(&wasm_binary));
     
     // Execute the WASM and verify output
     let engine = wasmtime::Engine::default();

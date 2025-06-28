@@ -182,6 +182,7 @@ fn run_wasm_with_wasmtime(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
 }
 
 // Synchronous WebAssembly execution (fallback)
+#[allow(unused_mut)]
 fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     use wasmtime::{Config, Engine, Module, Store, Linker, Caller, Val};
     
@@ -210,7 +211,7 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     
     // Add print functions to the linker
     
-    // print(strPtr: i32, strLen: i32) -> void
+    // print(strPtr: i32, strLen: i32) -> void 
     linker.func_wrap("env", "print", |mut caller: Caller<'_, ()>, str_ptr: i32, str_len: i32| {
         if let Some(memory) = caller.get_export("memory") {
             if let Some(memory) = memory.into_memory() {
@@ -218,6 +219,7 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
                 if str_ptr >= 0 && str_len >= 0 {
                     let start = str_ptr as usize;
                     let len = str_len as usize;
+                    
                     if start + len <= data.len() {
                         if let Ok(string) = std::str::from_utf8(&data[start..start + len]) {
                             print!("{}", string);
@@ -228,7 +230,7 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
                         print!("[out of bounds]");
                     }
                 } else {
-                    print!("[invalid pointer/length]");
+                    print!("[invalid parameters]");
                 }
             }
         }
@@ -247,6 +249,7 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
                 if str_ptr >= 0 && str_len >= 0 {
                     let start = str_ptr as usize;
                     let len = str_len as usize;
+                    
                     if start + len <= data.len() {
                         if let Ok(string) = std::str::from_utf8(&data[start..start + len]) {
                             println!("{}", string);
@@ -257,7 +260,7 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
                         println!("[out of bounds]");
                     }
                 } else {
-                    println!("[invalid pointer/length]");
+                    println!("[invalid parameters]");
                 }
             }
         }
@@ -334,6 +337,8 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
         None, None
     ))?;
     
+
+
     // Add type conversion functions
     linker.func_wrap("env", "int_to_string", |mut caller: Caller<'_, ()>, value: i32| -> i32 {
         let string_value = value.to_string();
@@ -502,33 +507,53 @@ fn run_wasm_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
         None, None
     ))?;
 
-    // String concatenation function
+    // String concatenation function - enhanced to handle both string literal and length-prefixed formats
     linker.func_wrap("env", "string_concat", |mut caller: Caller<'_, ()>, str1_ptr: i32, str2_ptr: i32| -> i32 {
         if let Some(memory) = caller.get_export("memory") {
             if let Some(memory) = memory.into_memory() {
                 let mut data = memory.data_mut(&mut caller);
                 
-                // Read first string
-                let str1 = if str1_ptr >= 0 && (str1_ptr as usize) + 4 < data.len() {
-                    let len_bytes = &data[str1_ptr as usize..str1_ptr as usize + 4];
-                    let str1_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                // Helper function to read a string that might be in either format
+                let read_string = |ptr: i32, data: &[u8]| -> String {
+                    if ptr < 0 || (ptr as usize) >= data.len() {
+                        return String::new();
+                    }
                     
-                    if str1_ptr as usize + 4 + str1_len < data.len() {
-                        let str1_data = &data[str1_ptr as usize + 4..str1_ptr as usize + 4 + str1_len];
-                        std::str::from_utf8(str1_data).unwrap_or("")
-                    } else { "" }
-                } else { "" };
+                    let start = ptr as usize;
+                    
+                    // Try to read as length-prefixed string first (from toString())
+                    if start + 4 < data.len() {
+                        let len_bytes = &data[start..start + 4];
+                        let potential_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+                        
+                        // Check if this looks like a valid length-prefixed string
+                        if potential_len > 0 && potential_len < 1000 && start + 4 + potential_len <= data.len() {
+                            let str_data = &data[start + 4..start + 4 + potential_len];
+                            if let Ok(s) = std::str::from_utf8(str_data) {
+                                // Check if it's all printable ASCII/UTF-8 - good sign it's a real string
+                                if s.chars().all(|c| !c.is_control() || c.is_whitespace()) {
+                                    return s.to_string();
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Fall back to reading as null-terminated string literal
+                    let mut end = start;
+                    while end < data.len() && data[end] != 0 {
+                        end += 1;
+                    }
+                    
+                    if let Ok(s) = std::str::from_utf8(&data[start..end]) {
+                        s.to_string()
+                    } else {
+                        String::new()
+                    }
+                };
                 
-                // Read second string
-                let str2 = if str2_ptr >= 0 && (str2_ptr as usize) + 4 < data.len() {
-                    let len_bytes = &data[str2_ptr as usize..str2_ptr as usize + 4];
-                    let str2_len = u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
-                    
-                    if str2_ptr as usize + 4 + str2_len < data.len() {
-                        let str2_data = &data[str2_ptr as usize + 4..str2_ptr as usize + 4 + str2_len];
-                        std::str::from_utf8(str2_data).unwrap_or("")
-                    } else { "" }
-                } else { "" };
+                // Read both strings using the enhanced reader
+                let str1 = read_string(str1_ptr, &data);
+                let str2 = read_string(str2_ptr, &data);
                 
                 // Concatenate strings
                 let result = format!("{}{}", str1, str2);

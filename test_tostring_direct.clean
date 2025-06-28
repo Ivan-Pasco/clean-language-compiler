@@ -1,0 +1,19 @@
+start()
+	// Test 1: Direct toString() call (should show string, not pointer)
+	integer value = 42
+	print("Direct call result:")
+	print(value.toString())
+	
+	// Test 2: Stored toString() result (should work correctly)
+	string stored = value.toString()
+	print("Stored result:")
+	print(stored)
+	
+	// Test 3: String literal (should work)
+	print("String literal:")
+	print("Hello World")
+	
+	// Test 4: String variable (should work)
+	string str_var = "Test String"
+	print("String variable:")
+	print(str_var) 

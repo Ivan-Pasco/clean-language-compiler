@@ -1,0 +1,19 @@
+// Clean Language Testing Framework Demo
+
+functions:
+    integer add(integer a, integer b)
+        return a + b
+    
+    integer multiply(integer x, integer y)
+        return x * y
+
+tests:
+    "basic addition": add(2, 3) = 5
+    "multiplication": multiply(4, 5) = 20
+    "zero multiplication": multiply(0, 100) = 0
+    add(10, 15) = 25
+    add(1, 1) = 2
+
+function start()
+    integer result = add(10, 20)
+    print(result) 

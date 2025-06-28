@@ -1,0 +1,16 @@
+// Test file with intentional parser errors
+function start()
+	integer x = 5 +
+	print(x
+	integer y = "hello"
+	if x > 0
+		print("positive")
+	else
+		print("negative"
+	
+	// Missing closing bracket
+	Array<string> arr = ["a", "b", "c"
+	
+	// Wrong function syntax
+	func add(integer a, integer b) -> integer
+		return a + b

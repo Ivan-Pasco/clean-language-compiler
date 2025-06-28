@@ -1,0 +1,4 @@
+start()
+	string literal_test = "Hello World"
+	print("Literal test:")
+	print(literal_test)

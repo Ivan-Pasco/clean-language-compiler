@@ -1,0 +1,43 @@
+start()
+	// Test automatic toString() conversion for all types
+	
+	// Test 1: Integer values
+	integer age = 25
+	print("Integer test:")
+	print(age)          // Should print: 25
+	print(42)           // Should print: 42
+	print(-17)          // Should print: -17
+	
+	// Test 2: Float values  
+	float price = 19.99
+	print("Float test:")
+	print(price)        // Should print: 19.99
+	print(3.14)         // Should print: 3.14
+	print(-2.5)         // Should print: -2.5
+	
+	// Test 3: Boolean values
+	boolean isValid = true
+	boolean isComplete = false
+	print("Boolean test:")
+	print(isValid)      // Should print: true
+	print(isComplete)   // Should print: false
+	print(true)         // Should print: true
+	print(false)        // Should print: false
+	
+	// Test 4: String values (should work as before)
+	string name = "Alice"
+	print("String test:")
+	print(name)         // Should print: Alice
+	print("Hello World") // Should print: Hello World
+	
+	// Test 5: Mixed expressions
+	print("Mixed expressions:")
+	print(age + 10)     // Should print: 35
+	print(price * 2.0)  // Should print: 39.98
+	print(isValid and isComplete) // Should print: false
+	
+	// Test 6: Manual toString() calls (should still work)
+	print("Manual toString():")
+	print(age.toString())    // Should print: 25
+	print(price.toString())  // Should print: 19.99
+	print(isValid.toString()) // Should print: true 

@@ -1,4 +1,0 @@
-function start()
-	float x = -5.0
-	float result = abs(x)
-	print("abs function test completed") 

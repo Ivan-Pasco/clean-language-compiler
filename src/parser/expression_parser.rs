@@ -468,6 +468,7 @@ pub fn parse_method_call(pair: Pair<Rule>) -> Result<Expression, CompilerError> 
             let first = base_inner.next().unwrap();
             match first.as_rule() {
                 Rule::identifier => Expression::Variable(first.as_str().to_string()),
+                Rule::builtin_class_name => Expression::Variable(first.as_str().to_string()),
                 Rule::expression => parse_expression(first)?,
                 _ => return Err(CompilerError::parse_error(
                     "Invalid method call base".to_string(),

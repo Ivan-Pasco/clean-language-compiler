@@ -41,6 +41,7 @@ pub fn parse_program_ast(pair: Pair<Rule>) -> Result<Program, CompilerError> {
                 functions,
                 classes: Vec::new(),
                 start_function: None,
+                tests: Vec::new(),
             })
         },
         _ => Err(CompilerError::parse_error(
