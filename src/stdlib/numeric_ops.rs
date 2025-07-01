@@ -1315,7 +1315,7 @@ mod tests {
         numeric_ops.register_functions(&mut codegen).unwrap();
 
         let engine = Engine::default();
-        let wasm_bytes = codegen.generate_test_module().unwrap();
+        let wasm_bytes = codegen.generate_test_module_without_imports().unwrap();
         let module = Module::new(&engine, &wasm_bytes).unwrap();
         let mut store = Store::new(&engine, ());
         let instance = Instance::new(&mut store, &module, &[]).unwrap();

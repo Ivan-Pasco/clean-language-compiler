@@ -1,5 +1,5 @@
 use pest::iterators::Pair;
-use crate::ast::{Expression, Value, BinaryOperator, UnaryOperator, StringPart};
+use crate::ast::{Expression, Value, BinaryOperator, StringPart};
 use crate::error::CompilerError;
 use super::{get_location, convert_to_ast_location};
 use super::Rule;
@@ -11,16 +11,14 @@ fn _unused_get_ast_location(location: &super::SourceLocation) -> crate::ast::Sou
     convert_to_ast_location(location)
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 enum ParsedOperator {
     Binary(BinaryOperator),
-    Unary(UnaryOperator),
 }
 
 impl ParsedOperator {
     fn precedence(&self) -> u8 {
         match self {
-            ParsedOperator::Unary(_) => 6,  // Highest precedence
             ParsedOperator::Binary(op) => match op {
                 BinaryOperator::Power => 5,
                 BinaryOperator::Multiply | BinaryOperator::Divide | BinaryOperator::Modulo => 4,
@@ -186,7 +184,6 @@ pub fn parse_base_expression(pair: Pair<Rule>) -> Result<Expression, CompilerErr
 fn apply_operator(left: Expression, op: ParsedOperator, right: Expression) -> Result<Expression, CompilerError> {
     match op {
         ParsedOperator::Binary(op) => Ok(Expression::Binary(Box::new(left), op, Box::new(right))),
-        ParsedOperator::Unary(op) => Ok(Expression::Unary(op, Box::new(right))),
     }
 }
 

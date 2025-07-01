@@ -7,7 +7,7 @@ use clean_language_compiler::{
         numeric_ops::NumericOperations,
     },
 };
-use wasmtime::Val;
+
 
 #[test]
 fn test_string_operations() -> Result<(), CompilerError> {

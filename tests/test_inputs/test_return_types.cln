@@ -1,13 +1,17 @@
-function start() returns integer {
-    let x = return_integer();
-    let y = return_number();
-    return x + 1;
-}
+functions:  
+    string greet(string name)
+        return "Hello, " + name + "!"
+    
+    number calculate(number x, number y)
+        return x * y + 10
+    
+    boolean isEven(number n)
+        return n % 2 == 0
 
-function return_integer() returns integer {
-    return 42;
-}
-
-function return_number() returns number {
-    return 3.14;
-} 
+start()
+    string message = greet("World")
+    number result = calculate(5, 3)
+    boolean even = isEven(result)
+    print message
+    print result
+    print even 

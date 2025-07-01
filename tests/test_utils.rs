@@ -36,7 +36,24 @@ pub fn generate_wasm(program: &Program) -> Vec<u8> {
 /// Validates generated WebAssembly
 pub fn validate_wasm(wasm_binary: &[u8]) -> bool {
     // Simple WASM validation - check magic bytes and minimum size
-    wasm_binary.len() >= 8 && &wasm_binary[0..4] == b"\0asm"
+    if wasm_binary.len() < 8 || &wasm_binary[0..4] != b"\0asm" {
+        eprintln!("WASM Validation Error: Invalid magic bytes or too short");
+        return false;
+    }
+    
+    // Use wasmparser for detailed validation
+    match wasmparser::validate(wasm_binary) {
+        Ok(_) => {
+            println!("WASM validation passed successfully!");
+            true
+        }
+        Err(e) => {
+            eprintln!("WASM Validation Error: {}", e);
+            // Print the location of the error for debugging
+            eprintln!("Error details: {:?}", e);
+            false
+        }
+    }
 }
 
 /// Helper to create the test_inputs directory if it doesn't exist
@@ -57,8 +74,9 @@ pub fn create_test_file(filename: &str, content: &str) {
 /// End-to-end test helper: parse, analyze, and generate code
 pub fn compile_source(source: &str) -> Result<Vec<u8>, String> {
     let program = parse_source(source);
-    analyze_program(&program)?;
-    Ok(generate_wasm(&program))
+    let mut analyzer = SemanticAnalyzer::new();
+    let analyzed_program = analyzer.analyze(&program).map_err(|e| e.to_string())?;
+    Ok(generate_wasm(&analyzed_program))
 }
 
 pub fn compile_program(program: &Program) -> Result<Vec<u8>, String> {
@@ -66,9 +84,9 @@ pub fn compile_program(program: &Program) -> Result<Vec<u8>, String> {
     let mut codegen = CodeGenerator::new();
     
     // Run semantic analysis
-    analyzer.analyze(program).map_err(|e| e.to_string())?;
+    let analyzed_program = analyzer.analyze(program).map_err(|e| e.to_string())?;
     
-    // Generate WASM
-    codegen.generate(program)
+    // Generate WASM using the analyzed program
+    codegen.generate(&analyzed_program)
         .map_err(|e| e.to_string())
 } 

@@ -245,7 +245,7 @@ false
 |---------------------|-------------|-----------------|------------------|
 | `boolean`  | Logical value (`true` / `false`) | 1 bit | `true`, `false` |
 | `integer`  | Whole numbers, signed | Platform optimal (≥32 bits) | `42`, `-17` |
-| `float`    | Decimal numbers | Platform optimal (≥64 bits) | `3.14`, `6.02e23` |
+| `number`    | Decimal numbers | Platform optimal (≥64 bits) | `3.14`, `6.02e23` |
 | `string`   | UTF-8 text, dynamically sized | — | `"Hello"` |
 | `void`     | No value / empty return type | 0 bytes | *(function return only)* |
 
@@ -266,8 +266,8 @@ Clean Language supports explicit precision control for numeric types using type 
 
 | Type Syntax | WebAssembly Type | Size | Precision | Use Case |
 |-------------|------------------|------|-----------|----------|
-| `float:32`  | f32 | 32-bit | IEEE 754 single | Default float, graphics |
-| `float:64`  | f64 | 64-bit | IEEE 754 double | High precision, scientific computing |
+| `number:32`  | f32 | 32-bit | IEEE 754 single | Default float, graphics |
+| `number:64`  | f64 | 64-bit | IEEE 754 double | High precision, scientific computing |
 
 #### Examples
 
@@ -279,8 +279,8 @@ integer:32 count = 1000000       // Default integer (can omit :32)
 integer:64 timestamp = 1640995200000  // Unix timestamp in milliseconds
 
 // Float precision examples  
-float:32 temperature = 23.5      // Default float (can omit :32)
-float:64 preciseValue = 3.141592653589793  // High precision calculation
+number:32 temperature = 23.5      // Default float (can omit :32)
+number:64 preciseValue = 3.141592653589793  // High precision calculation
 
 // Apply-blocks with precision
 integer:8:
@@ -288,14 +288,14 @@ integer:8:
     green = 128
     blue = 64
 
-float:64:
+number:64:
     pi = 3.141592653589793
     e = 2.718281828459045
 ```
 
 #### Default Behavior
 - `integer` without modifier defaults to `integer:32`
-- `float` without modifier defaults to `float:32`
+- `number` without modifier defaults to `number:32`
 - This maintains backward compatibility with existing code
 
 ### Composite & Generic Types

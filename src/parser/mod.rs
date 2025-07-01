@@ -145,7 +145,7 @@ function start()
     #[test]
     fn test_basic_parsing() {
         let source = r#"
-function start()
+start()
 	integer x = 5
 	print(x)
         "#;
@@ -157,7 +157,7 @@ function start()
     #[test]
     fn test_parse_error_reporting() {
         let source = r#"
-function start()
+start()
 	integer x = 5 +
         "#;
         
@@ -174,7 +174,7 @@ function start()
     #[test]
     fn test_nested_expression_parsing() {
         let source = r#"
-function start()
+start()
 	integer x = (1 + 2) * (3 - 4)
 	print(x)
         "#;
@@ -186,7 +186,7 @@ function start()
     #[test]
     fn test_apply_blocks() {
         let source = r#"
-function start()
+start()
 	println:
 		"Hello"
 		"World"
@@ -203,25 +203,25 @@ function start()
     #[test]
     fn test_function_syntaxes() {
         let source = r#"
-function integer add()
-	input
-		integer a
-		integer b
-	return a + b
-
-function integer multiply()
-	description "Multiplies two integers"
-	input
-		integer a
-		integer b
-	return a * b
-
 functions:
+	integer add()
+		input
+			integer a
+			integer b
+		return a + b
+
+	integer multiply()
+		description "Multiplies two integers"
+		input
+			integer a
+			integer b
+		return a * b
+
 	integer square()
 		input integer x
 		return x * x
 
-function start()
+start()
 	integer result = add()
 	print(result)
         "#;
@@ -233,7 +233,7 @@ function start()
     #[test]
     fn test_string_interpolation() {
         let source = r#"
-function start()
+start()
 	string name = "World"
 	string greeting = "Hello, {name}!"
 	println(greeting)
@@ -246,7 +246,7 @@ function start()
     #[test]
     fn test_on_error_syntax() {
         let source = r#"
-function start()
+start()
 	integer result = divide(10, 0) onError 0
 	print(result)
         "#;
@@ -264,12 +264,12 @@ class Shape
 	constructor(color)
 	
 class Circle is Shape
-	float radius
+	number radius
 	
 	constructor(color, radius)
 		super(color)
 	
-function start()
+start()
 	circle = Circle("red", 5.0)
         "#;
         
@@ -280,14 +280,14 @@ function start()
     #[test]
     fn test_complex_error_cases() {
         let test_cases = vec![
-            // Missing indentation after function
-            r#"function start()
-integer x = 5"#,
-            // Invalid apply block
-            r#"function start()
- invalid_block:"#,
-            // Missing expression after onError
-            r#"function start()
+            // Invalid syntax: incomplete expression
+            r#"start()
+	integer x = 5 +"#,
+            // Invalid syntax: invalid token sequence  
+            r#"start()
+	integer @ invalid"#,
+            // Invalid syntax: incomplete onError clause
+            r#"start()
 	integer x = divide(10, 0) onError"#,
         ];
 
@@ -316,7 +316,7 @@ integer x = 5"#,
     #[test]
     fn test_file_path_in_enhanced_errors() {
         let source = r#"
-function start()
+start()
 	integer x = 5 +
         "#;
         let file_path = "test_file.cln";
@@ -333,9 +333,9 @@ function start()
     #[test]
     fn test_type_first_declarations() {
         let source = r#"
-function start()
+start()
 	integer count = 0
-	float temperature = 23.5
+	number temperature = 23.5
 	boolean isActive = true
 	string name = "Alice"
         "#;
@@ -347,10 +347,10 @@ function start()
     #[test]
     fn test_advanced_types() {
         let source = r#"
-function start()
+start()
 	integer:8 smallNum = 100
 	integer:64 bigNum = 999999999999
-	float:32 preciseFloat = 3.14159
+	number:32 preciseNumber = 3.14159
 	boolean flag = true
         "#;
         
@@ -361,11 +361,11 @@ function start()
     #[test]
     fn test_matrix_operations() {
         let source = r#"
-function start()
-	Matrix<float> m1 = [[1.0, 2.0], [3.0, 4.0]]
-	Matrix<float> m2 = [[5.0, 6.0], [7.0, 8.0]]
-	Matrix<float> result = m1 + m2
-	Matrix<float> transposed = m1.transpose()
+start()
+	Matrix<number> m1 = [[1.0, 2.0], [3.0, 4.0]]
+	Matrix<number> m2 = [[5.0, 6.0], [7.0, 8.0]]
+	Matrix<number> result = m1 + m2
+	Matrix<number> transposed = m1.transpose()
         "#;
         
         let result = CleanParser::parse_program(source);
@@ -376,7 +376,7 @@ function start()
     fn test_print_parsing() {
         // Test print with literal
         let source1 = r#"
-function start()
+start()
 	print(5)
         "#;
         let result1 = CleanParser::parse_program(source1);
@@ -384,19 +384,40 @@ function start()
         
         // Test print with identifier
         let source2 = r#"
-function start()
+start()
 	print(x)
         "#;
         let result2 = CleanParser::parse_program(source2);
         println!("Print identifier result: {:?}", result2);
         
-        // Test variable and print together
+        // Test function with variable
         let source3 = r#"
-function start()
+start()
+	integer x = 5
+        "#;
+        let result3 = CleanParser::parse_program(source3);
+        println!("Function with variable result: {:?}", result3);
+        
+        // Test function with return
+        let source4 = r#"
+start()
+	return
+        "#;
+        let result4 = CleanParser::parse_program(source4);
+        println!("Function with return result: {:?}", result4);
+        
+        // Test function only
+        let source5 = r#"start()"#;
+        let result5 = CleanParser::parse_program(source5);
+        println!("Function only result: {:?}", result5);
+        
+        // Test variable and print together
+        let source6 = r#"
+start()
 	integer x = 5
 	print(x)
         "#;
-        let result3 = CleanParser::parse_program(source3);
-        println!("Variable + print result: {:?}", result3);
+        let result6 = CleanParser::parse_program(source6);
+        println!("Variable + print result: {:?}", result6);
     }
 }

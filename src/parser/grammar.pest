@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 // Keywords and identifiers
-keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "tests" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "start" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
+keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "tests" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
 identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
@@ -23,7 +23,7 @@ string = { "\"" ~ string_part* ~ "\"" }
 core_type = { 
     "boolean" |
     "integer" |
-    "float" |
+    "number" |
     "string" |
     "void" |
     "any"
@@ -58,7 +58,7 @@ type_ = {
 }
 
 // Indentation-based blocks
-INDENT = _{ "\t" }
+INDENT = _{ " " | "\t" }
 NEWLINE = _{ "\n" | "\r\n" }
 empty_line = _{ INDENT* ~ NEWLINE }
 indented_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement)* }
@@ -168,6 +168,11 @@ matrix_literal = { "[" ~ matrix_row ~ ("," ~ matrix_row)* ~ "]" }
 // Type-first variable declarations (no let keyword)
 variable_decl = { type_ ~ identifier ~ ("=" ~ expression)? }
 
+// Print statements (explicit forms to handle non-parentheses syntax)
+print_stmt = { "print" ~ expression }
+printl_stmt = { "printl" ~ expression }
+println_stmt = { "println" ~ expression }
+
 // Assignment
 assignment = { (property_access | identifier) ~ "=" ~ expression }
 
@@ -196,12 +201,12 @@ parameter = { type_ ~ identifier ~ ("=" ~ expression)? }
 
 // Functions block (the main supported syntax for function declarations)
 functions_block = { "functions" ~ ":" ~ indented_functions_block }
-indented_functions_block = { NEWLINE ~ INDENT+ ~ function_in_block ~ (NEWLINE ~ INDENT+ ~ function_in_block)* }
-function_in_block = { function_type? ~ identifier? ~ "(" ~ parameter_list? ~ ")" ~ function_body }
+indented_functions_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ function_in_block ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ function_in_block)* }
+function_in_block = { function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ function_body }
 // Function body statements (similar to indented_block but without initial NEWLINE/INDENT)
-function_statements = { statement ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ statement)* }
+function_statements = { statement ~ (NEWLINE ~ INDENT+ ~ statement)* }
 
-function_body = { (NEWLINE ~ INDENT+ ~ setup_block ~ (empty_line)* ~ INDENT+ ~ function_statements) | (NEWLINE ~ INDENT+ ~ function_statements) }
+function_body = { (NEWLINE ~ INDENT+ ~ setup_block ~ NEWLINE ~ INDENT+ ~ function_statements) | (NEWLINE ~ INDENT+ ~ function_statements) }
 
 // Function return type (excludes generic identifiers)
 function_type = { 
@@ -263,7 +268,7 @@ import_item = {
     identifier                                             // Math
 }
 import_list = { import_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_item)* }
-import_stmt = { ("import" ~ ":" ~ NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_list) | ("import" ~ identifier) }
+import_stmt = { ("import" ~ ":" ~ NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_list) | ("import" ~ identifier) | ("import" ~ ":" ~ import_item) }
 
 // Async expressions and statements
 later_assignment = { "later" ~ identifier ~ "=" ~ "start" ~ expression }
@@ -282,8 +287,11 @@ statement = {
     later_assignment |
     background_stmt |
     standalone_input_declaration |
-    variable_decl |
     apply_block |
+    print_stmt |
+    printl_stmt |
+    println_stmt |
+    variable_decl |
     assignment |
     expression
 }
@@ -292,5 +300,5 @@ statement = {
 program_item = { import_stmt | start_function | implicit_start_function | standalone_function | background_function | functions_block | tests_block | class_decl | statement }
 program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
-start_function = { "function" ~ "start" ~ "(" ~ ")" ~ indented_block } 
+start_function = { "start" ~ "(" ~ ")" ~ indented_block } 
 implicit_start_function = { "start" ~ "(" ~ ")" ~ indented_block } 

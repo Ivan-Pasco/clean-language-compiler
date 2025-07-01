@@ -233,7 +233,7 @@ fn test_iterate_statement() {
     };
     
     // Create a function with the iterate statement
-    let function = AstFunction {
+    let _function = AstFunction {
         name: "test_iterate".to_string(),
         description: None,
         type_parameters: vec![],
@@ -333,27 +333,27 @@ fn test_matrix_operations() {
         Box::new(matrix_b.clone())
     );
     
-    let subtract_expr = Expression::Binary(
+    let _subtract_expr = Expression::Binary(
         Box::new(matrix_a.clone()),
         BinaryOperator::Subtract,
         Box::new(matrix_b.clone())
     );
     
-    let multiply_expr = Expression::Binary(
+    let _multiply_expr = Expression::Binary(
         Box::new(matrix_a.clone()),
         BinaryOperator::Multiply,
         Box::new(matrix_b.clone())
     );
     
     // Test matrix method calls
-    let transpose_expr = Expression::MethodCall {
+    let _transpose_expr = Expression::MethodCall {
         object: Box::new(matrix_a.clone()),
         method: "transpose".to_string(),
         arguments: vec![],
         location: SourceLocation::default(),
     };
     
-    let inverse_expr = Expression::MethodCall {
+    let _inverse_expr = Expression::MethodCall {
         object: Box::new(matrix_a.clone()),
         method: "inverse".to_string(),
         arguments: vec![],
@@ -362,7 +362,7 @@ fn test_matrix_operations() {
     
     // Generate code for these expressions
     let mut add_instructions = Vec::new();
-    let add_result = instr_gen.generate_expression(&add_expr, &mut add_instructions);
+    let _add_result = instr_gen.generate_expression(&add_expr, &mut add_instructions);
     // Note: These tests may fail if the underlying functions don't exist
     // but the test validates the code generation structure
 } 

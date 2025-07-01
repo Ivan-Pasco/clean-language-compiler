@@ -1,5 +1,4 @@
-start() {
-    let m: Matrix = [[1, 2], [3, 4]]
-    let t: Matrix = @T m  // Transpose
-    print t
-} 
+start()
+    Matrix<number> m = [[1, 2], [3, 4]]
+    Matrix<number> t = m.transpose()
+    print t 

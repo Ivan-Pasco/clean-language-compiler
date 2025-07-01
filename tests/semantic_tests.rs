@@ -1,8 +1,4 @@
-use clean_language_compiler::{
-    ast::{Program, Type, Statement, Expression, Function},
-    semantic::SemanticAnalyzer,
-    error::CompilerError,
-};
+
 mod test_utils;
 
 #[test]

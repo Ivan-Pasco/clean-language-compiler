@@ -1460,10 +1460,10 @@ mod tests {
     #[test]
     fn test_parse_function_in_block_missing_name() {
         let source = "integer ()\n\treturn 42";
-        let mut pairs = CleanParser::parse(Rule::function_in_block, source).unwrap();
-        let pair = pairs.next().unwrap();
-        let err = parse_function_in_block(pair).unwrap_err();
-        assert!(err.to_string().contains("missing a name"));
+        let result = CleanParser::parse(Rule::function_in_block, source);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("identifier") || err.to_string().contains("size_specifier"));
     }
 
     #[test]

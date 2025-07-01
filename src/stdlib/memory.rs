@@ -21,7 +21,7 @@ pub const TYPE_ID_FUNCTION: u32 = 7;
 const HEADER_SIZE: usize = 16; // Increased to include more metadata
 const MIN_ALLOCATION: usize = 32; // Increased for better alignment
 const ALIGNMENT: usize = 8;
-const GC_THRESHOLD: usize = 1024 * 1024; // 1MB threshold for GC trigger
+
 const PAGE_SIZE: usize = 65536; // WebAssembly page size (64KB)
 
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ pub struct MemoryManager {
     free_list: Option<usize>,
     pub data: Vec<u8>,
     total_allocated: usize,
-    current_index: usize,
+
 }
 
 impl MemoryManager {
@@ -64,7 +64,7 @@ impl MemoryManager {
             free_list: None,
             data: vec![0; initial_size],
             total_allocated: 0,
-            current_index: 0,
+
         }
     }
 

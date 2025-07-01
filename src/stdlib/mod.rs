@@ -22,6 +22,8 @@ use crate::error::CompilerError;
 use crate::codegen::{CodeGenerator, HEAP_START};
 use crate::types::WasmType;
 use wasm_encoder::Instruction;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 /// Standard library implementation for the Clean Language
 pub struct StandardLibrary {
@@ -62,14 +64,14 @@ impl Runtime {
         Self {
             memory: MemoryManager::new(16, Some(HEAP_START as u32)),
             strings: StringManager::new(MemoryManager::new(16, Some(HEAP_START as u32))),
-            arrays: ArrayManager::new(MemoryManager::new(16, Some(HEAP_START as u32))),
+            arrays: ArrayManager::new(Rc::new(RefCell::new(MemoryManager::new(16, Some(HEAP_START as u32))))),
         }
     }
 
     pub fn reset(&mut self) {
         self.memory = MemoryManager::new(16, Some(HEAP_START as u32));
         self.strings = StringManager::new(MemoryManager::new(16, Some(HEAP_START as u32)));
-        self.arrays = ArrayManager::new(MemoryManager::new(16, Some(HEAP_START as u32)));
+        self.arrays = ArrayManager::new(Rc::new(RefCell::new(MemoryManager::new(16, Some(HEAP_START as u32)))));
     }
 }
 

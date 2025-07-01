@@ -44,14 +44,14 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     match type_str {
                         "boolean" => Ok(Type::Boolean),
                         "integer" => Ok(Type::Integer),
-                        "float" => Ok(Type::Float),
+                        "number" => Ok(Type::Float),
                         "string" => Ok(Type::String),
                         "void" => Ok(Type::Void),
                         "any" => Ok(Type::Any),
                         _ => Err(CompilerError::parse_error(
                             format!("Unknown core type: {}", type_str),
                             None,
-                            Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                            Some("Valid core types are: boolean, integer, number, string, void, any".to_string())
                         ))
                     }
                 },
@@ -63,14 +63,14 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     let base_type = match core_type_pair.as_str() {
                         "boolean" => Type::Boolean,
                         "integer" => Type::Integer,
-                        "float" => Type::Float,
+                        "number" => Type::Float,
                         "string" => Type::String,
                         "void" => Type::Void,
                         "any" => Type::Any,
                         _ => return Err(CompilerError::parse_error(
                             format!("Unknown core type in sized type: {}", core_type_pair.as_str()),
                             None,
-                            Some("Valid core types are: boolean, integer, float, string, void, any".to_string())
+                            Some("Valid core types are: boolean, integer, number, string, void, any".to_string())
                         ))
                     };
                     
@@ -86,7 +86,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                         Type::Integer => Ok(Type::IntegerSized { bits, unsigned }),
                         Type::Float => Ok(Type::FloatSized { bits }),
                         _ => Err(CompilerError::parse_error(
-                            "Size specifiers can only be used with integer and float types".to_string(),
+                            "Size specifiers can only be used with integer and number types".to_string(),
                             None,
                             Some("Use size specifiers like :8, :16, :32, :64, or :8u for unsigned".to_string())
                         ))
@@ -110,14 +110,14 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
             match type_str {
                 "boolean" => Ok(Type::Boolean),
                 "integer" => Ok(Type::Integer),
-                "float" => Ok(Type::Float),
+                "number" => Ok(Type::Float),
                 "string" => Ok(Type::String),
                 "void" => Ok(Type::Void),
                 "any" => Ok(Type::Any),
                 _ => Err(CompilerError::parse_error(
                     format!("Unknown core type: {}", type_str),
                     None,
-                    Some("Valid core types are: boolean, integer, float, string, void, any".to_string())
+                    Some("Valid core types are: boolean, integer, number, string, void, any".to_string())
                 ))
             }
         },
@@ -130,6 +130,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
             let base_type = match core_type_pair.as_str() {
                 "boolean" => Type::Boolean,
                 "integer" => Type::Integer,
+                "number" => Type::Float,
                 "float" => Type::Float,
                 "string" => Type::String,
                 "void" => Type::Void,
@@ -137,7 +138,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                 _ => return Err(CompilerError::parse_error(
                     format!("Unknown core type in sized type: {}", core_type_pair.as_str()),
                     None,
-                    Some("Valid core types are: boolean, integer, float, string, void, any".to_string())
+                    Some("Valid core types are: boolean, integer, number, float, string, void, any".to_string())
                 ))
             };
             
@@ -154,7 +155,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                 Type::Integer => Ok(Type::IntegerSized { bits, unsigned }),
                 Type::Float => Ok(Type::FloatSized { bits }),
                 _ => Err(CompilerError::parse_error(
-                    "Size specifiers can only be used with integer and float types".to_string(),
+                    "Size specifiers can only be used with integer and number types".to_string(),
                     None,
                     Some("Use size specifiers like :8, :16, :32, :64, or :8u for unsigned".to_string())
                 ))
@@ -202,7 +203,7 @@ fn parse_basic_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     let type_name = pair.as_str();
     match type_name {
         "int" => Ok(Type::Integer),
-        "float" => Ok(Type::Float),
+        "number" => Ok(Type::Float),  // number maps to float type
         "bool" => Ok(Type::Boolean),
         "string" => Ok(Type::String),
         "void" => Ok(Type::Void),

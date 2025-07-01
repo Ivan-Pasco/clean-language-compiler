@@ -1,5 +1,4 @@
-start() {
-    let x: number = 42
-    let y: number = x + 8
-    print y
-} 
+start()
+    number x = 42
+    number y = x + 8
+    print y 

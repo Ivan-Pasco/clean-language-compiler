@@ -18,7 +18,7 @@ fn test_arithmetic_program() {
     let wasm_result = codegen.generate(&program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
-    let wasm_binary = codegen.finish();
+    let wasm_binary = wasm_result.unwrap();
     assert!(validate_wasm(&wasm_binary));
     
     // Execute the WASM and verify output
@@ -45,7 +45,7 @@ fn test_matrix_program() {
     let wasm_result = codegen.generate(&program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
-    let wasm_binary = codegen.finish();
+    let wasm_binary = wasm_result.unwrap();
     assert!(validate_wasm(&wasm_binary));
     
     // Execute the WASM and verify output
@@ -88,7 +88,7 @@ fn test_function_program() {
     let wasm_result = codegen.generate(&program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
-    let wasm_binary = codegen.finish();
+    let wasm_binary = wasm_result.unwrap();
     assert!(validate_wasm(&wasm_binary));
     
     // Execute the WASM and verify output

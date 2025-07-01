@@ -65,7 +65,7 @@ mod integration_tests {
 
     #[test]
     fn test_basic_integration() {
-        let source = r#"function start()
+        let source = r#"start()
 	integer x = 42
 	print(x)
 "#;
@@ -85,15 +85,16 @@ mod integration_tests {
 
     #[test]
     fn test_function_integration() {
-        let source = r#"function integer add()
-	description "Adds two numbers"
-	input
-		integer a
-		integer b
-	
-	return a + b
+        let source = r#"functions:
+	integer add()
+		description "Adds two numbers"
+		input
+			integer a
+			integer b
+		
+		return a + b
 
-function start()
+start()
 	integer result = add(5, 3)
 	print(result)
 "#;
@@ -113,7 +114,7 @@ function start()
 
     #[test]
     fn test_type_checking_integration() {
-        let source = r#"function start()
+        let source = r#"start()
 	integer x = 42
 	string y = "hello"
 	print(x)
@@ -135,7 +136,7 @@ function start()
 
     #[test]
     fn test_error_propagation() {
-        let source = r#"function start()
+        let source = r#"start()
 	integer x = undefined_function() onError 0
 	print(x)
 "#;
@@ -158,17 +159,17 @@ function start()
         println!("\n=== Standard Library Integration Test ===");
         
         let test_cases = vec![
-            ("Math Functions", r#"function start()
+            ("Math Functions", r#"start()
 	integer x = -5
 	integer result = abs(x)
 	print(result)
 "#),
-            ("String Functions", r#"function start()
+            ("String Functions", r#"start()
 	string text = "hello"
 	integer length = len(text)
 	print(length)
 "#),
-            ("Array Functions", r#"function start()
+            ("Array Functions", r#"start()
 	Array<integer> arr = [1, 2, 3, 4, 5]
 	integer length = array_length(arr)
 	print(length)

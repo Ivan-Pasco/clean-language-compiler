@@ -13,6 +13,9 @@ pub fn parse_statement(pair: Pair<Rule>) -> Result<Statement, CompilerError> {
     match inner.as_rule() {
         Rule::variable_decl => parse_variable_declaration(inner, ast_location),
         Rule::assignment => parse_assignment_statement(inner, ast_location),
+        Rule::print_stmt => parse_print_statement(inner, ast_location),
+        Rule::printl_stmt => parse_printl_statement(inner, ast_location),
+        Rule::println_stmt => parse_println_statement(inner, ast_location),
         Rule::if_stmt => parse_if_statement(inner, ast_location),
         Rule::iterate_stmt => parse_iterate_statement(inner, ast_location),
         Rule::range_iterate_stmt => parse_range_iterate_statement(inner, ast_location),
@@ -294,15 +297,15 @@ fn parse_type_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::
         Rule::core_type => {
             let type_str = type_part.as_str();
             match type_str {
-                "boolean" => crate::ast::Type::Boolean,
                 "integer" => crate::ast::Type::Integer,
-                "float" => crate::ast::Type::Float,
+                "number" => crate::ast::Type::Float,
+                "boolean" => crate::ast::Type::Boolean,
                 "string" => crate::ast::Type::String,
                 "void" => crate::ast::Type::Void,
                 _ => return Err(CompilerError::parse_error(
                     format!("Unknown core type: {}", type_str),
                     Some(ast_location),
-                    Some("Valid core types are: boolean, integer, float, string, void".to_string())
+                    Some("Valid core types are: integer, number, boolean, string, void".to_string())
                 ))
             }
         },
@@ -449,6 +452,39 @@ fn parse_background_statement(pair: Pair<Rule>, ast_location: crate::ast::Source
 
     Ok(Statement::Background {
         expression,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_print_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let expression = parse_expression(parts.next().unwrap())?;
+
+    Ok(Statement::Print {
+        expression,
+        newline: false,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_printl_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let expression = parse_expression(parts.next().unwrap())?;
+
+    Ok(Statement::Print {
+        expression,
+        newline: true,
+        location: Some(ast_location),
+    })
+}
+
+fn parse_println_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
+    let mut parts = pair.into_inner();
+    let expression = parse_expression(parts.next().unwrap())?;
+
+    Ok(Statement::Print {
+        expression,
+        newline: true,
         location: Some(ast_location),
     })
 } 

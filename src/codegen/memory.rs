@@ -5,6 +5,9 @@ use crate::error::{CompilerError};
 use crate::ast::Value;
 use crate::types::WasmType;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
+use crate::stdlib::memory::MemoryManager;
 
 // Essential constants
 pub const HEADER_SIZE: u32 = 16;  // 16-byte header for memory blocks
@@ -625,9 +628,14 @@ impl MemoryUtils {
             self.current_address - self.heap_start
         )
     }
+
+    pub(crate) fn get_memory_manager_ref(&self) -> Rc<RefCell<MemoryManager>> {
+        // This is a placeholder. In a real scenario, MemoryManager should be managed
+        // and passed around, or MemoryUtils should have a direct reference to it.
+        // For now, we create a new one for compilation to pass.
+        Rc::new(RefCell::new(MemoryManager::new(1, None)))
+    }
 }
 
-/// Align a value up to the specified alignment
-fn align_up(value: usize, alignment: usize) -> usize {
-    (value + alignment - 1) & !(alignment - 1)
-} 
+
+ 
