@@ -7,6 +7,6 @@ tests:
 	"simple addition": add(2, 3) = 5
 	add(10, 5) = 15
 
-function start()
+start()
 	integer result = add(1, 2) 
 	print(result)

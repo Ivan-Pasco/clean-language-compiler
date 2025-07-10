@@ -92,11 +92,17 @@ pub(crate) struct MemoryUtils {
     
     // String pool for deduplication
     string_pool: HashMap<String, usize>,
+    
+    // Shared memory manager for stdlib integration
+    memory_manager: Rc<RefCell<MemoryManager>>,
 }
 
 impl MemoryUtils {
     /// Create a new MemoryUtils instance with memory pools
     pub(crate) fn new(heap_start: usize) -> Self {
+        // Create a shared memory manager for stdlib integration
+        let memory_manager = Rc::new(RefCell::new(MemoryManager::new(1, None)));
+        
         Self {
             data_section: DataSection::new(),
             heap_start,
@@ -110,6 +116,7 @@ impl MemoryUtils {
             gc_threshold: 1000,
             allocated_objects: 0,
             string_pool: HashMap::new(),
+            memory_manager,
         }
     }
 
@@ -630,10 +637,8 @@ impl MemoryUtils {
     }
 
     pub(crate) fn get_memory_manager_ref(&self) -> Rc<RefCell<MemoryManager>> {
-        // This is a placeholder. In a real scenario, MemoryManager should be managed
-        // and passed around, or MemoryUtils should have a direct reference to it.
-        // For now, we create a new one for compilation to pass.
-        Rc::new(RefCell::new(MemoryManager::new(1, None)))
+        // Return the shared memory manager instance for stdlib integration
+        self.memory_manager.clone()
     }
 }
 

@@ -1,10 +1,9 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-
-use wasm_encoder::{Instruction, MemArg, BlockType, ValType};
-
 use crate::stdlib::register_stdlib_function;
+
+use wasm_encoder::{Instruction, MemArg};
 
 /// Type conversion operations implementation
 pub struct TypeConvOperations {
@@ -263,10 +262,11 @@ impl TypeConvOperations {
     }
 
     fn generate_to_number_function(&self) -> Vec<Instruction> {
+        // SIMPLIFIED: Return a basic number conversion to avoid LocalTee stack issues
+        // TODO: Implement proper string parsing when LocalTee stack management is fixed
         vec![
-            // Get string pointer - simplified implementation returns 0.0 for now
-            Instruction::F64Const(0.0),
-            Instruction::End,
+            // Simplified implementation - just return a default value
+            Instruction::F64Const(0.0), // Return 0.0 as default
         ]
     }
 
@@ -482,10 +482,9 @@ impl TypeConvOperations {
 mod tests {
     use super::*;
     use crate::codegen::CodeGenerator;
-    use crate::stdlib::register_stdlib_function;
-    use wasmtime::{Engine, Instance, Module, Store, Val};
+    use wasmtime::{Engine, Instance, Module, Store};
 
-
+    #[allow(dead_code)]
     fn setup_test_environment() -> (Store<()>, Instance) {
         let mut codegen = CodeGenerator::new();
         let type_conv = TypeConvOperations::new(1024);

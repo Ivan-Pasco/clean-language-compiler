@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 // Keywords and identifiers
-keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "tests" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "float" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
+keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "tests" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "Array" | "Matrix" | "pairs" | "integer" | "number" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
 identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
@@ -53,8 +53,8 @@ type_ = {
     list_type |
     pairs_type |
     generic_type |
-    type_parameter |
-    identifier
+    identifier |
+    type_parameter
 }
 
 // Indentation-based blocks
@@ -179,6 +179,7 @@ assignment = { (property_access | identifier) ~ "=" ~ expression }
 // Error statement (function call syntax)
 error_stmt = { "error" ~ "(" ~ expression ~ ")" }
 
+
 // Control flow with indentation
 if_stmt = { "if" ~ expression ~ indented_block ~ ("else" ~ indented_block)? }
 
@@ -192,10 +193,9 @@ test = { "test" ~ string ~ indented_block }
 // Return
 return_stmt = { "return" ~ expression? }
 
-// Function declarations - Both standalone and functions block syntax supported
+// Function declarations - All functions must be in functions: blocks per specification
 
-// Standalone function definition (Clean Language syntax: function ReturnType name())
-standalone_function = { "function" ~ function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ function_body }
+// Standalone functions removed - all functions must be in functions: blocks per specification
 parameter_list = { parameter ~ ("," ~ parameter)* }
 parameter = { type_ ~ identifier ~ ("=" ~ expression)? }
 
@@ -231,7 +231,7 @@ named_test = { string ~ ":" ~ expression ~ "=" ~ expression }
 anonymous_test = { expression ~ "=" ~ expression }
 
 // Class definition with "is" inheritance
-class_field = { type_ ~ identifier }
+class_field = { type_ ~ identifier ~ ("=" ~ expression)? }
 class_body_item = { class_field | constructor | functions_block }
 indented_class_body = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item)* ~ (NEWLINE ~ (empty_line)*)? }
 
@@ -297,7 +297,7 @@ statement = {
 }
 
 // Program with proper newline handling
-program_item = { import_stmt | start_function | implicit_start_function | standalone_function | background_function | functions_block | tests_block | class_decl | statement }
+program_item = { import_stmt | start_function | implicit_start_function | background_function | functions_block | tests_block | class_decl | statement }
 program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
 start_function = { "start" ~ "(" ~ ")" ~ indented_block } 

@@ -253,17 +253,7 @@ impl ErrorRecoveringParser {
             });
         }
         
-        // Try to parse as standalone function
-        if let Ok(pairs) = CleanParser::parse(Rule::standalone_function, segment) {
-            let func = parse_standalone_function(pairs.into_iter().next().unwrap())?;
-            return Ok(Program {
-                imports: Vec::new(),
-                functions: vec![func],
-                classes: Vec::new(),
-                start_function: None,
-                tests: Vec::new(),
-            });
-        }
+        // Standalone functions removed - all functions must be in functions: blocks per specification
         
         Err(CompilerError::parse_error(
             format!("Could not parse function segment: {}", segment.lines().next().unwrap_or("").trim()),
@@ -347,6 +337,7 @@ impl ErrorRecoveringParser {
 
 /// Represents partial AST nodes created during error recovery
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum PartialNode {
     Function(Function),
     Class(Class),
@@ -393,10 +384,7 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
                                         let block_functions = parse_functions_block(program_item_inner)?;
                                         functions.extend(block_functions);
                                     },
-                                    Rule::standalone_function => {
-                                        let func = parse_standalone_function(program_item_inner)?;
-                                        functions.push(func);
-                                    },
+                                    // Standalone functions removed - all functions must be in functions: blocks per specification
                                     Rule::start_function => {
                                         let func = parse_start_function(program_item_inner)?;
                                         start_function = Some(func);
@@ -498,116 +486,7 @@ pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError>
     })
 }
 
-/// Parse a standalone function definition like: function Any identity() { ... }
-pub fn parse_standalone_function(pair: Pair<Rule>) -> Result<Function, CompilerError> {
-    let mut name = String::new();
-    let mut type_parameters = Vec::new();
-    let mut parameters = Vec::new();
-    let mut return_type = Type::Void;
-    let mut body = Vec::new();
-    let mut description: Option<String> = None;
-    let location = Some(convert_to_ast_location(&get_location(&pair)));
-
-    for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::function_type => {
-                // This is the return type that comes first in Clean Language syntax
-                return_type = parse_type(inner)?;
-                
-                // If the return type is a type parameter (like "Any"), add it to type_parameters
-                if let Type::TypeParameter(ref param_name) = return_type {
-                    type_parameters.push(param_name.clone());
-                }
-            },
-            Rule::identifier => {
-                name = inner.as_str().to_string();
-            },
-            Rule::parameter_list => {
-                for param in inner.into_inner() {
-                    if param.as_rule() == Rule::parameter {
-                        let parameter = parse_parameter(param)?;
-                        
-                        // If parameter type is a type parameter, add it to type_parameters if not already present
-                        if let Type::TypeParameter(ref param_name) = parameter.type_ {
-                            if !type_parameters.contains(param_name) {
-                                type_parameters.push(param_name.clone());
-                            }
-                        }
-                        
-                        parameters.push(parameter);
-                    }
-                }
-            },
-            Rule::function_body => {
-                // function_body = (setup_block ~ indented_block) | indented_block
-                let mut found_body = false;
-                for body_item in inner.into_inner() {
-                    match body_item.as_rule() {
-                        Rule::setup_block => {
-                            // setup_block may contain description_block and/or input_block
-                            for setup_item in body_item.into_inner() {
-                                match setup_item.as_rule() {
-                                    Rule::description_block => {
-                                        for desc_inner in setup_item.into_inner() {
-                                            if desc_inner.as_rule() == Rule::string {
-                                                description = Some(desc_inner.as_str().trim_matches('"').to_string());
-                                            }
-                                        }
-                                    },
-                                    Rule::input_block => {
-                                        let params = parse_parameters_from_input_block(setup_item)?;
-                                        for param in &params {
-                                            // If parameter type is a type parameter, add it to type_parameters if not already present
-                                            if let Type::TypeParameter(ref param_name) = param.type_ {
-                                                if !type_parameters.contains(param_name) {
-                                                    type_parameters.push(param_name.clone());
-                                                }
-                                            }
-                                        }
-                                        parameters.extend(params);
-                                    },
-                                    _ => {}
-                                }
-                            }
-                        },
-                        Rule::function_statements => {
-                            found_body = true;
-                            // Only add statements from the function_statements to the function body
-                            for stmt_pair in body_item.into_inner() {
-                                if stmt_pair.as_rule() == Rule::statement {
-                                    body.push(parse_statement(stmt_pair)?);
-                                }
-                            }
-                        },
-                        _ => {}
-                    }
-                }
-                if !found_body {
-                    return Err(CompilerError::parse_error(
-                        format!("Function '{}' is missing a body.", name),
-                        location.clone(),
-                        None,
-                    ));
-                }
-            },
-            _ => {}
-        }
-    }
-
-    Ok(Function {
-        name,
-        type_parameters,
-        type_constraints: Vec::new(),
-        parameters,
-        return_type,
-        body,
-        description,
-        syntax: FunctionSyntax::Simple,
-        visibility: Visibility::Public,
-        modifier: FunctionModifier::None,
-        location,
-    })
-}
+// parse_standalone_function removed - all functions must be in functions: blocks per specification
 
 /// Parse a parameter from a parameter list: type identifier [= default_value]
 fn parse_parameter(pair: Pair<Rule>) -> Result<Parameter, CompilerError> {
@@ -875,6 +754,7 @@ pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> 
 fn parse_class_field(field_pair: Pair<Rule>) -> Result<Field, CompilerError> {
     let mut field_name = String::new();
     let mut field_type = None;
+    let mut default_value = None;
 
     for item in field_pair.into_inner() {
         match item.as_rule() {
@@ -883,6 +763,9 @@ fn parse_class_field(field_pair: Pair<Rule>) -> Result<Field, CompilerError> {
             },
             Rule::identifier => {
                 field_name = item.as_str().to_string();
+            },
+            Rule::expression => {
+                default_value = Some(parse_expression(item)?);
             },
             _ => {}
         }
@@ -909,6 +792,7 @@ fn parse_class_field(field_pair: Pair<Rule>) -> Result<Field, CompilerError> {
         type_: field_type,
         visibility: Visibility::Public,
         is_static: false,
+        default_value,
     })
 }
 
@@ -1026,6 +910,7 @@ fn parse_standalone_input_declaration_as_parameter(input_decl: Pair<Rule>) -> Re
 
 /// Parse a single input_declaration as a Parameter
 /// Used when input declarations appear directly in function bodies
+#[allow(dead_code)]
 fn parse_input_declaration_as_parameter(input_decl: Pair<Rule>) -> Result<crate::ast::Parameter, CompilerError> {
     let mut param_type = None;
     let mut param_name = String::new();

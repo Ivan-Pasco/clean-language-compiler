@@ -1,0 +1,7 @@
+functions:
+	number add(number a, number b)
+		return a + b
+
+start()
+	number result = add(5, 3)
+	print result

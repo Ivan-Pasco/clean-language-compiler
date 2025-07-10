@@ -10,13 +10,13 @@ fn test_simple_program() {
     let _program = vec![
         Statement::VariableDecl {
             name: "x".to_string(),
-            type_: Type::Float,
+            type_: Type::Number,
             initializer: Some(Expression::Literal(Value::Float(42.0))),
             location: Some(SourceLocation { line: 1, column: 1, file: "<test>".to_string() }),
         },
         Statement::VariableDecl {
             name: "y".to_string(),
-            type_: Type::Float,
+            type_: Type::Number,
             initializer: Some(Expression::Binary(
                 Box::new(Expression::Variable("x".to_string())),
                 BinaryOperator::Add,
@@ -96,7 +96,7 @@ fn test_error_handling() {
     let _program = vec![
         Statement::VariableDecl {
             name: "x".to_string(),
-            type_: Type::Float,
+            type_: Type::Number,
             initializer: Some(Expression::Literal(Value::String("not a number".to_string()))),
             location: Some(SourceLocation { line: 1, column: 1, file: "<test>".to_string() }),
         },
@@ -146,16 +146,16 @@ fn test_function_definitions() {
         parameters: vec![
             Parameter {
                 name: "x".to_string(),
-                type_: Type::Float,
+                type_: Type::Number,
                 default_value: None,
             },
             Parameter {
                 name: "y".to_string(),
-                type_: Type::Float,
+                type_: Type::Number,
                 default_value: None,
             },
         ],
-        return_type: Type::Float,
+        return_type: Type::Number,
         body: vec![
             Statement::Return {
                 value: Some(Expression::Binary(
@@ -176,7 +176,7 @@ fn test_function_definitions() {
     let _program = vec![
         Statement::VariableDecl {
             name: "result".to_string(),
-            type_: Type::Float,
+            type_: Type::Number,
             initializer: Some(Expression::Call(
                 "add".to_string(),
                 vec![

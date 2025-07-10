@@ -1,4 +1,4 @@
-function start()
+start()
 	variable string get
 	println("🌐 Testing all HTTP methods...")
 	println("")

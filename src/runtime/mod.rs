@@ -1278,7 +1278,7 @@ impl CleanRuntime {
             None, None
         ))?;
         
-        linker.func_wrap("env", "abs", |_caller: Caller<'_, ()>, x: i32| -> i32 {
+        linker.func_wrap("env", "abs", |_caller: Caller<'_, ()>, x: f64| -> f64 {
             x.abs()
         })
         .map_err(|e| CompilerError::runtime_error(

@@ -1,0 +1,13 @@
+class Rectangle
+	number width = 0
+	number height = 0
+	
+	functions:
+		number area()
+			return width * height
+
+start()
+	Rectangle rect = Rectangle()
+	rect.width = 5
+	rect.height = 3
+	number a = rect.area()

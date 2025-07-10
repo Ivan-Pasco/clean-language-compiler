@@ -1,6 +1,0 @@
-start() {
-	printl "Hello, World!"
-	let value = 40 + 2
-	printl "The answer is: ${value}"
-	return value
-}

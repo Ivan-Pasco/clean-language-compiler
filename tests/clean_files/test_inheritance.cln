@@ -4,7 +4,7 @@ class Shape
 	constructor(color)
 	
 class Circle is Shape
-	float radius
+	number radius
 	
 	constructor(color, radius)
 		super(color) 

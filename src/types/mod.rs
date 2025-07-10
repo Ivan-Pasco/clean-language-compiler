@@ -143,7 +143,7 @@ impl From<&AstType> for WasmType {
     fn from(ast_type: &AstType) -> Self {
         match ast_type {
             AstType::Integer | AstType::Boolean => WasmType::I32,
-            AstType::Float => WasmType::F64,
+            AstType::Number => WasmType::F64,
             AstType::String => WasmType::I32, // String pointers
             AstType::Void => WasmType::I32,   // Void represented as I32
             AstType::Array(_) => WasmType::I32, // Array pointers
@@ -155,8 +155,8 @@ impl From<&AstType> for WasmType {
             // Sized types
             AstType::IntegerSized { bits: 8..=32, .. } => WasmType::I32,
             AstType::IntegerSized { bits: 64, .. } => WasmType::I64,
-            AstType::FloatSized { bits: 32 } => WasmType::F32,
-            AstType::FloatSized { bits: 64 } => WasmType::F64,
+            AstType::NumberSized { bits: 32 } => WasmType::F32,
+            AstType::NumberSized { bits: 64 } => WasmType::F64,
             _ => WasmType::I32, // Default for other types
         }
     }

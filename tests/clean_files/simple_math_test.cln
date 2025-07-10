@@ -1,9 +1,9 @@
-function start()
-	float x = 0.5
-	float result = sin(x)
+start()
+	number x = 0.5
+	number result = sin(x)
 	print("sin(0.5) calculated successfully")
 	
-	float pow_result = pow(2.0, 3.0)
+	number pow_result = pow(2.0, 3.0)
 	print("pow(2.0, 3.0) calculated successfully")
 	
 	print("Math functions work!") 

@@ -93,7 +93,7 @@ impl TypeManager {
         match ast_type {
             Type::Boolean => Ok(WasmType::I32),
             Type::Integer => Ok(WasmType::I64),
-            Type::Float => Ok(WasmType::F64),
+            Type::Number => Ok(WasmType::F64),
             Type::String => Ok(WasmType::I32), // String pointers
             Type::Void => Ok(WasmType::I32),   // Void represented as I32
             Type::Array(_) => Ok(WasmType::I32), // Array pointers
@@ -106,8 +106,8 @@ impl TypeManager {
             // Sized types
             Type::IntegerSized { bits: 8..=32, .. } => Ok(WasmType::I32),
             Type::IntegerSized { bits: 64, .. } => Ok(WasmType::I64),
-            Type::FloatSized { bits: 32 } => Ok(WasmType::F32),
-            Type::FloatSized { bits: 64 } => Ok(WasmType::F64),
+            Type::NumberSized { bits: 32 } => Ok(WasmType::F32),
+            Type::NumberSized { bits: 64 } => Ok(WasmType::F64),
             Type::List(_) => Ok(WasmType::I32), // Pointer to list structure
             Type::Class { .. } => Ok(WasmType::I32), // Pointer to object
             Type::Function(_, _) => Ok(WasmType::I32), // Function pointer

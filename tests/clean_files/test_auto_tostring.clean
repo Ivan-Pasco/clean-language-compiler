@@ -8,9 +8,9 @@ start()
 	print(42)           // Should print: 42
 	print(-17)          // Should print: -17
 	
-	// Test 2: Float values  
-	float price = 19.99
-	print("Float test:")
+	// Test 2: Number values  
+	number price = 19.99
+	print("Number test:")
 	print(price)        // Should print: 19.99
 	print(3.14)         // Should print: 3.14
 	print(-2.5)         // Should print: -2.5

@@ -51,13 +51,13 @@ pub enum Type {
     // Core types from specification
     Boolean,
     Integer,             // Default integer
-    Float,              // Default float
+    Number,             // Default number (floating point)
     String,
     Void,
     
     // Advanced sized types
     IntegerSized { bits: u8, unsigned: bool },
-    FloatSized { bits: u8 },
+    NumberSized { bits: u8 },
     
     // Composite types
     Array(Box<Type>),
@@ -512,6 +512,7 @@ pub struct Field {
     pub type_: Type,
     pub visibility: Visibility,
     pub is_static: bool,
+    pub default_value: Option<Expression>,
 }
 
 #[derive(Debug, Clone)]
@@ -559,7 +560,7 @@ impl fmt::Display for Type {
         match self {
             Type::Boolean => f.write_str("boolean"),
             Type::Integer => f.write_str("integer"),
-            Type::Float => f.write_str("float"),
+            Type::Number => f.write_str("number"),
             Type::String => f.write_str("string"),
             Type::Void => f.write_str("void"),
             Type::IntegerSized { bits, unsigned } => {
@@ -569,7 +570,7 @@ impl fmt::Display for Type {
                     write!(f, "integer:{}", bits)
                 }
             },
-            Type::FloatSized { bits } => write!(f, "float:{}", bits),
+            Type::NumberSized { bits } => write!(f, "number:{}", bits),
             Type::Array(inner) => write!(f, "Array<{}>", inner),
             Type::List(inner) => write!(f, "List<{}>", inner),
             Type::Matrix(inner) => write!(f, "Matrix<{}>", inner),

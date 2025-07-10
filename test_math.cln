@@ -1,5 +1,0 @@
-// Test math functions
-function start()
-	Float x = 5.0
-	Float y = sqrt(x)
-	print(y)

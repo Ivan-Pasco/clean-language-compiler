@@ -454,9 +454,9 @@ async fn handle_simple_test(verbose: bool) -> Result<(), Box<dyn std::error::Err
         println!("Verbose output enabled");
     }
     
-    let test_source = r#"function start()
-        integer x = 42
-        print(x)
+    let test_source = r#"start()
+    integer x = 42
+    print(x)
 "#;
     
     match compile_with_file(test_source, "simple_test.clean") {
@@ -478,18 +478,18 @@ async fn handle_comprehensive_test(verbose: bool) -> Result<(), Box<dyn std::err
     }
     
     let test_cases = vec![
-        ("Basic", r#"function start()
-        integer x = 42
-        print(x)
+        ("Basic", r#"start()
+    integer x = 42
+    print(x)
 "#),
-        ("Arithmetic", r#"function start()
-        integer x = 1 + 2 * 3
-        print(x)
+        ("Arithmetic", r#"start()
+    integer x = 1 + 2 * 3
+    print(x)
 "#),
-        ("Variables", r#"function start()
-        integer x = 5
-        integer y = x + 1
-        print(y)
+        ("Variables", r#"start()
+    integer x = 5
+    integer y = x + 1
+    print(y)
 "#),
     ];
     

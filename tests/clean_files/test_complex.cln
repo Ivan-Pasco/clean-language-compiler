@@ -3,7 +3,7 @@ functions:
 	integer add(integer a, integer b)
 		return a + b
 
-function start()
+start()
 	integer x = 10
 	integer y = 20
 	integer result = add(x, y)

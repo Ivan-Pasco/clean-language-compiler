@@ -44,7 +44,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     match type_str {
                         "boolean" => Ok(Type::Boolean),
                         "integer" => Ok(Type::Integer),
-                        "number" => Ok(Type::Float),
+                        "number" => Ok(Type::Number),
                         "string" => Ok(Type::String),
                         "void" => Ok(Type::Void),
                         "any" => Ok(Type::Any),
@@ -63,7 +63,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     let base_type = match core_type_pair.as_str() {
                         "boolean" => Type::Boolean,
                         "integer" => Type::Integer,
-                        "number" => Type::Float,
+                        "number" => Type::Number,
                         "string" => Type::String,
                         "void" => Type::Void,
                         "any" => Type::Any,
@@ -84,7 +84,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     
                     match base_type {
                         Type::Integer => Ok(Type::IntegerSized { bits, unsigned }),
-                        Type::Float => Ok(Type::FloatSized { bits }),
+                        Type::Number => Ok(Type::NumberSized { bits }),
                         _ => Err(CompilerError::parse_error(
                             "Size specifiers can only be used with integer and number types".to_string(),
                             None,
@@ -110,7 +110,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
             match type_str {
                 "boolean" => Ok(Type::Boolean),
                 "integer" => Ok(Type::Integer),
-                "number" => Ok(Type::Float),
+                "number" => Ok(Type::Number),
                 "string" => Ok(Type::String),
                 "void" => Ok(Type::Void),
                 "any" => Ok(Type::Any),
@@ -130,8 +130,8 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
             let base_type = match core_type_pair.as_str() {
                 "boolean" => Type::Boolean,
                 "integer" => Type::Integer,
-                "number" => Type::Float,
-                "float" => Type::Float,
+                "number" => Type::Number,
+                "float" => Type::Number,
                 "string" => Type::String,
                 "void" => Type::Void,
                 "any" => Type::Any,
@@ -153,7 +153,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
             
             match base_type {
                 Type::Integer => Ok(Type::IntegerSized { bits, unsigned }),
-                Type::Float => Ok(Type::FloatSized { bits }),
+                Type::Number => Ok(Type::NumberSized { bits }),
                 _ => Err(CompilerError::parse_error(
                     "Size specifiers can only be used with integer and number types".to_string(),
                     None,
@@ -203,7 +203,7 @@ fn parse_basic_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     let type_name = pair.as_str();
     match type_name {
         "int" => Ok(Type::Integer),
-        "number" => Ok(Type::Float),  // number maps to float type
+        "number" => Ok(Type::Number),  // number maps to Number type
         "bool" => Ok(Type::Boolean),
         "string" => Ok(Type::String),
         "void" => Ok(Type::Void),

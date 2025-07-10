@@ -1,0 +1,3 @@
+start()
+	error(404)
+	print "This should not execute"

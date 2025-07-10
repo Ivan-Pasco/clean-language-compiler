@@ -1,4 +1,0 @@
-start()
-	integer value = 42
-	print("Testing simple print:")
-	print_simple(value.toString())

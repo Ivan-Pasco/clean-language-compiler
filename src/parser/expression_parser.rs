@@ -5,11 +5,6 @@ use super::{get_location, convert_to_ast_location};
 use super::Rule;
 
 // Helper function to convert location from parser format to AST format
-// Removed unused function get_ast_location
-
-fn _unused_get_ast_location(location: &super::SourceLocation) -> crate::ast::SourceLocation {
-    convert_to_ast_location(location)
-}
 
 #[derive(Debug, Clone)]
 enum ParsedOperator {

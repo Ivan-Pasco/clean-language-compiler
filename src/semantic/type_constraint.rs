@@ -10,7 +10,7 @@ pub struct NumericTypeConstraint;
 
 impl TypeConstraint for NumericTypeConstraint {
     fn check(&self, type_: &Type) -> bool {
-        matches!(type_, Type::Integer | Type::Float | Type::IntegerSized { .. } | Type::FloatSized { .. })
+        matches!(type_, Type::Integer | Type::Number | Type::IntegerSized { .. } | Type::NumberSized { .. })
     }
 }
 
@@ -19,7 +19,7 @@ pub struct BaseTypeConstraint;
 
 impl TypeConstraint for BaseTypeConstraint {
     fn check(&self, type_: &Type) -> bool {
-        matches!(type_, Type::Integer | Type::Float | Type::String | Type::Boolean | Type::Void)
+        matches!(type_, Type::Integer | Type::Number | Type::String | Type::Boolean | Type::Void)
     }
 }
 
@@ -37,7 +37,7 @@ pub struct ComparableConstraint;
 
 impl TypeConstraint for ComparableConstraint {
     fn check(&self, type_: &Type) -> bool {
-        matches!(type_, Type::Integer | Type::Float | Type::String | Type::IntegerSized { .. } | Type::FloatSized { .. })
+        matches!(type_, Type::Integer | Type::Number | Type::String | Type::IntegerSized { .. } | Type::NumberSized { .. })
     }
 }
 

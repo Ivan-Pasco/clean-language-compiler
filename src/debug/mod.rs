@@ -76,7 +76,7 @@ impl DebugUtils {
     fn type_to_string(type_: &Type) -> String {
         match type_ {
             Type::Integer => "integer".to_string(),
-            Type::Float => "float".to_string(),
+            Type::Number => "number".to_string(),
             Type::Boolean => "boolean".to_string(),
             Type::String => "string".to_string(),
             Type::Void => "void".to_string(),

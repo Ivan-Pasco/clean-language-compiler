@@ -41,9 +41,10 @@ Clean Language source files use the `.cln` extension.
 
 These are essential implementation rules that must be followed by the Clean Language compiler:
 
-1. **Functions must be in a `functions:` block**
+1. **Functions must be in a `functions:` block (except start())**
    - ❌ No standalone `function name(...)` allowed at top level
    - ✅ Use `functions:` for top-level and class functions
+   - ✅ Exception: `start()` can be standalone
    ```clean
    // ❌ Invalid
    function myFunc()
@@ -870,7 +871,16 @@ Clean Language uses **functions blocks** for all function declarations. This ens
 
 ### The Start Function
 
-Every Clean program begins with a `start()` function within a `functions:` block:
+Every Clean program begins with a `start()` function. The start function is **special** and can be declared standalone (outside of functions: blocks):
+
+```clean
+start()
+    print("Hello, World!")
+    integer x = 42
+    print(x)
+```
+
+Alternatively, it can be declared within a `functions:` block:
 
 ```clean
 functions:
@@ -882,7 +892,7 @@ functions:
 
 ### Functions Blocks (Required)
 
-**All functions must be declared within a `functions:` block.** This is the only supported syntax for function declarations:
+**All functions except `start()` must be declared within a `functions:` block.** This is the only supported syntax for function declarations:
 
 ```clean
 functions:
@@ -1509,7 +1519,7 @@ class Calculator
             return String.concat("Result: ", value.toString())
 ```
 
-**Exception:** The `start()` function remains as the program entry point within a `functions:` block.
+**Exception:** The `start()` function remains as the program entry point and can be declared either within a `functions:` block or standalone.
 
 ## Standard Library
 

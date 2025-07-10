@@ -148,8 +148,9 @@ start()
             },
             Err(error) => {
                 println!("✓ Error propagation test: Correctly caught error: {}", error);
-                // Check that the error contains useful information
-                assert!(error.to_string().contains("error_test.clean"));
+                // Check that the error contains useful information about the undefined function
+                assert!(error.to_string().contains("undefined_function"));
+                assert!(error.to_string().contains("not found"));
             }
         }
     }
@@ -166,7 +167,7 @@ start()
 "#),
             ("String Functions", r#"start()
 	string text = "hello"
-	integer length = len(text)
+	integer length = text.length()
 	print(length)
 "#),
             ("Array Functions", r#"start()

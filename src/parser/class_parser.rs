@@ -138,6 +138,7 @@ fn parse_field_from_type_decl(pair: Pair<Rule>, location: crate::ast::SourceLoca
         type_,
         visibility: Visibility::Public, // Default visibility for class fields from setup block
         is_static: false,
+        default_value: None, // No default value for fields from setup block
     })
 }
 

@@ -1,0 +1,5 @@
+// Test math functions
+start()
+	number x = 5.0
+	number y = sqrt(x)
+	print(y)

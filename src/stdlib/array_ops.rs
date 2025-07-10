@@ -913,8 +913,6 @@ impl ArrayManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasmtime::{Engine, Module, Store, Instance, Val};
-    use crate::codegen::INTEGER_TYPE_ID;
 
     #[test]
     fn test_array_operations() {

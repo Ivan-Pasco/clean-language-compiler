@@ -1,4 +1,0 @@
-start()
-	integer value = 42
-	print("Memory at 1024:")
-	# This should show us what is at memory location 1024

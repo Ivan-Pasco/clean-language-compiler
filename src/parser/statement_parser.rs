@@ -262,6 +262,7 @@ fn parse_error_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocat
     })
 }
 
+
 fn parse_on_error_block_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation) -> Result<Statement, CompilerError> {
     // This should be handled as an expression, not a statement
     // Convert the onError block to an expression statement
@@ -298,7 +299,7 @@ fn parse_type_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::
             let type_str = type_part.as_str();
             match type_str {
                 "integer" => crate::ast::Type::Integer,
-                "number" => crate::ast::Type::Float,
+                "number" => crate::ast::Type::Number,
                 "boolean" => crate::ast::Type::Boolean,
                 "string" => crate::ast::Type::String,
                 "void" => crate::ast::Type::Void,

@@ -1,5 +1,5 @@
 // Test file with intentional parser errors
-function start()
+start()
 	integer x = 5 +
 	print(x
 	integer y = "hello"
