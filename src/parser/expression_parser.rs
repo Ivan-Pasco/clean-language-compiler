@@ -208,7 +208,7 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::float => {
             let num_str = inner.as_str();
             num_str.parse::<f64>()
-                .map(Value::Float)
+                .map(Value::Number)
                 .map(Expression::Literal)
                 .map_err(|_| CompilerError::parse_error(
                     format!("Invalid float: {}", num_str),
@@ -275,7 +275,7 @@ fn parse_number_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     if num_str.contains('.') || num_str.contains('e') || num_str.contains('E') {
         // Float
         num_str.parse::<f64>()
-            .map(Value::Float)
+            .map(Value::Number)
             .map(Expression::Literal)
             .map_err(|_| CompilerError::parse_error(
                 format!("Invalid float: {}", num_str),
@@ -417,7 +417,7 @@ pub fn parse_matrix_literal(pair: Pair<Rule>) -> Result<Expression, CompilerErro
                 if let Rule::expression = element.as_rule() {
                     let expr = parse_expression(element)?;
                     match expr {
-                        Expression::Literal(Value::Float(f)) => row.push(f),
+                        Expression::Literal(Value::Number(f)) => row.push(f),
                         Expression::Literal(Value::Integer(i)) => row.push(i as f64),
                         _ => return Err(CompilerError::parse_error(
                             "Matrix literals can only contain numeric values".to_string(),

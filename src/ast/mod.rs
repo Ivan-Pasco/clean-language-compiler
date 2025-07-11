@@ -14,7 +14,7 @@ pub struct SourceLocation {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Integer(i64),        // Default integer (platform optimal)
-    Float(f64),          // Default float (platform optimal)
+    Number(f64),          // Default number (platform optimal)
     Boolean(bool),
     String(String),
     Array(Vec<Value>),
@@ -27,8 +27,8 @@ pub enum Value {
     Integer16u(u16),
     Integer32(i32),
     Integer64(i64),
-    Float32(f32),
-    Float64(f64),
+    Number32(f32),
+    Number64(f64),
     
     // List with properties
     List(Vec<Value>, ListBehavior),
@@ -571,9 +571,9 @@ impl fmt::Display for Type {
                 }
             },
             Type::NumberSized { bits } => write!(f, "number:{}", bits),
-            Type::Array(inner) => write!(f, "Array<{}>", inner),
-            Type::List(inner) => write!(f, "List<{}>", inner),
-            Type::Matrix(inner) => write!(f, "Matrix<{}>", inner),
+            Type::Array(inner) => write!(f, "array<{}>", inner),
+            Type::List(inner) => write!(f, "list<{}>", inner),
+            Type::Matrix(inner) => write!(f, "matrix<{}>", inner),
             Type::Pairs(key, value) => write!(f, "pairs<{}, {}>", key, value),
             Type::Function(params, ret) => {
                 write!(f, "function(")?;
@@ -621,7 +621,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Value::Integer(i) => write!(f, "{}", i),
-            Value::Float(n) => write!(f, "{}", n),
+            Value::Number(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "\"{}\"", s),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Array(items) => {
@@ -658,8 +658,8 @@ impl fmt::Display for Value {
             Value::Integer16u(u) => write!(f, "{}:16u", u),
             Value::Integer32(i) => write!(f, "{}:32", i),
             Value::Integer64(i) => write!(f, "{}:64", i),
-            Value::Float32(f_val) => write!(f, "{}:32", f_val),
-            Value::Float64(f_val) => write!(f, "{}:64", f_val),
+            Value::Number32(f_val) => write!(f, "{}:32", f_val),
+            Value::Number64(f_val) => write!(f, "{}:64", f_val),
             Value::List(items, behavior) => {
                 write!(f, "List[")?;
                 for (i, item) in items.iter().enumerate() {

@@ -18,8 +18,8 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         Rule::generic_type => parse_generic_type(inner),
         Rule::type_parameter => {
             let type_name = inner.as_str().to_string();
-            // Handle "Any" as a special type parameter
-            if type_name == "Any" {
+            // Handle "any" as a special type parameter
+            if type_name == "any" {
                 Ok(Type::TypeParameter(type_name))
             } else {
                 Ok(Type::TypeParameter(type_name))
@@ -219,7 +219,7 @@ fn parse_matrix_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         .ok_or_else(|| CompilerError::parse_error(
             "Matrix type must specify element type".to_string(),
             Some(ast_location),
-            Some("Matrix types must be in the form Matrix<T>".to_string())
+            Some("Matrix types must be in the form matrix<T>".to_string())
         ))?;
     
     let element_type = parse_type(element_type)?;
@@ -234,7 +234,7 @@ fn parse_array_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         .ok_or_else(|| CompilerError::parse_error(
             "Array type must specify element type".to_string(),
             Some(ast_location),
-            Some("Array types must be in the form Array<T>".to_string())
+            Some("Array types must be in the form array<T>".to_string())
         ))?;
     
     let element_type = parse_type(element_type)?;
@@ -249,7 +249,7 @@ fn parse_list_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         .ok_or_else(|| CompilerError::parse_error(
             "List type must specify element type".to_string(),
             Some(ast_location),
-            Some("List types must be in the form List<T>".to_string())
+            Some("List types must be in the form list<T>".to_string())
         ))?;
     
     let element_type = parse_type(element_type)?;

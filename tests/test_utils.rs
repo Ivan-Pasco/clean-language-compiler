@@ -28,8 +28,13 @@ pub fn analyze_program(program: &Program) -> Result<(), String> {
 
 /// Generates WebAssembly from a program
 pub fn generate_wasm(program: &Program) -> Vec<u8> {
+    // Run semantic analysis first
+    let mut analyzer = SemanticAnalyzer::new();
+    let analyzed_program = analyzer.analyze(program)
+        .unwrap_or_else(|e| panic!("Failed semantic analysis: {}", e));
+    
     let mut generator = CodeGenerator::new();
-    generator.generate(program)
+    generator.generate(&analyzed_program)
         .unwrap_or_else(|e| panic!("Failed to generate WASM: {}", e))
 }
 

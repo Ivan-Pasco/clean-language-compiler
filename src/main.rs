@@ -813,7 +813,7 @@ fn evaluate_test_expression(test_expr: &clean_language_compiler::ast::Expression
         (Expression::Literal(Value::Integer(a)), Expression::Literal(Value::Integer(b))) => {
             Ok(a == b)
         }
-        (Expression::Literal(Value::Float(a)), Expression::Literal(Value::Float(b))) => {
+        (Expression::Literal(Value::Number(a)), Expression::Literal(Value::Number(b))) => {
             Ok((a - b).abs() < f64::EPSILON)
         }
         (Expression::Literal(Value::String(a)), Expression::Literal(Value::String(b))) => {

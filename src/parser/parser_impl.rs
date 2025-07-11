@@ -1011,6 +1011,18 @@ fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Para
 ///
 /// This function extracts the function name, return type, parameters, description, and body.
 /// It returns a Function AST node.
+fn parse_parameter_list(param_list_pair: Pair<Rule>) -> Result<Vec<Parameter>, CompilerError> {
+    let mut parameters = Vec::new();
+    
+    for param_pair in param_list_pair.into_inner() {
+        if param_pair.as_rule() == Rule::parameter {
+            parameters.push(parse_parameter(param_pair)?);
+        }
+    }
+    
+    Ok(parameters)
+}
+
 pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, CompilerError> {
     let mut func_name = String::new();
     let mut return_type: Option<Type> = None;
@@ -1034,6 +1046,10 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
             },
             Rule::identifier => {
                 func_name = item.as_str().to_string();
+            },
+            Rule::parameter_list => {
+                let params = parse_parameter_list(item)?;
+                parameters.extend(params);
             },
             Rule::function_body => {
                 // function_body = (setup_block ~ indented_block) | indented_block

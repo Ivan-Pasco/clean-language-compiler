@@ -138,6 +138,9 @@ When implementing new features:
 5. Add code generation in `src/codegen/`
 6. Write comprehensive tests
 7. Update examples and documentation
+8. Update the language specification in `Language-Specification.md`
+9. when you find an error while compiling, add it to the `TASKS.md` file.
+10. when a test fails, check if the test is correct and has the right syntax according to the Language-Specification.md, if it is wrong, fix the test. once the test is fixed if it still fails add the needed changes to the TASKS.md file.
 
 ## File Extensions
 

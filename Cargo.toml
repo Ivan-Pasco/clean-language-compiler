@@ -57,6 +57,11 @@ path = "src/main.rs"
 name = "cleanc"
 path = "src/bin/cleanc.rs"
 
+# Short command line interface
+[[bin]]
+name = "cln"
+path = "src/bin/cln.rs"
+
 # Essential debugging tools
 [[bin]]
 name = "debug_parser"

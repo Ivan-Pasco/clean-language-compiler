@@ -121,7 +121,7 @@ impl TypeManager {
             Value::Integer(_) => WasmType::I32,
             Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
-            Value::Float(_) => WasmType::F64,
+            Value::Number(_) => WasmType::F64,
             Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
             Value::List(_, _) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
@@ -133,8 +133,8 @@ impl TypeManager {
             Value::Integer16u(_) => WasmType::I32,
             Value::Integer32(_) => WasmType::I32,
             Value::Integer64(_) => WasmType::I64,
-            Value::Float32(_) => WasmType::F32,
-            Value::Float64(_) => WasmType::F64,
+            Value::Number32(_) => WasmType::F32,
+            Value::Number64(_) => WasmType::F64,
         })
     }
 
@@ -143,7 +143,7 @@ impl TypeManager {
             Value::Integer(_) => WasmType::I32,
             Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
-            Value::Float(_) => WasmType::F64,
+            Value::Number(_) => WasmType::F64,
             Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
             Value::List(_, _) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
@@ -155,8 +155,8 @@ impl TypeManager {
             Value::Integer16u(_) => WasmType::I32,
             Value::Integer32(_) => WasmType::I32,
             Value::Integer64(_) => WasmType::I64,
-            Value::Float32(_) => WasmType::F32,
-            Value::Float64(_) => WasmType::F64,
+            Value::Number32(_) => WasmType::F32,
+            Value::Number64(_) => WasmType::F64,
         })
     }
 

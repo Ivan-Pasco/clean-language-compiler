@@ -580,6 +580,9 @@ impl SemanticAnalyzer {
         self.current_function = Some(function.name.clone());
         self.current_function_return_type = Some(function.return_type.clone());
 
+        // Enter function scope
+        self.current_scope.enter();
+
         // Check type parameters
         for type_param in &function.type_parameters {
             self.type_environment.insert(type_param.clone());
@@ -625,6 +628,9 @@ impl SemanticAnalyzer {
                 _ => {}
             }
         }
+
+        // Exit function scope
+        self.current_scope.exit();
 
         self.current_function = None;
         self.current_function_return_type = None;
@@ -2368,7 +2374,7 @@ impl SemanticAnalyzer {
     fn check_literal(&self, value: &Value) -> Type {
         match value {
             Value::Integer(_) => Type::Integer,
-            Value::Float(_) => Type::Number,
+            Value::Number(_) => Type::Number,
             Value::String(_) => Type::String,
             Value::Boolean(_) => Type::Boolean,
             Value::Array(elements) => {
@@ -2388,8 +2394,8 @@ impl SemanticAnalyzer {
             Value::Integer16u(_) => Type::Integer,
             Value::Integer32(_) => Type::Integer,
             Value::Integer64(_) => Type::Integer,
-            Value::Float32(_) => Type::Number,
-            Value::Float64(_) => Type::Number,
+            Value::Number32(_) => Type::Number,
+            Value::Number64(_) => Type::Number,
             Value::List(elements, _) => {
                 if elements.is_empty() {
                     Type::List(Box::new(Type::Any))

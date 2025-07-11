@@ -478,6 +478,12 @@ impl CodeGenerator {
         let func_index = self.function_count;
         self.function_map.insert(field.to_string(), func_index);
         self.function_names.push(field.to_string());
+        
+        // Also store the function type information in the instruction generator
+        let wasm_params: Vec<wasm_encoder::ValType> = params.iter().map(|t| (*t).into()).collect();
+        let wasm_results: Vec<wasm_encoder::ValType> = return_type.map_or_else(Vec::new, |t| vec![t.into()]);
+        self.instruction_generator.add_function_type(func_index, wasm_params, wasm_results);
+        
         self.function_count += 1;
         Ok(func_index)
     }
@@ -617,8 +623,8 @@ impl CodeGenerator {
             .collect::<Vec<_>>();
 
         let mut func = Function::new(locals);
-        for instruction in instructions {
-            func.instruction(&instruction);
+        for instruction in &instructions {
+            func.instruction(instruction);
         }
         
         // Always add End instruction for user-defined functions
@@ -893,8 +899,7 @@ impl CodeGenerator {
                     // Generate type-safe print call - this handles the stack properly
                     self.generate_type_safe_print_call(func_name, &args[0], instructions)?;
                     // Print functions are void - they don't leave anything on the stack
-                    // We need to indicate this to the expression system without pushing a dummy value
-                    return Ok(WasmType::I32); // Void represented as I32, but no actual stack value
+                    return Ok(WasmType::Unit); // Print functions are truly void
                 }
                 
                 // Special handling for HTTP functions - call import functions directly
@@ -1880,7 +1885,7 @@ impl CodeGenerator {
                 Expression::Literal(Value::Integer(0)) => {
                     return Err(CompilerError::division_by_zero_error(None));
                 },
-                Expression::Literal(Value::Float(n)) if *n == 0.0 => {
+                Expression::Literal(Value::Number(n)) if *n == 0.0 => {
                     return Err(CompilerError::division_by_zero_error(None));
                 },
                 _ => {
@@ -1978,7 +1983,20 @@ impl CodeGenerator {
 
             (WasmType::I32, WasmType::F64) => {
                 // Convert I32 to F64 and perform F64 operation
-                instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                // Need to convert the I32 (left operand) to F64
+                // Stack currently has: [I32_left, F64_right]
+                // We need: [F64_left, F64_right]
+                
+                // Store the F64 right operand temporarily
+                let temp_f64_local = self.add_local(WasmType::F64);
+                instructions.push(Instruction::LocalSet(temp_f64_local));
+                
+                // Convert the I32 left operand to F64
+                instructions.push(Instruction::F64ConvertI32S);
+                
+                // Restore the F64 right operand
+                instructions.push(Instruction::LocalGet(temp_f64_local));
+                
                 match op {
                     ast::BinaryOperator::Add => { instructions.push(Instruction::F64Add); Ok(WasmType::F64) },
                     ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
@@ -2170,7 +2188,7 @@ impl CodeGenerator {
 
     fn generate_value(&mut self, value: &Value, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
         match value {
-            Value::Float(n) => {
+            Value::Number(n) => {
                 instructions.push(Instruction::F64Const(*n));
                 Ok(WasmType::F64)
             },
@@ -2305,6 +2323,9 @@ impl CodeGenerator {
         // 5. Register matrix operations
         self.register_matrix_operations()?;
         
+        // 6. Register numeric operations
+        self.register_numeric_operations()?;
+        
         Ok(())
     }
     
@@ -2315,6 +2336,17 @@ impl CodeGenerator {
         // Create a MatrixOperations instance and register its functions
         let matrix_ops = MatrixOperations::new();
         matrix_ops.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register numeric operation functions using WASM instructions from NumericOperations
+    fn register_numeric_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::numeric_ops::NumericOperations;
+        
+        // Create a NumericOperations instance and register its functions
+        let numeric_ops = NumericOperations::new();
+        numeric_ops.register_functions(self)?;
         
         Ok(())
     }
@@ -2759,12 +2791,9 @@ impl CodeGenerator {
             ],
             return_type: Type::Void,
             body: vec![
-                // Placeholder implementation - in a real implementation this would check the condition
-                // For now, just drop the value to make it a valid void function
-                Statement::Expression {
-                    expr: Expression::Variable("condition".to_string()),
-                    location: None,
-                }
+                // Truly void function body - no expressions that would leave values on stack
+                // In a real implementation this would check the condition and panic if false
+                // For now, just return (parameters are handled by WASM function signature)
             ],
             description: Some("Asserts that a condition is true".to_string()),
             syntax: FunctionSyntax::Simple,
@@ -2887,11 +2916,8 @@ impl CodeGenerator {
             ],
             return_type: Type::Void,
             body: vec![
-                // Placeholder implementation - just drop the value
-                Statement::Expression {
-                    expr: Expression::Variable("condition".to_string()),
-                    location: None,
-                }
+                // Truly void function body - no expressions that would leave values on stack
+                // In a real implementation this would check the condition and panic if false
             ],
             description: Some("Ensures that a condition is true".to_string()),
             syntax: FunctionSyntax::Simple,
@@ -2914,11 +2940,8 @@ impl CodeGenerator {
             ],
             return_type: Type::Void,
             body: vec![
-                // Placeholder implementation - just drop the value
-                Statement::Expression {
-                    expr: Expression::Variable("condition".to_string()),
-                    location: None,
-                }
+                // Truly void function body - no expressions that would leave values on stack
+                // In a real implementation this would check the condition and panic if true
             ],
             description: Some("Ensures that a condition is false".to_string()),
             syntax: FunctionSyntax::Simple,
@@ -2946,15 +2969,8 @@ impl CodeGenerator {
             ],
             return_type: Type::Void,
             body: vec![
-                // Placeholder implementation - just drop the values
-                Statement::Expression {
-                    expr: Expression::Variable("value1".to_string()),
-                    location: None,
-                },
-                Statement::Expression {
-                    expr: Expression::Variable("value2".to_string()),
-                    location: None,
-                }
+                // Truly void function body - no expressions that would leave values on stack
+                // In a real implementation this would compare the values and panic if not equal
             ],
             description: Some("Ensures that two values are equal".to_string()),
             syntax: FunctionSyntax::Simple,
@@ -3120,40 +3136,17 @@ impl CodeGenerator {
             .max()
             .unwrap_or(0);
         
-        // We need locals beyond the parameters (which occupy the first few indices)
-        let locals_beyond_params = if max_local_index >= params.len() as u32 {
-            max_local_index - params.len() as u32 + 1
-        } else {
-            0
-        };
-        
-        let locals_needed: Vec<(u32, wasm_encoder::ValType)> = if locals_beyond_params > 0 {
-            // Determine local variable type based on function purpose
-            let local_type = if name.contains("string") || name.contains("array") || 
-                             name.contains("bool") || name.contains("i32") || 
-                             name.contains("i64") || name.contains("byte") ||
-                             name.starts_with("to_") || name.ends_with("_to_i32") ||
-                             name.ends_with("_to_bool") || name.contains("parse") {
-                wasm_encoder::ValType::I32  // Integer/pointer operations
-            } else {
-                wasm_encoder::ValType::F64  // Math/float operations
-            };
-            vec![(locals_beyond_params, local_type)]
-        } else {
-            vec![]
-        };
+        // For simple stdlib functions, we typically don't need extra locals beyond parameters
+        // The basic arithmetic functions only use LocalGet(0) and LocalGet(1) which are the parameters
+        let locals_needed: Vec<(u32, wasm_encoder::ValType)> = vec![];
         
         let mut func = Function::new(locals_needed);
         for inst in instructions {
             func.instruction(inst);
         }
         
-        // If function is non-void and last instruction is not value-producing, append default value
-        // FIXED: This logic was causing stack imbalance by adding unnecessary default values
-        // String functions may need individual fixes rather than blanket default value logic
-        
-        // Always add End instruction for stdlib functions (they don't include it in their definitions)
-        // Unless they already have one
+        // For stdlib functions, we need to handle End instructions properly
+        // Most stdlib functions already include End instructions, but some might not
         if !matches!(instructions.last(), Some(Instruction::End)) {
             func.instruction(&Instruction::End);
         }
@@ -4230,7 +4223,7 @@ impl CodeGenerator {
         // analyze the expression to determine its type
         match expr {
             Expression::Literal(Value::Integer(_)) => Ok(WasmType::I32),
-            Expression::Literal(Value::Float(_)) => Ok(WasmType::F64),
+            Expression::Literal(Value::Number(_)) => Ok(WasmType::F64),
             Expression::Literal(Value::Boolean(_)) => Ok(WasmType::I32),
             Expression::Literal(Value::String(_)) => Ok(WasmType::I32), // String pointer
             Expression::Variable(name) => {
@@ -4261,11 +4254,53 @@ impl CodeGenerator {
     /// Dispatches to appropriate print function based on argument type to prevent format string vulnerabilities
     fn generate_type_safe_print_call(&mut self, func_name: &str, arg: &Expression, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         // Generate the argument expression to get the value on the stack
-        let _arg_type = self.generate_expression(arg, instructions)?;
+        let arg_type = self.generate_expression(arg, instructions)?;
         
-        // Drop the value since we're not actually calling the print function
-        // This prevents stack imbalance while maintaining expression evaluation
-        instructions.push(Instruction::Drop);
+        // Get the print function index from the function map
+        let print_func_index = match self.function_map.get(func_name) {
+            Some(&index) => index,
+            None => {
+                return Err(CompilerError::codegen_error(
+                    &format!("Print function '{}' not found in function map", func_name),
+                    Some("Make sure print imports are properly registered".to_string()),
+                    None
+                ));
+            }
+        };
+        
+        // For now, use the simplified print interface that takes a single i32 value
+        // Convert the argument to i32 if needed and call print_simple
+        match arg_type {
+            WasmType::I32 => {
+                // Value is already i32, call print_simple directly
+                if let Some(&simple_index) = self.function_map.get("print_simple") {
+                    instructions.push(Instruction::Call(simple_index));
+                } else {
+                    // Fallback: drop the value if print_simple not available
+                    instructions.push(Instruction::Drop);
+                }
+            },
+            WasmType::F64 => {
+                // Convert f64 to i32 for simplified printing
+                instructions.push(Instruction::I32TruncF64S);
+                if let Some(&simple_index) = self.function_map.get("print_simple") {
+                    instructions.push(Instruction::Call(simple_index));
+                } else {
+                    instructions.push(Instruction::Drop);
+                }
+            },
+            WasmType::Unit => {
+                // Unit expressions don't leave values on stack, nothing to print
+            },
+            _ => {
+                // For other types, treat as i32 pointer
+                if let Some(&simple_index) = self.function_map.get("print_simple") {
+                    instructions.push(Instruction::Call(simple_index));
+                } else {
+                    instructions.push(Instruction::Drop);
+                }
+            }
+        }
         
         Ok(())
     }
@@ -4859,16 +4894,15 @@ impl CodeGenerator {
     }
 
     fn generate_expression_statement(&mut self, expr: &Expression, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
-        if let Expression::Call(func_name, _) = expr {
-            if func_name == "print" || func_name == "printl" || func_name == "println" {
-                let _result_type = self.generate_expression(expr, instructions)?;
-                return Ok(());
-            }
+        // Generate the expression
+        let result_type = self.generate_expression(expr, instructions)?;
+        
+        // Only drop if the expression actually produces a value
+        // Use the computed result type to determine this reliably
+        if result_type != WasmType::Unit {
+            instructions.push(Instruction::Drop);
         }
         
-        let _result_type = self.generate_expression(expr, instructions)?;
-        
-        instructions.push(Instruction::Drop);
         Ok(())
     }
 

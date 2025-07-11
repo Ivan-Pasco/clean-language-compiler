@@ -1,6 +1,7 @@
 use clean_language_compiler::{
     parser::CleanParser,
     codegen::CodeGenerator,
+    semantic::SemanticAnalyzer,
 };
 use std::fs;
 
@@ -59,8 +60,15 @@ fn test_function_program() {
     assert!(result.is_ok(), "Failed to parse function program: {:?}", result.err());
     
     let program = result.unwrap();
+    
+    // Add semantic analysis step before code generation
+    let mut semantic_analyzer = SemanticAnalyzer::new();
+    let analyzed_program = semantic_analyzer.analyze(&program);
+    assert!(analyzed_program.is_ok(), "Failed semantic analysis: {:?}", analyzed_program.err());
+    
+    let analyzed_program = analyzed_program.unwrap();
     let mut codegen = CodeGenerator::new();
-    let wasm_result = codegen.generate(&program);
+    let wasm_result = codegen.generate(&analyzed_program);
     assert!(wasm_result.is_ok(), "Failed to generate WASM: {:?}", wasm_result.err());
     
     let wasm_binary = wasm_result.unwrap();

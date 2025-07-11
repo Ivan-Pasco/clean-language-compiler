@@ -64,12 +64,12 @@ These are essential implementation rules that must be followed by the Clean Lang
    text = value.toString()  // ✅ Correct
    ```
 
-3. **Use `Any` for generic types**
-   - ✅ `Any identity(Any value) -> Any`
+3. **Use `any` for generic types**
+   - ✅ `any identity(any value) -> any`
    - Treat any capitalized type name not declared as a concrete type as a generic
    ```clean
    functions:
-       Any identity(Any value)
+       any identity(any value)
            return value
    ```
 
@@ -88,12 +88,12 @@ These are essential implementation rules that must be followed by the Clean Lang
    - ✅ Use `Math`, `String`, `Array`, `File` — not `MathUtils`, etc.
 
 6. **Use natural generic container syntax**
-   - ✅ `Array<Item>`, `Matrix<Type>`
+   - ✅ `array<item>`, `matrix<type>`
    - ❌ No angle brackets in user code (`<>`) - these are internal representations
 
-7. **Clean uses `Any` as the single generic placeholder type**
+7. **Clean uses `any` as the single generic placeholder type**
    - It represents a value of any type, determined when the function or class is used
-   - No explicit type parameter declarations needed - `Any` is automatically generic
+   - No explicit type parameter declarations needed - `any` is automatically generic
 
 ### Implementation Notes
 - These rules ensure consistency with Clean's philosophy of simplicity and readability
@@ -195,7 +195,7 @@ input      unit        private      constant    functions
 3.14        // Standard decimal
 .5          // Leading zero optional
 6.02e23     // Scientific notation
--2.5        // Negative float
+-2.5        // Negative number
 ```
 
 #### String Literals
@@ -267,7 +267,7 @@ Clean Language supports explicit precision control for numeric types using type 
 
 | Type Syntax | WebAssembly Type | Size | Precision | Use Case |
 |-------------|------------------|------|-----------|----------|
-| `number:32`  | f32 | 32-bit | IEEE 754 single | Default float, graphics |
+| `number:32`  | f32 | 32-bit | IEEE 754 single | Default number, graphics |
 | `number:64`  | f64 | 64-bit | IEEE 754 double | High precision, scientific computing |
 
 #### Examples
@@ -280,7 +280,7 @@ integer:32 count = 1000000       // Default integer (can omit :32)
 integer:64 timestamp = 1640995200000  // Unix timestamp in milliseconds
 
 // Float precision examples  
-number:32 temperature = 23.5      // Default float (can omit :32)
+number:32 temperature = 23.5      // Default number (can omit :32)
 number:64 preciseValue = 3.141592653589793  // High precision calculation
 
 // Apply-blocks with precision
@@ -303,11 +303,11 @@ number:64:
 
 | Type syntax | What it is | Example |
 |-------------|------------|---------|
-| `Array<Any>`  | Homogeneous resizable list | `Array<integer>`, `[1, 2, 3]` |
-| `List<Any>` | Flexible list with behavior properties | `List<string>`, see List Properties below |
-| `Matrix<Any>` | 2-D array (array of arrays) | `Matrix<float>`, `[[1.0, 2.0], [3.0, 4.0]]` |
-| `pairs<Any,Any>`  | Key-value associative container | `pairs<string, integer>` |
-| `Any`         | Generic type parameter | Used in function definitions |
+| `array<any>`  | Homogeneous resizable list | `array<integer>`, `[1, 2, 3]` |
+| `list<any>` | Flexible list with behavior properties | `list<string>`, see List Properties below |
+| `matrix<any>` | 2-D array (array of arrays) | `matrix<number>`, `[[1.0, 2.0], [3.0, 4.0]]` |
+| `pairs<any,any>`  | Key-value associative container | `pairs<string, integer>` |
+| `any`         | Generic type parameter | Used in function definitions |
 
 Arrays in Clean are zero-indexed by default (array[0] is the first element).
 For readability, you can access elements starting from 1 using:
@@ -317,12 +317,12 @@ This returns the element at position index - 1.
 
 ### List Properties - Collection Behavior Modifiers
 
-Clean Language extends the core `List<Any>` type with **property modifiers** that change the list's behavior without requiring separate collection types. This provides a unified, consistent approach to different collection patterns while maintaining type safety and simplicity.
+Clean Language extends the core `list<any>` type with **property modifiers** that change the list's behavior without requiring separate collection types. This provides a unified, consistent approach to different collection patterns while maintaining type safety and simplicity.
 
 #### Property Syntax
 
 ```clean
-List<Any> myList = List<Any>()
+list<any> myList = list<any>()
 myList.type = behavior_type
 ```
 
@@ -337,7 +337,7 @@ First-In-First-Out behavior. Elements are added to the back and removed from the
 ```clean
 functions:
     void processTaskQueue()
-        List<string> tasks = List<string>()
+        list<string> tasks = list<string>()
         tasks.type = line
         
         // Add tasks (to back)
@@ -364,7 +364,7 @@ Last-In-First-Out behavior. Elements are added and removed from the same end (to
 ```clean
 functions:
     void undoSystem()
-        List<string> actions = List<string>()
+        list<string> actions = list<string>()
         actions.type = pile
         
         // Perform actions (add to top)
@@ -391,7 +391,7 @@ Only allows unique elements. Duplicate additions are ignored.
 ```clean
 functions:
     void trackUniqueVisitors()
-        List<string> visitors = List<string>()
+        list<string> visitors = list<string>()
         visitors.type = unique
         
         // Add visitors (duplicates ignored)
@@ -418,12 +418,12 @@ Properties can be combined for specialized behavior:
 
 ```clean
 // Unique queue - FIFO with no duplicates
-List<string> uniqueQueue = List<string>()
+list<string> uniqueQueue = list<string>()
 uniqueQueue.type = line
 uniqueQueue.type = unique
 
 // Unique stack - LIFO with no duplicates  
-List<integer> uniqueStack = List<integer>()
+list<integer> uniqueStack = list<integer>()
 uniqueStack.type = pile
 uniqueStack.type = unique
 ```
@@ -435,12 +435,12 @@ uniqueStack.type = unique
 
 #### Advantages
 
-1. **Unified Type System**: Single `List<Any>` type instead of multiple collection types
+1. **Unified Type System**: Single `list<any>` type instead of multiple collection types
 2. **Consistent API**: All lists share the same base methods
 3. **Flexible Behavior**: Properties can be changed at runtime if needed
 4. **Type Safety**: Full generic type support with compile-time validation
 5. **Simplicity**: Easier to learn and remember than separate collection classes
-6. **Interoperability**: All property-modified lists are still `List<Any>` types
+6. **Interoperability**: All property-modified lists are still `list<any>` types
 
 ### Type Annotations and Variable Declaration
 
@@ -449,7 +449,7 @@ Variables use **type-first** syntax:
 ```clean
 // Basic variable declarations
 integer count = 0
-float temperature = 23.5
+number temperature = 23.5
 boolean isActive = true
 string name = "Alice"
 
@@ -461,26 +461,26 @@ string message
 ### Type Conversion
 
 **Implicit conversions (safe widening):**
-- `integer` → `float` (with precision loss warning)
+- `integer` → `number` (with precision loss warning)
 - Same-sign, wider types → OK
 
 **Explicit conversions:**
 ```clean
 value.toInteger   // convert to integer
-value.toFloat     // convert to floating-point
+value.toNumber     // convert to floating-point
 value.toString    // convert to string
 value.toBoolean   // convert to boolean
 ```
 
 **Implementation Status:**
-- ✅ **Numeric Conversions**: `integer.toFloat`, `float.toInteger`, `integer.toBoolean` fully implemented
+- ✅ **Numeric Conversions**: `integer.toNumber`, `number.toInteger`, `integer.toBoolean` fully implemented
 - ✅ **Boolean Conversions**: `integer.toBoolean` (0 = false, non-zero = true) implemented
 - ⚠️ **String Conversions**: `value.toString` requires runtime functions (not yet implemented)
 
 **Examples:**
 ```clean
 integer num = 42
-float numFloat = num.toFloat      // ✅ Works: converts 42 to 42.0
+number numFloat = num.toNumber      // ✅ Works: converts 42 to 42.0
 integer piInt = 3.14.toInteger    // ✅ Works: converts 3.14 to 3 (truncated)
 boolean flag = 0.toBoolean        // ✅ Works: converts 0 to false
 boolean nonZero = 5.toBoolean     // ✅ Works: converts 5 to true
@@ -522,7 +522,7 @@ string:
 ```clean
 constant:
     integer MAX_SIZE = 100
-    float PI = 3.14159
+    number PI = 3.14159
     string VERSION = "1.0.0"
 ```
 
@@ -650,9 +650,9 @@ Clean Language uses **type-based operator overloading** for basic operations and
 
 ```clean
 // Basic operations (type-based overloading)
-A * B       // Matrix multiplication (when A, B are Matrix<T>)
-A + B       // Matrix addition (when A, B are Matrix<T>)
-A - B       // Matrix subtraction (when A, B are Matrix<T>)
+A * B       // Matrix multiplication (when A, B are matrix<T>)
+A + B       // Matrix addition (when A, B are matrix<T>)
+A - B       // Matrix subtraction (when A, B are matrix<T>)
 a * b       // Scalar multiplication (when a, b are numbers)
 
 // Advanced operations (methods)
@@ -686,7 +686,7 @@ functionName(arg1, arg2, arg3)     // Multiple arguments
 ```clean
 // Type-first variable declarations
 integer x = 10
-float y = 3.14
+number y = 3.14
 string z
 boolean flag = true
 ```
@@ -729,7 +729,7 @@ print(variable)         // Also valid
 ```clean
 // toString() method calls work perfectly
 integer age = 25
-float price = 19.99
+number price = 19.99
 boolean isValid = true
 
 print(age.toString())       // Prints: 25
@@ -810,7 +810,7 @@ The block syntax allows for cleaner formatting when printing multiple values seq
 
 ### Console Input
 
-Console input in Clean lets you ask the user for a value with a simple prompt. Use `input()` for text, `input.integer()` and `input.float()` for numbers, and `input.yesNo()` for true/false — all with safe defaults and clear syntax.
+Console input in Clean lets you ask the user for a value with a simple prompt. Use `input()` for text, `input.integer()` and `input.number()` for numbers, and `input.yesNo()` for true/false — all with safe defaults and clear syntax.
 
 ```clean
 // Get text input from user
@@ -819,7 +819,7 @@ string message = input()  // Simple prompt with no text
 
 // Get numeric input with automatic conversion
 integer age = input.integer("How old are you? ")
-float height = input.float("Your height in meters: ")
+number height = input.number("Your height in meters: ")
 
 // Get yes/no input as boolean
 boolean confirmed = input.yesNo("Are you sure? ")
@@ -829,7 +829,7 @@ boolean subscribe = input.yesNo("Subscribe to newsletter? ")
 #### Input Features
 
 - **Safe defaults**: Invalid input automatically retries with helpful messages
-- **Type conversion**: `input.integer()` and `input.float()` handle numeric conversion safely
+- **Type conversion**: `input.integer()` and `input.number()` handle numeric conversion safely
 - **Boolean parsing**: `input.yesNo()` accepts "yes"/"no", "y"/"n", "true"/"false", "1"/"0"
 - **Clean prompts**: Prompts are displayed clearly and wait for user input
 - **Error handling**: Invalid input shows friendly error messages and asks again
@@ -913,25 +913,25 @@ functions:
         print("Hello World")
 ```
 
-### Generic Functions with `Any`
+### Generic Functions with `any`
 
-Clean Language uses `Any` as the universal generic type. No explicit type parameter declarations are needed:
+Clean Language uses `any` as the universal generic type. No explicit type parameter declarations are needed:
 
 ```clean
 functions:
-    Any identity(Any value)
+    any identity(any value)
         return value
     
-    Any getFirst(Array<Any> items)
+    any getFirst(array<any> items)
         return items[0]
     
-    void printAny(Any value)
+    void printAny(any value)
         print(value.toString())
 
 // Usage - type is inferred at compile time
-string result = identity("hello")    // Any → string
-integer number = identity(42)        // Any → integer
-float decimal = identity(3.14)       // Any → float
+string result = identity("hello")    // any → string
+integer number = identity(42)        // any → integer
+number decimal = identity(3.14)       // any → number
 ```
 
 ### Function Features
@@ -1029,7 +1029,7 @@ functions:
             integer count = 42                    // Literal value
             string message = "Default text"       // String literal
             boolean flag = true                   // Boolean literal
-            float ratio = 3.14                    // Float literal
+            number ratio = 3.14                    // Number literal
             integer calculated = 10 + 5           // Expression
             string formatted = "Value: " + "test" // String concatenation
 ```
@@ -1337,21 +1337,21 @@ class Point
         y = y + dy
 ```
 
-### Generic Classes with `Any`
+### Generic Classes with `any`
 
-Clean Language uses `Any` for generic class fields and methods:
+Clean Language uses `any` for generic class fields and methods:
 
 ```clean
 class Container
-    Any value                  // Any makes class generic
+    any value                  // any makes class generic
 
-    constructor(Any value)     // Auto-stores to matching field
+    constructor(any value)     // Auto-stores to matching field
 
     functions:
-        Any get()
+        any get()
         return value
 
-        void set(Any newValue)
+        void set(any newValue)
         value = newValue
 ```
 
@@ -1371,14 +1371,14 @@ class Shape
             return color            // Direct field access
 
 class Circle is Shape
-    float radius
+    number radius
     
-    constructor(string colorParam, float radiusParam)
+    constructor(string colorParam, number radiusParam)
         base(colorParam)            // Call parent constructor with 'base'
         radius = radiusParam        // Implicit context
     
     functions:
-        float area()
+        number area()
             return 3.14159 * radius * radius
         
         string getInfo()
@@ -1432,10 +1432,10 @@ You can call class methods directly on the class name if they don't use instance
 ```clean
 class Math
 functions:
-        float add(float a, float b)
+        number add(number a, number b)
             return a + b
         
-        float max(float a, float b)
+        number max(number a, number b)
             return if a > b then a else b
 
 class DatabaseService
@@ -1451,8 +1451,8 @@ class DatabaseService
 // Static method calls - ClassName.method()
 functions:
     void start()
-        float result = Math.add(5.0, 3.0)
-        float maximum = Math.max(10.0, 7.5)
+        number result = Math.add(5.0, 3.0)
+        number maximum = Math.max(10.0, 7.5)
         boolean connected = DatabaseService.connect("mysql://localhost")
         User user = DatabaseService.findUser(42)
 ```
@@ -1503,7 +1503,7 @@ Clean Language encourages organizing all functionality into classes rather than 
 functions:
     void start()
         // Built-in classes available automatically:
-        float result = Math.add(5.0, 3.0)           // Math operations
+        number result = Math.add(5.0, 3.0)           // Math operations
         integer length = String.length("hello")     // String operations  
         integer size = Array.length([1, 2, 3])     // Array operations
         string data = File.readText("file.txt")    // File operations
@@ -1512,10 +1512,10 @@ functions:
 // User code must use classes with functions blocks:
 class Calculator
     functions:
-        float calculateTax(float amount)
+        number calculateTax(number amount)
             return Math.multiply(amount, 0.15)
         
-        string formatResult(float value)
+        string formatResult(number value)
             return String.concat("Result: ", value.toString())
 ```
 
@@ -1528,7 +1528,7 @@ Clean Language provides built-in utility classes for common operations. All stan
 - All methods are in `functions:` blocks
 - Method calls require parentheses
 - No `Utils` suffix in class names
-- Use `Any` for generic operations
+- Use `any` for generic operations
 
 ### Math Class
 
@@ -1536,83 +1536,83 @@ Clean Language provides built-in utility classes for common operations. All stan
 class Math
     functions:
         // Basic arithmetic
-        float add(float a, float b)
-        float subtract(float a, float b)
-        float multiply(float a, float b)
-        float divide(float a, float b)
+        number add(number a, number b)
+        number subtract(number a, number b)
+        number multiply(number a, number b)
+        number divide(number a, number b)
         
         // Core mathematical operations
-        float sqrt(float x)
-        float abs(float x)          // Absolute value for floats
+        number sqrt(number x)
+        number abs(number x)          // Absolute value for numbers
         integer abs(integer x)      // Absolute value for integers
-        float max(float a, float b)
-        float min(float a, float b)
+        number max(number a, number b)
+        number min(number a, number b)
         
         // Rounding and precision functions
-        float floor(float x)    // Round down to nearest integer
-        float ceil(float x)     // Round up to nearest integer  
-        float round(float x)    // Round to nearest integer
-        float trunc(float x)    // Remove decimal part
-        float sign(float x)     // Returns -1, 0, or 1
+        number floor(number x)    // Round down to nearest integer
+        number ceil(number x)     // Round up to nearest integer  
+        number round(number x)    // Round to nearest integer
+        number trunc(number x)    // Remove decimal part
+        number sign(number x)     // Returns -1, 0, or 1
         
         // Trigonometric functions - work with radians
-        float sin(float x)      // Sine
-        float cos(float x)      // Cosine
-        float tan(float x)      // Tangent
-        float asin(float x)     // Arc sine (inverse sine)
-        float acos(float x)     // Arc cosine (inverse cosine)
-        float atan(float x)     // Arc tangent (inverse tangent)
-        float atan2(float y, float x)  // Two-argument arc tangent
+        number sin(number x)      // Sine
+        number cos(number x)      // Cosine
+        number tan(number x)      // Tangent
+        number asin(number x)     // Arc sine (inverse sine)
+        number acos(number x)     // Arc cosine (inverse cosine)
+        number atan(number x)     // Arc tangent (inverse tangent)
+        number atan2(number y, number x)  // Two-argument arc tangent
         
         // Logarithmic and exponential functions
-        float ln(float x)       // Natural logarithm (base e)
-        float log10(float x)    // Base-10 logarithm
-        float log2(float x)     // Base-2 logarithm
-        float exp(float x)      // e raised to the power of x
-        float exp2(float x)     // 2 raised to the power of x
+        number ln(number x)       // Natural logarithm (base e)
+        number log10(number x)    // Base-10 logarithm
+        number log2(number x)     // Base-2 logarithm
+        number exp(number x)      // e raised to the power of x
+        number exp2(number x)     // 2 raised to the power of x
         
         // Hyperbolic functions - useful for advanced calculations
-        float sinh(float x)     // Hyperbolic sine
-        float cosh(float x)     // Hyperbolic cosine
-        float tanh(float x)     // Hyperbolic tangent
+        number sinh(number x)     // Hyperbolic sine
+        number cosh(number x)     // Hyperbolic cosine
+        number tanh(number x)     // Hyperbolic tangent
         
         // Mathematical constants
-        float pi()              // π ≈ 3.14159
-        float e()               // Euler's number ≈ 2.71828
-        float tau()             // τ = 2π ≈ 6.28318
+        number pi()              // π ≈ 3.14159
+        number e()               // Euler's number ≈ 2.71828
+        number tau()             // τ = 2π ≈ 6.28318
 
 // Usage Examples
 functions:
     void start()
         // Basic calculations
-        float result = Math.add(5.0, 3.0)
+        number result = Math.add(5.0, 3.0)
         float maximum = Math.max(10.5, 7.2)
         
         // Geometry - calculate circle area
-        float radius = 5.0
-        float area = Math.multiply(Math.pi(), radius ^ 2.0)
+        number radius = 5.0
+        number area = Math.multiply(Math.pi(), radius ^ 2.0)
         
         // Trigonometry - find triangle sides
-        float angle = Math.divide(Math.pi(), 4.0)  // 45 degrees in radians
-        float opposite = Math.multiply(10.0, Math.sin(angle))
-        float adjacent = Math.multiply(10.0, Math.cos(angle))
+        number angle = Math.divide(Math.pi(), 4.0)  // 45 degrees in radians
+        number opposite = Math.multiply(10.0, Math.sin(angle))
+        number adjacent = Math.multiply(10.0, Math.cos(angle))
         
         // Rounding numbers for display
-        float price = 19.99567
-        float rounded = Math.round(price)  // 20.0
-        float floored = Math.floor(price)  // 19.0
+        number price = 19.99567
+        number rounded = Math.round(price)  // 20.0
+        number floored = Math.floor(price)  // 19.0
         
         // Logarithmic calculations
-        float growth = Math.exp(0.05)      // e^0.05 for 5% growth
-        float halfLife = Math.log2(100.0)  // How many times to halve 100 to get 1
+        number growth = Math.exp(0.05)      // e^0.05 for 5% growth
+        number halfLife = Math.log2(100.0)  // How many times to halve 100 to get 1
         
         // Distance calculations using Pythagorean theorem
-        float dx = 3.0
-        float dy = 4.0
-        float distance = Math.sqrt(Math.add(dx ^ 2.0, dy ^ 2.0))
+        number dx = 3.0
+        number dy = 4.0
+        number distance = Math.sqrt(Math.add(dx ^ 2.0, dy ^ 2.0))
         
         // Absolute values for different types
-        float floatAbs = Math.abs(-5.7)    // 5.7
+        number numberAbs = Math.abs(-5.7)    // 5.7
         integer intAbs = Math.abs(-42)     // 42
 ```
 
@@ -1690,12 +1690,12 @@ class String
             // Like find-and-replace-all - changes every match in the text
             // Example: replaceAll("Hello Hello", "Hello", "Hi") → "Hi Hi"
         
-        Array<string> split(string text, string delimiter)
+        array<string> split(string text, string delimiter)
             // Breaks a string into pieces using a separator character
             // Like cutting a rope at specific points - very useful for data processing
             // Example: split("apple,banana,orange", ",") → ["apple", "banana", "orange"]
         
-        string join(Array<string> parts, string separator)
+        string join(array<string> parts, string separator)
             // Combines an array of strings into one string with separators
             // The opposite of split - like gluing pieces back together
             // Example: join(["apple", "banana", "orange"], ", ") → "apple, banana, orange"
@@ -1734,7 +1734,7 @@ class String
             // Example: padEnd("Name", 10, " ") → "Name      "
         
         // Conversion utilities
-        string toString(Any value)
+        string toString(any value)
             // Converts any value to its string representation
             // Universal conversion for display purposes
 
@@ -1763,7 +1763,7 @@ functions:
         
         // Text parsing and reconstruction
         string csvLine = "John,Doe,25,Engineer"
-        Array<string> fields = String.split(csvLine, ",")     // ["John", "Doe", "25", "Engineer"]
+        array<string> fields = String.split(csvLine, ",")     // ["John", "Doe", "25", "Engineer"]
         string fullName = String.join([fields[0], fields[1]], " ")  // "John Doe"
         
         // Text replacement and cleaning
@@ -1792,133 +1792,133 @@ The Array class provides powerful data collection capabilities. Whether you're m
 class Array
     functions:
         // Basic operations - fundamental array access
-        integer length(Array<Any> array)
+        integer length(array<any> array)
             // Returns the number of elements in the array
             // Like counting how many items are in a box
             // Example: length([1, 2, 3]) → 3
         
-        Any get(Array<Any> array, integer index)
+        any get(array<any> array, integer index)
             // Gets the element at the specified position
             // Like picking out the 3rd item from a list
             // Example: get([10, 20, 30], 1) → 20 (positions start at 0)
         
-        void set(Array<Any> array, integer index, Any value)
+        void set(array<any> array, integer index, any value)
             // Updates the element at the specified position
             // Like replacing an item in a specific slot
             // Example: set([1, 2, 3], 1, 99) → [1, 99, 3]
         
         // Modification operations - changing array contents
-        Array<Any> push(Array<Any> array, Any item)
+        array<any> push(array<any> array, any item)
             // Adds an element to the end of the array
             // Like adding a new item to the end of a list
             // Example: push([1, 2], 3) → [1, 2, 3]
         
-        Any pop(Array<Any> array)
+        any pop(array<any> array)
             // Removes and returns the last element from the array
             // Like taking the top item off a stack
             // Example: pop([1, 2, 3]) → 3, array becomes [1, 2]
         
-        Array<Any> insert(Array<Any> array, integer index, Any item)
+        array<any> insert(array<any> array, integer index, any item)
             // Inserts an element at a specific position
             // Like squeezing a new item into the middle of a line
             // Example: insert([1, 3], 1, 2) → [1, 2, 3]
         
-        Any remove(Array<Any> array, integer index)
+        any remove(array<any> array, integer index)
             // Removes and returns the element at the specified position
             // Like taking out a specific item and closing the gap
             // Example: remove([1, 2, 3], 1) → 2, array becomes [1, 3]
         
         // Search operations - finding elements in arrays
-        boolean contains(Array<Any> array, Any item)
+        boolean contains(array<any> array, any item)
             // Checks if the array contains the specified item
             // Like looking through a box to see if something is there
             // Example: contains([1, 2, 3], 2) → true
         
-        integer indexOf(Array<Any> array, Any item)
+        integer indexOf(array<any> array, any item)
             // Finds the first position of the item in the array
             // Like finding where something is located in a list
             // Example: indexOf([10, 20, 30], 20) → 1
         
-        integer lastIndexOf(Array<Any> array, Any item)
+        integer lastIndexOf(array<any> array, any item)
             // Finds the last position of the item in the array
             // Useful when the same item appears multiple times
             // Example: lastIndexOf([1, 2, 1, 3], 1) → 2
         
         // Array transformation operations - creating new arrays
-        Array<Any> slice(Array<Any> array, integer start, integer end)
+        array<any> slice(array<any> array, integer start, integer end)
             // Creates a new array containing elements from start to end position
             // Like cutting out a section of the original array
             // Example: slice([1, 2, 3, 4, 5], 1, 4) → [2, 3, 4]
         
-        Array<Any> concat(Array<Any> array1, Array<Any> array2)
+        array<any> concat(array<any> array1, array<any> array2)
             // Combines two arrays into a single new array
             // Like joining two lists together
             // Example: concat([1, 2], [3, 4]) → [1, 2, 3, 4]
         
-        Array<Any> reverse(Array<Any> array)
+        array<any> reverse(array<any> array)
             // Creates a new array with elements in reverse order
             // Like flipping the array upside down
             // Example: reverse([1, 2, 3]) → [3, 2, 1]
         
-        Array<Any> sort(Array<Any> array)
+        array<any> sort(array<any> array)
             // Creates a new array with elements sorted in ascending order
             // Like organizing items from smallest to largest
             // Example: sort([3, 1, 4, 2]) → [1, 2, 3, 4]
         
         // Functional programming operations - advanced array processing
-        Array<Any> map(Array<Any> array, function callback)
+        array<any> map(array<any> array, function callback)
             // Creates a new array by applying a function to each element
             // Like transforming every item in the array using a rule
             // Example: map([1, 2, 3], x => x * 2) → [2, 4, 6]
         
-        Array<Any> filter(Array<Any> array, function callback)
+        array<any> filter(array<any> array, function callback)
             // Creates a new array containing only elements that pass a test
             // Like keeping only the items that meet certain criteria
             // Example: filter([1, 2, 3, 4], x => x > 2) → [3, 4]
         
-        Any reduce(Array<Any> array, function callback, Any initialValue)
+        any reduce(array<any> array, function callback, any initialValue)
             // Reduces the array to a single value by applying a function
             // Like combining all elements into one result
             // Example: reduce([1, 2, 3, 4], (sum, x) => sum + x, 0) → 10
         
-        void forEach(Array<Any> array, function callback)
+        void forEach(array<any> array, function callback)
             // Executes a function for each element in the array
             // Like doing something with every item in the array
             // Example: forEach([1, 2, 3], x => print(x)) → prints 1, 2, 3
         
         // Utility operations - helpful array functions
-        boolean isEmpty(Array<Any> array)
+        boolean isEmpty(array<any> array)
             // Checks if the array has no elements
             // Like checking if a box is completely empty
             // Example: isEmpty([]) → true, isEmpty([1]) → false
         
-        boolean isNotEmpty(Array<Any> array)
+        boolean isNotEmpty(array<any> array)
             // Checks if the array has at least one element
             // Opposite of isEmpty - checks if there's something there
             // Example: isNotEmpty([1, 2]) → true
         
-        Any first(Array<Any> array)
+        any first(array<any> array)
             // Gets the first element of the array
             // Like looking at the item at the front of the line
             // Example: first([10, 20, 30]) → 10
         
-        Any last(Array<Any> array)
+        any last(array<any> array)
             // Gets the last element of the array
             // Like looking at the item at the back of the line
             // Example: last([10, 20, 30]) → 30
         
-        string join(Array<string> array, string separator)
+        string join(array<string> array, string separator)
             // Combines all array elements into a single string with separators
             // Like gluing text pieces together with a connector
             // Example: join(["apple", "banana", "orange"], ", ") → "apple, banana, orange"
         
         // Array creation helpers - building new arrays
-        Array<Any> fill(integer size, Any value)
+        array<any> fill(integer size, any value)
             // Creates a new array of specified size filled with the same value
             // Like making multiple copies of the same item
             // Example: fill(3, "hello") → ["hello", "hello", "hello"]
         
-        Array<integer> range(integer start, integer end)
+        array<integer> range(integer start, integer end)
             // Creates an array of numbers from start to end
             // Like counting from one number to another
             // Example: range(1, 5) → [1, 2, 3, 4, 5]
@@ -1927,44 +1927,44 @@ class Array
 functions:
     void start()
         // Basic array operations
-        Array<integer> numbers = [1, 2, 3]
+        array<integer> numbers = [1, 2, 3]
         integer size = Array.length(numbers)           // 3
         integer first = Array.get(numbers, 0)          // 1
         Array.set(numbers, 1, 99)                      // [1, 99, 3]
         
         // Building and modifying arrays
-        Array<string> fruits = ["apple", "banana"]
+        array<string> fruits = ["apple", "banana"]
         fruits = Array.push(fruits, "orange")          // ["apple", "banana", "orange"]
         string lastFruit = Array.pop(fruits)           // "orange", fruits becomes ["apple", "banana"]
         
         // Searching through data
-        Array<integer> scores = [85, 92, 78, 96, 88]
+        array<integer> scores = [85, 92, 78, 96, 88]
         boolean hasHighScore = Array.contains(scores, 96)     // true
         integer position = Array.indexOf(scores, 92)          // 1
         
         // Data processing and transformation
-        Array<integer> data = [1, 2, 3, 4, 5]
-        Array<integer> doubled = Array.map(data, x => x * 2)  // [2, 4, 6, 8, 10]
-        Array<integer> evens = Array.filter(data, x => x % 2 == 0)  // [2, 4]
+        array<integer> data = [1, 2, 3, 4, 5]
+        array<integer> doubled = Array.map(data, x => x * 2)  // [2, 4, 6, 8, 10]
+        array<integer> evens = Array.filter(data, x => x % 2 == 0)  // [2, 4]
         integer sum = Array.reduce(data, (total, x) => total + x, 0)  // 15
         
         // Array manipulation
-        Array<string> names1 = ["Alice", "Bob"]
-        Array<string> names2 = ["Charlie", "Diana"]
-        Array<string> allNames = Array.concat(names1, names2)  // ["Alice", "Bob", "Charlie", "Diana"]
-        Array<string> reversed = Array.reverse(allNames)       // ["Diana", "Charlie", "Bob", "Alice"]
+        array<string> names1 = ["Alice", "Bob"]
+        array<string> names2 = ["Charlie", "Diana"]
+        array<string> allNames = Array.concat(names1, names2)  // ["Alice", "Bob", "Charlie", "Diana"]
+        array<string> reversed = Array.reverse(allNames)       // ["Diana", "Charlie", "Bob", "Alice"]
         
         // Working with sections of arrays
-        Array<integer> bigList = [10, 20, 30, 40, 50]
-        Array<integer> middle = Array.slice(bigList, 1, 4)     // [20, 30, 40]
+        array<integer> bigList = [10, 20, 30, 40, 50]
+        array<integer> middle = Array.slice(bigList, 1, 4)     // [20, 30, 40]
         
         // Text processing with arrays
-        Array<string> words = ["hello", "world", "from", "Clean"]
+        array<string> words = ["hello", "world", "from", "Clean"]
         string sentence = Array.join(words, " ")               // "hello world from Clean"
         
         // Creating arrays programmatically
-        Array<string> greetings = Array.fill(3, "Hello")       // ["Hello", "Hello", "Hello"]
-        Array<integer> countdown = Array.range(5, 1)           // [5, 4, 3, 2, 1]
+        array<string> greetings = Array.fill(3, "Hello")       // ["Hello", "Hello", "Hello"]
+        array<integer> countdown = Array.range(5, 1)           // [5, 4, 3, 2, 1]
         
         // Validation and utility
         boolean isEmpty = Array.isEmpty([])                    // true
@@ -1984,7 +1984,7 @@ class File
             // Reads the entire file content as a single string
             // Perfect for small to medium-sized files
         
-        List<string> lines(string path)
+        list<string> lines(string path)
             // Reads the file and returns each line as a separate string
             // Great for processing text files line by line
         
@@ -2013,7 +2013,7 @@ functions:
         string config = File.read("settings.txt")
         
         // Process a log file line by line
-        List<string> logLines = File.lines("app.log")
+        list<string> logLines = File.lines("app.log")
         
         // Save user data
         File.write("user_data.txt", "John Doe, 25, Engineer")
@@ -2128,11 +2128,11 @@ boolean missing = myValue.isNotDefined()
 
 // Keep numbers within bounds (like volume controls)
 integer volume = userInput.keepBetween(0, 100)
-float temperature = reading.keepBetween(-10.0, 50.0)
+number temperature = reading.keepBetween(-10.0, 50.0)
 
 // Get default values for types
 integer defaultNumber = defaultInt()        // Returns 0
-float defaultDecimal = defaultFloat()       // Returns 0.0
+number defaultDecimal = defaultNumber()       // Returns 0.0
 boolean defaultFlag = defaultBool()         // Returns false
 ```
 
@@ -2153,7 +2153,7 @@ boolean missing = myValue.isNotDefined()
 ```clean
 // Keep numbers within bounds (like volume controls)
 integer volume = userInput.keepBetween(0, 100)
-float temperature = reading.keepBetween(-10.0, 50.0)
+number temperature = reading.keepBetween(-10.0, 50.0)
 ```
 
 **Default Value Pattern:**
@@ -2162,7 +2162,7 @@ float temperature = reading.keepBetween(-10.0, 50.0)
 // Use 'or' for elegant default values - much cleaner!
 integer count = userInput or 0              // If userInput is null/undefined, use 0
 string name = userName or "Anonymous"       // If userName is empty, use "Anonymous"
-float rate = configRate or 1.0             // If configRate is missing, use 1.0
+number rate = configRate or 1.0             // If configRate is missing, use 1.0
 boolean enabled = setting or true          // If setting is undefined, use true
 ```
 
@@ -2172,12 +2172,12 @@ Convert values from one type to another - perfect for user input and data proces
 ```clean
 // Convert numbers to different types
 string numberText = age.toString()          // 25 → "25"
-float decimal = wholeNumber.toFloat()       // 42 → 42.0
+number decimal = wholeNumber.toNumber()       // 42 → 42.0
 integer rounded = price.toInteger()         // 19.99 → 19
 
 // Convert text to numbers
 integer userAge = ageInput.toInteger()      // "25" → 25
-float userHeight = heightInput.toFloat()    // "5.8" → 5.8
+number userHeight = heightInput.toNumber()    // "5.8" → 5.8
 
 // Convert to true/false values
 boolean isValid = userChoice.toBoolean()    // "true" → true
@@ -2258,13 +2258,13 @@ functions:
         
     void dataProcessing()
         // Array processing with methods
-        Array<string> names = ["Alice", "Bob", "Charlie"]
+        array<string> names = ["Alice", "Bob", "Charlie"]
         integer count = names.length()
         boolean hasData = names.isNotEmpty()
         
         // Number processing
-        Array<float> scores = [85.5, 92.3, 78.9]
-        float average = calculateAverage(scores).keepBetween(0.0, 100.0)
+        array<number> scores = [85.5, 92.3, 78.9]
+        number average = calculateAverage(scores).keepBetween(0.0, 100.0)
         string displayScore = average.toString().concat("%")
 ```
 
@@ -2545,7 +2545,7 @@ import:
 functions:
     void calculateAndSend()
         # Use functions from imported packages
-        float result = MathUtils.sqrt(16.0)
+        number result = MathUtils.sqrt(16.0)
         string jsonData = JsonParser.stringify(result)
         
         HttpClient client = HttpClient.new()

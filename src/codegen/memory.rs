@@ -506,7 +506,7 @@ impl MemoryUtils {
                 Value::Integer(_) => WasmType::I32,
                 Value::Boolean(_) => WasmType::I32,
                 Value::String(_) => WasmType::I32,
-                Value::Float(_) => WasmType::F64,
+                Value::Number(_) => WasmType::F64,
                 _ => WasmType::I32,
             }
         };
@@ -526,7 +526,7 @@ impl MemoryUtils {
             let element_bytes = match element {
                 Value::Integer(i) => (*i as u32).to_le_bytes().to_vec(),
                 Value::Boolean(b) => (*b as u32).to_le_bytes().to_vec(),
-                Value::Float(f) => f.to_le_bytes().to_vec(),
+                Value::Number(f) => f.to_le_bytes().to_vec(),
                 Value::String(s) => {
                     // For string elements, store pointer to string
                     let str_ptr = self.allocate_string(s)?;

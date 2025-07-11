@@ -461,8 +461,11 @@ impl InstructionGenerator {
                 }
             },
             Statement::Expression { expr, location: _ } => {
-                self.generate_expression(expr, instructions)?;
-                instructions.push(Instruction::Drop);
+                let result_type = self.generate_expression(expr, instructions)?;
+                // Only drop if the expression actually produces a value
+                if result_type != WasmType::Unit {
+                    instructions.push(Instruction::Drop);
+                }
             },
             Statement::Test { name: _, body: _body, location: _ } => {
                 #[cfg(test)]
@@ -600,7 +603,7 @@ impl InstructionGenerator {
     /// Generate instructions for a value
     pub(crate) fn generate_value(&mut self, value: &Value, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
         match value {
-            Value::Float(f) => {
+            Value::Number(f) => {
                 instructions.push(Instruction::F64Const(*f));
                 Ok(WasmType::F64)
             },
@@ -660,11 +663,11 @@ impl InstructionGenerator {
                 Ok(WasmType::I64)
             },
             // Sized float types
-            Value::Float32(f) => {
+            Value::Number32(f) => {
                 instructions.push(Instruction::F32Const(*f));
                 Ok(WasmType::F32)
             },
-            Value::Float64(f) => {
+            Value::Number64(f) => {
                 instructions.push(Instruction::F64Const(*f));
                 Ok(WasmType::F64)
             },
@@ -913,9 +916,29 @@ impl InstructionGenerator {
         Ok(index)
     }
 
-    pub(crate) fn get_function_return_type(&self, _index: u32) -> Result<WasmType, CompilerError> {
-        // For now, just return a default return type
-        Ok(WasmType::I32)
+    pub(crate) fn get_function_return_type(&self, index: u32) -> Result<WasmType, CompilerError> {
+        if let Some(func_type) = self.get_function_type(index) {
+            if let Some(return_val_type) = func_type.results().first() {
+                Ok(Self::from_parser_val_type(*return_val_type))
+            } else {
+                // No return type means void function
+                // We'll use I32 as a placeholder but this should be handled specially in calling code
+                // The calling code should check if the function is void and not expect a value on the stack
+                Ok(WasmType::I32) // This represents void functions - but they don't actually put values on stack
+            }
+        } else {
+            // If no function type info is available, default to I32
+            Ok(WasmType::I32)
+        }
+    }
+    
+    /// Check if a function returns void (has no return values)
+    pub(crate) fn is_void_function(&self, index: u32) -> bool {
+        if let Some(func_type) = self.get_function_type(index) {
+            func_type.results().is_empty()
+        } else {
+            false // If we can't determine, assume it's not void
+        }
     }
 
     pub(crate) fn get_array_get(&self) -> u32 {

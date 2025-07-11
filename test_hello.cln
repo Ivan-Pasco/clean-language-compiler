@@ -1,0 +1,5 @@
+start()
+	number x = 5
+	number y = 3  
+	number result = x + y
+	print(result)
