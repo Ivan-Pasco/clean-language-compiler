@@ -1,9 +1,0 @@
-functions:
-	number calculate()
-		number x = 40
-		number y = 2
-		return x + y
-
-start()
-	number result = calculate()
-	print(result)

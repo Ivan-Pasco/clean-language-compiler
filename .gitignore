@@ -1,0 +1,39 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# WASM artifacts (keep source, ignore compiled)
+*.wasm
+*.wat
+
+# Debug files
+debug_*
+test_*.wasm
+test_*.wat
+function.wasm
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Build outputs
+--output
+*.clean.wasm 
