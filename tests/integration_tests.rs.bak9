@@ -109,7 +109,7 @@ start()
     let memory = instance.get_memory(&mut store, "memory")
         .expect("Failed to get memory");
     
-    let mut results = [Val::I32(0)];
+    let mut results = [Val::F64(0.0f64.to_bits())];
     get_message.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     let message_ptr = results[0].unwrap_i32();
@@ -239,7 +239,7 @@ start()
     
     let get_length = instance.get_func(&mut store, "get_length")
         .expect("Failed to get length function");
-    let mut results = [Val::I32(0)];
+    let mut results = [Val::F64(0.0f64.to_bits())];
     let _len = get_length.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     assert_eq!(results[0].unwrap_i32(), 13);

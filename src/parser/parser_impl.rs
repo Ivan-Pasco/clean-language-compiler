@@ -421,13 +421,27 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
 
     // If we have top-level statements but no explicit start function, create an implicit one
     if !top_level_statements.is_empty() && start_function.is_none() {
+        // Filter out any start() function calls to avoid recursive calls
+        let _original_count = top_level_statements.len();
+        let filtered_statements: Vec<Statement> = top_level_statements.into_iter()
+            .filter(|stmt| {
+                if let Statement::Expression { expr, location: _ } = stmt {
+                    if let Expression::Call(name, _args) = expr {
+                        return name != "start";
+                    }
+                }
+                true
+            })
+            .collect();
+        
+        
         start_function = Some(Function {
             name: "start".to_string(),
             type_parameters: Vec::new(),
             type_constraints: Vec::new(),
             parameters: Vec::new(),
             return_type: Type::Void,
-            body: top_level_statements,
+            body: filtered_statements,
             description: None,
             syntax: FunctionSyntax::Simple,
             visibility: Visibility::Public,

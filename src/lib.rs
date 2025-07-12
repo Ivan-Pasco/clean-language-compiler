@@ -59,6 +59,22 @@ pub fn compile_with_recovery(source: &str, file_path: &str) -> Result<Vec<u8>, V
     }
 }
 
+/// Compiles Clean Language source code to WebAssembly without runtime imports (for testing)
+pub fn compile_minimal(source: &str) -> Result<Vec<u8>, CompilerError> {
+    // Parse the source code
+    let program = CleanParser::parse_program_with_file(source, "<test>")?;
+
+    // Perform semantic analysis
+    let mut analyzer = SemanticAnalyzer::new();
+    let analyzed_program = analyzer.analyze(&program)?;
+
+    // Generate WASM code without runtime imports
+    let mut codegen = CodeGenerator::new_minimal();
+    let wasm_binary = codegen.generate(&analyzed_program)?;
+
+    Ok(wasm_binary)
+}
+
 #[cfg(test)]
 mod integration_tests {
     use super::*;

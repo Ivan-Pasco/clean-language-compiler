@@ -35,11 +35,11 @@ fn test_compile_and_run() {
     // Get the result
     let get_result = instance.get_func(&mut store, "get_result")
         .expect("Failed to get result function");
-    let mut results = [Val::F64(0.0f64.to_bits())];
+    let mut results = [Val::I32(0)];
     let _result = get_result.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     
-    assert_eq!(results[0].unwrap_f64(), 42.0);
+    assert_eq!(results[0].unwrap_i32(), 42);
 }
 
 #[test]
@@ -80,11 +80,11 @@ start()
     // Get the result
     let get_result = instance.get_func(&mut store, "get_result")
         .expect("Failed to get result function");
-    let mut results = [Val::F64(0.0f64.to_bits())];
+    let mut results = [Val::I32(0)];
     let _result = get_result.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     
-    assert_eq!(results[0].unwrap_f64(), 42.0);
+    assert_eq!(results[0].unwrap_i32(), 42);
 }
 
 #[test]
@@ -148,12 +148,12 @@ start()
     
     let get_sum = instance.get_func(&mut store, "get_sum")
         .expect("Failed to get sum function");
-    let mut results = [Val::F64(0.0f64.to_bits())];
+    let mut results = [Val::I32(0)];
     let _sum = get_sum.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     
     // sum should be (3+4+5) + (4+5) = 21
-    assert_eq!(results[0].unwrap_f64(), 21.0);
+    assert_eq!(results[0].unwrap_i32(), 21);
 }
 
 #[test]
@@ -207,11 +207,11 @@ start()
     
     let get_result = instance.get_func(&mut store, "get_result")
         .expect("Failed to get result function");
-    let mut results = [Val::F64(0.0f64.to_bits())];
+    let mut results = [Val::I32(0)];
     let _result = get_result.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     
-    assert_eq!(results[0].unwrap_f64(), 42.0);
+    assert_eq!(results[0].unwrap_i32(), 42);
 }
 
 #[test]

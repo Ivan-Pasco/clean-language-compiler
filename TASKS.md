@@ -478,3 +478,115 @@ number p = rect.perimeter() ✅ Working - Multiple methods supported
 
 **Test Results**: 68/68 library tests passing (100% success rate)
 **Verification**: All specification compliance requirements successfully implemented and tested
+
+---
+
+## **PRIORITY 1: WebAssembly Stack Validation Issues** 🔴 **CRITICAL**
+
+**Status**: 🔴 ACTIVE - Systematic WebAssembly validation errors preventing module execution
+**Impact**: CRITICAL - All compilation succeeds but generates invalid WASM modules
+**Issue**: "type mismatch: expected i32 but nothing on stack" errors at various offsets
+**Root Cause**: Stack management violations in stdlib function generation across all function generation systems
+
+### **Phase 1: Immediate Fixes** 🔴 **HIGH PRIORITY**
+
+#### **TASK 1.1: Fix string_concat Function (Current function[27])** 🔴 **ACTIVE**
+**Status**: 🔴 IN PROGRESS - Currently failing at offset 854
+**Issue**: `string_concat` function causing "type mismatch: expected a type but nothing on stack"
+**Location**: `src/codegen/mod.rs:2794-2825`
+**Root Cause**: Expression::Variable("str1") parameter access may not be generating proper LocalGet instruction
+**Priority**: CRITICAL - Blocks all WASM execution
+
+**Implementation Plan**:
+1. ✅ **Analyze current string_concat function**:
+   ```rust
+   return_type: Type::String,
+   body: vec![
+       Statement::Return {
+           value: Some(Expression::Variable("str1".to_string())),
+           location: None,
+       }
+   ]
+   ```
+2. 🔄 **Debug variable access**: Ensure Expression::Variable("str1") generates LocalGet(0)
+3. 🔄 **Verify stack state**: Ensure exactly one i32 value left on stack for string return
+4. 🔄 **Test fix**: Compile minimal program and verify offset moves to next function
+
+#### **TASK 1.2: Add Stack State Debugging** 🔴 **HIGH PRIORITY**
+**Status**: 🔄 PENDING
+**Goal**: Add explicit stack state tracking during code generation
+**Implementation**: 
+- Add stack depth counter to generation process
+- Log stack state before/after each instruction generation
+- Validate expected vs actual stack state in function returns
+
+#### **TASK 1.3: Implement Proper Drop Logic** 🔴 **HIGH PRIORITY** 
+**Status**: 🔄 PENDING
+**Issue**: Inconsistent value dropping for void functions causing stack imbalance
+**Location**: `src/codegen/mod.rs:550-565`
+**Implementation**:
+- Enhance `generate_expression` to return stack effect information
+- Fix drop handling based on actual expression return types instead of function name checks
+- Ensure all expression types properly handled in void function context
+
+### **Phase 2: Systematic Validation** 🟡 **MEDIUM PRIORITY**
+
+#### **TASK 2.1: Function-by-Function Testing** 🟡 **PENDING**
+**Goal**: Isolate and fix each remaining AST stdlib function
+**Approach**: Disable functions one by one to identify all problematic functions
+**Target Functions**: After string_concat, continue with string_compare, string_length, etc.
+
+#### **TASK 2.2: Stack Consistency Checks** 🟡 **PENDING**
+**Goal**: Add validation during code generation phase
+**Implementation**: Verify stack state matches function signatures before End instructions
+
+#### **TASK 2.3: Type Safety Verification** 🟡 **PENDING**
+**Goal**: Ensure parameter/return type consistency across all functions
+**Implementation**: Validate LocalGet indices match declared parameters
+
+### **Phase 3: Infrastructure Improvements** 🟢 **LOWER PRIORITY**
+
+#### **TASK 3.1: Re-enable Register-Function Based Operations** 🟢 **PENDING**
+**Goal**: Fix and re-enable disabled stdlib operations
+**Components**:
+- String operations (`register_string_operations`)
+- Matrix operations (`register_matrix_operations`) 
+- Numeric operations (`register_numeric_operations`)
+**Status**: Currently disabled to isolate AST function issues
+
+#### **TASK 3.2: Unified Function Generation** 🟢 **PENDING**
+**Goal**: Consolidate different registration methods for consistency
+**Implementation**: Standardize on single function generation approach
+
+#### **TASK 3.3: Enhanced Error Reporting** 🟢 **PENDING**
+**Goal**: Provide stack state information in WASM validation errors
+**Implementation**: Add debugging information to generated WASM modules
+
+#### **TASK 3.4: Run Integration Tests** 🟢 **PENDING**
+**Goal**: Verify all fixes work end-to-end with user programs
+**Prerequisite**: Complete Phase 1 and Phase 2 tasks
+
+### **Research Insights Applied**
+
+**WebAssembly Best Practices Integrated**:
+- ✅ Single-pass validation strategy - identified need for proper stack tracking
+- ✅ Stack consistency rules - all code paths must maintain consistent stack types  
+- ✅ Type safety requirements - functions must leave exact return type on stack
+- ✅ Polymorphic typing - proper handling of unreachable code sections
+
+**Critical Validation Rules**:
+- Functions with return types must leave exactly one value of correct type on stack
+- Void functions must have empty stack at end
+- All instructions must have required operands available before execution
+- LocalGet indices must correspond to valid parameters
+
+### **Current Status Summary**
+
+**Systematic Progress Made**:
+- ✅ Root cause identified: stdlib function stack management violations
+- ✅ Debugging methodology established: systematic function disabling  
+- ✅ First issue isolated: assert function fixed (empty body problem)
+- 🔄 Second issue active: string_concat function at offset 854
+- 🔄 Multiple additional issues identified in different function generation systems
+
+**Next Immediate Action**: Fix string_concat function parameter access and stack management

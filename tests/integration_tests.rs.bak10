@@ -109,7 +109,7 @@ start()
     let memory = instance.get_memory(&mut store, "memory")
         .expect("Failed to get memory");
     
-    let mut results = [Val::I32(0)];
+    let mut results = [Val::F64(0.0f64.to_bits())];
     get_message.call(&mut store, &[], &mut results)
         .expect("Failed to call function");
     let message_ptr = results[0].unwrap_i32();

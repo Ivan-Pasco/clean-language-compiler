@@ -1,0 +1,7 @@
+functions:
+	test_var(integer x)
+		return x
+
+start()
+	integer result = test_var(42)
+	print result

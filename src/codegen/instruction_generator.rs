@@ -888,7 +888,7 @@ impl InstructionGenerator {
     }
 
     /// Register a function with the instruction generator
-    pub(crate) fn register_function(&mut self, name: &str, _params: &[WasmType], _return_type: Option<WasmType>, 
+    pub(crate) fn register_function(&mut self, name: &str, params: &[WasmType], return_type: Option<WasmType>, 
         _instructions: &[Instruction]) -> Result<u32, CompilerError>
     {
         // Check if the function already exists
@@ -902,15 +902,31 @@ impl InstructionGenerator {
         // Add the function to the function map
         self.function_map.insert(name.to_string(), index);
 
-        // In a proper implementation, we would also:
-        // 1. Create a function type with the given parameters and return type
-        // 2. Add the function type to the type section
-        // 3. Create a function with the given instructions
-        // 4. Add the function to the code section
-        // 5. Add an export for the function
-        //
-        // However, InstructionGenerator doesn't have direct access to these sections.
-        // The CodeGenerator should handle this after calling register_function.
+        // Create function type and store it
+        let param_types: Vec<ValType> = params.iter().map(|wasm_type| match wasm_type {
+            WasmType::I32 => ValType::I32,
+            WasmType::I64 => ValType::I64,
+            WasmType::F32 => ValType::F32,
+            WasmType::F64 => ValType::F64,
+            WasmType::V128 => ValType::V128,
+            _ => ValType::I32, // Default for other types
+        }).collect();
+        
+        let result_types: Vec<ValType> = if let Some(ret_type) = return_type {
+            vec![match ret_type {
+                WasmType::I32 => ValType::I32,
+                WasmType::I64 => ValType::I64,
+                WasmType::F32 => ValType::F32,
+                WasmType::F64 => ValType::F64,
+                WasmType::V128 => ValType::V128,
+                _ => ValType::I32, // Default for other types
+            }]
+        } else {
+            vec![] // Void function
+        };
+        
+        // Store the function type
+        self.add_function_type(index, param_types, result_types);
         
         // Return the function index
         Ok(index)
@@ -919,7 +935,8 @@ impl InstructionGenerator {
     pub(crate) fn get_function_return_type(&self, index: u32) -> Result<WasmType, CompilerError> {
         if let Some(func_type) = self.get_function_type(index) {
             if let Some(return_val_type) = func_type.results().first() {
-                Ok(Self::from_parser_val_type(*return_val_type))
+                let wasm_type = Self::from_parser_val_type(*return_val_type);
+                Ok(wasm_type)
             } else {
                 // No return type means void function
                 // We'll use I32 as a placeholder but this should be handled specially in calling code
