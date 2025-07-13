@@ -1,0 +1,1 @@
+start() integer x = -5 integer result = abs(x) print(result)

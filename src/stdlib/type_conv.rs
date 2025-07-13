@@ -225,7 +225,6 @@ impl TypeConvOperations {
             Instruction::LocalGet(0),
             // Convert to i64
             Instruction::I64ExtendI32S,
-            Instruction::End,
         ]
     }
 
@@ -235,7 +234,6 @@ impl TypeConvOperations {
             Instruction::LocalGet(0),
             // Convert to i32
             Instruction::I32WrapI64,
-            Instruction::End,
         ]
     }
 
@@ -246,7 +244,6 @@ impl TypeConvOperations {
             
             // Convert to f64
             Instruction::F64ConvertI32S,
-            Instruction::End,
         ]
     }
 
@@ -257,7 +254,6 @@ impl TypeConvOperations {
             
             // Convert to i32 (truncate)
             Instruction::I32TruncF64S,
-            Instruction::End,
         ]
     }
 
@@ -277,7 +273,6 @@ impl TypeConvOperations {
             
             // Convert to integer (truncate)
             Instruction::I32TruncF64S,
-            Instruction::End,
         ]
     }
 
@@ -289,7 +284,6 @@ impl TypeConvOperations {
             // Convert to unsigned by masking
             Instruction::I32Const(-1), // All bits set (0xFFFFFFFF as i32)
             Instruction::I32And,
-            Instruction::End,
         ]
     }
 
@@ -300,7 +294,6 @@ impl TypeConvOperations {
             
             // Convert to long integer (truncate)
             Instruction::I64TruncF64S,
-            Instruction::End,
         ]
     }
 
@@ -312,7 +305,6 @@ impl TypeConvOperations {
             // Convert to unsigned by masking
             Instruction::I64Const(-1), // All bits set
             Instruction::I64And,
-            Instruction::End,
         ]
     }
 
@@ -324,7 +316,6 @@ impl TypeConvOperations {
             // Mask to byte range (0-255)
             Instruction::I32Const(0xFF),
             Instruction::I32And,
-            Instruction::End,
         ]
     }
 
@@ -332,7 +323,6 @@ impl TypeConvOperations {
         vec![
             // Simplified implementation - return a dummy string pointer
             Instruction::I32Const(1024), // Return a dummy pointer
-            Instruction::End,
         ]
     }
 
@@ -365,7 +355,6 @@ impl TypeConvOperations {
             Instruction::I32Or,
             
             // Result is already a boolean (0 or 1)
-            Instruction::End,
         ]
     }
 
@@ -373,7 +362,6 @@ impl TypeConvOperations {
         vec![
             // Simplified implementation - return a dummy string pointer
             Instruction::I32Const(1024), // Return a dummy pointer
-            Instruction::End,
         ]
     }
 
@@ -381,7 +369,6 @@ impl TypeConvOperations {
         vec![
             // Simplified implementation - return a dummy string pointer
             Instruction::I32Const(1024), // Return a dummy pointer
-            Instruction::End,
         ]
     }
 
@@ -389,7 +376,6 @@ impl TypeConvOperations {
         vec![
             // Simplified implementation - return a dummy string pointer
             Instruction::I32Const(1024), // Return a dummy pointer
-            Instruction::End,
         ]
     }
 
@@ -400,7 +386,6 @@ impl TypeConvOperations {
 
             // Convert to int using trunc instruction
             Instruction::I32TruncF64S,
-            Instruction::End,
         ]
     }
 
@@ -411,7 +396,6 @@ impl TypeConvOperations {
 
             // Convert to float using convert instruction
             Instruction::F64ConvertI32S,
-            Instruction::End,
         ]
     }
 
@@ -419,7 +403,6 @@ impl TypeConvOperations {
         vec![
             // Simplified implementation - return 0 for now
             Instruction::I32Const(0),
-            Instruction::End,
         ]
     }
 
@@ -427,7 +410,6 @@ impl TypeConvOperations {
         vec![
             // Simplified implementation - return 0.0 for now
             Instruction::F64Const(0.0),
-            Instruction::End,
         ]
     }
 
@@ -439,7 +421,6 @@ impl TypeConvOperations {
                 align: 0,
                 memory_index: 0,
             }),
-            Instruction::End,
         ]
     }
 
@@ -455,7 +436,6 @@ impl TypeConvOperations {
                 align: 0,
                 memory_index: 0
             }),
-            Instruction::End,
         ]
     }
 
@@ -463,7 +443,6 @@ impl TypeConvOperations {
         vec![
             // Boolean is already represented as i32 (0 or 1), so just return it
             Instruction::LocalGet(0),
-            Instruction::End,
         ]
     }
 
@@ -473,7 +452,6 @@ impl TypeConvOperations {
             Instruction::LocalGet(0),
             Instruction::I32Const(0),
             Instruction::I32Ne, // This will produce 1 if non-zero, 0 if zero
-            Instruction::End,
         ]
     }
 }

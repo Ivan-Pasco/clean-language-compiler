@@ -229,7 +229,7 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
             Ok(Expression::Literal(Value::Boolean(value)))
         },
         Rule::string => parse_string(inner),
-        Rule::array_literal => parse_array_literal(inner),
+        Rule::list_literal => parse_list_literal(inner),
         Rule::matrix_literal => parse_matrix_literal(inner),
         Rule::function_call => parse_function_call(inner),
         Rule::method_call => parse_method_call(inner),
@@ -382,7 +382,7 @@ pub fn parse_string(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     Ok(Expression::StringInterpolation(parts))
 }
 
-pub fn parse_array_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+pub fn parse_list_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let mut elements = Vec::new();
     
     for element in pair.into_inner() {
@@ -396,14 +396,14 @@ pub fn parse_array_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError
         .map(|expr| match expr {
             Expression::Literal(value) => Ok(value),
             _ => Err(CompilerError::parse_error(
-                "Array literals can only contain literal values".to_string(),
+                "List literals can only contain literal values".to_string(),
                 None,
-                Some("Use variables or function calls outside of array literals".to_string())
+                Some("Use variables or function calls outside of list literals".to_string())
             ))
         })
         .collect();
     
-    Ok(Expression::Literal(Value::Array(values?)))
+    Ok(Expression::Literal(Value::List(values?)))
 }
 
 pub fn parse_matrix_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {

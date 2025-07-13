@@ -27,7 +27,6 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         },
         Rule::identifier => parse_basic_type(inner),
         Rule::matrix_type => parse_matrix_type(inner),
-        Rule::array_type => parse_array_type(inner),
         Rule::list_type => parse_list_type(inner),
         Rule::pairs_type => parse_pairs_type(inner),
         Rule::function_type => {
@@ -93,7 +92,6 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     }
                 },
                 Rule::matrix_type => parse_matrix_type(inner_type),
-                Rule::array_type => parse_array_type(inner_type),
                 Rule::list_type => parse_list_type(inner_type),
                 Rule::pairs_type => parse_pairs_type(inner_type),
                 Rule::generic_type => parse_generic_type(inner_type),
@@ -226,20 +224,6 @@ fn parse_matrix_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     Ok(Type::Matrix(Box::new(element_type)))
 }
 
-fn parse_array_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
-    let parser_location = get_location(&pair);
-    let ast_location = convert_to_ast_location(&parser_location);
-    
-    let element_type = pair.into_inner().next()
-        .ok_or_else(|| CompilerError::parse_error(
-            "Array type must specify element type".to_string(),
-            Some(ast_location),
-            Some("Array types must be in the form array<T>".to_string())
-        ))?;
-    
-    let element_type = parse_type(element_type)?;
-    Ok(Type::Array(Box::new(element_type)))
-}
 
 fn parse_list_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
     let parser_location = get_location(&pair);

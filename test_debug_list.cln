@@ -1,0 +1,4 @@
+start()
+	list<number> numbers = [1, 2, 3, 4, 5]
+	iterate n in numbers
+		print(n)

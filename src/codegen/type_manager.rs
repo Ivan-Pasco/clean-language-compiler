@@ -96,7 +96,7 @@ impl TypeManager {
             Type::Number => Ok(WasmType::F64),
             Type::String => Ok(WasmType::I32), // String pointers
             Type::Void => Ok(WasmType::I32),   // Void represented as I32
-            Type::Array(_) => Ok(WasmType::I32), // Array pointers
+            Type::List(_) => Ok(WasmType::I32), // List pointers
             Type::Matrix(_) => Ok(WasmType::I32), // Matrix pointers
             Type::Pairs(_, _) => Ok(WasmType::I32), // Pairs are represented as pointers
             Type::Object(_) => Ok(WasmType::I32), // Object pointers
@@ -122,8 +122,8 @@ impl TypeManager {
             Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
             Value::Number(_) => WasmType::F64,
-            Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
-            Value::List(_, _) => WasmType::I32, // Lists are pointers in WASM
+            Value::List(_) => WasmType::I32, // Lists are pointers in WASM
+            Value::List(_) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
             Value::Void => WasmType::I32,       // Void represented as I32
             // Sized types
@@ -144,8 +144,8 @@ impl TypeManager {
             Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
             Value::Number(_) => WasmType::F64,
-            Value::Array(_) => WasmType::I32,   // Arrays are pointers in WASM
-            Value::List(_, _) => WasmType::I32, // Lists are pointers in WASM
+            Value::List(_) => WasmType::I32, // Lists are pointers in WASM
+            Value::List(_) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
             Value::Void => WasmType::I32,       // Void represented as I32
             // Sized types

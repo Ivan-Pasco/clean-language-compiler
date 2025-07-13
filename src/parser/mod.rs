@@ -38,7 +38,7 @@ mod grammar;
 
 // Re-export just what's needed
 pub use parser_impl::{parse, parse_start_function, get_location, parse_with_file, ParseContext, ErrorRecoveringParser, parse_functions_block, parse_function_in_block};
-pub use expression_parser::{parse_expression, parse_primary, parse_string, parse_array_literal, parse_matrix_literal, parse_function_call};
+pub use expression_parser::{parse_expression, parse_primary, parse_string, parse_list_literal, parse_matrix_literal, parse_function_call};
 pub use statement_parser::parse_statement;
 pub use type_parser::parse_type;
 pub use class_parser::parse_class;

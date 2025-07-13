@@ -41,7 +41,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Add,
-                Instruction::End,
             ]
         )?;
 
@@ -55,7 +54,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Sub,
-                Instruction::End,
             ]
         )?;
 
@@ -69,7 +67,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Mul,
-                Instruction::End,
             ]
         )?;
 
@@ -83,7 +80,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Div,
-                Instruction::End,
             ]
         )?;
         
@@ -103,7 +99,6 @@ impl NumericOperations {
                 Instruction::LocalGet(1), // b
                 Instruction::F64Mul,      // floor(a/b) * b
                 Instruction::F64Sub,      // a - (floor(a/b) * b)
-                Instruction::End,
             ]
         )?;
         
@@ -121,7 +116,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Eq,
-                Instruction::End,
             ]
         )?;
 
@@ -135,7 +129,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Ne,
-                Instruction::End,
             ]
         )?;
 
@@ -149,7 +142,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Lt,
-                Instruction::End,
             ]
         )?;
 
@@ -163,7 +155,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Gt,
-                Instruction::End,
             ]
         )?;
         
@@ -177,7 +168,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Le,
-                Instruction::End,
             ]
         )?;
 
@@ -191,7 +181,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Ge,
-                Instruction::End,
             ]
         )?;
         
@@ -208,34 +197,29 @@ impl NumericOperations {
             vec![
                 Instruction::LocalGet(0),
                 Instruction::F64Abs,
-                Instruction::End,
             ]
         )?;
 
-        // Absolute value function (integer version) - simplified approach
-        // COMMENTED OUT: Complex If/Else structure causing WASM validation issues
-        /*
-        register_stdlib_function(
-            codegen,
-            "abs_i32",
-            &[WasmType::I32],
-            Some(WasmType::I32),
-            vec![
-                // Simplified abs implementation without local variables
-                Instruction::LocalGet(0), // Get the integer value
-                Instruction::LocalGet(0), // Duplicate the value  
-                Instruction::I32Const(0), // Zero for comparison
-                Instruction::I32LtS,      // Check if negative
-                Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
-                Instruction::LocalGet(0), // If negative, get value
-                Instruction::I32Const(0), // Zero
-                Instruction::I32Sub,      // 0 - value (negate)
-                Instruction::Else,
-                Instruction::LocalGet(0), // If positive, return as-is
-                Instruction::End,
-            ]
-        )?;
-        */
+        // Absolute value function (integer version) - TEMPORARILY DISABLED
+        // register_stdlib_function(
+        //     codegen,
+        //     "abs",
+        //     &[WasmType::I32],
+        //     Some(WasmType::I32),
+        //     vec![
+        //         // Simplified abs implementation without extra stack values
+        //         Instruction::LocalGet(0), // Get the integer value
+        //         Instruction::I32Const(0), // Zero for comparison
+        //         Instruction::I32LtS,      // Check if negative
+        //         Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+        //         Instruction::LocalGet(0), // If negative, get value
+        //         Instruction::I32Const(0), // Zero
+        //         Instruction::I32Sub,      // 0 - value (negate)
+        //         Instruction::Else,
+        //         Instruction::LocalGet(0), // If positive, return as-is
+        //         Instruction::End, // Close the If/Else block
+        //     ]
+        // )?;
         
         // Square root function
         register_stdlib_function(
@@ -246,7 +230,6 @@ impl NumericOperations {
             vec![
                 Instruction::LocalGet(0),
                 Instruction::F64Sqrt,
-                Instruction::End,
             ]
         )?;
         
@@ -259,7 +242,6 @@ impl NumericOperations {
             vec![
                 Instruction::LocalGet(0),
                 Instruction::F64Ceil,
-                Instruction::End,
             ]
         )?;
         
@@ -272,7 +254,6 @@ impl NumericOperations {
             vec![
                 Instruction::LocalGet(0),
                 Instruction::F64Floor,
-                Instruction::End,
             ]
         )?;
         
@@ -285,7 +266,6 @@ impl NumericOperations {
             vec![
                 Instruction::LocalGet(0),
                 Instruction::F64Trunc,
-                Instruction::End,
             ]
         )?;
         
@@ -298,7 +278,6 @@ impl NumericOperations {
             vec![
                 Instruction::LocalGet(0),
                 Instruction::F64Nearest,
-                Instruction::End,
             ]
         )?;
         
@@ -314,7 +293,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Max,
-                Instruction::End,
             ]
         )?;
         
@@ -328,7 +306,6 @@ impl NumericOperations {
                 Instruction::LocalGet(0),
                 Instruction::LocalGet(1),
                 Instruction::F64Min,
-                Instruction::End,
             ]
         )?;
         
@@ -471,7 +448,6 @@ impl NumericOperations {
             Some(WasmType::F64),
             vec![
                 Instruction::F64Const(std::f64::consts::PI),
-                Instruction::End,
             ]
         )?;
         
@@ -482,7 +458,6 @@ impl NumericOperations {
             Some(WasmType::F64),
             vec![
                 Instruction::F64Const(std::f64::consts::E),
-                Instruction::End,
             ]
         )?;
         
@@ -493,7 +468,6 @@ impl NumericOperations {
             Some(WasmType::F64),
             vec![
                 Instruction::F64Const(std::f64::consts::TAU),
-                Instruction::End,
             ]
         )?;
         
@@ -606,7 +580,6 @@ impl NumericOperations {
         vec![
             // Simplified implementation - just return 0.0 for now
             Instruction::F64Const(0.0),
-            Instruction::End,
         ]
     }
     
@@ -615,7 +588,6 @@ impl NumericOperations {
         vec![
             // Simplified implementation to avoid WASM validation issues
             Instruction::LocalGet(0), // x (placeholder)
-            Instruction::End,
         ]
     }
     
@@ -624,7 +596,6 @@ impl NumericOperations {
         vec![
             // Simplified implementation to avoid WASM validation issues
             Instruction::F64Const(std::f64::consts::FRAC_PI_2), // π/2 (placeholder)
-            Instruction::End,
         ]
     }
     
@@ -641,7 +612,6 @@ impl NumericOperations {
             Instruction::F64Const(3.0),
             Instruction::F64Div,      // x³/3
             Instruction::F64Sub,      // x - x³/3
-            Instruction::End,
         ]
     }
     
@@ -653,7 +623,6 @@ impl NumericOperations {
             Instruction::LocalGet(1), // x
             Instruction::F64Div,      // y/x
             // Simple approximation: atan(z) ≈ z for small z
-            Instruction::End,
         ]
     }
     
@@ -664,7 +633,6 @@ impl NumericOperations {
             // Call ln(x)
             Instruction::F64Const(std::f64::consts::LN_10),
             Instruction::F64Div,
-            Instruction::End,
         ]
     }
     
@@ -675,7 +643,6 @@ impl NumericOperations {
             // Call ln(x)
             Instruction::F64Const(std::f64::consts::LN_2),
             Instruction::F64Div,
-            Instruction::End,
         ]
     }
     
@@ -688,7 +655,6 @@ impl NumericOperations {
             Instruction::F64Const(std::f64::consts::LN_2),                 // ln(2)
             Instruction::F64Mul,                                            // x * ln(2)
             Instruction::F64Add,                                            // 1 + x*ln(2)
-            Instruction::End,
         ]
     }
     
@@ -704,7 +670,6 @@ impl NumericOperations {
             Instruction::F64Const(6.0),
             Instruction::F64Div,      // x³/6
             Instruction::F64Add,      // x + x³/6
-            Instruction::End,
         ]
     }
     
@@ -718,7 +683,6 @@ impl NumericOperations {
             Instruction::F64Const(2.0),
             Instruction::F64Div,         // x²/2
             Instruction::F64Add,         // 1 + x²/2
-            Instruction::End,
         ]
     }
     
@@ -734,7 +698,6 @@ impl NumericOperations {
             Instruction::F64Const(3.0),
             Instruction::F64Div,      // x³/3
             Instruction::F64Sub,      // x - x³/3
-            Instruction::End,
         ]
     }
 }

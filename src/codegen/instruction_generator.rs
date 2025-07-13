@@ -41,7 +41,8 @@ pub(crate) struct InstructionGenerator {
     type_manager: TypeManager,
     variable_map: std::collections::HashMap<String, LocalVarInfo>,
     current_locals: Vec<LocalVarInfo>,
-    function_map: std::collections::HashMap<String, u32>,
+    function_map: std::collections::HashMap<String, u32>, // Simple name -> primary index mapping
+    function_signatures: std::collections::HashMap<String, u32>, // signature -> index mapping
     function_types: std::collections::HashMap<u32, FuncType>,
 }
 
@@ -53,6 +54,7 @@ impl InstructionGenerator {
             variable_map: std::collections::HashMap::new(),
             current_locals: Vec::new(),
             function_map: std::collections::HashMap::new(),
+            function_signatures: std::collections::HashMap::new(),
             function_types: std::collections::HashMap::new(),
         }
     }
@@ -73,9 +75,79 @@ impl InstructionGenerator {
         &self.current_locals
     }
     
-    /// Get a function index by name
+    /// Get a function index by name (returns the first/primary overload)
     pub(crate) fn get_function_index(&self, name: &str) -> Option<u32> {
         self.function_map.get(name).copied()
+    }
+    
+    /// Get a function index by signature (for overload resolution)
+    pub(crate) fn get_function_index_by_signature(&self, name: &str, param_types: &[WasmType]) -> Option<u32> {
+        let signature = self.create_function_signature(name, param_types);
+        self.function_signatures.get(&signature).copied()
+    }
+    
+    /// Create a function signature string for overload resolution
+    fn create_function_signature(&self, name: &str, param_types: &[WasmType]) -> String {
+        let param_str = param_types.iter()
+            .map(|t| format!("{:?}", t))
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("{}({})", name, param_str)
+    }
+    
+    /// Determine the type of an expression without generating instructions
+    pub(crate) fn get_expression_type(&self, expr: &Expression) -> Result<WasmType, CompilerError> {
+        match expr {
+            Expression::Literal(value) => {
+                match value {
+                    ast::Value::Integer(_) => Ok(WasmType::I32),
+                    ast::Value::Number(_) => Ok(WasmType::F64),
+                    ast::Value::String(_) => Ok(WasmType::I32), // String pointer
+                    ast::Value::Boolean(_) => Ok(WasmType::I32),
+                    _ => Ok(WasmType::I32), // Default
+                }
+            },
+            Expression::Variable(name) => {
+                // Look up variable type from local variables
+                if let Some(local_info) = self.find_local(name) {
+                    let wasm_type = match local_info.type_ {
+                        wasm_encoder::ValType::I32 => WasmType::I32,
+                        wasm_encoder::ValType::I64 => WasmType::I64,
+                        wasm_encoder::ValType::F32 => WasmType::F32,
+                        wasm_encoder::ValType::F64 => WasmType::F64,
+                        wasm_encoder::ValType::V128 => WasmType::V128,
+                        _ => WasmType::I32,
+                    };
+                    eprintln!("DEBUG: Variable '{}' has type {:?}", name, wasm_type);
+                    Ok(wasm_type)
+                } else {
+                    eprintln!("DEBUG: Variable '{}' not found in locals, defaulting to I32", name);
+                    // Default to I32 if we can't determine the type
+                    Ok(WasmType::I32)
+                }
+            },
+            Expression::Call(func_name, _args) => {
+                // Get function return type by looking up the function
+                if let Some(func_index) = self.get_function_index(func_name) {
+                    self.get_function_return_type(func_index)
+                } else {
+                    Ok(WasmType::I32) // Default
+                }
+            },
+            Expression::Binary(_, op, _) => {
+                // Most binary operations return the same type as their operands
+                // For simplicity, assume numeric operations
+                match op {
+                    ast::BinaryOperator::Equal | ast::BinaryOperator::NotEqual |
+                    ast::BinaryOperator::Less | ast::BinaryOperator::Greater |
+                    ast::BinaryOperator::LessEqual | ast::BinaryOperator::GreaterEqual => {
+                        Ok(WasmType::I32) // Boolean result
+                    },
+                    _ => Ok(WasmType::F64), // Most math operations use F64
+                }
+            },
+            _ => Ok(WasmType::I32), // Default for other expression types
+        }
     }
     
     /// Find a local variable by name
@@ -532,7 +604,32 @@ impl InstructionGenerator {
                 }
             },
             Expression::Call(func_name, args) => { 
-                if let Some(func_index) = self.get_function_index(func_name) {
+                // First, determine argument types for signature-based function resolution
+                let mut arg_types = Vec::new();
+                for arg in args {
+                    let arg_type = self.get_expression_type(arg)?;
+                    arg_types.push(arg_type);
+                }
+                
+                // Try signature-based function resolution first
+                eprintln!("DEBUG: Function call '{}' with arg types: {:?}", func_name, arg_types);
+                let func_index = if let Some(index) = self.get_function_index_by_signature(func_name, &arg_types) {
+                    eprintln!("DEBUG: Found signature-based match: function[{}]", index);
+                    Some(index)
+                } else {
+                    eprintln!("DEBUG: No signature match, trying name-based lookup");
+                    // Fall back to name-based resolution for backwards compatibility
+                    if let Some(index) = self.get_function_index(func_name) {
+                        eprintln!("DEBUG: Found name-based match: function[{}]", index);
+                        Some(index)
+                    } else {
+                        eprintln!("DEBUG: No function found for '{}'", func_name);
+                        None
+                    }
+                };
+                
+                if let Some(func_index) = func_index {
+                    // Generate argument instructions
                     for arg in args {
                         self.generate_expression(arg, instructions)?;
                     }
@@ -621,7 +718,7 @@ impl InstructionGenerator {
                 instructions.push(Instruction::I32Const(if *b { 1 } else { 0 }));
                 Ok(WasmType::I32)
             },
-            Value::Array(_) => {
+            Value::List(_) => {
                 // This should use memory.allocate_array
                 // For now, just return a placeholder pointing to "empty array"
                 instructions.push(Instruction::I32Const(0));
@@ -671,7 +768,7 @@ impl InstructionGenerator {
                 instructions.push(Instruction::F64Const(*f));
                 Ok(WasmType::F64)
             },
-            Value::List(items, _behavior) => {
+            Value::List(items) => {
                 // Implement real list literal generation
                 // 1. Allocate memory for the list structure
                 // 2. Store list metadata (length, capacity, behavior)
@@ -891,16 +988,24 @@ impl InstructionGenerator {
     pub(crate) fn register_function(&mut self, name: &str, params: &[WasmType], return_type: Option<WasmType>, 
         _instructions: &[Instruction]) -> Result<u32, CompilerError>
     {
-        // Check if the function already exists
-        if let Some(index) = self.get_function_index(name) {
-            return Ok(index);
+        // Create signature for this specific overload
+        let signature = self.create_function_signature(name, params);
+        
+        // Check if this exact signature already exists
+        if let Some(index) = self.function_signatures.get(&signature) {
+            return Ok(*index);
         }
         
-        // Get the next function index
-        let index = self.function_map.len() as u32;
+        // Get the next function index based on total registered functions
+        let index = self.function_signatures.len() as u32;
         
-        // Add the function to the function map
-        self.function_map.insert(name.to_string(), index);
+        // Add to signature map (for exact overload lookup)
+        self.function_signatures.insert(signature, index);
+        
+        // Add to function map (for simple name lookup - only store the first registration)
+        if !self.function_map.contains_key(name) {
+            self.function_map.insert(name.to_string(), index);
+        }
 
         // Create function type and store it
         let param_types: Vec<ValType> = params.iter().map(|wasm_type| match wasm_type {

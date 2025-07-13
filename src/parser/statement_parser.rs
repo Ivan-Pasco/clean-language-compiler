@@ -312,7 +312,7 @@ fn parse_type_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::
         },
         Rule::sized_type => parse_type(type_part)?,
         Rule::matrix_type => parse_type(type_part)?,
-        Rule::array_type => parse_type(type_part)?,
+        Rule::list_type => parse_type(type_part)?,
         Rule::pairs_type => parse_type(type_part)?,
         _ => return Err(CompilerError::parse_error(
             format!("Unexpected type in type apply block: {:?}", type_part.as_rule()),

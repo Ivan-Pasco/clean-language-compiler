@@ -17,7 +17,6 @@ pub enum Value {
     Number(f64),          // Default number (platform optimal)
     Boolean(bool),
     String(String),
-    Array(Vec<Value>),
     Matrix(Vec<Vec<f64>>),
     Void,
     // Advanced sized types
@@ -30,8 +29,8 @@ pub enum Value {
     Number32(f32),
     Number64(f64),
     
-    // List with properties
-    List(Vec<Value>, ListBehavior),
+    // List (replaces Array)
+    List(Vec<Value>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -60,7 +59,6 @@ pub enum Type {
     NumberSized { bits: u8 },
     
     // Composite types
-    Array(Box<Type>),
     List(Box<Type>),
     Matrix(Box<Type>),
     Pairs(Box<Type>, Box<Type>),
@@ -571,7 +569,7 @@ impl fmt::Display for Type {
                 }
             },
             Type::NumberSized { bits } => write!(f, "number:{}", bits),
-            Type::Array(inner) => write!(f, "array<{}>", inner),
+            // Type::Array removed - now using Type::List
             Type::List(inner) => write!(f, "list<{}>", inner),
             Type::Matrix(inner) => write!(f, "matrix<{}>", inner),
             Type::Pairs(key, value) => write!(f, "pairs<{}, {}>", key, value),
@@ -624,7 +622,7 @@ impl fmt::Display for Value {
             Value::Number(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "\"{}\"", s),
             Value::Boolean(b) => write!(f, "{}", b),
-            Value::Array(items) => {
+            Value::List(items) => {
                 write!(f, "[")?;
                 for (i, item) in items.iter().enumerate() {
                     if i > 0 {
@@ -660,27 +658,6 @@ impl fmt::Display for Value {
             Value::Integer64(i) => write!(f, "{}:64", i),
             Value::Number32(f_val) => write!(f, "{}:32", f_val),
             Value::Number64(f_val) => write!(f, "{}:64", f_val),
-            Value::List(items, behavior) => {
-                write!(f, "List[")?;
-                for (i, item) in items.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", item)?;
-                }
-                write!(f, "]")?;
-                match behavior {
-                    ListBehavior::Default => {},
-                    ListBehavior::Line => write!(f, ".line")?,
-                    ListBehavior::Pile => write!(f, ".pile")?,
-                    ListBehavior::Unique => write!(f, ".unique")?,
-                    ListBehavior::LineUnique => write!(f, ".line.unique")?,
-                    ListBehavior::PileUnique => write!(f, ".pile.unique")?,
-                    ListBehavior::LinePile => write!(f, ".line.pile")?,
-                    ListBehavior::LineUniquePile => write!(f, ".line.unique.pile")?,
-                }
-                Ok(())
-            },
         }
     }
 }

@@ -502,7 +502,7 @@ impl MemoryManager {
             Instruction::If(BlockType::Empty),
             Instruction::LocalGet(0),
             Instruction::Call(3), // Call memory.free
-            Instruction::End,
+            Instruction::End, // Close the If block
             
             // Return
             Instruction::Return,

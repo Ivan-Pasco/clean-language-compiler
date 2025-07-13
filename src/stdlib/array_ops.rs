@@ -179,7 +179,7 @@ impl ArrayManager {
             Instruction::I32GeS,
             Instruction::If(BlockType::Empty),
             Instruction::Unreachable, // Out of bounds
-            Instruction::End,
+            Instruction::End, // Close the If block
             
             // Calculate element pointer
             Instruction::I32Const(8),
@@ -211,7 +211,7 @@ impl ArrayManager {
             Instruction::I32GeS,
             Instruction::If(BlockType::Empty),
             Instruction::Unreachable, // Out of bounds
-            Instruction::End,
+            Instruction::End, // Close the If block
             
             // Calculate element pointer
             Instruction::I32Const(8),
@@ -243,7 +243,6 @@ impl ArrayManager {
                 align: 2,
                 memory_index: 0,
             }),
-            Instruction::End,
         ]
     }
     

@@ -9,7 +9,7 @@ use scope::Scope;
 pub struct SemanticAnalyzer {
     #[allow(dead_code)]
     symbol_table: HashMap<String, Type>,
-    function_table: HashMap<String, (Vec<Type>, Type, usize)>, // (parameter types, return type, required_param_count)
+    function_table: HashMap<String, Vec<(Vec<Type>, Type, usize)>>, // Multiple overloads per function name
     class_table: HashMap<String, Class>,
     current_class: Option<String>,
     current_function: Option<String>,
@@ -71,7 +71,12 @@ impl SemanticAnalyzer {
     /// Helper function to register a builtin function
     fn register_builtin(&mut self, name: &str, params: Vec<Type>, return_type: Type) {
         let param_count = params.len();
-        self.function_table.insert(name.to_string(), (params, return_type, param_count));
+        let overload = (params, return_type, param_count);
+        
+        // Add to existing overloads or create new entry
+        self.function_table.entry(name.to_string())
+            .or_insert_with(Vec::new)
+            .push(overload);
     }
 
     /// Register built-in functions that are available in the global scope
@@ -86,16 +91,16 @@ impl SemanticAnalyzer {
 
         self.function_table.insert(
             "mustBeEqual".to_string(),
-            (vec![Type::Any, Type::Any], Type::Void, 2)
+            vec![(vec![Type::Any, Type::Any], Type::Void, 2)]
         );
 
         // Array and string operations (removed - now only available as methods)
         // length, isEmpty, isNotEmpty, isDefined, isNotDefined, keepBetween
         // are now ONLY available as method-style calls
 
-        // Math functions - align with stdlib registrations (all use F64/Number)
-        self.register_builtin("abs", vec![Type::Number], Type::Number);
+        // Math functions - register Integer version first for exact match priority
         self.register_builtin("abs", vec![Type::Integer], Type::Integer);
+        self.register_builtin("abs", vec![Type::Number], Type::Number);
         self.register_builtin("sqrt", vec![Type::Number], Type::Number);
         self.register_builtin("pow", vec![Type::Number, Type::Number], Type::Number);
         self.register_builtin("sin", vec![Type::Number], Type::Number);
@@ -105,208 +110,208 @@ impl SemanticAnalyzer {
         // Additional mathematical functions
         self.function_table.insert(
             "ln".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "log10".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "log2".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "exp".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "exp2".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "sinh".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "cosh".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "tanh".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "asin".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "acos".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "atan".to_string(),
-            (vec![Type::Number], Type::Number, 1)
+            vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "atan2".to_string(),
-            (vec![Type::Number, Type::Number], Type::Number, 2)
+            vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
         );
 
         self.function_table.insert(
             "pi".to_string(),
-            (vec![], Type::Number, 0)
+            vec![(vec![], Type::Number, 0)]
         );
 
         self.function_table.insert(
             "e".to_string(),
-            (vec![], Type::Number, 0)
+            vec![(vec![], Type::Number, 0)]
         );
 
         // Type conversion functions
         self.function_table.insert(
             "float_to_string".to_string(),
-            (vec![Type::Number], Type::String, 1)
+            vec![(vec![Type::Number], Type::String, 1)]
         );
 
         // Console input functions
         self.function_table.insert(
             "input".to_string(),
-            (vec![Type::String], Type::String, 1)
+            vec![(vec![Type::String], Type::String, 1)]
         );
 
         self.function_table.insert(
             "input_integer".to_string(),
-            (vec![Type::String], Type::Integer, 1)
+            vec![(vec![Type::String], Type::Integer, 1)]
         );
 
         self.function_table.insert(
             "input_float".to_string(),
-            (vec![Type::String], Type::Number, 1)
+            vec![(vec![Type::String], Type::Number, 1)]
         );
 
         self.function_table.insert(
             "input_yesno".to_string(),
-            (vec![Type::String], Type::Boolean, 1)
+            vec![(vec![Type::String], Type::Boolean, 1)]
         );
 
         // String operations
         self.function_table.insert(
             "string_concat".to_string(),
-            (vec![Type::String, Type::String], Type::String, 2)
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
 
         self.function_table.insert(
             "string_compare".to_string(),
-            (vec![Type::String, Type::String], Type::Integer, 2)
+            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
 
         self.function_table.insert(
             "indexOf".to_string(),
-            (vec![Type::String, Type::String], Type::Integer, 2)
+            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
 
         self.function_table.insert(
             "lastIndexOf".to_string(),
-            (vec![Type::String, Type::String], Type::Integer, 2)
+            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
 
         self.function_table.insert(
             "startsWith".to_string(),
-            (vec![Type::String, Type::String], Type::Boolean, 2)
+            vec![(vec![Type::String, Type::String], Type::Boolean, 2)]
         );
 
         self.function_table.insert(
             "endsWith".to_string(),
-            (vec![Type::String, Type::String], Type::Boolean, 2)
+            vec![(vec![Type::String, Type::String], Type::Boolean, 2)]
         );
 
         self.function_table.insert(
             "toUpperCase".to_string(),
-            (vec![Type::String], Type::String, 1)
+            vec![(vec![Type::String], Type::String, 1)]
         );
 
         self.function_table.insert(
             "toLowerCase".to_string(),
-            (vec![Type::String], Type::String, 1)
+            vec![(vec![Type::String], Type::String, 1)]
         );
 
         // Array operations
         self.function_table.insert(
             "array_get".to_string(),
-            (vec![Type::Array(Box::new(Type::Any)), Type::Integer], Type::Any, 2)
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Integer], Type::Any, 2)]
         );
 
         self.function_table.insert(
             "array_length".to_string(),
-            (vec![Type::Array(Box::new(Type::Any))], Type::Integer, 1)
+            vec![(vec![Type::List(Box::new(Type::Any))], Type::Integer, 1)]
         );
 
         self.function_table.insert(
             "array_join".to_string(),
-            (vec![Type::Array(Box::new(Type::Any)), Type::String], Type::String, 2)
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::String], Type::String, 2)]
         );
 
         // HTTP functionality
         self.function_table.insert(
             "http_get".to_string(),
-            (vec![Type::String], Type::String, 1)
+            vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
             "http_post".to_string(),
-            (vec![Type::String, Type::String], Type::String, 2)
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
             "http_put".to_string(),
-            (vec![Type::String, Type::String], Type::String, 2)
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
             "http_delete".to_string(),
-            (vec![Type::String], Type::String, 1)
+            vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
             "http_patch".to_string(),
-            (vec![Type::String, Type::String], Type::String, 2)
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
 
         // File I/O functionality
         self.function_table.insert(
             "file_read".to_string(),
-            (vec![Type::String], Type::String, 1)
+            vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
             "file_write".to_string(),
-            (vec![Type::String, Type::String], Type::Integer, 2)
+            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
         
         self.function_table.insert(
             "file_append".to_string(),
-            (vec![Type::String, Type::String], Type::Integer, 2)
+            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
         
         self.function_table.insert(
             "file_exists".to_string(),
-            (vec![Type::String], Type::Boolean, 1)
+            vec![(vec![Type::String], Type::Boolean, 1)]
         );
         
         self.function_table.insert(
             "file_delete".to_string(),
-            (vec![Type::String], Type::Boolean, 1)
+            vec![(vec![Type::String], Type::Boolean, 1)]
         );
     }
 
@@ -324,7 +329,7 @@ impl SemanticAnalyzer {
                         .take_while(|p| p.default_value.is_none())
                         .count();
                     let qualified_name = format!("{}.{}", module_name, func_name);
-                    self.function_table.insert(qualified_name, (param_types, function.return_type.clone(), required_param_count));
+                    self.function_table.insert(qualified_name, vec![(param_types, function.return_type.clone(), required_param_count)]);
                 }
                 
                 // Add imported classes with qualified names
@@ -342,7 +347,7 @@ impl SemanticAnalyzer {
                         let required_param_count = function.parameters.iter()
                             .take_while(|p| p.default_value.is_none())
                             .count();
-                        self.function_table.insert(symbol_name.clone(), (param_types, function.return_type.clone(), required_param_count));
+                        self.function_table.insert(symbol_name.clone(), vec![(param_types, function.return_type.clone(), required_param_count)]);
                     }
                     if let Some(class) = module.exports.classes.get(actual_symbol) {
                         self.class_table.insert(symbol_name.clone(), class.clone());
@@ -373,7 +378,7 @@ impl SemanticAnalyzer {
             if !self.is_builtin_function(&function.name) {
                 self.function_table.insert(
                     function.name.clone(),
-                    (param_types, function.return_type.clone(), required_param_count)
+                    vec![(param_types, function.return_type.clone(), required_param_count)]
                 );
             }
         }
@@ -388,7 +393,7 @@ impl SemanticAnalyzer {
             if !self.is_builtin_function(&start_fn.name) {
                 self.function_table.insert(
                     start_fn.name.clone(),
-                    (param_types, start_fn.return_type.clone(), required_param_count)
+                    vec![(param_types, start_fn.return_type.clone(), required_param_count)]
                 );
             }
         }
@@ -680,9 +685,11 @@ impl SemanticAnalyzer {
 
             Statement::FunctionApplyBlock { function_name, expressions, location: _ } => {
                 // Check that the function exists and validate signature
-                if let Some((param_types, _return_type, required_param_count)) = self.function_table.get(function_name).cloned() {
+                if let Some(overloads) = self.function_table.get(function_name).cloned() {
+                    // For apply blocks, use the first overload for simplicity
+                    if let Some((param_types, _return_type, required_param_count)) = overloads.first() {
                     // Check argument count
-                    if expressions.len() != required_param_count {
+                    if expressions.len() != *required_param_count {
                         return Err(CompilerError::type_error(
                             &format!("Function '{}' expects {} arguments, but {} provided", 
                                    function_name, required_param_count, expressions.len()),
@@ -703,6 +710,7 @@ impl SemanticAnalyzer {
                             ));
                         }
                     }
+                    } // Close the first() check
                 } else if !self.is_builtin_function(function_name) {
                     return Err(CompilerError::type_error(
                         &format!("Function '{}' not found", function_name),
@@ -752,7 +760,7 @@ impl SemanticAnalyzer {
                                 ));
                             }
                         },
-                        Type::Array(_) => {
+                        Type::List(_) => {
                             let valid_array_methods = ["length", "isEmpty", "push", "pop", "get", "set"];
                             if !valid_array_methods.contains(&method_name.as_str()) {
                                 return Err(CompilerError::type_error(
@@ -904,7 +912,7 @@ impl SemanticAnalyzer {
                 let collection_type = self.check_expression(collection)?;
                 
                 let element_type = match collection_type {
-                    Type::Array(element_type) => *element_type,
+                    Type::List(element_type) => *element_type,
                     Type::List(element_type) => *element_type,
                     Type::String => Type::String, // Iterating over characters
                     _ => return Err(CompilerError::type_error(
@@ -1157,45 +1165,8 @@ impl SemanticAnalyzer {
                     ));
                 }
 
-                self.used_functions.insert(name.clone());
-                
-                if let Some((param_types, return_type, _param_count)) = self.function_table.get(name).cloned() {
-                    // Special case: if this is a print function but it has wrong parameter count in function table,
-                    // use the builtin print function validation instead
-                    if (name == "print" || name == "printl" || name == "println") && param_types.len() != 1 {
-                        return self.check_print_function_call(name, args);
-                    }
-                    
-                    if args.len() != param_types.len() {
-                    return Err(CompilerError::type_error(
-                            &format!("Function '{}' called with wrong number of arguments\nExpected type: {}\nActual type: {}", 
-                                name, param_types.len(), args.len()),
-                            Some(format!("Function '{}' expects {} arguments, but {} were provided", name, param_types.len(), args.len())),
-                            None
-                        ));
-                    }
-
-                    for (i, (arg, expected_type)) in args.iter().zip(param_types.iter()).enumerate() {
-                        let arg_type = self.check_expression(arg)?;
-                        if !self.types_compatible(expected_type, &arg_type) {
-                    return Err(CompilerError::enhanced_type_error(
-                                format!("Argument {} of function '{}' has incorrect type", i + 1, name),
-                                Some(format!("{:?}", expected_type)),
-                                Some(format!("{:?}", arg_type)),
-                                None,
-                                vec![format!("Convert argument to {:?} or use a different function", expected_type)]
-                            ));
-                        }
-                    }
-
-                    Ok(return_type)
-                } else {
-                    Err(CompilerError::type_error(
-                        &format!("Function '{}' not found", name),
-                        Some("Check if the function name is correct and the function is defined".to_string()),
-                        None
-                    ))
-                }
+                // Use the proper overload resolution logic
+                self.check_function_call(name, args, None)
             },
 
             Expression::PropertyAccess { object, property, location: _ } => {
@@ -1470,7 +1441,7 @@ impl SemanticAnalyzer {
                 }
                 
                 match array_type {
-                    Type::Array(element_type) => Ok(*element_type),
+                    Type::List(element_type) => Ok(*element_type),
                     _ => Err(CompilerError::type_error(
                         "Array access can only be used on arrays".to_string(),
                         None,
@@ -1718,7 +1689,7 @@ impl SemanticAnalyzer {
             },
             
             // String and Array methods
-            (Type::String | Type::Array(_), "length") => {
+            (Type::String | Type::List(_), "length") => {
                 if !args.is_empty() {
                     return Err(CompilerError::type_error(
                         "Method 'length' doesn't take any arguments".to_string(),
@@ -1729,7 +1700,7 @@ impl SemanticAnalyzer {
                 return Ok(Type::Integer);
             },
             
-            (Type::String | Type::Array(_), "isEmpty") => {
+            (Type::String | Type::List(_), "isEmpty") => {
                 if !args.is_empty() {
                     return Err(CompilerError::type_error(
                         "Method 'isEmpty' doesn't take any arguments".to_string(),
@@ -1740,7 +1711,7 @@ impl SemanticAnalyzer {
                 return Ok(Type::Boolean);
             },
             
-            (Type::String | Type::Array(_), "isNotEmpty") => {
+            (Type::String | Type::List(_), "isNotEmpty") => {
                 if !args.is_empty() {
                     return Err(CompilerError::type_error(
                         "Method 'isNotEmpty' doesn't take any arguments".to_string(),
@@ -1953,7 +1924,7 @@ impl SemanticAnalyzer {
             },
             
             // Array-specific methods
-            (Type::Array(_), "join") => {
+            (Type::List(_), "join") => {
                 if args.len() != 1 {
                     return Err(CompilerError::type_error(
                         "Method 'join' expects exactly 1 argument".to_string(),
@@ -2265,7 +2236,7 @@ impl SemanticAnalyzer {
     fn is_valid_type(&self, type_: &Type) -> bool {
         match type_ {
             Type::Integer | Type::Number | Type::String | Type::Boolean | Type::Void | Type::Any => true,
-            Type::Array(element_type) => self.is_valid_type(element_type),
+            Type::List(element_type) => self.is_valid_type(element_type),
             Type::Object(class_name) => self.class_table.contains_key(class_name),
             Type::List(element_type) => self.is_valid_type(element_type),
             Type::Future(inner_type) => self.is_valid_type(inner_type),
@@ -2298,37 +2269,74 @@ impl SemanticAnalyzer {
             return Err(CompilerError::method_suggestion_error(name, location, None));
         }
 
-        if let Some((param_types, return_type, required_param_count)) = self.function_table.get(name).cloned() {
-            // Check if we have enough arguments (must have at least required_param_count)
-            if args.len() < required_param_count {
-                return Err(CompilerError::type_error(
-                    format!("Function '{}' requires at least {} arguments, but {} were provided", name, required_param_count, args.len()),
-                    Some(format!("Required {} arguments", required_param_count)),
-                    location
-                ));
+        if let Some(overloads) = self.function_table.get(name).cloned() {
+            eprintln!("DEBUG: Found function '{}' with {} overloads", name, overloads.len());
+            // Try to find a matching overload based on parameter types
+            let arg_types: Result<Vec<Type>, CompilerError> = args.iter()
+                .map(|arg| self.check_expression(arg))
+                .collect();
+            let arg_types = arg_types?;
+            
+            // Find the best matching overload
+            let mut best_match = None;
+            let mut exact_match = None;
+            
+            // Debug: print overload resolution details
+            eprintln!("DEBUG: Resolving function '{}' with {} args", name, arg_types.len());
+            for (i, arg_type) in arg_types.iter().enumerate() {
+                eprintln!("DEBUG:   arg[{}]: {:?}", i, arg_type);
+            }
+            eprintln!("DEBUG: Available overloads:");
+            for (i, (param_types, return_type, required_param_count)) in overloads.iter().enumerate() {
+                eprintln!("DEBUG:   overload[{}]: {:?} -> {:?} (required: {})", i, param_types, return_type, required_param_count);
             }
             
-            // Check if we have too many arguments (can't exceed total parameter count)
-            if args.len() > param_types.len() {
-                return Err(CompilerError::type_error(
-                    format!("Function '{}' accepts at most {} arguments, but {} were provided", name, param_types.len(), args.len()),
-                    Some(format!("Maximum {} arguments", param_types.len())),
-                    location
-                ));
-            }
-
-            for (i, (arg, expected_type)) in args.iter().zip(param_types.iter()).enumerate() {
-                let arg_type = self.check_expression(arg)?;
-                if !self.types_compatible(expected_type, &arg_type) {
-                    return Err(CompilerError::enhanced_type_error(
-                        format!("Argument {} of function '{}' has incorrect type", i + 1, name),
-                        Some(format!("{:?}", expected_type)),
-                        Some(format!("{:?}", arg_type)),
-                        location,
-                        vec![format!("Convert argument to {:?} or use a different function", expected_type)]
-                    ));
+            for (param_types, return_type, required_param_count) in &overloads {
+                // Check basic parameter count constraints
+                if arg_types.len() < *required_param_count || arg_types.len() > param_types.len() {
+                    continue;
+                }
+                
+                // Check if all provided arguments are compatible
+                let mut is_compatible = true;
+                let mut is_exact = true;
+                
+                for (i, (arg_type, expected_type)) in arg_types.iter().zip(param_types.iter()).enumerate() {
+                    if !self.types_compatible(expected_type, arg_type) {
+                        is_compatible = false;
+                        break;
+                    }
+                    if arg_type != expected_type {
+                        is_exact = false;
+                    }
+                }
+                
+                if is_compatible {
+                    if is_exact {
+                        exact_match = Some((param_types.clone(), return_type.clone(), *required_param_count));
+                        break; // Exact match is always preferred
+                    } else if best_match.is_none() {
+                        best_match = Some((param_types.clone(), return_type.clone(), *required_param_count));
+                    }
                 }
             }
+            
+            // Use exact match if found, otherwise use best compatible match
+            let (param_types, return_type, required_param_count) = exact_match.or(best_match)
+                .ok_or_else(|| {
+                    let arg_type_str = arg_types.iter()
+                        .map(|t| format!("{:?}", t))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    CompilerError::type_error(
+                        format!("No compatible overload found for function '{}' with arguments ({})", name, arg_type_str),
+                        Some("Check function signature and argument types".to_string()),
+                        location
+                    )
+                })?;
+            
+            eprintln!("DEBUG: Selected overload: {:?} -> {:?}", param_types, return_type);
+            // Parameter validation is now handled in overload resolution above
 
             Ok(return_type)
         } else {
@@ -2377,13 +2385,13 @@ impl SemanticAnalyzer {
             Value::Number(_) => Type::Number,
             Value::String(_) => Type::String,
             Value::Boolean(_) => Type::Boolean,
-            Value::Array(elements) => {
+            Value::List(elements) => {
                 if elements.is_empty() {
-                    Type::Array(Box::new(Type::Any))
+                    Type::List(Box::new(Type::Any))
                 } else {
                     // Use the type of the first element
                     let element_type = self.check_literal(&elements[0]);
-                    Type::Array(Box::new(element_type))
+                    Type::List(Box::new(element_type))
                 }
             },
             Value::Matrix(_) => Type::Matrix(Box::new(Type::Number)),
@@ -2396,7 +2404,7 @@ impl SemanticAnalyzer {
             Value::Integer64(_) => Type::Integer,
             Value::Number32(_) => Type::Number,
             Value::Number64(_) => Type::Number,
-            Value::List(elements, _) => {
+            Value::List(elements) => {
                 if elements.is_empty() {
                     Type::List(Box::new(Type::Any))
                 } else {
@@ -2511,7 +2519,7 @@ impl SemanticAnalyzer {
                 
                 // Get the element type from the argument
                 let element_type = self.check_expression(&args[0])?;
-                Ok(Type::Array(Box::new(element_type)))
+                Ok(Type::List(Box::new(element_type)))
             },
             "List" => {
                 if args.len() != 1 {
@@ -2681,9 +2689,9 @@ impl SemanticAnalyzer {
     fn resolve_type(&self, type_: &Type) -> Type {
         match type_ {
             // Resolve generic array types
-            Type::Array(element_type) => {
+            Type::List(element_type) => {
                 let resolved_element = self.resolve_type(element_type);
-                Type::Array(Box::new(resolved_element))
+                Type::List(Box::new(resolved_element))
             },
             
             // Resolve generic matrix types  
@@ -2730,7 +2738,7 @@ impl SemanticAnalyzer {
             (Type::Number, Type::Integer) => true, // Integer can be promoted to Number
             
             // Array element type compatibility
-            (Type::Array(expected_elem), Type::Array(actual_elem)) => {
+            (Type::List(expected_elem), Type::List(actual_elem)) => {
                 self.types_compatible(expected_elem, actual_elem)
             }
             

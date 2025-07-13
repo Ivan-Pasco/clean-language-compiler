@@ -133,7 +133,7 @@ start()
 		if i > 2
 			sum = sum + i
 	
-	Array<number> numbers = [1, 2, 3, 4, 5]
+	list<number> numbers = [1, 2, 3, 4, 5]
 	iterate n in numbers
 		if n > 3
 			sum = sum + n

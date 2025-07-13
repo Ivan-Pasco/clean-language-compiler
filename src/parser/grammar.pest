@@ -34,7 +34,6 @@ sized_type = { core_type ~ size_specifier }
 
 // Composite types
 matrix_type = { "matrix" ~ "<" ~ type_ ~ ">" }
-array_type = { "array" ~ "<" ~ type_ ~ ">" }
 list_type = { "list" ~ "<" ~ type_ ~ ">" }
 pairs_type = { "pairs" ~ "<" ~ type_ ~ "," ~ type_ ~ ">" }
 
@@ -49,7 +48,6 @@ type_ = {
     sized_type |
     core_type |
     matrix_type |
-    array_type |
     list_type |
     pairs_type |
     generic_type |
@@ -72,7 +70,7 @@ indented_constant_assignments = { NEWLINE ~ (empty_line)* ~ INDENT ~ INDENT+ ~ c
 constant_assignment = { type_ ~ identifier ~ "=" ~ expression }
 
 // Type apply-blocks: integer: count = 0, maxSize = 100 (types before generic identifiers)
-type_apply_block = { (core_type | sized_type | matrix_type | array_type | list_type | pairs_type) ~ ":" ~ indented_variable_assignments }
+type_apply_block = { (core_type | sized_type | matrix_type | list_type | pairs_type) ~ ":" ~ indented_variable_assignments }
 indented_variable_assignments = { NEWLINE ~ (empty_line)* ~ INDENT ~ INDENT+ ~ variable_assignment ~ (NEWLINE ~ (empty_line)* ~ INDENT ~ INDENT+ ~ variable_assignment)* }
 variable_assignment = { identifier ~ "=" ~ expression }
 
@@ -90,7 +88,6 @@ input_type = {
     sized_type |
     core_type |
     matrix_type |
-    array_type |
     list_type |
     pairs_type |
     generic_type |
@@ -122,7 +119,7 @@ primary = {
     boolean |
     string |
     matrix_literal |
-    array_literal |
+    list_literal |
     array_access |
     function_call |
     property_access |
@@ -158,8 +155,8 @@ operator = _{ binary_op | comparison_op }
 binary_op = { "+" | "-" | "*" | "/" | "%" | "^" | "and" | "or" }
 comparison_op = { "==" | "!=" | "<" | "<=" | ">" | ">=" | "is" | "not" }
 
-// Arrays and Matrices
-array_literal = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
+// Lists and Matrices
+list_literal = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 matrix_row = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 matrix_literal = { "[" ~ matrix_row ~ ("," ~ matrix_row)* ~ "]" }
 
@@ -213,7 +210,6 @@ function_type = {
     sized_type |
     core_type |
     matrix_type |
-    array_type |
     list_type |
     pairs_type |
     generic_type |
@@ -248,7 +244,6 @@ constructor_type = {
     sized_type |
     core_type |
     matrix_type |
-    array_type |
     list_type |
     pairs_type |
     generic_type |

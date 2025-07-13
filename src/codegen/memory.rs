@@ -499,9 +499,26 @@ impl MemoryUtils {
 
     /// Allocates memory for an array with proper ARC
     pub(crate) fn allocate_array(&mut self, elements: &[Value]) -> Result<usize, CompilerError> {
-        let element_type = if elements.is_empty() {
+        self.allocate_array_with_target_type(elements, None)
+    }
+
+    pub(crate) fn allocate_array_with_target_type(&mut self, elements: &[Value], target_element_type: Option<&crate::ast::Type>) -> Result<usize, CompilerError> {
+        use crate::types::WasmType;
+        use crate::ast::Type;
+        
+        let element_type = if let Some(target_type) = target_element_type {
+            // If we have a target type, use it to determine the storage format
+            match target_type {
+                Type::Number => WasmType::F64,
+                Type::Integer => WasmType::I32,
+                Type::Boolean => WasmType::I32,
+                Type::String => WasmType::I32,
+                _ => WasmType::I32,
+            }
+        } else if elements.is_empty() {
             WasmType::I32
         } else {
+            // Fallback to existing logic if no target type provided
             match &elements[0] {
                 Value::Integer(_) => WasmType::I32,
                 Value::Boolean(_) => WasmType::I32,
@@ -523,16 +540,47 @@ impl MemoryUtils {
         // Create data segments for array elements
         let mut offset = 4;
         for element in elements {
-            let element_bytes = match element {
-                Value::Integer(i) => (*i as u32).to_le_bytes().to_vec(),
-                Value::Boolean(b) => (*b as u32).to_le_bytes().to_vec(),
-                Value::Number(f) => f.to_le_bytes().to_vec(),
-                Value::String(s) => {
-                    // For string elements, store pointer to string
-                    let str_ptr = self.allocate_string(s)?;
-                    (str_ptr as u32).to_le_bytes().to_vec()
-                },
-                _ => vec![0; element_size],
+            let element_bytes = match element_type {
+                WasmType::F64 => {
+                    // Convert all values to F64 for number arrays
+                    let f64_value = match element {
+                        Value::Integer(i) => *i as f64,
+                        Value::Number(f) => *f,
+                        Value::Boolean(b) => if *b { 1.0 } else { 0.0 },
+                        _ => return Err(CompilerError::type_error(
+                            format!("Cannot convert {:?} to number for array storage", element),
+                            None, None
+                        )),
+                    };
+                    f64_value.to_le_bytes().to_vec()
+                }
+                WasmType::I32 => {
+                    // Convert all values to I32 for integer/boolean arrays
+                    let i32_value = match element {
+                        Value::Integer(i) => *i as u32,
+                        Value::Boolean(b) => *b as u32,
+                        Value::Number(f) => *f as u32,
+                        _ => return Err(CompilerError::type_error(
+                            format!("Cannot convert {:?} to integer for array storage", element),
+                            None, None
+                        )),
+                    };
+                    i32_value.to_le_bytes().to_vec()
+                }
+                _ => {
+                    // Fallback to original logic for other types
+                    match element {
+                        Value::Integer(i) => (*i as u32).to_le_bytes().to_vec(),
+                        Value::Boolean(b) => (*b as u32).to_le_bytes().to_vec(),
+                        Value::Number(f) => f.to_le_bytes().to_vec(),
+                        Value::String(s) => {
+                            // For string elements, store pointer to string
+                            let str_ptr = self.allocate_string(s)?;
+                            (str_ptr as u32).to_le_bytes().to_vec()
+                        },
+                        _ => vec![0; element_size],
+                    }
+                }
             };
             
             self.add_data_segment((ptr + offset - HEADER_SIZE as usize) as u32, &element_bytes);

@@ -215,7 +215,7 @@ fn test_iterate_statement() {
         Value::Integer(4),
         Value::Integer(5),
     ];
-    let array_expr = Expression::Literal(Value::Array(array_values));
+    let array_expr = Expression::Literal(Value::List(array_values));
     
     // Create an iterate statement over the array
     let iterate_stmt = Statement::Iterate {
@@ -251,7 +251,7 @@ fn test_iterate_statement() {
     let mut instructions = Vec::new();
     codegen.generate_statement(&Statement::Iterate {
         iterator: "item".to_string(),
-        collection: Expression::Literal(Value::Array(vec![
+        collection: Expression::Literal(Value::List(vec![
             Value::Integer(1),
             Value::Integer(2),
             Value::Integer(3),
