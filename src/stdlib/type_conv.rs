@@ -258,11 +258,59 @@ impl TypeConvOperations {
     }
 
     fn generate_to_number_function(&self) -> Vec<Instruction> {
-        // SIMPLIFIED: Return a basic number conversion to avoid LocalTee stack issues
-        // TODO: Implement proper string parsing when LocalTee stack management is fixed
+        // Convert string to number (basic implementation)
+        // Parameters: string_ptr
+        // Returns: parsed number or 0.0 if invalid
         vec![
-            // Simplified implementation - just return a default value
-            Instruction::F64Const(0.0), // Return 0.0 as default
+            // Get string pointer
+            Instruction::LocalGet(0), // string_ptr
+            
+            // Load string length (first 4 bytes)
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(1), // string_length
+            
+            // Check if string is empty
+            Instruction::LocalGet(1),
+            Instruction::I32Const(0),
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)),
+            
+            // Empty string, return 0.0
+            Instruction::F64Const(0.0),
+            
+            Instruction::Else,
+            
+            // For now, implement basic single digit parsing
+            // Load first character
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(4), // Skip length field
+            Instruction::I32Add,
+            Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Check if character is digit (ASCII 48-57)
+            Instruction::LocalTee(2), // char_code
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32GeS,
+            Instruction::LocalGet(2),
+            Instruction::I32Const(57), // ASCII '9'
+            Instruction::I32LeS,
+            Instruction::I32And,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)),
+            
+            // Convert digit to number
+            Instruction::LocalGet(2),
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32Sub,
+            Instruction::F64ConvertI32S,
+            
+            Instruction::Else,
+            
+            // Not a digit, return 0.0
+            Instruction::F64Const(0.0),
+            
+            Instruction::End, // End digit check
+            
+            Instruction::End, // End empty check
         ]
     }
 
@@ -400,16 +448,114 @@ impl TypeConvOperations {
     }
 
     fn generate_string_to_int_function(&self) -> Vec<Instruction> {
+        // Convert string to integer (basic implementation)
+        // Parameters: string_ptr
+        // Returns: parsed integer or 0 if invalid
         vec![
-            // Simplified implementation - return 0 for now
+            // Get string pointer
+            Instruction::LocalGet(0), // string_ptr
+            
+            // Load string length
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(1), // string_length
+            
+            // Check if string is empty
+            Instruction::LocalGet(1),
             Instruction::I32Const(0),
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Empty string, return 0
+            Instruction::I32Const(0),
+            
+            Instruction::Else,
+            
+            // Load first character
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(4), // Skip length field
+            Instruction::I32Add,
+            Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Check if character is digit (ASCII 48-57)
+            Instruction::LocalTee(2), // char_code
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32GeS,
+            Instruction::LocalGet(2),
+            Instruction::I32Const(57), // ASCII '9'
+            Instruction::I32LeS,
+            Instruction::I32And,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Convert digit to integer
+            Instruction::LocalGet(2),
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32Sub,
+            
+            Instruction::Else,
+            
+            // Not a digit, return 0
+            Instruction::I32Const(0),
+            
+            Instruction::End, // End digit check
+            
+            Instruction::End, // End empty check
         ]
     }
 
     fn generate_string_to_float_function(&self) -> Vec<Instruction> {
+        // Convert string to float (basic implementation)
+        // Parameters: string_ptr
+        // Returns: parsed float or 0.0 if invalid
         vec![
-            // Simplified implementation - return 0.0 for now
+            // For now, use the same logic as to_number_function
+            // Get string pointer
+            Instruction::LocalGet(0), // string_ptr
+            
+            // Load string length
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(1), // string_length
+            
+            // Check if string is empty
+            Instruction::LocalGet(1),
+            Instruction::I32Const(0),
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)),
+            
+            // Empty string, return 0.0
             Instruction::F64Const(0.0),
+            
+            Instruction::Else,
+            
+            // Load first character
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(4), // Skip length field
+            Instruction::I32Add,
+            Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Check if character is digit (ASCII 48-57)
+            Instruction::LocalTee(2), // char_code
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32GeS,
+            Instruction::LocalGet(2),
+            Instruction::I32Const(57), // ASCII '9'
+            Instruction::I32LeS,
+            Instruction::I32And,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)),
+            
+            // Convert digit to float
+            Instruction::LocalGet(2),
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32Sub,
+            Instruction::F64ConvertI32S,
+            
+            Instruction::Else,
+            
+            // Not a digit, return 0.0
+            Instruction::F64Const(0.0),
+            
+            Instruction::End, // End digit check
+            
+            Instruction::End, // End empty check
         ]
     }
 

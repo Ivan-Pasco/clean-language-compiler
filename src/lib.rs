@@ -186,9 +186,9 @@ start()
 	integer length = text.length()
 	print(length)
 "#),
-            ("Array Functions", r#"start()
-	Array<integer> arr = [1, 2, 3, 4, 5]
-	integer length = array_length(arr)
+            ("List Functions", r#"start()
+	List<integer> lst = [1, 2, 3, 4, 5]
+	integer length = lst.length()
 	print(length)
 "#),
         ];

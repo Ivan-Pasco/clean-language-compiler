@@ -484,7 +484,7 @@ pub fn parse_method_call(pair: Pair<Rule>) -> Result<Expression, CompilerError> 
             let first_child = seg_inner.next().unwrap();
             
             let (method_name, arguments) = match first_child.as_rule() {
-                Rule::identifier => {
+                Rule::method_name => {
                     // Method call with mandatory parentheses
                     let method_name = first_child.as_str().to_string();
                     let mut arguments = Vec::new();

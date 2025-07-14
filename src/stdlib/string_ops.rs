@@ -255,6 +255,15 @@ impl StringOperations {
             self.generate_string_length()
         )?;
 
+        // Register generic length function for method calls
+        register_stdlib_function(
+            codegen,
+            "length",
+            &[WasmType::I32], // string pointer
+            Some(WasmType::I32), // length
+            self.generate_string_length()
+        )?;
+
         // Register new string functions
         register_stdlib_function(
             codegen,

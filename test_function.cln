@@ -1,8 +1,0 @@
-functions:
-    test_func() returns number
-        number x = 5
-        return x
-
-start()
-    number result = test_func()
-    print result

@@ -83,6 +83,7 @@ impl SemanticAnalyzer {
     fn register_builtin_functions(&mut self) {
         // Register standard library functions
         self.register_builtin("print", vec![Type::String], Type::Void);
+        self.register_builtin("println", vec![Type::String], Type::Void);
         self.register_builtin("printl", vec![Type::String], Type::Void);
 
         // Assertion functions (keep as traditional functions)
@@ -106,6 +107,9 @@ impl SemanticAnalyzer {
         self.register_builtin("sin", vec![Type::Number], Type::Number);
         self.register_builtin("cos", vec![Type::Number], Type::Number);
         self.register_builtin("tan", vec![Type::Number], Type::Number);
+
+        // Console input functions
+        self.register_builtin("input", vec![Type::String], Type::String);
 
         // Additional mathematical functions
         self.function_table.insert(
@@ -203,6 +207,32 @@ impl SemanticAnalyzer {
         self.function_table.insert(
             "input_yesno".to_string(),
             vec![(vec![Type::String], Type::Boolean, 1)]
+        );
+
+        // Console class static methods
+        self.function_table.insert(
+            "Console.inputInteger".to_string(),
+            vec![(vec![Type::String], Type::Integer, 1)]
+        );
+
+        self.function_table.insert(
+            "Console.inputNumber".to_string(),
+            vec![(vec![Type::String], Type::Number, 1)]
+        );
+
+        self.function_table.insert(
+            "Console.inputBoolean".to_string(),
+            vec![(vec![Type::String], Type::Boolean, 1)]
+        );
+
+        self.function_table.insert(
+            "Console.inputYesNo".to_string(),
+            vec![(vec![Type::String], Type::Boolean, 1)]
+        );
+
+        self.function_table.insert(
+            "Console.inputRange".to_string(),
+            vec![(vec![Type::String, Type::Integer, Type::Integer], Type::Integer, 3)]
         );
 
         // String operations
@@ -1277,6 +1307,73 @@ impl SemanticAnalyzer {
             },
 
             Expression::MethodCall { object, method, arguments, location } => {
+                // Check for console input method calls
+                if let Expression::Variable(var_name) = &**object {
+                    if var_name == "input" {
+                        return match method.as_str() {
+                            "integer" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        format!("input.integer() expects 1 argument, but {} were provided", arguments.len()),
+                                        Some("Provide a prompt string".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                let arg_type = self.check_expression(&arguments[0])?;
+                                if arg_type != Type::String {
+                                    return Err(CompilerError::type_error(
+                                        format!("input.integer() expects string prompt, got {:?}", arg_type),
+                                        Some("Use a string for the prompt".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                Ok(Type::Integer)
+                            },
+                            "number" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        format!("input.number() expects 1 argument, but {} were provided", arguments.len()),
+                                        Some("Provide a prompt string".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                let arg_type = self.check_expression(&arguments[0])?;
+                                if arg_type != Type::String {
+                                    return Err(CompilerError::type_error(
+                                        format!("input.number() expects string prompt, got {:?}", arg_type),
+                                        Some("Use a string for the prompt".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                Ok(Type::Number)
+                            },
+                            "yesNo" => {
+                                if arguments.len() != 1 {
+                                    return Err(CompilerError::type_error(
+                                        format!("input.yesNo() expects 1 argument, but {} were provided", arguments.len()),
+                                        Some("Provide a prompt string".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                let arg_type = self.check_expression(&arguments[0])?;
+                                if arg_type != Type::String {
+                                    return Err(CompilerError::type_error(
+                                        format!("input.yesNo() expects string prompt, got {:?}", arg_type),
+                                        Some("Use a string for the prompt".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                Ok(Type::Boolean)
+                            },
+                            _ => Err(CompilerError::type_error(
+                                format!("Unknown input method: {}", method),
+                                Some("Available methods: integer, number, yesNo".to_string()),
+                                Some(location.clone())
+                            ))
+                        };
+                    }
+                }
+
                 // Check if this is a call to an imported module's method
                 if let Expression::Variable(module_name) = &**object {
                     if let Some(ref imports) = self.current_imports.clone() {
@@ -1700,6 +1797,50 @@ impl SemanticAnalyzer {
                 return Ok(Type::Integer);
             },
             
+            // Generic List methods - handle List<T> syntax parsed as Generic
+            (Type::Generic(base_type, _type_args), method_name) => {
+                if let Type::Object(class_name) = base_type.as_ref() {
+                    if class_name == "List" {
+                        // Treat Generic(Object("List"), [T]) as Type::List(T) for method calls
+                        match method_name {
+                            "length" => {
+                                if !args.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        "Method 'length' doesn't take any arguments".to_string(),
+                                        Some("Usage: list.length()".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                return Ok(Type::Integer);
+                            },
+                            "isEmpty" => {
+                                if !args.is_empty() {
+                                    return Err(CompilerError::type_error(
+                                        "Method 'isEmpty' doesn't take any arguments".to_string(),
+                                        Some("Usage: list.isEmpty()".to_string()),
+                                        Some(location.clone())
+                                    ));
+                                }
+                                return Ok(Type::Boolean);
+                            },
+                            _ => {
+                                return Err(CompilerError::type_error(
+                                    &format!("Method '{}' not found for List type", method_name),
+                                    Some("Available list methods: length, isEmpty".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
+                        }
+                    }
+                }
+                // If not a List generic, fall through to default handling
+                return Err(CompilerError::type_error(
+                    &format!("Cannot call method '{}' on type {:?}", method, object_type),
+                    Some("Methods can only be called on objects".to_string()),
+                    Some(location.clone())
+                ));
+            },
+            
             (Type::String | Type::List(_), "isEmpty") => {
                 if !args.is_empty() {
                     return Err(CompilerError::type_error(
@@ -1941,6 +2082,78 @@ impl SemanticAnalyzer {
                     ));
                 }
                 return Ok(Type::String);
+            },
+            
+            // List behavior methods
+            (Type::List(element_type), "add") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'add' expects exactly 1 argument".to_string(),
+                        Some("Usage: list.add(item)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let arg_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(element_type, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        &format!("Method 'add' expects argument of type {:?}, found {:?}", element_type, arg_type),
+                        Some("Usage: list.add(item)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Void);
+            },
+            
+            (Type::List(element_type), "remove") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'remove' doesn't take any arguments".to_string(),
+                        Some("Usage: list.remove()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(*element_type.clone());
+            },
+            
+            (Type::List(element_type), "peek") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'peek' doesn't take any arguments".to_string(),
+                        Some("Usage: list.peek()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(*element_type.clone());
+            },
+            
+            (Type::List(element_type), "contains") => {
+                if args.len() != 1 {
+                    return Err(CompilerError::type_error(
+                        "Method 'contains' expects exactly 1 argument".to_string(),
+                        Some("Usage: list.contains(item)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                let arg_type = self.check_expression(&args[0])?;
+                if !self.types_compatible(element_type, &arg_type) {
+                    return Err(CompilerError::type_error(
+                        &format!("Method 'contains' expects argument of type {:?}, found {:?}", element_type, arg_type),
+                        Some("Usage: list.contains(item)".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Boolean);
+            },
+            
+            (Type::List(_), "size") => {
+                if !args.is_empty() {
+                    return Err(CompilerError::type_error(
+                        "Method 'size' doesn't take any arguments".to_string(),
+                        Some("Usage: list.size()".to_string()),
+                        Some(location.clone())
+                    ));
+                }
+                return Ok(Type::Integer);
             },
             
             // Any type methods
@@ -2740,6 +2953,24 @@ impl SemanticAnalyzer {
             // Array element type compatibility
             (Type::List(expected_elem), Type::List(actual_elem)) => {
                 self.types_compatible(expected_elem, actual_elem)
+            }
+            
+            // Generic List compatibility - handle List<T> syntax parsed as Generic
+            (Type::Generic(base_type, type_args), Type::List(actual_elem)) => {
+                if let Type::Object(class_name) = base_type.as_ref() {
+                    if class_name == "List" && type_args.len() == 1 {
+                        return self.types_compatible(&type_args[0], actual_elem);
+                    }
+                }
+                false
+            }
+            (Type::List(expected_elem), Type::Generic(base_type, type_args)) => {
+                if let Type::Object(class_name) = base_type.as_ref() {
+                    if class_name == "List" && type_args.len() == 1 {
+                        return self.types_compatible(expected_elem, &type_args[0]);
+                    }
+                }
+                false
             }
             
             // Class inheritance compatibility

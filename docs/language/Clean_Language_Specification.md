@@ -304,7 +304,7 @@ number:64:
 | Type syntax | What it is | Example |
 |-------------|------------|---------|
 | `array<any>`  | Homogeneous resizable list | `array<integer>`, `[1, 2, 3]` |
-| `list<any>` | Flexible list with behavior properties | `list<string>`, see List Properties below |
+| `list<any>` | Flexible list with behavior properties | `list<string>`, `[]`, behavior via `.type` property |
 | `matrix<any>` | 2-D array (array of arrays) | `matrix<number>`, `[[1.0, 2.0], [3.0, 4.0]]` |
 | `pairs<any,any>`  | Key-value associative container | `pairs<string, integer>` |
 | `any`         | Generic type parameter | Used in function definitions |
@@ -322,23 +322,31 @@ Clean Language extends the core `list<any>` type with **property modifiers** tha
 #### Property Syntax
 
 ```clean
-list<any> myList = list<any>()
-myList.type = behavior_type
+list<any> myList = []                    // Create empty list
+myList.type = "behavior_type"            // Set behavior using string
 ```
 
-Where `behavior_type` defines how the list handles insertions, removals, and access patterns.
+Where `behavior_type` is a string that defines how the list handles insertions, removals, and access patterns.
+
+**Supported behavior strings:**
+- `"default"` - Standard list behavior
+- `"line"` - FIFO queue behavior  
+- `"pile"` - LIFO stack behavior
+- `"unique"` - Set behavior (no duplicates)
+- `"line-unique"` - FIFO queue with uniqueness
+- `"pile-unique"` - LIFO stack with uniqueness
 
 #### Supported Properties
 
-**`line` - Queue Behavior (FIFO)**
+**`"line"` - Queue Behavior (FIFO)**
 
 First-In-First-Out behavior. Elements are added to the back and removed from the front.
 
 ```clean
 functions:
     void processTaskQueue()
-        list<string> tasks = list<string>()
-        tasks.type = line
+        list<string> tasks = []
+        tasks.type = "line"
         
         // Add tasks (to back)
         tasks.add("Task 1")
@@ -348,7 +356,7 @@ functions:
         // Process tasks (from front)
         while tasks.size() > 0
             string currentTask = tasks.remove()  // Gets "Task 1", then "Task 2", etc.
-            println("Processing: {currentTask}")
+            println("Processing: " + currentTask)
 ```
 
 **Modified Operations**:
@@ -357,15 +365,15 @@ functions:
 - `peek()` → Views the **front** element without removing
 - Standard list operations (`get(index)`, `size()`) remain unchanged
 
-**`pile` - Stack Behavior (LIFO)**
+**`"pile"` - Stack Behavior (LIFO)**
 
 Last-In-First-Out behavior. Elements are added and removed from the same end (top).
 
 ```clean
 functions:
     void undoSystem()
-        list<string> actions = list<string>()
-        actions.type = pile
+        list<string> actions = []
+        actions.type = "pile"
         
         // Perform actions (add to top)
         actions.add("Create file")
@@ -375,7 +383,7 @@ functions:
         // Undo actions (remove from top)
         while actions.size() > 0
             string lastAction = actions.remove()  // Gets "Save file", then "Edit text", etc.
-            println("Undoing: {lastAction}")
+            println("Undoing: " + lastAction)
 ```
 
 **Modified Operations**:
@@ -384,15 +392,15 @@ functions:
 - `peek()` → Views the **top** element without removing
 - Standard list operations (`get(index)`, `size()`) remain unchanged
 
-**`unique` - Set Behavior (Uniqueness Constraint)**
+**`"unique"` - Set Behavior (Uniqueness Constraint)**
 
 Only allows unique elements. Duplicate additions are ignored.
 
 ```clean
 functions:
     void trackUniqueVisitors()
-        list<string> visitors = list<string>()
-        visitors.type = unique
+        list<string> visitors = []
+        visitors.type = "unique"
         
         // Add visitors (duplicates ignored)
         visitors.add("Alice")    // Added
@@ -400,7 +408,7 @@ functions:
         visitors.add("Alice")    // Ignored (duplicate)
         visitors.add("Charlie")  // Added
         
-        println("Unique visitors: {visitors.size()}")  // Prints: 3
+        println("Unique visitors: " + visitors.size().toString())  // Prints: 3
         
         if visitors.contains("Alice")
             println("Alice has visited")
@@ -408,30 +416,52 @@ functions:
 
 **Modified Operations**:
 - `add(item)` → Adds only if `item` is not already present
-- `remove(item)` → Removes the specified item (not index-based)
+- `remove()` → Removes from default position (implementation-dependent)
 - `contains(item)` → Optimized for membership testing
 - Standard list operations remain available
 
 #### Property Combinations
 
-Properties can be combined for specialized behavior:
+Properties can be combined by setting the type to a combined behavior string:
 
 ```clean
 // Unique queue - FIFO with no duplicates
-list<string> uniqueQueue = list<string>()
-uniqueQueue.type = line
-uniqueQueue.type = unique
+list<string> uniqueQueue = []
+uniqueQueue.type = "line-unique"
 
 // Unique stack - LIFO with no duplicates  
-list<integer> uniqueStack = list<integer>()
-uniqueStack.type = pile
-uniqueStack.type = unique
+list<integer> uniqueStack = []
+uniqueStack.type = "pile-unique"
+
+// All combinations are supported
+list<integer> allFeatures = []
+allFeatures.type = "line-unique-pile"  // Advanced combination
 ```
 
+#### Available Methods
+
+All list types support these methods regardless of behavior:
+
+**Core Methods:**
+- `add(item)` → Adds an item to the list (behavior determines position)
+- `remove()` → Removes and returns an item (behavior determines which item)
+- `peek()` → Views the next item to be removed without removing it
+- `contains(item)` → Returns `true` if the item exists in the list
+- `size()` → Returns the number of items in the list
+
+**Standard List Methods:**
+- `get(index)` → Gets item at specific index (0-based)
+- `set(index, item)` → Sets item at specific index
+- `isEmpty()` → Returns `true` if list is empty
+- `isNotEmpty()` → Returns `true` if list contains items
+
+**Behavior Management:**
+- Setting `myList.type = "behavior"` changes the list's behavior at runtime
+
 #### Performance Characteristics
-- `line`: O(1) add, O(1) remove, O(1) peek
-- `pile`: O(1) add, O(1) remove, O(1) peek  
-- `unique`: O(1) add/contains (hash-based), O(1) remove
+- `"line"`: O(1) add, O(1) remove, O(1) peek
+- `"pile"`: O(1) add, O(1) remove, O(1) peek  
+- `"unique"`: O(1) add/contains (hash-based), O(1) remove
 
 #### Advantages
 
@@ -441,6 +471,42 @@ uniqueStack.type = unique
 4. **Type Safety**: Full generic type support with compile-time validation
 5. **Simplicity**: Easier to learn and remember than separate collection classes
 6. **Interoperability**: All property-modified lists are still `list<any>` types
+
+#### Complete Example
+
+```clean
+start()
+    // Test different list behaviors
+    list<integer> myList = []
+    
+    // Test line behavior (FIFO queue)
+    myList.type = "line"
+    myList.add(1)
+    myList.add(2)
+    myList.add(3)
+    
+    integer first = myList.remove()   // Returns 1 (first in, first out)
+    integer second = myList.remove()  // Returns 2
+    
+    // Switch to pile behavior (LIFO stack)
+    myList.type = "pile"
+    myList.add(10)
+    myList.add(20)
+    myList.add(30)
+    
+    integer top = myList.remove()     // Returns 30 (last in, first out)
+    
+    // Switch to unique behavior (set)
+    myList.type = "unique"
+    myList.add(100)
+    myList.add(200)
+    myList.add(100)  // Ignored (duplicate)
+    
+    boolean hasHundred = myList.contains(100)  // Returns true
+    integer listSize = myList.size()           // Returns 2 (no duplicates)
+    
+    print("List demonstrates flexible behavior at runtime")
+```
 
 ### Type Annotations and Variable Declaration
 
@@ -1489,37 +1555,46 @@ functions:
         boolean valid = User.isValidAge(30)             // Static method call
 ```
 
-### Design Philosophy: Class-Based Organization
+### Design Philosophy: Flexible Organization
 
-Clean Language encourages organizing all functionality into classes rather than standalone functions. This promotes:
+Clean Language supports both class-based organization and top-level functions, providing flexibility for different coding styles and project needs:
 
+#### Class-Based Organization (Recommended for complex projects)
 - **Better code organization**: Related functionality is grouped together
 - **Namespace management**: No global function name conflicts  
 - **Consistent syntax**: All method calls use the same `Class.method()` or `object.method()` pattern
 - **Extensibility**: Easy to add related methods to existing classes
 
-**System provides built-in utility classes (without Utils suffix):**
 ```clean
-functions:
-    void start()
-        // Built-in classes available automatically:
-        number result = Math.add(5.0, 3.0)           // Math operations
-        integer length = String.length("hello")     // String operations  
-        integer size = Array.length([1, 2, 3])     // Array operations
-        string data = File.readText("file.txt")    // File operations
-        string response = Http.get("api/users")    // HTTP requests
-
-// User code must use classes with functions blocks:
 class Calculator
     functions:
         number calculateTax(number amount)
-            return Math.multiply(amount, 0.15)
+            return amount * 0.15
         
         string formatResult(number value)
-            return String.concat("Result: ", value.toString())
+            return "Result: " + value.toString()
 ```
 
-**Exception:** The `start()` function remains as the program entry point and can be declared either within a `functions:` block or standalone.
+#### Top-Level Functions (Suitable for simpler projects)
+- **Direct approach**: Functions can be declared directly in `functions:` blocks
+- **Simplicity**: No need for class wrapper when functionality is standalone
+- **Scripting style**: Perfect for utility scripts and simple programs
+
+```clean
+functions:
+    number calculateTax(number amount)
+        return amount * 0.15
+    
+    string formatResult(number value)
+        return "Result: " + value.toString()
+    
+    void start()
+        number tax = calculateTax(100.0)
+        string result = formatResult(tax)
+        print(result)
+```
+
+**Both approaches are valid and can be mixed within the same program.** The choice depends on project complexity and developer preference.
 
 ## Standard Library
 
@@ -2301,400 +2376,9 @@ import:
     Json.decode as jd   # symbol alias
 ```
 
-## Package Management
+## Package Management (Future Feature)
 
-Clean Language includes a comprehensive package management system that makes it easy to share, discover, and use code libraries. Think of it as a **smart librarian** for your code - it helps you find, organize, and manage code packages that other developers have created.
-
-### What is Package Management?
-
-Package management in Clean Language allows you to:
-- **Organize your projects** with proper metadata and configuration
-- **Use external libraries** without copying code manually
-- **Share your code** with other developers easily
-- **Manage dependencies** and their versions automatically
-- **Build reproducible projects** that work the same way everywhere
-
-### Package Manifest (`package.clean.toml`)
-
-Every Clean Language project can have a `package.clean.toml` file that serves as the project's "recipe card." This file contains all the information about your project and what it needs to work.
-
-#### Basic Structure
-
-```toml
-[package]
-name = "my-awesome-app"
-version = "1.0.0"
-description = "An amazing Clean Language application"
-authors = ["Your Name <your.email@example.com>"]
-license = "MIT"
-repository = "https://github.com/username/my-awesome-app"
-homepage = "https://my-awesome-app.com"
-keywords = ["web", "calculator", "utility"]
-categories = ["applications", "mathematics"]
-
-[dependencies]
-math-utils = "^1.0.0"
-http-client = "~2.1.0"
-json-parser = ">=1.5.0, <2.0.0"
-
-[dev_dependencies]
-test-framework = "latest"
-benchmark-tools = "^0.3.0"
-
-[build]
-target = "wasm32-unknown-unknown"
-optimization = "size"
-features = ["async", "networking"]
-exclude = [
-    "tests/",
-    "examples/",
-    "docs/"
-]
-```
-
-#### Package Information Fields
-
-- **`name`**: Your package's unique identifier (required)
-- **`version`**: Current version using semantic versioning (required)
-- **`description`**: Brief explanation of what your package does
-- **`authors`**: List of package maintainers
-- **`license`**: Software license (e.g., "MIT", "Apache-2.0")
-- **`repository`**: Source code repository URL
-- **`homepage`**: Project website
-- **`keywords`**: Search terms to help others find your package
-- **`categories`**: Classification tags for package discovery
-
-### Dependency Management
-
-#### Version Specifications
-
-Clean Language uses semantic versioning (semver) with flexible version requirements:
-
-```toml
-[dependencies]
-# Exact version
-exact-package = "1.2.3"
-
-# Caret requirements (compatible within major version)
-math-utils = "^1.0.0"      # >=1.0.0, <2.0.0
-
-# Tilde requirements (compatible within minor version)
-http-client = "~1.2.0"     # >=1.2.0, <1.3.0
-
-# Range requirements
-json-parser = ">=1.5.0, <2.0.0"
-
-# Latest version
-test-framework = "latest"
-
-# Git repositories
-git-package = { git = "https://github.com/user/repo.git", branch = "main" }
-
-# Local paths
-local-package = { path = "../my-local-package" }
-
-# With optional features
-web-framework = { version = "^2.0.0", features = ["async", "json"] }
-```
-
-#### Development vs Runtime Dependencies
-
-```toml
-# Runtime dependencies (needed when your package runs)
-[dependencies]
-math-utils = "^1.0.0"
-http-client = "^2.0.0"
-
-# Development dependencies (only needed during development/testing)
-[dev_dependencies]
-test-framework = "^1.0.0"
-benchmark-tools = "^0.5.0"
-documentation-generator = "latest"
-```
-
-### Package Manager Commands
-
-#### Project Initialization
-
-```bash
-# Create a new package in current directory
-clean package init
-
-# Create with specific details
-clean package init --name "my-app" --description "My awesome application"
-
-# Create with version
-clean package init --name "calculator" --version "0.1.0"
-```
-
-This creates:
-- `package.clean.toml` manifest file
-- `src/` directory for your source code
-- `src/main.clean` with a basic starter template
-
-#### Managing Dependencies
-
-```bash
-# Add a runtime dependency
-clean package add math-utils --version "^1.0.0"
-
-# Add a development dependency
-clean package add test-framework --dev
-
-# Add from Git repository
-clean package add web-utils --git "https://github.com/user/web-utils.git"
-
-# Add from local path
-clean package add my-lib --path "../my-library"
-
-# Remove a dependency
-clean package remove old-package
-
-# List all dependencies
-clean package list
-
-# Show dependency tree
-clean package list --tree
-```
-
-#### Installing and Updating
-
-```bash
-# Install all dependencies listed in package.clean.toml
-clean package install
-
-# Update all dependencies to latest compatible versions
-clean package update
-
-# Update specific package
-clean package update math-utils
-```
-
-#### Package Discovery
-
-```bash
-# Search for packages
-clean package search "math"
-clean package search "http client" --limit 20
-
-# Get information about a package
-clean package info math-utils
-clean package info web-framework --version "2.1.0"
-```
-
-#### Publishing Packages
-
-```bash
-# Publish to the default registry
-clean package publish
-
-# Dry run (see what would be published without actually doing it)
-clean package publish --dry-run
-
-# Publish to a specific registry
-clean package publish --registry "https://my-private-registry.com"
-```
-
-### Build Configuration
-
-The `[build]` section controls how your package is compiled:
-
-```toml
-[build]
-# Target platform (WebAssembly by default)
-target = "wasm32-unknown-unknown"
-
-# Optimization level
-optimization = "size"        # "size", "speed", or "debug"
-
-# Feature flags to enable
-features = [
-    "async",
-    "networking", 
-    "file-system"
-]
-
-# Files/directories to exclude from the package
-exclude = [
-    "tests/",
-    "examples/",
-    "docs/",
-    "*.tmp",
-    ".git/"
-]
-
-# Include only specific files (alternative to exclude)
-include = [
-    "src/",
-    "README.md",
-    "LICENSE"
-]
-```
-
-### Using Packages in Your Code
-
-Once you've added dependencies, you can import and use them in your Clean Language code:
-
-```clean
-# Import from packages in your dependencies
-import:
-    MathUtils                    # From math-utils package
-    HttpClient                   # From http-client package
-    JsonParser.parse as parseJson # From json-parser package
-
-functions:
-    void calculateAndSend()
-        # Use functions from imported packages
-        number result = MathUtils.sqrt(16.0)
-        string jsonData = JsonParser.stringify(result)
-        
-        HttpClient client = HttpClient.new()
-        client.post("https://api.example.com/data", jsonData)
-```
-
-### Package Registry
-
-Clean Language packages are distributed through the official package registry at `https://packages.cleanlang.org`. The registry provides:
-
-- **Package discovery** through search and browsing
-- **Version management** with automatic dependency resolution
-- **Security scanning** to ensure package safety
-- **Documentation hosting** for package APIs
-- **Download statistics** and popularity metrics
-
-### Best Practices
-
-#### Package Naming
-- Use lowercase with hyphens: `my-awesome-package`
-- Be descriptive but concise: `http-client` not `hc`
-- Avoid generic names: `json-parser` not `parser`
-
-#### Versioning
-- Follow semantic versioning: `MAJOR.MINOR.PATCH`
-- Increment MAJOR for breaking changes
-- Increment MINOR for new features
-- Increment PATCH for bug fixes
-
-#### Dependencies
-- Specify version ranges, not exact versions: `^1.0.0` not `1.0.0`
-- Keep dependencies minimal - only add what you actually need
-- Use development dependencies for tools that aren't needed at runtime
-
-#### Documentation
-- Include a clear description in your `package.clean.toml`
-- Add keywords to help others discover your package
-- Provide examples in your README
-
-### Example: Creating a Math Utilities Package
-
-Let's walk through creating and publishing a simple math utilities package:
-
-1. **Initialize the package:**
-```bash
-clean package init --name "advanced-math" --description "Advanced mathematical functions"
-```
-
-2. **Edit `package.clean.toml`:**
-```toml
-[package]
-name = "advanced-math"
-version = "1.0.0"
-description = "Advanced mathematical functions for Clean Language"
-authors = ["Your Name <you@example.com>"]
-license = "MIT"
-keywords = ["math", "mathematics", "utilities", "algorithms"]
-categories = ["mathematics", "algorithms"]
-
-[build]
-target = "wasm32-unknown-unknown"
-optimization = "size"
-```
-
-3. **Create your library in `src/main.clean`:**
-```clean
-functions:
-    # Calculate factorial
-    integer factorial(integer n)
-        if n <= 1
-            return 1
-        else
-            return n * factorial(n - 1)
-    
-    # Calculate greatest common divisor
-    integer gcd(integer a, integer b)
-        while b != 0
-            integer temp = b
-            b = a % b
-            a = temp
-        return a
-    
-    # Check if number is prime
-    boolean isPrime(integer n)
-        if n < 2
-            return false
-        
-        integer i = 2
-        while i * i <= n
-            if n % i == 0
-                return false
-            i = i + 1
-        
-        return true
-```
-
-4. **Test your package:**
-```bash
-clean package add test-framework --dev
-# Write tests and run them
-```
-
-5. **Publish your package:**
-```bash
-clean package publish --dry-run  # Check what will be published
-clean package publish            # Actually publish
-```
-
-6. **Others can now use your package:**
-```bash
-clean package add advanced-math
-```
-
-```clean
-import:
-    AdvancedMath
-
-functions:
-    void demonstrateMath()
-        integer fact = AdvancedMath.factorial(5)        # 120
-        integer divisor = AdvancedMath.gcd(48, 18)      # 6
-        boolean prime = AdvancedMath.isPrime(17)        # true
-```
-
-### Package Security and Trust
-
-The Clean Language package ecosystem includes several security measures:
-
-- **Package verification** ensures packages haven't been tampered with
-- **Dependency scanning** checks for known security vulnerabilities
-- **Author verification** confirms package ownership
-- **Automated testing** runs packages through security checks
-
-### Private Packages and Registries
-
-For organizations that need private package distribution:
-
-```toml
-# Use a private registry
-[package]
-name = "company-internal-tools"
-registry = "https://packages.company.com"
-
-# Or specify in dependencies
-[dependencies]
-secret-sauce = { version = "^1.0.0", registry = "https://packages.company.com" }
-```
-
-The package management system makes Clean Language development more collaborative, efficient, and maintainable. Whether you're building a simple script or a complex application, the package manager helps you leverage the broader Clean Language ecosystem while sharing your own contributions with the community.
+**Note:** Package management is planned for future releases of Clean Language. Currently, Clean Language focuses on core language features and WebAssembly compilation. Package management capabilities will be added in subsequent versions to enable code sharing and dependency management.
 
 ## Asynchronous Programming
 

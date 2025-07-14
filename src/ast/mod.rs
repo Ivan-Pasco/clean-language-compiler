@@ -33,7 +33,7 @@ pub enum Value {
     List(Vec<Value>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ListBehavior {
     Default,    // Standard list behavior
     Line,       // Queue behavior (FIFO)

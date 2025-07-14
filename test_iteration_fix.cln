@@ -1,5 +1,0 @@
-start()
-	Array<number> numbers = [1.0, 2.0, 3.0]
-	number sum = 0
-	iterate n in numbers
-		sum = sum + n

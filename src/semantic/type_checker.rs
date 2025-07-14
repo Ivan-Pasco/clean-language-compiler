@@ -6,6 +6,7 @@ use crate::error::{CompilerError, CompilerResult};
 pub struct TypeChecker {
     symbol_table: HashMap<String, Type>,
     function_table: HashMap<String, FunctionType>,
+    current_function_return_type: Option<Type>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -19,6 +20,7 @@ impl TypeChecker {
         Self {
             symbol_table: HashMap::new(),
             function_table: HashMap::new(),
+            current_function_return_type: None,
         }
     }
 
@@ -85,6 +87,8 @@ impl TypeChecker {
             }
             Statement::FunctionDef(func) => {
                 let mut checker = TypeChecker::new();
+                // Set current function return type context
+                checker.current_function_return_type = Some(func.return_type);
                 // Add parameters to local scope
                 for param in &func.params {
                     checker.symbol_table.insert(param.name.clone(), param.type_);
@@ -96,13 +100,31 @@ impl TypeChecker {
                 Ok(())
             }
             Statement::Return { expr, location } => {
-                if let Some(expr) = expr {
-                    let expr_type = self.infer_type(expr)?;
-                    // TODO: Check against function return type
-                    Ok(())
+                if let Some(return_type) = &self.current_function_return_type {
+                    if let Some(expr) = expr {
+                        let expr_type = self.infer_type(expr)?;
+                        if !self.types_compatible(return_type, &expr_type) {
+                            return Err(CompilerError::type_error(
+                                location.as_ref().map(|l| l.line).unwrap_or(0),
+                                location.as_ref().map(|l| l.column).unwrap_or(0),
+                                format!("Return type mismatch: expected {:?}, found {:?}", return_type, expr_type),
+                            ));
+                        }
+                    } else if *return_type != Type::Void {
+                        return Err(CompilerError::type_error(
+                            location.as_ref().map(|l| l.line).unwrap_or(0),
+                            location.as_ref().map(|l| l.column).unwrap_or(0),
+                            format!("Function expects return value of type {:?} but got void return", return_type),
+                        ));
+                    }
                 } else {
-                    Ok(())
+                    return Err(CompilerError::type_error(
+                        location.as_ref().map(|l| l.line).unwrap_or(0),
+                        location.as_ref().map(|l| l.column).unwrap_or(0),
+                        "Return statement outside of function".to_string(),
+                    ));
                 }
+                Ok(())
             }
             Statement::If { condition, then_branch, else_branch, location } => {
                 let cond_type = self.infer_type(condition)?;
@@ -258,6 +280,21 @@ impl TypeChecker {
             .get(name)
             .cloned()
             .ok_or_else(|| CompilerError::undefined_variable(name, line, column))
+    }
+
+    fn types_compatible(&self, expected: &Type, actual: &Type) -> bool {
+        if expected == actual {
+            return true;
+        }
+        // Handle Any type - it's compatible with everything
+        if matches!(expected, Type::Any) || matches!(actual, Type::Any) {
+            return true;
+        }
+        // Numeric type promotions
+        match (expected, actual) {
+            (Type::Number, Type::Integer) => true,
+            _ => false,
+        }
     }
 }
 

@@ -7,6 +7,15 @@ pub mod type_conv;
 pub mod memory;
 pub mod basic_ops;
 pub mod error;
+pub mod console_ops;
+
+// Class-based standard library modules
+pub mod math_class;
+pub mod string_class;
+pub mod array_class;
+pub mod file_class;
+pub mod http_class;
+pub mod list_behavior;
 
 // Re-exports for convenience
 pub use numeric_ops::NumericOperations;
@@ -17,6 +26,13 @@ pub use type_conv::TypeConvOperations;
 pub use memory::MemoryManager;
 pub use basic_ops::basic_ops::*;
 pub use error::StdlibError;
+pub use math_class::MathClass;
+pub use string_class::StringClass;
+pub use array_class::ArrayClass;
+pub use file_class::FileClass;
+pub use http_class::HttpClass;
+pub use list_behavior::ListBehaviorManager;
+pub use console_ops::{ConsoleOperations, ConsoleClass};
 
 use crate::error::CompilerError;
 use crate::codegen::{CodeGenerator, HEAP_START};
@@ -31,6 +47,14 @@ pub struct StandardLibrary {
     numeric_ops: NumericOperations,
     matrix_ops: MatrixOperations,
     type_conv: TypeConvOperations,
+    math_class: MathClass,
+    string_class: StringClass,
+    array_class: ArrayClass,
+    file_class: FileClass,
+    http_class: HttpClass,
+    list_behavior: ListBehaviorManager,
+    console_ops: ConsoleOperations,
+    console_class: ConsoleClass,
 }
 
 impl StandardLibrary {
@@ -40,6 +64,14 @@ impl StandardLibrary {
             numeric_ops: NumericOperations::new(),
             matrix_ops: MatrixOperations::new(),
             type_conv: TypeConvOperations::new(HEAP_START),
+            math_class: MathClass::new(),
+            string_class: StringClass::new(),
+            array_class: ArrayClass::new(),
+            file_class: FileClass::new(),
+            http_class: HttpClass::new(),
+            list_behavior: ListBehaviorManager::new(),
+            console_ops: ConsoleOperations::new(HEAP_START),
+            console_class: ConsoleClass::new(),
         }
     }
 
@@ -48,6 +80,14 @@ impl StandardLibrary {
         self.numeric_ops.register_functions(codegen)?;
         self.matrix_ops.register_functions(codegen)?;
         self.type_conv.register_functions(codegen)?;
+        self.math_class.register_functions(codegen)?;
+        self.string_class.register_functions(codegen)?;
+        self.array_class.register_functions(codegen)?;
+        self.file_class.register_functions(codegen)?;
+        self.http_class.register_functions(codegen)?;
+        self.list_behavior.register_functions(codegen)?;
+        self.console_ops.register_functions(codegen)?;
+        self.console_class.register_functions(codegen)?;
         Ok(())
     }
 }

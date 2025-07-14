@@ -1520,6 +1520,67 @@ impl CleanRuntime {
             None, None
         ))?;
         
+        // Add input_range function for bounded integer input
+        linker.func_wrap("env", "input_range", |mut caller: Caller<'_, ()>, prompt_ptr: i32, prompt_len: i32, min: i32, max: i32| -> i32 {
+            // Extract prompt from memory
+            let prompt = if let Some(memory) = caller.get_export("memory") {
+                if let Some(memory) = memory.into_memory() {
+                    let data = memory.data(&caller);
+                    if prompt_ptr >= 0 && prompt_len >= 0 {
+                        let start = prompt_ptr as usize;
+                        let len = prompt_len as usize;
+                        if start + len <= data.len() {
+                            std::str::from_utf8(&data[start..start + len]).unwrap_or("")
+                        } else {
+                            ""
+                        }
+                    } else {
+                        ""
+                    }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            };
+            
+            // Get integer input within specified range with validation and retry
+            use std::io::{self, Write};
+            loop {
+                print!("{} ({}-{}): ", prompt, min, max);
+                io::stdout().flush().unwrap();
+                
+                let mut input = String::new();
+                match io::stdin().read_line(&mut input) {
+                    Ok(_) => {
+                        let input = input.trim();
+                        match input.parse::<i32>() {
+                            Ok(value) => {
+                                if value >= min && value <= max {
+                                    return value;
+                                } else {
+                                    println!("❌ Value must be between {} and {}. You entered: {}", min, max, value);
+                                    continue;
+                                }
+                            },
+                            Err(_) => {
+                                println!("❌ Invalid integer. Please enter a whole number between {} and {}.", min, max);
+                                continue;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ [INPUT RANGE] Error reading input: {}", e);
+                        return min; // Return minimum value as fallback
+                    }
+                }
+            }
+        })
+        .map_err(|e| CompilerError::runtime_error(
+            format!("Failed to create input_range function: {}", e),
+            None, None
+        ))?;
+        
         Ok(())
     }
     

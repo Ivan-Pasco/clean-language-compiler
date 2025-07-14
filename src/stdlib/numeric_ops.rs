@@ -200,26 +200,26 @@ impl NumericOperations {
             ]
         )?;
 
-        // Absolute value function (integer version) - TEMPORARILY DISABLED
-        // register_stdlib_function(
-        //     codegen,
-        //     "abs",
-        //     &[WasmType::I32],
-        //     Some(WasmType::I32),
-        //     vec![
-        //         // Simplified abs implementation without extra stack values
-        //         Instruction::LocalGet(0), // Get the integer value
-        //         Instruction::I32Const(0), // Zero for comparison
-        //         Instruction::I32LtS,      // Check if negative
-        //         Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
-        //         Instruction::LocalGet(0), // If negative, get value
-        //         Instruction::I32Const(0), // Zero
-        //         Instruction::I32Sub,      // 0 - value (negate)
-        //         Instruction::Else,
-        //         Instruction::LocalGet(0), // If positive, return as-is
-        //         Instruction::End, // Close the If/Else block
-        //     ]
-        // )?;
+        // Absolute value function (integer version) - simplified to avoid control flow issues
+        register_stdlib_function(
+            codegen,
+            "abs",
+            &[WasmType::I32],
+            Some(WasmType::I32),
+            vec![
+                // Use a stack-based approach: abs(x) = (x + (x >> 31)) XOR (x >> 31)
+                // This avoids control flow and works for all 32-bit signed integers
+                Instruction::LocalGet(0),    // x
+                Instruction::LocalGet(0),    // x, x
+                Instruction::I32Const(31),   // x, x, 31
+                Instruction::I32ShrS,        // x, (x >> 31) [sign mask]
+                Instruction::I32Add,         // x + (x >> 31)
+                Instruction::LocalGet(0),    // result, x
+                Instruction::I32Const(31),   // result, x, 31
+                Instruction::I32ShrS,        // result, (x >> 31)
+                Instruction::I32Xor,         // result XOR (x >> 31) = abs(x)
+            ]
+        )?;
         
         // Square root function
         register_stdlib_function(
@@ -532,19 +532,49 @@ impl NumericOperations {
         ]
     }
     
-    /// Generate sine function using Taylor series
+    /// Generate sine function using Taylor series approximation
     fn generate_sin(&self) -> Vec<Instruction> {
+        // sin(x) ≈ x - x³/6 + x⁵/120 - x⁷/5040 (Taylor series)
+        // For WASM simplicity, we'll use: sin(x) ≈ x - x³/6
         vec![
-            // Simplified implementation - just return 0.0 for now
-            Instruction::F64Const(0.0),
+            // Get parameter x
+            Instruction::LocalGet(0), // x
+            
+            // Calculate x³
+            Instruction::LocalGet(0), // x
+            Instruction::LocalGet(0), // x
+            Instruction::F64Mul,      // x²
+            Instruction::LocalGet(0), // x
+            Instruction::F64Mul,      // x³
+            
+            // Divide by 6
+            Instruction::F64Const(6.0),
+            Instruction::F64Div,      // x³/6
+            
+            // Calculate x - x³/6
+            Instruction::F64Sub,      // x - x³/6
         ]
     }
     
-    /// Generate cosine function using Taylor series
+    /// Generate cosine function using Taylor series approximation
     fn generate_cos(&self) -> Vec<Instruction> {
+        // cos(x) ≈ 1 - x²/2 + x⁴/24 (Taylor series)
+        // For WASM simplicity, we'll use: cos(x) ≈ 1 - x²/2
         vec![
-            // Simplified implementation - just return 1.0 for now
+            // Start with 1.0
             Instruction::F64Const(1.0),
+            
+            // Calculate x²
+            Instruction::LocalGet(0), // x
+            Instruction::LocalGet(0), // x
+            Instruction::F64Mul,      // x²
+            
+            // Divide by 2
+            Instruction::F64Const(2.0),
+            Instruction::F64Div,      // x²/2
+            
+            // Calculate 1 - x²/2
+            Instruction::F64Sub,      // 1 - x²/2
         ]
     }
     
@@ -577,9 +607,24 @@ impl NumericOperations {
     }
     
     fn generate_tan(&self) -> Vec<Instruction> {
+        // tan(x) ≈ x + x³/3 for small x (Taylor series approximation)
         vec![
-            // Simplified implementation - just return 0.0 for now
-            Instruction::F64Const(0.0),
+            // Get parameter x
+            Instruction::LocalGet(0), // x
+            
+            // Calculate x³
+            Instruction::LocalGet(0), // x
+            Instruction::LocalGet(0), // x
+            Instruction::F64Mul,      // x²
+            Instruction::LocalGet(0), // x
+            Instruction::F64Mul,      // x³
+            
+            // Divide by 3
+            Instruction::F64Const(3.0),
+            Instruction::F64Div,      // x³/3
+            
+            // Calculate x + x³/3
+            Instruction::F64Add,      // x + x³/3
         ]
     }
     

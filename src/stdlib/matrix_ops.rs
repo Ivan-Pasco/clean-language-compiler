@@ -140,29 +140,17 @@ impl MatrixOperations {
     }
 
     fn generate_matrix_add(&self) -> Vec<Instruction> {
-        // Simplified matrix addition for 4x4 matrices
-        // For a full implementation, this would loop through all elements
+        // TEMPORARILY SIMPLIFIED: Matrix addition placeholder to avoid WASM validation issues
+        // TODO: Implement actual matrix addition when control flow is fixed
         vec![
-            // For now, just return success without actual computation
-            // A real implementation would iterate through all matrix elements
-            // and add corresponding elements: result[i][j] = matrix1[i][j] + matrix2[i][j]
-            
-            // TODO: Implement actual matrix addition loop
-            // This would require WASM loop constructs and element-by-element addition
-            
             Instruction::I32Const(1), // Return success for now
         ]
     }
 
     fn generate_matrix_multiply(&self) -> Vec<Instruction> {
-        // Simplified matrix multiplication for 4x4 matrices
+        // TEMPORARILY SIMPLIFIED: Matrix multiplication placeholder to avoid WASM validation issues
+        // TODO: Implement actual matrix multiplication when control flow is fixed
         vec![
-            // For now, just return success without actual computation
-            // A real implementation would perform: result[i][j] = sum(matrix1[i][k] * matrix2[k][j])
-            
-            // TODO: Implement actual matrix multiplication
-            // This would require nested loops and dot product calculations
-            
             Instruction::I32Const(1), // Return success for now
         ]
     }
