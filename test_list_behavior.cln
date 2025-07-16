@@ -1,0 +1,9 @@
+start()
+	list<integer> myList = []
+	myList.type = "line"
+	myList.add(1)
+	myList.add(2) 
+	myList.add(3)
+	
+	integer first = myList.remove()
+	print first.toString()

@@ -1,0 +1,52 @@
+start()
+    // Test basic HTTP functionality
+    string url = "https://api.github.com/users/octocat"
+    
+    // Test basic GET request
+    string response = httpGet(url)
+    print("GET Response:")
+    print(response)
+    
+    // Test POST request  
+    string postData = "name=test&value=example"
+    string postResponse = httpPost(url, postData)
+    print("POST Response:")
+    print(postResponse)
+    
+    // Test PUT request
+    string putResponse = httpPut(url, postData)
+    print("PUT Response:")
+    print(putResponse)
+    
+    // Test DELETE request
+    string deleteResponse = httpDelete(url)
+    print("DELETE Response:")
+    print(deleteResponse)
+    
+    // Test JSON POST
+    string jsonData = "message=hello"
+    string jsonResponse = httpPostJson(url, jsonData)
+    print("JSON Response:")
+    print(jsonResponse)
+    
+    // Test configuration
+    httpSetTimeout(5000)
+    httpSetUserAgent("Clean Language HTTP Client/1.0")
+    httpEnableCookies(true)
+    
+    // Test response info
+    integer responseCode = httpGetResponseCode()
+    print("Response Code:")
+    print(responseCode)
+    
+    // Test URL encoding
+    string originalUrl = "https://example.com/path with spaces"
+    string encodedUrl = httpEncodeUrl(originalUrl)
+    print("Encoded URL:")
+    print(encodedUrl)
+    
+    string decodedUrl = httpDecodeUrl(encodedUrl)
+    print("Decoded URL:")
+    print(decodedUrl)
+    
+    print("HTTP test completed!")

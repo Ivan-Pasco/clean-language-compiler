@@ -292,30 +292,94 @@ impl SemanticAnalyzer {
             vec![(vec![Type::List(Box::new(Type::Any)), Type::String], Type::String, 2)]
         );
 
-        // HTTP functionality
+        // HTTP functionality - camelCase naming
         self.function_table.insert(
-            "http_get".to_string(),
+            "httpGet".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "http_post".to_string(),
+            "httpPost".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
-            "http_put".to_string(),
+            "httpPut".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
-            "http_delete".to_string(),
+            "httpDelete".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "http_patch".to_string(),
+            "httpPatch".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
+        );
+
+        // Additional HTTP methods
+        self.function_table.insert(
+            "httpHead".to_string(),
+            vec![(vec![Type::String], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "httpOptions".to_string(),
+            vec![(vec![Type::String], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "httpPostJson".to_string(),
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
+        );
+        
+        self.function_table.insert(
+            "httpPutJson".to_string(),
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
+        );
+        
+        self.function_table.insert(
+            "httpPatchJson".to_string(),
+            vec![(vec![Type::String, Type::String], Type::String, 2)]
+        );
+
+        // HTTP configuration functions
+        self.function_table.insert(
+            "httpSetTimeout".to_string(),
+            vec![(vec![Type::Integer], Type::Void, 1)]
+        );
+        
+        self.function_table.insert(
+            "httpSetUserAgent".to_string(),
+            vec![(vec![Type::String], Type::Void, 1)]
+        );
+        
+        self.function_table.insert(
+            "httpEnableCookies".to_string(),
+            vec![(vec![Type::Boolean], Type::Void, 1)]
+        );
+
+        // HTTP response functions
+        self.function_table.insert(
+            "httpGetResponseCode".to_string(),
+            vec![(vec![], Type::Integer, 0)]
+        );
+        
+        self.function_table.insert(
+            "httpGetResponseHeaders".to_string(),
+            vec![(vec![], Type::String, 0)]
+        );
+
+        // HTTP utility functions
+        self.function_table.insert(
+            "httpEncodeUrl".to_string(),
+            vec![(vec![Type::String], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "httpDecodeUrl".to_string(),
+            vec![(vec![Type::String], Type::String, 1)]
         );
 
         // File I/O functionality

@@ -221,8 +221,7 @@ impl CodeGenerator {
         self.register_file_imports()?;
 
         // 1.3. Register HTTP client imports
-        // TEMPORARILY DISABLED for debugging stack validation issues
-        // self.register_http_imports()?;
+        self.register_http_imports()?;
 
         // 1.4. Register type conversion imports - CRITICAL for runtime functionality
         // TEMPORARILY DISABLED for debugging stack validation issues
@@ -2666,6 +2665,15 @@ impl CodeGenerator {
         // 7. Register array operations
         self.register_array_operations()?;
         
+        // 8. Register type conversion operations
+        self.register_type_conversion_operations()?;
+        
+        // 9. Register console input operations
+        self.register_console_operations()?;
+        
+        // 10. Register HTTP operations
+        self.register_http_operations()?;
+        
         Ok(())
     }
     
@@ -2706,6 +2714,38 @@ impl CodeGenerator {
         Ok(())
     }
 
+    /// Register type conversion functions using WASM instructions from TypeConvOperations
+    fn register_type_conversion_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::type_conv::TypeConvOperations;
+        
+        // Create a TypeConvOperations instance and register its functions
+        let type_conv = TypeConvOperations::new(1024);
+        type_conv.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register console input functions using WASM instructions from ConsoleOperations
+    fn register_console_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::console_ops::ConsoleOperations;
+        
+        // Create a ConsoleOperations instance and register its functions
+        let console_ops = ConsoleOperations::new(1024);
+        console_ops.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register HTTP operation functions using WASM instructions from HttpClass
+    fn register_http_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::http_class::HttpClass;
+        
+        // Create an HttpClass instance and register its functions
+        let http_class = HttpClass::new();
+        http_class.register_functions(self)?;
+        
+        Ok(())
+    }
 
     /// Register string operation functions using WASM instructions from StringOperations
     fn register_string_operations(&mut self) -> Result<(), CompilerError> {
@@ -4997,6 +5037,8 @@ impl CodeGenerator {
      
      /// Register HTTP client import functions
      fn register_http_imports(&mut self) -> Result<(), CompilerError> {
+         // Basic HTTP methods
+         
          // http_get(urlPtr: i32, urlLen: i32) -> i32 (returns string pointer)
          let get_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
          self.import_section.import("env", "http_get", wasm_encoder::EntityType::Function(get_type));
@@ -5027,7 +5069,126 @@ impl CodeGenerator {
          self.http_import_indices.insert("http_delete".to_string(), self.function_count);
          self.function_count += 1;
          
+         // http_head(urlPtr: i32, urlLen: i32) -> i32 (returns headers string pointer)
+         let head_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_head", wasm_encoder::EntityType::Function(head_type));
+         self.http_import_indices.insert("http_head".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_options(urlPtr: i32, urlLen: i32) -> i32 (returns options string pointer)
+         let options_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_options", wasm_encoder::EntityType::Function(options_type));
+         self.http_import_indices.insert("http_options".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // Advanced HTTP methods with headers
+         
+         // http_get_with_headers(urlPtr: i32, urlLen: i32, headersPtr: i32, headersLen: i32) -> i32
+         let get_headers_type = self.add_function_type(&[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_get_with_headers", wasm_encoder::EntityType::Function(get_headers_type));
+         self.http_import_indices.insert("http_get_with_headers".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_post_with_headers(urlPtr: i32, urlLen: i32, bodyPtr: i32, bodyLen: i32, headersPtr: i32, headersLen: i32) -> i32
+         let post_headers_type = self.add_function_type(&[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_post_with_headers", wasm_encoder::EntityType::Function(post_headers_type));
+         self.http_import_indices.insert("http_post_with_headers".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // JSON methods
+         
+         // http_post_json(urlPtr: i32, urlLen: i32, jsonPtr: i32, jsonLen: i32) -> i32
+         let post_json_type = self.add_function_type(&[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_post_json", wasm_encoder::EntityType::Function(post_json_type));
+         self.http_import_indices.insert("http_post_json".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_put_json(urlPtr: i32, urlLen: i32, jsonPtr: i32, jsonLen: i32) -> i32
+         let put_json_type = self.add_function_type(&[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_put_json", wasm_encoder::EntityType::Function(put_json_type));
+         self.http_import_indices.insert("http_put_json".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_patch_json(urlPtr: i32, urlLen: i32, jsonPtr: i32, jsonLen: i32) -> i32
+         let patch_json_type = self.add_function_type(&[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_patch_json", wasm_encoder::EntityType::Function(patch_json_type));
+         self.http_import_indices.insert("http_patch_json".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // Form data method
+         
+         // http_post_form(urlPtr: i32, urlLen: i32, formPtr: i32, formLen: i32) -> i32
+         let post_form_type = self.add_function_type(&[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_post_form", wasm_encoder::EntityType::Function(post_form_type));
+         self.http_import_indices.insert("http_post_form".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // Configuration methods
+         
+         // http_set_user_agent(agentPtr: i32, agentLen: i32) -> void
+         let set_agent_type = self.add_function_type(&[WasmType::I32, WasmType::I32], None)?;
+         self.import_section.import("env", "http_set_user_agent", wasm_encoder::EntityType::Function(set_agent_type));
+         self.http_import_indices.insert("http_set_user_agent".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_set_timeout(timeoutMs: i32) -> void
+         let set_timeout_type = self.add_function_type(&[WasmType::I32], None)?;
+         self.import_section.import("env", "http_set_timeout", wasm_encoder::EntityType::Function(set_timeout_type));
+         self.http_import_indices.insert("http_set_timeout".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_set_max_redirects(maxRedirects: i32) -> void
+         let set_redirects_type = self.add_function_type(&[WasmType::I32], None)?;
+         self.import_section.import("env", "http_set_max_redirects", wasm_encoder::EntityType::Function(set_redirects_type));
+         self.http_import_indices.insert("http_set_max_redirects".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_enable_cookies(enable: i32) -> void
+         let enable_cookies_type = self.add_function_type(&[WasmType::I32], None)?;
+         self.import_section.import("env", "http_enable_cookies", wasm_encoder::EntityType::Function(enable_cookies_type));
+         self.http_import_indices.insert("http_enable_cookies".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // Response information methods
+         
+         // http_get_response_code() -> i32
+         let get_code_type = self.add_function_type(&[], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_get_response_code", wasm_encoder::EntityType::Function(get_code_type));
+         self.http_import_indices.insert("http_get_response_code".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_get_response_headers() -> i32 (returns string pointer)
+         let get_headers_type = self.add_function_type(&[], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_get_response_headers", wasm_encoder::EntityType::Function(get_headers_type));
+         self.http_import_indices.insert("http_get_response_headers".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // Utility methods
+         
+         // http_encode_url(urlPtr: i32, urlLen: i32) -> i32 (returns encoded string pointer)
+         let encode_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_encode_url", wasm_encoder::EntityType::Function(encode_type));
+         self.http_import_indices.insert("http_encode_url".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_decode_url(urlPtr: i32, urlLen: i32) -> i32 (returns decoded string pointer)
+         let decode_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_decode_url", wasm_encoder::EntityType::Function(decode_type));
+         self.http_import_indices.insert("http_decode_url".to_string(), self.function_count);
+         self.function_count += 1;
+         
+         // http_build_query(paramsPtr: i32, paramsLen: i32) -> i32 (returns query string pointer)
+         let build_query_type = self.add_function_type(&[WasmType::I32, WasmType::I32], Some(WasmType::I32))?;
+         self.import_section.import("env", "http_build_query", wasm_encoder::EntityType::Function(build_query_type));
+         self.http_import_indices.insert("http_build_query".to_string(), self.function_count);
+         self.function_count += 1;
+         
          Ok(())
+     }
+     
+     /// Get the import index for an HTTP function
+     pub fn get_http_import_index(&self, func_name: &str) -> Option<u32> {
+         self.http_import_indices.get(func_name).copied()
      }
      
     /// Register simplified print function imports following WebAssembly best practices

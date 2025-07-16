@@ -280,33 +280,92 @@ impl TypeConvOperations {
             
             Instruction::Else,
             
-            // For now, implement basic single digit parsing
-            // Load first character
+            // Parse multi-digit numbers
+            Instruction::F64Const(0.0), // result = 0.0
+            Instruction::LocalSet(3),
+            
+            Instruction::I32Const(0), // index = 0
+            Instruction::LocalSet(4),
+            
+            Instruction::I32Const(1), // sign = 1
+            Instruction::LocalSet(5),
+            
+            // Check for negative sign
             Instruction::LocalGet(0), // string_ptr
             Instruction::I32Const(4), // Skip length field
             Instruction::I32Add,
             Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::I32Const(45), // ASCII '-'
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Empty),
             
-            // Check if character is digit (ASCII 48-57)
+            // Set sign to -1 and increment index
+            Instruction::I32Const(-1),
+            Instruction::LocalSet(5),
+            Instruction::I32Const(1),
+            Instruction::LocalSet(4),
+            
+            Instruction::End,
+            
+            // Parse integer part
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            
+            // Check if we've reached the end
+            Instruction::LocalGet(4), // index
+            Instruction::LocalGet(1), // length
+            Instruction::I32GeS,
+            Instruction::BrIf(1), // Break if index >= length
+            
+            // Load character at index
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(4), // Skip length field
+            Instruction::I32Add,
+            Instruction::LocalGet(4), // index
+            Instruction::I32Add,
+            Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
             Instruction::LocalTee(2), // char_code
+            
+            // Check if it's a digit (48-57)
             Instruction::I32Const(48), // ASCII '0'
             Instruction::I32GeS,
             Instruction::LocalGet(2),
             Instruction::I32Const(57), // ASCII '9'
             Instruction::I32LeS,
             Instruction::I32And,
-            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::F64)),
+            Instruction::If(wasm_encoder::BlockType::Empty),
             
-            // Convert digit to number
-            Instruction::LocalGet(2),
+            // It's a digit, update result = result * 10 + digit
+            Instruction::LocalGet(3), // result
+            Instruction::F64Const(10.0),
+            Instruction::F64Mul,
+            Instruction::LocalGet(2), // char_code
             Instruction::I32Const(48), // ASCII '0'
             Instruction::I32Sub,
             Instruction::F64ConvertI32S,
+            Instruction::F64Add,
+            Instruction::LocalSet(3), // result
             
-            Instruction::Else,
+            // Increment index
+            Instruction::LocalGet(4),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(4),
             
-            // Not a digit, return 0.0
-            Instruction::F64Const(0.0),
+            // Continue loop
+            Instruction::Br(1),
+            
+            Instruction::End, // End if digit
+            
+            // Not a digit, break
+            Instruction::Br(1),
+            
+            Instruction::End, // End loop
+            
+            // Apply sign
+            Instruction::LocalGet(3), // result
+            Instruction::LocalGet(5), // sign
+            Instruction::F64ConvertI32S,
+            Instruction::F64Mul,
             
             Instruction::End, // End digit check
             
@@ -368,8 +427,12 @@ impl TypeConvOperations {
     }
 
     fn generate_to_string_function(&self) -> Vec<Instruction> {
+        // Convert integer to string representation (simplified)
+        // Parameters: integer value
+        // Returns: pointer to a string
         vec![
-            // Simplified implementation - return a dummy string pointer
+            // For now, return a dummy string pointer
+            // In a complete implementation, this would convert integers to strings
             Instruction::I32Const(1024), // Return a dummy pointer
         ]
     }

@@ -1,0 +1,67 @@
+start()
+    // Test basic variable declarations and arithmetic
+    integer x = 42
+    integer y = 10
+    integer sum = x + y
+    integer diff = x - y
+    integer prod = x * y
+    integer quot = x / y
+    
+    // Test floating point numbers
+    number pi = 3.14159
+    number radius = 5.0
+    number area = pi * radius * radius
+    
+    // Test mathematical functions
+    number angle = 1.0
+    number sinValue = sin(angle)
+    number cosValue = cos(angle)
+    number sqrtValue = sqrt(16.0)
+    number lnValue = ln(2.718)
+    number expValue = exp(1.0)
+    
+    // Test string operations
+    string greeting = "Hello"
+    string name = "Clean Language"
+    
+    // Test boolean operations
+    boolean isGreater = x > y
+    boolean isEqual = x == 42
+    boolean isPositive = true
+    
+    // Test print statements
+    print(x)
+    print(y)
+    print(sum)
+    print(diff)
+    print(prod)
+    print(quot)
+    print(area)
+    print(sinValue)
+    print(cosValue)
+    print(sqrtValue)
+    print(lnValue)
+    print(expValue)
+    print(greeting)
+    print(name)
+    print(isGreater)
+    print(isEqual)
+    print(isPositive)
+    
+    // Test conditional statements
+    if isPositive
+        print(1)
+    
+    if x > y
+        print(2)
+    
+    if area > 50.0
+        print(3)
+    
+    // Test iteration
+    iterate i in 1 to 3
+        print(i)
+    
+    // Final test value
+    integer final = 999
+    print(final)

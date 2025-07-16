@@ -1,0 +1,8 @@
+start()
+	integer:
+		count = 5
+		maxSize = 100
+	
+	println:
+		"First line"
+		"Second line"

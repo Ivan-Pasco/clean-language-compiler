@@ -1,0 +1,133 @@
+start()
+	// Test mathematical operations
+	number pi = 3.14159
+	number radius = 5.0
+	number area = pi * radius * radius
+	println "Circle area: " + area.toString()
+	
+	// Test trigonometric functions
+	number angle = 1.0
+	number sinValue = sin(angle)
+	number cosValue = cos(angle)
+	println "sin(1.0) = " + sinValue.toString()
+	println "cos(1.0) = " + cosValue.toString()
+	
+	// Test type-first variable declarations with apply-blocks
+	integer:
+		count = 10
+		maxSize = 100
+		index = 0
+	
+	string:
+		greeting = "Hello"
+		name = "Clean Language"
+		message = greeting + ", " + name + "!"
+	
+	println:
+		"Apply-blocks test:"
+		message
+		"Count: " + count.toString()
+	
+	// Test list operations with behavior system
+	list<integer> numbers = []
+	numbers.add(1)
+	numbers.add(2)
+	numbers.add(3)
+	numbers.add(4)
+	numbers.add(5)
+	
+	println "List contents:"
+	integer listSize = numbers.size()
+	println "List size: " + listSize.toString()
+	
+	// Test array operations
+	boolean found = numbers.contains(3)
+	if found
+		println "Number 3 found in list"
+	else
+		println "Number 3 not found in list"
+	
+	// Test type conversions
+	string numberStr = "42"
+	integer parsed = string_to_int(numberStr)
+	println "Parsed number: " + parsed.toString()
+	
+	// Test mathematical library functions
+	number base = 2.0
+	number exponent = 3.0
+	number powerResult = pow(base, exponent)
+	println "2^3 = " + powerResult.toString()
+	
+	number sqrtInput = 16.0
+	number sqrtResult = sqrt(sqrtInput)
+	println "sqrt(16) = " + sqrtResult.toString()
+	
+	// Test logarithmic functions
+	number lnInput = 2.718
+	number lnResult = ln(lnInput)
+	println "ln(2.718) ≈ " + lnResult.toString()
+	
+	// Test string operations
+	string testStr = "  Hello World  "
+	string trimmed = testStr.trim()
+	string upperCase = trimmed.toUpperCase()
+	string lowerCase = trimmed.toLowerCase()
+	
+	println "Original: '" + testStr + "'"
+	println "Trimmed: '" + trimmed + "'"
+	println "Upper: '" + upperCase + "'"
+	println "Lower: '" + lowerCase + "'"
+	
+	// Test matrix operations (basic)
+	matrix<number> mat = [[1.0, 2.0], [3.0, 4.0]]
+	println "Matrix created successfully"
+	
+	// Test boolean operations
+	boolean:
+		isPositive = (count > 0)
+		isSmall = (count < 50)
+		result = isPositive and isSmall
+	
+	if result
+		println "Count is positive and small"
+	
+	// Test numeric comparisons
+	if count == 10
+		println "Count equals 10"
+	
+	if area > 50.0
+		println "Area is greater than 50"
+	
+	// Test iteration (basic range)
+	println "Numbers 1 to 5:"
+	iterate i in 1 to 5
+		println "Number: " + i.toString()
+	
+	// Test error handling with onError
+	integer safeDivision = (100 / count) onError 0
+	println "Safe division result: " + safeDivision.toString()
+	
+	// Test constant apply-block
+	constant:
+		number MAX_TEMPERATURE = 100.0
+		string SYSTEM_NAME = "Clean Language Demo"
+		integer VERSION = 1
+	
+	println:
+		"System: " + SYSTEM_NAME
+		"Version: " + VERSION.toString()
+		"Max temp: " + MAX_TEMPERATURE.toString()
+	
+	// Final summary
+	println "=== Demo completed successfully! ==="
+	println "All Clean Language features tested:"
+	println "✓ Type-first declarations"
+	println "✓ Apply-blocks (type, function, constant)"
+	println "✓ Mathematical operations"
+	println "✓ List/Array operations"
+	println "✓ String manipulations"
+	println "✓ Type conversions"
+	println "✓ Control flow (if/else, iteration)"
+	println "✓ Error handling (onError)"
+	println "✓ Boolean logic"
+	println "✓ Matrix basics"

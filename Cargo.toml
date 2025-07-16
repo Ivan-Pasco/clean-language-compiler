@@ -85,9 +85,6 @@ path = "src/bin/wasm2wat.rs"
 name = "wasmtime_runner"
 path = "src/bin/wasmtime_runner.rs"
 
-[[bin]]
-name = "debug_trace"
-path = "debug_trace.rs"
 
 [lib]
 name = "clean_language_compiler"
