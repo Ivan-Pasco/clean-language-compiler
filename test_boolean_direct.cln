@@ -1,0 +1,9 @@
+start()
+	// Test direct complex boolean in if statement
+	integer age = 25
+	boolean hasLicense = true
+	
+	// This should work
+	boolean canDrive = age >= 21 and hasLicense
+	print "Can drive:"
+	print canDrive

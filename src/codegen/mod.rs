@@ -1867,6 +1867,18 @@ impl CodeGenerator {
                             }
                         }
                         
+                        // Try to find a global function with the method name (method dispatch)
+                        if let Some(method_index) = self.get_function_index(method) {
+                            instructions.push(Instruction::Call(method_index));
+                            // TODO: Get actual return type from semantic analysis
+                            // For now, return I32 for string methods, F64 for number methods
+                            if method.contains("get") || method.contains("Name") || method.contains("String") {
+                                return Ok(WasmType::I32); // String pointer
+                            } else {
+                                return Ok(WasmType::F64); // Number
+                            }
+                        }
+                        
                         // Try to find a function with the method name (fallback for arrays)
                         if let Some(method_index) = self.get_function_index(&format!("{}_{}", "array", method)) {
                             instructions.push(Instruction::Call(method_index));

@@ -1,0 +1,12 @@
+start()
+	// Test string replace operations with underscore version
+	string original = "Hello World"
+	string old_pattern = "Hello"
+	string new_pattern = "Hi"
+	
+	print "Original string:"
+	print original
+	
+	string result = string_replace(original, old_pattern, new_pattern)
+	print "After replace 'Hello' with 'Hi':"
+	print result

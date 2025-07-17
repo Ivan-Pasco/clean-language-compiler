@@ -1,0 +1,11 @@
+start()
+	integer age = 25
+	boolean hasLicense = true
+	
+	// Simple case that works
+	boolean result1 = age >= 21
+	print result1
+	
+	// This should work but might fail
+	boolean result2 = result1 and hasLicense  
+	print result2

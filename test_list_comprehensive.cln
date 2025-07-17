@@ -1,0 +1,39 @@
+start()
+	// Test comprehensive list operations
+	list<integer> numbers = [10, 20, 30]
+	
+	print "Initial list:"
+	print List.length(numbers)
+	
+	// Test push - should add to end
+	List.push(numbers, 40)
+	List.push(numbers, 50)
+	print "After 2 pushes:"
+	print List.length(numbers)
+	
+	// Test pop - should remove from end and return value
+	integer popped1 = List.pop(numbers)
+	integer popped2 = List.pop(numbers)
+	print "Popped values:"
+	print popped1
+	print popped2
+	print "After 2 pops:"
+	print List.length(numbers)
+	
+	// Test insert - should insert at specific position
+	List.insert(numbers, 1, 15)
+	print "After insert 15 at position 1:"
+	print List.length(numbers)
+	
+	// Test remove - should remove at specific position
+	integer removed = List.remove(numbers, 0)
+	print "Removed from position 0:"
+	print removed
+	print "Final length:"
+	print List.length(numbers)
+	
+	// Test edge cases
+	list<integer> empty = []
+	integer emptyPop = List.pop(empty)
+	print "Pop from empty list:"
+	print emptyPop

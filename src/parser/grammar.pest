@@ -141,20 +141,23 @@ conditional_expr = { "if" ~ expression ~ "then" ~ expression ~ "else" ~ expressi
 
 // Multi-line expressions within parentheses (allows newlines and indentation)
 multiline_parenthesized_expr = { "(" ~ NEWLINE* ~ (INDENT* ~ multiline_expression)? ~ NEWLINE* ~ INDENT* ~ ")" }
-multiline_expression = { primary ~ (NEWLINE* ~ INDENT* ~ operator ~ NEWLINE* ~ INDENT* ~ primary)* }
+multiline_expression = { primary ~ (NEWLINE* ~ INDENT* ~ (logical_op | comparison_op | arithmetic_op) ~ NEWLINE* ~ INDENT* ~ primary)* }
 
 // Error handling with onError
 on_error_expr = { base_expression ~ "onError" ~ base_expression }
 on_error_block = { base_expression ~ "onError" ~ ":" ~ indented_block }
 
-// Expression with operator precedence (updated per specification)
-base_expression = { primary ~ (operator ~ primary)* }
+// Expression with proper operator precedence (logical < comparison < arithmetic)
+logical_expression = { comparison_expression ~ (logical_op ~ comparison_expression)* }
+comparison_expression = { arithmetic_expression ~ (comparison_op ~ arithmetic_expression)* }
+arithmetic_expression = { primary ~ (arithmetic_op ~ primary)* }
+base_expression = { logical_expression }
 expression = { on_error_block | on_error_expr | base_expression }
 
-// Operators (removed matrix @ operators as they're now type-based)
-operator = _{ binary_op | comparison_op }
-binary_op = { "+" | "-" | "*" | "/" | "%" | "^" | "and" | "or" }
+// Operators with proper precedence levels
+logical_op = { "and" | "or" }
 comparison_op = { "==" | "!=" | "<=" | ">=" | "<" | ">" | "is" | "not" }
+arithmetic_op = { "+" | "-" | "*" | "/" | "%" | "^" }
 
 // Lists and Matrices
 list_literal = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }

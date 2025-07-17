@@ -1,0 +1,14 @@
+start()
+	// Test simple boolean expressions step by step
+	integer age = 25
+	boolean hasLicense = true
+	
+	// Test individual boolean values
+	boolean result1 = age >= 21
+	print "Age check:"
+	print result1
+	
+	// Test simple boolean operation
+	boolean result2 = result1 and hasLicense
+	print "Combined check:"
+	print result2

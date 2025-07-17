@@ -1,0 +1,26 @@
+start()
+	// Test type conversion operations
+	
+	// Test string to integer conversion
+	string numberStr = "123"
+	integer parsedInt = string_to_int(numberStr)
+	print "String to int:"
+	print numberStr
+	print "Parsed as:"
+	print parsedInt
+	
+	// Test negative number conversion
+	string negStr = "-456"
+	integer negInt = string_to_int(negStr)
+	print "Negative string:"
+	print negStr
+	print "Parsed as:"
+	print negInt
+	
+	// Test integer to string conversion
+	integer testNum = 789
+	string convertedStr = int_to_string(testNum)
+	print "Integer:"
+	print testNum
+	print "Converted to string:"
+	print convertedStr

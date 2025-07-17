@@ -1,0 +1,22 @@
+start()
+	// Test list insert and remove operations
+	list<integer> numbers = [1, 2, 3, 5]
+	
+	print "Original list length:"
+	print List.length(numbers)
+	
+	// Test insert operation at index 3 (before 5)
+	integer success = List.insert(numbers, 3, 4)
+	print "Insert success:"
+	print success
+	
+	print "After inserting 4 at index 3:"
+	print List.length(numbers)
+	
+	// Test remove operation at index 1 (remove 2)
+	integer removed = List.remove(numbers, 1)
+	print "Removed element:"
+	print removed
+	
+	print "Final list length:"
+	print List.length(numbers)

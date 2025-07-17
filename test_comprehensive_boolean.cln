@@ -1,0 +1,31 @@
+start()
+	// Comprehensive test of boolean expression operator precedence
+	integer age = 25
+	integer income = 50000
+	boolean hasLicense = true
+	boolean hasInsurance = false
+	
+	// Test 1: Simple comparisons
+	boolean test1 = age >= 21
+	print "Test 1 (age >= 21):"
+	print test1
+	
+	// Test 2: Simple AND operation
+	boolean test2 = age >= 21 and hasLicense
+	print "Test 2 (age >= 21 and hasLicense):"
+	print test2
+	
+	// Test 3: Complex precedence with AND and OR
+	boolean test3 = age >= 21 and income > 30000 or hasLicense
+	print "Test 3 (complex precedence):"
+	print test3
+	
+	// Test 4: Arithmetic in comparisons
+	boolean test4 = age + 5 >= 30 and income / 1000 > 40
+	print "Test 4 (arithmetic in comparisons):"
+	print test4
+	
+	// Test 5: Multiple OR operations
+	boolean test5 = hasLicense or hasInsurance or age > 20
+	print "Test 5 (multiple OR):"
+	print test5

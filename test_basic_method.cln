@@ -1,0 +1,16 @@
+class Person
+	string name
+	integer age
+	
+	constructor(string personName, integer personAge)
+		name = personName
+		age = personAge
+
+functions:
+	string getName(Person person)
+		return "test name"
+
+start()
+	Person john = Person("John", 25)
+	string name = john.getName()
+	print name

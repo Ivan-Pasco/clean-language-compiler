@@ -87,31 +87,84 @@ pub fn parse_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
 }
 
 pub fn parse_base_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::logical_expression => {
+                return parse_logical_expression(item);
+            }
+            _ => return Err(CompilerError::parse_error(
+                format!("Unexpected rule in base expression: {:?}", item.as_rule()),
+                Some(convert_to_ast_location(&get_location(&item))),
+                Some("Expected logical expression".to_string())
+            )),
+        }
+    }
+    
+    Err(CompilerError::parse_error(
+        "Empty base expression".to_string(),
+        None,
+        Some("Base expression must contain a logical expression".to_string())
+    ))
+}
+
+pub fn parse_logical_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let mut expr_stack = Vec::new();
     let mut op_stack = Vec::new();
 
     for item in pair.into_inner() {
         match item.as_rule() {
-            Rule::primary => {
-                expr_stack.push(parse_primary(item)?);
+            Rule::comparison_expression => {
+                expr_stack.push(parse_comparison_expression(item)?);
             }
-            Rule::binary_op => {
+            Rule::logical_op => {
                 let op = match item.as_str() {
-                    "+" => BinaryOperator::Add,
-                    "-" => BinaryOperator::Subtract,
-                    "*" => BinaryOperator::Multiply,
-                    "/" => BinaryOperator::Divide,
-                    "%" => BinaryOperator::Modulo,
-                    "^" => BinaryOperator::Power,
                     "and" => BinaryOperator::And,
                     "or" => BinaryOperator::Or,
                     _ => return Err(CompilerError::parse_error(
-                        format!("Invalid binary operator: {}", item.as_str()),
+                        format!("Invalid logical operator: {}", item.as_str()),
                         Some(convert_to_ast_location(&get_location(&item))),
-                        Some("Valid binary operators are: +, -, *, /, %, ^, and, or".to_string())
+                        Some("Valid logical operators are: and, or".to_string())
                     )),
                 };
-                op_stack.push(ParsedOperator::Binary(op));
+                op_stack.push(op);
+            }
+            _ => return Err(CompilerError::parse_error(
+                format!("Unexpected rule in logical expression: {:?}", item.as_rule()),
+                Some(convert_to_ast_location(&get_location(&item))),
+                Some("Expected comparison expression or logical operator".to_string())
+            )),
+        }
+    }
+
+    // Build the expression tree from the stacks
+    if expr_stack.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Empty logical expression".to_string(),
+            None,
+            Some("Logical expression must contain at least one comparison".to_string())
+        ));
+    }
+
+    let mut result = expr_stack.remove(0);
+    let mut i = 0;
+
+    while i < op_stack.len() && i < expr_stack.len() {
+        let right = expr_stack.remove(0);
+        result = Expression::Binary(Box::new(result), op_stack[i].clone(), Box::new(right));
+        i += 1;
+    }
+
+    Ok(result)
+}
+
+pub fn parse_comparison_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let mut expr_stack = Vec::new();
+    let mut op_stack = Vec::new();
+
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::arithmetic_expression => {
+                expr_stack.push(parse_arithmetic_expression(item)?);
             }
             Rule::comparison_op => {
                 let op = match item.as_str() {
@@ -129,51 +182,89 @@ pub fn parse_base_expression(pair: Pair<Rule>) -> Result<Expression, CompilerErr
                         Some("Valid comparison operators are: ==, !=, <, <=, >, >=, is, not".to_string())
                     )),
                 };
-                op_stack.push(ParsedOperator::Binary(op));
+                op_stack.push(op);
             }
-            _ => {}
+            _ => return Err(CompilerError::parse_error(
+                format!("Unexpected rule in comparison expression: {:?}", item.as_rule()),
+                Some(convert_to_ast_location(&get_location(&item))),
+                Some("Expected arithmetic expression or comparison operator".to_string())
+            )),
         }
     }
 
-    // Apply operators with precedence
-    while op_stack.len() > 1 && expr_stack.len() >= 3 {
-        let op2 = op_stack.pop().unwrap();
-        let op1 = op_stack.last().unwrap();
-        
-        if op1.precedence() >= op2.precedence() {
-            let right = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-                "Missing right operand".to_string(),
-                None,
-                Some("Each operator requires two operands".to_string())
-            ))?;
-            
-            let left = expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-                "Missing left operand".to_string(),
-                None,
-                Some("Each operator requires two operands".to_string())
-            ))?;
-            
-            expr_stack.push(apply_operator(left, op2, right)?);
-        } else {
-            op_stack.push(op2);
-            break;
+    // Build the expression tree from the stacks
+    if expr_stack.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Empty comparison expression".to_string(),
+            None,
+            Some("Comparison expression must contain at least one arithmetic expression".to_string())
+        ));
+    }
+
+    let mut result = expr_stack.remove(0);
+    let mut i = 0;
+
+    while i < op_stack.len() && i < expr_stack.len() {
+        let right = expr_stack.remove(0);
+        result = Expression::Binary(Box::new(result), op_stack[i].clone(), Box::new(right));
+        i += 1;
+    }
+
+    Ok(result)
+}
+
+pub fn parse_arithmetic_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let mut expr_stack = Vec::new();
+    let mut op_stack = Vec::new();
+
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::primary => {
+                expr_stack.push(parse_primary(item)?);
+            }
+            Rule::arithmetic_op => {
+                let op = match item.as_str() {
+                    "+" => BinaryOperator::Add,
+                    "-" => BinaryOperator::Subtract,
+                    "*" => BinaryOperator::Multiply,
+                    "/" => BinaryOperator::Divide,
+                    "%" => BinaryOperator::Modulo,
+                    "^" => BinaryOperator::Power,
+                    _ => return Err(CompilerError::parse_error(
+                        format!("Invalid arithmetic operator: {}", item.as_str()),
+                        Some(convert_to_ast_location(&get_location(&item))),
+                        Some("Valid arithmetic operators are: +, -, *, /, %, ^".to_string())
+                    )),
+                };
+                op_stack.push(op);
+            }
+            _ => return Err(CompilerError::parse_error(
+                format!("Unexpected rule in arithmetic expression: {:?}", item.as_rule()),
+                Some(convert_to_ast_location(&get_location(&item))),
+                Some("Expected primary expression or arithmetic operator".to_string())
+            )),
         }
     }
 
-    // Apply remaining operators
-    while !op_stack.is_empty() && expr_stack.len() >= 2 {
-        let op = op_stack.pop().unwrap();
-        let right = expr_stack.pop().unwrap();
-        let left = expr_stack.pop().unwrap();
-        
-        expr_stack.push(apply_operator(left, op, right)?);
+    // Build the expression tree from the stacks
+    if expr_stack.is_empty() {
+        return Err(CompilerError::parse_error(
+            "Empty arithmetic expression".to_string(),
+            None,
+            Some("Arithmetic expression must contain at least one primary expression".to_string())
+        ));
     }
 
-    expr_stack.pop().ok_or_else(|| CompilerError::parse_error(
-        "Empty multiline expression".to_string(),
-        None,
-        Some("A multiline expression must contain at least one value".to_string())
-    ))
+    let mut result = expr_stack.remove(0);
+    let mut i = 0;
+
+    while i < op_stack.len() && i < expr_stack.len() {
+        let right = expr_stack.remove(0);
+        result = Expression::Binary(Box::new(result), op_stack[i].clone(), Box::new(right));
+        i += 1;
+    }
+
+    Ok(result)
 }
 
 fn apply_operator(left: Expression, op: ParsedOperator, right: Expression) -> Result<Expression, CompilerError> {
@@ -577,7 +668,7 @@ pub fn parse_multiline_expression(pair: Pair<Rule>) -> Result<Expression, Compil
             Rule::primary => {
                 expr_stack.push(parse_primary(item)?);
             }
-            Rule::binary_op => {
+            Rule::arithmetic_op => {
                 let op = match item.as_str() {
                     "+" => BinaryOperator::Add,
                     "-" => BinaryOperator::Subtract,
@@ -585,12 +676,22 @@ pub fn parse_multiline_expression(pair: Pair<Rule>) -> Result<Expression, Compil
                     "/" => BinaryOperator::Divide,
                     "%" => BinaryOperator::Modulo,
                     "^" => BinaryOperator::Power,
+                    _ => return Err(CompilerError::parse_error(
+                        format!("Invalid arithmetic operator: {}", item.as_str()),
+                        Some(convert_to_ast_location(&get_location(&item))),
+                        Some("Valid arithmetic operators are: +, -, *, /, %, ^".to_string())
+                    )),
+                };
+                op_stack.push(ParsedOperator::Binary(op));
+            }
+            Rule::logical_op => {
+                let op = match item.as_str() {
                     "and" => BinaryOperator::And,
                     "or" => BinaryOperator::Or,
                     _ => return Err(CompilerError::parse_error(
-                        format!("Invalid binary operator: {}", item.as_str()),
+                        format!("Invalid logical operator: {}", item.as_str()),
                         Some(convert_to_ast_location(&get_location(&item))),
-                        Some("Valid binary operators are: +, -, *, /, %, ^, and, or".to_string())
+                        Some("Valid logical operators are: and, or".to_string())
                     )),
                 };
                 op_stack.push(ParsedOperator::Binary(op));

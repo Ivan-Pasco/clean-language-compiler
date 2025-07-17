@@ -477,9 +477,171 @@ impl TypeConvOperations {
     }
 
     fn generate_int_to_string_function(&self) -> Vec<Instruction> {
+        // Convert integer to string representation
+        // Parameters: integer value
+        // Returns: pointer to a new string
         vec![
-            // Simplified implementation - return a dummy string pointer
-            Instruction::I32Const(1024), // Return a dummy pointer
+            // Get integer value
+            Instruction::LocalGet(0), // value
+            
+            // Handle special case: 0
+            Instruction::LocalGet(0),
+            Instruction::I32Const(0),
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Create string "0"
+            Instruction::I32Const(17), // 16 bytes header + 1 byte for '0'
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalTee(1), // save string_ptr
+            Instruction::I32Const(1), // length = 1
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Store '0' character
+            Instruction::LocalGet(1), // string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Return string pointer
+            Instruction::LocalGet(1),
+            
+            Instruction::Else,
+            
+            // Handle non-zero numbers
+            Instruction::LocalGet(0), // value
+            Instruction::LocalSet(2), // working_value
+            Instruction::I32Const(0),
+            Instruction::LocalSet(3), // is_negative = false
+            
+            // Check if negative
+            Instruction::LocalGet(2), // working_value
+            Instruction::I32Const(0),
+            Instruction::I32LtS, // value < 0
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Make positive and set negative flag
+            Instruction::I32Const(1),
+            Instruction::LocalSet(3), // is_negative = true
+            Instruction::LocalGet(2), // working_value
+            Instruction::I32Const(-1),
+            Instruction::I32Mul, // make positive
+            Instruction::LocalSet(2),
+            
+            Instruction::End,
+            
+            // Count digits
+            Instruction::I32Const(0),
+            Instruction::LocalSet(4), // digit_count = 0
+            Instruction::LocalGet(2), // working_value
+            Instruction::LocalSet(5), // temp_value for counting
+            
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(5), // temp_value
+            Instruction::I32Const(0),
+            Instruction::I32GtU, // temp_value > 0
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Increment digit count
+            Instruction::LocalGet(4),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(4),
+            
+            // Divide by 10
+            Instruction::LocalGet(5), // temp_value
+            Instruction::I32Const(10),
+            Instruction::I32DivU, // temp_value / 10
+            Instruction::LocalSet(5),
+            
+            Instruction::Br(1), // Continue loop
+            Instruction::End, // End if
+            Instruction::End, // End loop
+            
+            // Calculate total length (digits + negative sign if needed)
+            Instruction::LocalGet(4), // digit_count
+            Instruction::LocalGet(3), // is_negative
+            Instruction::I32Add, // total_length = digit_count + is_negative
+            Instruction::LocalSet(6), // total_length
+            
+            // Allocate string
+            Instruction::LocalGet(6), // total_length
+            Instruction::I32Const(16), // header size
+            Instruction::I32Add, // total allocation
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalSet(7), // result_string
+            
+            // Store string length
+            Instruction::LocalGet(7), // result_string
+            Instruction::LocalGet(6), // total_length
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Write digits from right to left
+            Instruction::LocalGet(6), // total_length
+            Instruction::I32Const(1),
+            Instruction::I32Sub, // pos = total_length - 1
+            Instruction::LocalSet(8), // pos
+            
+            Instruction::LocalGet(2), // working_value
+            Instruction::LocalSet(9), // temp_value for digit extraction
+            
+            // Fill digits loop
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(9), // temp_value
+            Instruction::I32Const(0),
+            Instruction::I32GtU, // temp_value > 0
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Get last digit
+            Instruction::LocalGet(9), // temp_value
+            Instruction::I32Const(10),
+            Instruction::I32RemU, // temp_value % 10
+            Instruction::I32Const(48), // ASCII '0'
+            Instruction::I32Add, // digit + '0'
+            
+            // Store digit
+            Instruction::LocalGet(7), // result_string
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(8), // pos
+            Instruction::I32Add, // string data + pos
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Move to next position and remove last digit
+            Instruction::LocalGet(8),
+            Instruction::I32Const(1),
+            Instruction::I32Sub,
+            Instruction::LocalSet(8), // pos--
+            
+            Instruction::LocalGet(9), // temp_value
+            Instruction::I32Const(10),
+            Instruction::I32DivU, // temp_value / 10
+            Instruction::LocalSet(9),
+            
+            Instruction::Br(1), // Continue loop
+            Instruction::End, // End if
+            Instruction::End, // End loop
+            
+            // Add negative sign if needed
+            Instruction::LocalGet(3), // is_negative
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Store '-' at beginning
+            Instruction::LocalGet(7), // result_string
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::I32Const(45), // ASCII '-'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            Instruction::End,
+            
+            // Return result string
+            Instruction::LocalGet(7),
+            
+            Instruction::End, // End main else
         ]
     }
 
@@ -511,7 +673,7 @@ impl TypeConvOperations {
     }
 
     fn generate_string_to_int_function(&self) -> Vec<Instruction> {
-        // Convert string to integer (basic implementation)
+        // Convert string to integer with proper multi-digit parsing
         // Parameters: string_ptr
         // Returns: parsed integer or 0 if invalid
         vec![
@@ -525,7 +687,7 @@ impl TypeConvOperations {
             // Check if string is empty
             Instruction::LocalGet(1),
             Instruction::I32Const(0),
-            Instruction::I32Eq,
+            Instruction::I32LeS, // length <= 0
             Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
             
             // Empty string, return 0
@@ -533,33 +695,89 @@ impl TypeConvOperations {
             
             Instruction::Else,
             
-            // Load first character
+            // Initialize variables
+            Instruction::I32Const(0),
+            Instruction::LocalSet(2), // result = 0
+            Instruction::I32Const(0),
+            Instruction::LocalSet(3), // index = 0
+            Instruction::I32Const(1),
+            Instruction::LocalSet(4), // sign = 1
+            
+            // Check for negative sign
             Instruction::LocalGet(0), // string_ptr
-            Instruction::I32Const(4), // Skip length field
+            Instruction::I32Const(16), // skip header (strings use 16-byte header)
             Instruction::I32Add,
             Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::I32Const(45), // ASCII '-'
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Negative number
+            Instruction::I32Const(-1),
+            Instruction::LocalSet(4), // sign = -1
+            Instruction::I32Const(1),
+            Instruction::LocalSet(3), // index = 1 (skip minus sign)
+            
+            Instruction::End,
+            
+            // Parse digits loop
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(3), // index
+            Instruction::LocalGet(1), // length
+            Instruction::I32LtU, // index < length
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Get current character
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(3), // index
+            Instruction::I32Add, // string data + index
+            Instruction::I32Load8U(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalSet(5), // current_char
             
             // Check if character is digit (ASCII 48-57)
-            Instruction::LocalTee(2), // char_code
+            Instruction::LocalGet(5), // current_char
             Instruction::I32Const(48), // ASCII '0'
-            Instruction::I32GeS,
-            Instruction::LocalGet(2),
+            Instruction::I32GeU,
+            Instruction::LocalGet(5), // current_char
             Instruction::I32Const(57), // ASCII '9'
-            Instruction::I32LeS,
-            Instruction::I32And,
-            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            Instruction::I32LeU,
+            Instruction::I32And, // is_digit
+            Instruction::If(wasm_encoder::BlockType::Empty),
             
-            // Convert digit to integer
-            Instruction::LocalGet(2),
+            // Update result: result = result * 10 + (char - '0')
+            Instruction::LocalGet(2), // result
+            Instruction::I32Const(10),
+            Instruction::I32Mul, // result * 10
+            Instruction::LocalGet(5), // current_char
             Instruction::I32Const(48), // ASCII '0'
-            Instruction::I32Sub,
+            Instruction::I32Sub, // char - '0'
+            Instruction::I32Add, // result * 10 + digit
+            Instruction::LocalSet(2), // update result
+            
+            // Increment index
+            Instruction::LocalGet(3),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(3),
+            
+            Instruction::Br(2), // Continue loop
             
             Instruction::Else,
             
-            // Not a digit, return 0
-            Instruction::I32Const(0),
+            // Non-digit character, break loop
+            Instruction::Br(3), // Break out of loop and if
             
             Instruction::End, // End digit check
+            
+            Instruction::End, // End if in loop
+            Instruction::End, // End loop
+            
+            // Apply sign and return result
+            Instruction::LocalGet(2), // result
+            Instruction::LocalGet(4), // sign
+            Instruction::I32Mul, // result * sign
             
             Instruction::End, // End empty check
         ]

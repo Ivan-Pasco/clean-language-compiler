@@ -1,0 +1,7 @@
+start()
+	integer age = 25
+	integer income = 50000
+	
+	// This specific line from the failing test
+	boolean result3 = age + 5 >= 30 and income / 1000 > 40
+	print result3

@@ -246,6 +246,15 @@ impl StringOperations {
             self.generate_string_compare()
         )?;
 
+        // Register string replace function
+        register_stdlib_function(
+            codegen,
+            "string.replace",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, old, new
+            Some(WasmType::I32), // new string
+            self.generate_string_replace()
+        )?;
+
         // Register string length function
         register_stdlib_function(
             codegen,
@@ -650,13 +659,184 @@ impl StringOperations {
     }
 
     pub fn generate_string_trim(&self) -> Vec<Instruction> {
-        let mut instructions = Vec::new();
-        
-        // Placeholder implementation - return original string
-        instructions.push(Instruction::LocalGet(0));
-        // Remove Return - LocalGet already puts the result on the stack
-        
-        instructions
+        // String trim implementation: remove leading and trailing whitespace
+        // Parameters: string_ptr
+        // Returns: new trimmed string pointer
+        vec![
+            // Get string length
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(1), // save length
+            
+            // If string is empty, return original
+            Instruction::LocalGet(1), // length
+            Instruction::I32Const(0),
+            Instruction::I32LeU, // length <= 0
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            Instruction::LocalGet(0), // return original
+            
+            Instruction::Else,
+            
+            // Find start position (skip leading whitespace)
+            Instruction::I32Const(0),
+            Instruction::LocalSet(2), // start_pos = 0
+            
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(2), // start_pos
+            Instruction::LocalGet(1), // length
+            Instruction::I32LtU, // start_pos < length
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Get character at start_pos
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(2), // start_pos
+            Instruction::I32Add, // string data + start_pos
+            Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalSet(3), // save char
+            
+            // Check if char is whitespace (space=32, tab=9, newline=10, carriage return=13)
+            Instruction::LocalGet(3), // char
+            Instruction::I32Const(32), // space
+            Instruction::I32Eq, // char == space
+            Instruction::LocalGet(3), // char
+            Instruction::I32Const(9), // tab
+            Instruction::I32Eq, // char == tab
+            Instruction::I32Or, // is space or tab
+            Instruction::LocalGet(3), // char
+            Instruction::I32Const(10), // newline
+            Instruction::I32Eq, // char == newline
+            Instruction::I32Or, // is space, tab, or newline
+            Instruction::LocalGet(3), // char
+            Instruction::I32Const(13), // carriage return
+            Instruction::I32Eq, // char == carriage return
+            Instruction::I32Or, // is whitespace
+            
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            // Character is whitespace, advance start_pos
+            Instruction::LocalGet(2),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(2),
+            Instruction::Br(2), // Continue outer loop
+            Instruction::Else,
+            // Character is not whitespace, break out of loop
+            Instruction::Br(3), // Break out of both loops
+            Instruction::End,
+            
+            Instruction::End, // End inner if
+            Instruction::End, // End loop
+            
+            // Find end position (skip trailing whitespace)
+            Instruction::LocalGet(1), // length
+            Instruction::I32Const(1),
+            Instruction::I32Sub, // length - 1
+            Instruction::LocalSet(4), // end_pos = length - 1
+            
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(4), // end_pos
+            Instruction::LocalGet(2), // start_pos
+            Instruction::I32GeU, // end_pos >= start_pos
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Get character at end_pos
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(4), // end_pos
+            Instruction::I32Add, // string data + end_pos
+            Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalSet(5), // save char
+            
+            // Check if char is whitespace
+            Instruction::LocalGet(5), // char
+            Instruction::I32Const(32), // space
+            Instruction::I32Eq, // char == space
+            Instruction::LocalGet(5), // char
+            Instruction::I32Const(9), // tab
+            Instruction::I32Eq, // char == tab
+            Instruction::I32Or, // is space or tab
+            Instruction::LocalGet(5), // char
+            Instruction::I32Const(10), // newline
+            Instruction::I32Eq, // char == newline
+            Instruction::I32Or, // is space, tab, or newline
+            Instruction::LocalGet(5), // char
+            Instruction::I32Const(13), // carriage return
+            Instruction::I32Eq, // char == carriage return
+            Instruction::I32Or, // is whitespace
+            
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            // Character is whitespace, move end_pos back
+            Instruction::LocalGet(4),
+            Instruction::I32Const(1),
+            Instruction::I32Sub,
+            Instruction::LocalSet(4),
+            Instruction::Br(2), // Continue outer loop
+            Instruction::Else,
+            // Character is not whitespace, break out of loop
+            Instruction::Br(3), // Break out of both loops
+            Instruction::End,
+            
+            Instruction::End, // End inner if
+            Instruction::End, // End loop
+            
+            // Calculate new length: end_pos - start_pos + 1
+            Instruction::LocalGet(4), // end_pos
+            Instruction::LocalGet(2), // start_pos
+            Instruction::I32Sub, // end_pos - start_pos
+            Instruction::I32Const(1),
+            Instruction::I32Add, // end_pos - start_pos + 1
+            Instruction::LocalSet(6), // new_length
+            
+            // If new_length <= 0, return empty string
+            Instruction::LocalGet(6), // new_length
+            Instruction::I32Const(0),
+            Instruction::I32LeS, // new_length <= 0
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            // Create empty string
+            Instruction::I32Const(16), // just header
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalTee(7), // save new_string_ptr
+            Instruction::I32Const(0), // length = 0
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalGet(7), // return empty string
+            
+            Instruction::Else,
+            
+            // Allocate new string
+            Instruction::LocalGet(6), // new_length
+            Instruction::I32Const(16), // header size
+            Instruction::I32Add, // total allocation
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalSet(7), // save new_string_ptr
+            
+            // Store new string length
+            Instruction::LocalGet(7), // new_string_ptr
+            Instruction::LocalGet(6), // new_length
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Copy trimmed content
+            Instruction::LocalGet(7), // new_string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add, // dest
+            Instruction::LocalGet(0), // original string
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(2), // start_pos
+            Instruction::I32Add, // src = original + start_pos
+            Instruction::LocalGet(6), // new_length (bytes to copy)
+            Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 },
+            
+            // Return new string
+            Instruction::LocalGet(7),
+            
+            Instruction::End, // End empty check
+            
+            Instruction::End, // End main else
+        ]
     }
 
     pub fn generate_string_trim_start(&self) -> Vec<Instruction> {
@@ -693,13 +873,167 @@ impl StringOperations {
     }
 
     pub fn generate_string_replace(&self) -> Vec<Instruction> {
-        // Simplified implementation to avoid WASM validation issues
+        // Simplified string replace: replace first occurrence of old with new
         // Parameters: string_ptr, old_ptr, new_ptr
-        // Returns a new string pointer with replacements
+        // Returns: new string pointer with replacement
         vec![
-            // For now, return the original string pointer to avoid complex local variable usage
-            // In a real implementation, this would create a new string with replacements
-            Instruction::LocalGet(0), // Return original string_ptr
+            // Get source string length
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(3), // save source length
+            
+            // Get old pattern length
+            Instruction::LocalGet(1), // old_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(4), // save old length
+            
+            // Get new pattern length  
+            Instruction::LocalGet(2), // new_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(5), // save new length
+            
+            // For simplicity, if old pattern is empty or longer than source, return original
+            Instruction::LocalGet(4), // old length
+            Instruction::I32Const(0),
+            Instruction::I32LeU, // old_length <= 0
+            Instruction::LocalGet(4), // old length
+            Instruction::LocalGet(3), // source length
+            Instruction::I32GtU, // old_length > source_length
+            Instruction::I32Or, // old_length <= 0 || old_length > source_length
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Return original string
+            Instruction::LocalGet(0),
+            
+            Instruction::Else,
+            
+            // Search for pattern at the beginning (simplified search)
+            Instruction::I32Const(1),
+            Instruction::LocalSet(6), // assume match = true
+            
+            // Check if source starts with old pattern
+            Instruction::I32Const(0),
+            Instruction::LocalSet(7), // pos = 0
+            
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(7), // pos
+            Instruction::LocalGet(4), // old_length
+            Instruction::I32LtU, // pos < old_length
+            Instruction::LocalGet(6), // match is still true
+            Instruction::I32And,
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Compare character at pos
+            Instruction::LocalGet(0), // source string
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(7), // pos
+            Instruction::I32Add, // source data + pos
+            Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            Instruction::LocalGet(1), // old pattern
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(7), // pos
+            Instruction::I32Add, // old data + pos
+            Instruction::I32Load8U(MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            Instruction::I32Ne, // characters don't match
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            Instruction::I32Const(0),
+            Instruction::LocalSet(6), // match = false
+            Instruction::End,
+            
+            // Increment position
+            Instruction::LocalGet(7),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(7),
+            
+            Instruction::Br(1), // Continue loop
+            Instruction::End, // End if
+            Instruction::End, // End loop
+            
+            // Check if we found a match
+            Instruction::LocalGet(6), // match
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Create new string: new_pattern + remaining_source
+            // Calculate new length: new_length + (source_length - old_length)
+            Instruction::LocalGet(5), // new_length
+            Instruction::LocalGet(3), // source_length
+            Instruction::LocalGet(4), // old_length
+            Instruction::I32Sub, // source_length - old_length
+            Instruction::I32Add, // new_length + (source_length - old_length)
+            Instruction::LocalSet(8), // new_total_length
+            
+            // Allocate new string
+            Instruction::LocalGet(8), // new_total_length
+            Instruction::I32Const(16), // header size
+            Instruction::I32Add, // total allocation
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalSet(9), // save new_string_ptr
+            
+            // Store new string length
+            Instruction::LocalGet(9), // new_string_ptr
+            Instruction::LocalGet(8), // new_total_length
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Copy new pattern to beginning
+            Instruction::LocalGet(5), // new_length
+            Instruction::I32Const(0),
+            Instruction::I32GtS, // new_length > 0
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            Instruction::LocalGet(9), // new_string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add, // dest
+            Instruction::LocalGet(2), // new pattern
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add, // src
+            Instruction::LocalGet(5), // new_length (bytes to copy)
+            Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 },
+            
+            Instruction::End,
+            
+            // Copy remaining source (after old pattern)
+            Instruction::LocalGet(3), // source_length
+            Instruction::LocalGet(4), // old_length
+            Instruction::I32Sub, // remaining_length = source_length - old_length
+            Instruction::LocalSet(10), // remaining_length
+            
+            Instruction::LocalGet(10), // remaining_length
+            Instruction::I32Const(0),
+            Instruction::I32GtS, // remaining_length > 0
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            Instruction::LocalGet(9), // new_string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(5), // new_length
+            Instruction::I32Add, // dest = new_string + new_length
+            Instruction::LocalGet(0), // source string
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(4), // old_length
+            Instruction::I32Add, // src = source + old_length
+            Instruction::LocalGet(10), // remaining_length (bytes to copy)
+            Instruction::MemoryCopy { src_mem: 0, dst_mem: 0 },
+            
+            Instruction::End,
+            
+            // Return new string
+            Instruction::LocalGet(9),
+            
+            Instruction::Else,
+            
+            // No match found, return original string
+            Instruction::LocalGet(0),
+            
+            Instruction::End, // End match check
+            
+            Instruction::End, // End main else
         ]
     }
 

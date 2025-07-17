@@ -1,0 +1,13 @@
+start()
+	// Test string split operations
+	string text = "a,b,c"
+	string delimiter = ","
+	
+	print "Original string:"
+	print text
+	print "Delimiter:"
+	print delimiter
+	
+	list<string> parts = String.split(text, delimiter)
+	print "Number of parts:"
+	print List.length(parts)

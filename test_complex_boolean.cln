@@ -1,0 +1,21 @@
+start()
+	// Test complex boolean expression with multiple operators and precedence
+	integer age = 25
+	integer income = 50000
+	boolean hasLicense = true
+	boolean hasInsurance = false
+	
+	// Test operator precedence: should be parsed as (age >= 21 and income > 30000) or hasLicense
+	boolean result1 = age >= 21 and income > 30000 or hasLicense
+	print "Result 1 (should be true):"
+	print result1
+	
+	// Test with parentheses to ensure explicit precedence works
+	boolean result2 = (age >= 21 and income > 30000) or hasLicense
+	print "Result 2 (should be true):"
+	print result2
+	
+	// Test arithmetic expressions in conditions
+	boolean result3 = age + 5 >= 30 and income / 1000 > 40
+	print "Result 3 (should be true):"
+	print result3

@@ -135,12 +135,12 @@ impl ListClass {
     }
     
     fn register_modification_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // List.push(list lst, any value) -> void
+        // List.push(list lst, any value) -> list
         register_stdlib_function(
             codegen,
             "List.push",
             &[WasmType::I32, WasmType::I32],
-            None,
+            Some(WasmType::I32),
             self.generate_push()
         )?;
         
@@ -171,12 +171,12 @@ impl ListClass {
             self.generate_unshift()
         )?;
         
-        // List.insert(list lst, integer index, any value) -> void
+        // List.insert(list lst, integer index, any value) -> integer (success/failure)
         register_stdlib_function(
             codegen,
             "List.insert",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
-            None,
+            Some(WasmType::I32),
             self.generate_insert()
         )?;
         
@@ -557,17 +557,100 @@ impl ListClass {
     }
 
     fn generate_push(&self) -> Vec<Instruction> {
+        // Working implementation from list_ops.rs
+        // Parameters: list_ptr, item
+        // Returns: list pointer (modified in place)
         vec![
-            // Basic push - no-op for now
-            // Full implementation would reallocate list with increased size
+            // Load current length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalTee(2), // current_length
+            
+            // Load capacity 
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 4, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(3), // capacity
+            
+            // Check if we have space (length < capacity)
+            Instruction::LocalGet(2), // current_length
+            Instruction::LocalGet(3), // capacity
+            Instruction::I32LtS,
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // We have space, add the item
+            // Calculate address: list_ptr + 8 + (length * 4)
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(8), // Skip length and capacity
+            Instruction::I32Add,
+            Instruction::LocalGet(2), // current_length
+            Instruction::I32Const(4), // sizeof(i32)
+            Instruction::I32Mul,
+            Instruction::I32Add,
+            
+            // Store the item
+            Instruction::LocalGet(1), // item
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Increment length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::LocalGet(2), // current_length
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            Instruction::End, // End if
+            
+            // Return the list pointer
+            Instruction::LocalGet(0),
         ]
     }
 
     fn generate_pop(&self) -> Vec<Instruction> {
+        // Working implementation from list_ops.rs
+        // Parameters: list_ptr
+        // Returns: popped element (or 0 if empty)
         vec![
-            // Basic pop - return 0 for now
-            // Full implementation would return and remove last element
+            // Load list length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Check if list is empty (length == 0)
             Instruction::I32Const(0),
+            Instruction::I32Eq,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // List is empty, return 0
+            Instruction::I32Const(0),
+            
+            Instruction::Else,
+            
+            // List has elements, get the last one
+            // Load current length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Decrement length by 1
+            Instruction::I32Const(1),
+            Instruction::I32Sub,
+            Instruction::LocalTee(1), // new_length
+            
+            // Store new length back
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::LocalGet(1), // new_length
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Load the element at new_length position
+            // Address = list_ptr + 8 + (new_length * 4)
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(8), // Skip length and capacity (2 * 4 bytes)
+            Instruction::I32Add,
+            Instruction::LocalGet(1), // new_length
+            Instruction::I32Const(4), // sizeof(i32)
+            Instruction::I32Mul,
+            Instruction::I32Add,
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            Instruction::End, // End if
         ]
     }
 
@@ -587,17 +670,212 @@ impl ListClass {
     }
 
     fn generate_insert(&self) -> Vec<Instruction> {
+        // Insert element at specified index: List.insert(list, index, item)
+        // Parameters: list_ptr, index, item
+        // Returns: I32 (1 for success, 0 for failure)
         vec![
-            // Basic insert - no-op for now
-            // Full implementation would insert element at specified index
+            // Load current list length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(3), // save current length
+            
+            // Check if index is within valid range (0 <= index <= length)
+            Instruction::LocalGet(1), // index
+            Instruction::I32Const(0),
+            Instruction::I32GeS, // index >= 0
+            Instruction::LocalGet(1), // index
+            Instruction::LocalGet(3), // length
+            Instruction::I32LeU, // index <= length
+            Instruction::I32And, // (index >= 0) && (index <= length)
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Valid index - check capacity
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(MemArg { offset: 4, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(4), // save current capacity
+            
+            // Check if we need to grow capacity
+            Instruction::LocalGet(3), // current length
+            Instruction::LocalGet(4), // current capacity
+            Instruction::I32GeU, // length >= capacity (need to grow)
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Double the capacity
+            Instruction::LocalGet(4), // current capacity
+            Instruction::I32Const(2),
+            Instruction::I32Mul, // new capacity = current * 2
+            Instruction::LocalSet(4), // save new capacity
+            
+            // Update capacity in memory
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::LocalGet(4), // new capacity
+            Instruction::I32Store(MemArg { offset: 4, align: 2, memory_index: 0 }),
+            
+            Instruction::End, // End capacity check
+            
+            // Shift elements to the right from index to end
+            Instruction::LocalGet(3), // current length
+            Instruction::LocalSet(5), // counter = length
+            
+            // Loop to shift elements
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(5), // counter
+            Instruction::LocalGet(1), // index
+            Instruction::I32GtU, // counter > index
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Move element from position (counter-1) to position counter
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header (length, capacity, type_id, ref_count)
+            Instruction::I32Add,
+            Instruction::LocalGet(5), // counter
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address for position counter
+            
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(5), // counter
+            Instruction::I32Const(1),
+            Instruction::I32Sub, // counter - 1
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address for position (counter-1)
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }), // load element
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }), // store at new position
+            
+            // Decrement counter
+            Instruction::LocalGet(5),
+            Instruction::I32Const(1),
+            Instruction::I32Sub,
+            Instruction::LocalSet(5),
+            
+            Instruction::Br(1), // Continue loop
+            Instruction::End, // End if
+            Instruction::End, // End loop
+            
+            // Insert the new element at the specified index
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(1), // index
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address for index
+            Instruction::LocalGet(2), // item to insert
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Increment list length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::LocalGet(3), // current length
+            Instruction::I32Const(1),
+            Instruction::I32Add, // new length = current + 1
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Return success (1)
+            Instruction::I32Const(1),
+            
+            Instruction::Else,
+            
+            // Invalid index, return failure (0)
+            Instruction::I32Const(0),
+            
+            Instruction::End,
         ]
     }
 
     fn generate_remove(&self) -> Vec<Instruction> {
+        // Remove element at specified index: List.remove(list, index)
+        // Parameters: list_ptr, index
+        // Returns: removed element (or 0 if invalid index)
         vec![
-            // Basic remove - return 0 for now
-            // Full implementation would remove element at index
+            // Load current list length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(2), // save current length
+            
+            // Check if index is within valid range (0 <= index < length)
+            Instruction::LocalGet(1), // index
             Instruction::I32Const(0),
+            Instruction::I32GeS, // index >= 0
+            Instruction::LocalGet(1), // index
+            Instruction::LocalGet(2), // length
+            Instruction::I32LtU, // index < length
+            Instruction::I32And, // (index >= 0) && (index < length)
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Valid index - get element to return
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header (length, capacity, type_id, ref_count)
+            Instruction::I32Add,
+            Instruction::LocalGet(1), // index
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address for index
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(3), // save element to return
+            
+            // Shift elements to the left from (index+1) to end
+            Instruction::LocalGet(1), // index
+            Instruction::I32Const(1),
+            Instruction::I32Add, // start_pos = index + 1
+            Instruction::LocalSet(4), // counter = index + 1
+            
+            // Loop to shift elements
+            Instruction::Loop(wasm_encoder::BlockType::Empty),
+            Instruction::LocalGet(4), // counter
+            Instruction::LocalGet(2), // length
+            Instruction::I32LtU, // counter < length
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Move element from position counter to position (counter-1)
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(4), // counter
+            Instruction::I32Const(1),
+            Instruction::I32Sub, // counter - 1
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address for position (counter-1)
+            
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(4), // counter
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address for position counter
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }), // load element
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }), // store at new position
+            
+            // Increment counter
+            Instruction::LocalGet(4),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(4),
+            
+            Instruction::Br(1), // Continue loop
+            Instruction::End, // End if
+            Instruction::End, // End loop
+            
+            // Decrement list length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::LocalGet(2), // current length
+            Instruction::I32Const(1),
+            Instruction::I32Sub, // new length = current - 1
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Return the removed element
+            Instruction::LocalGet(3),
+            
+            Instruction::Else,
+            
+            // Invalid index, return 0
+            Instruction::I32Const(0),
+            
+            Instruction::End,
         ]
     }
 
@@ -862,9 +1140,119 @@ impl ListClass {
     }
 
     fn generate_sort(&self) -> Vec<Instruction> {
+        // In-place bubble sort implementation: List.sort(list)
+        // Parameters: list_ptr
+        // Returns: same list_ptr (sorted in place)
         vec![
-            // Basic sort - return original list for now
-            // Full implementation would sort elements in place or create sorted copy
+            // Get list length
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(1), // save list length
+            
+            // Outer loop: i from 0 to length-1
+            Instruction::I32Const(0),
+            Instruction::LocalSet(2), // i = 0
+            
+            Instruction::Loop(wasm_encoder::BlockType::Empty), // Outer loop start
+            Instruction::LocalGet(2), // i
+            Instruction::LocalGet(1), // length
+            Instruction::I32Const(1),
+            Instruction::I32Sub, // length - 1
+            Instruction::I32LtU, // i < length - 1
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Inner loop: j from 0 to length-i-2
+            Instruction::I32Const(0),
+            Instruction::LocalSet(3), // j = 0
+            
+            Instruction::Loop(wasm_encoder::BlockType::Empty), // Inner loop start
+            Instruction::LocalGet(3), // j
+            Instruction::LocalGet(1), // length
+            Instruction::LocalGet(2), // i
+            Instruction::I32Sub, // length - i
+            Instruction::I32Const(2),
+            Instruction::I32Sub, // length - i - 2
+            Instruction::I32LtU, // j < length - i - 2
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Compare arr[j] and arr[j+1]
+            // Get arr[j]
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(3), // j
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address of arr[j]
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(4), // save arr[j]
+            
+            // Get arr[j+1]
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(3), // j
+            Instruction::I32Const(1),
+            Instruction::I32Add, // j + 1
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address of arr[j+1]
+            Instruction::I32Load(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            Instruction::LocalSet(5), // save arr[j+1]
+            
+            // If arr[j] > arr[j+1], swap them
+            Instruction::LocalGet(4), // arr[j]
+            Instruction::LocalGet(5), // arr[j+1]
+            Instruction::I32GtS, // arr[j] > arr[j+1]
+            Instruction::If(wasm_encoder::BlockType::Empty),
+            
+            // Swap: store arr[j+1] at position j
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(3), // j
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address of arr[j]
+            Instruction::LocalGet(5), // arr[j+1]
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Swap: store arr[j] at position j+1
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(3), // j
+            Instruction::I32Const(1),
+            Instruction::I32Add, // j + 1
+            Instruction::I32Const(4), // element size
+            Instruction::I32Mul,
+            Instruction::I32Add, // address of arr[j+1]
+            Instruction::LocalGet(4), // arr[j]
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            Instruction::End, // End swap if
+            
+            // Increment j
+            Instruction::LocalGet(3),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(3),
+            
+            Instruction::Br(1), // Continue inner loop
+            Instruction::End, // End inner loop if
+            Instruction::End, // End inner loop
+            
+            // Increment i
+            Instruction::LocalGet(2),
+            Instruction::I32Const(1),
+            Instruction::I32Add,
+            Instruction::LocalSet(2),
+            
+            Instruction::Br(1), // Continue outer loop
+            Instruction::End, // End outer loop if
+            Instruction::End, // End outer loop
+            
+            // Return the original list pointer (sorted in place)
             Instruction::LocalGet(0),
         ]
     }

@@ -2541,10 +2541,46 @@ impl SemanticAnalyzer {
                     }
                 }
 
-                // If we reach here, the method was not found
+                // If we reach here, the method was not found in the class
+                // Try to find a global function with the same name that can be called as a method
+                if let Some(function_signatures) = self.function_table.get(method).cloned() {
+                    // Check if any of the function signatures match (considering the object as first parameter)
+                    for (param_types, return_type, required_param_count) in function_signatures {
+                        // The function should accept the object type as first parameter, plus the method arguments
+                        let expected_param_count = 1 + args.len(); // object + arguments
+                        if expected_param_count >= required_param_count && expected_param_count <= param_types.len() {
+                            // Check if first parameter type is compatible with the object type
+                            if let Some(first_param_type) = param_types.get(0) {
+                                let object_type_for_param = Type::Object(class_name.clone());
+                                if self.types_compatible(&object_type_for_param, first_param_type) || 
+                                   first_param_type == &Type::Any {
+                                    
+                                    // Check the remaining parameter types match the method arguments
+                                    let mut types_match = true;
+                                    for (i, arg) in args.iter().enumerate() {
+                                        if let Some(expected_type) = param_types.get(i + 1) {
+                                            let arg_type = self.check_expression(arg)?;
+                                            if !self.types_compatible(&arg_type, expected_type) && expected_type != &Type::Any {
+                                                types_match = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if types_match {
+                                        // Found a matching global function - call it with object as first parameter
+                                        return Ok(return_type.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // No matching global function found either
                 Err(CompilerError::type_error(
-                    &format!("Method '{}' not found in class '{}' or its parent classes", method, class_name),
-                    Some("Check if the method name is correct and defined in the class hierarchy".to_string()),
+                    &format!("Method '{}' not found in class '{}' or as a global function", method, class_name),
+                    Some("Check if the method name is correct and defined in the class hierarchy or as a global function".to_string()),
                     Some(location.clone())
                 ))
             }

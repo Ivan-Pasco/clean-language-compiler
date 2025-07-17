@@ -1,0 +1,12 @@
+class Test
+	integer value
+	
+	constructor(integer v)
+		value = v
+	
+	functions:
+		integer getValue()
+			return value
+
+start()
+	print "Test complete"
