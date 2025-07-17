@@ -37,7 +37,7 @@ impl FileClass {
             "File.read",
             &[WasmType::I32],
             Some(WasmType::I32),
-            self.generate_read()
+            self.generate_read(codegen)?
         )?;
         
         // File.readBytes(string path) -> array<integer>
@@ -64,7 +64,7 @@ impl FileClass {
             "File.write",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
-            self.generate_write()
+            self.generate_write(codegen)?
         )?;
         
         // File.writeBytes(string path, array<integer> data) -> boolean
@@ -82,7 +82,7 @@ impl FileClass {
             "File.append",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
-            self.generate_append()
+            self.generate_append(codegen)?
         )?;
         
         // File.copy(string source, string destination) -> boolean
@@ -109,7 +109,7 @@ impl FileClass {
             "File.delete",
             &[WasmType::I32],
             Some(WasmType::I32),
-            self.generate_delete()
+            self.generate_delete(codegen)?
         )?;
         
         Ok(())
@@ -122,7 +122,7 @@ impl FileClass {
             "File.exists",
             &[WasmType::I32],
             Some(WasmType::I32),
-            self.generate_exists()
+            self.generate_exists(codegen)?
         )?;
         
         // File.isFile(string path) -> boolean
@@ -282,12 +282,28 @@ impl FileClass {
 
     // Implementation methods for file operations
 
-    fn generate_read(&self) -> Vec<Instruction> {
-        vec![
-            // For now, return empty string
-            // TODO: Implement actual file reading with WebAssembly file imports
-            Instruction::I32Const(0),
-        ]
+    fn generate_read(&self, codegen: &CodeGenerator) -> Result<Vec<Instruction>, CompilerError> {
+        let import_index = codegen.get_file_import_index("file_read")
+            .ok_or_else(|| CompilerError::codegen_error(
+                "File import function 'file_read' not found",
+                Some("Make sure file imports are properly registered".to_string()),
+                None
+            ))?;
+
+        Ok(vec![
+            // Load path string data pointer and length
+            Instruction::LocalGet(0), // path string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // path data ptr (skip 4-byte length prefix)
+            Instruction::LocalGet(0),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
+            
+            // Allocate memory for result - for now, use a simple fixed allocation
+            Instruction::I32Const(1024), // result buffer pointer (placeholder - should be proper allocation)
+            
+            // Call the file_read import function
+            Instruction::Call(import_index),
+        ])
     }
 
     fn generate_read_bytes(&self) -> Vec<Instruction> {
@@ -306,12 +322,32 @@ impl FileClass {
         ]
     }
 
-    fn generate_write(&self) -> Vec<Instruction> {
-        vec![
-            // For now, return false (operation failed)
-            // TODO: Implement file writing
-            Instruction::I32Const(0),
-        ]
+    fn generate_write(&self, codegen: &CodeGenerator) -> Result<Vec<Instruction>, CompilerError> {
+        let import_index = codegen.get_file_import_index("file_write")
+            .ok_or_else(|| CompilerError::codegen_error(
+                "File import function 'file_write' not found",
+                Some("Make sure file imports are properly registered".to_string()),
+                None
+            ))?;
+
+        Ok(vec![
+            // Load path string data pointer and length
+            Instruction::LocalGet(0), // path string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // path data ptr
+            Instruction::LocalGet(0),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
+            
+            // Load content string data pointer and length
+            Instruction::LocalGet(1), // content string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // content data ptr
+            Instruction::LocalGet(1),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // content length
+            
+            // Call the file_write import function
+            Instruction::Call(import_index),
+        ])
     }
 
     fn generate_write_bytes(&self) -> Vec<Instruction> {
@@ -322,12 +358,32 @@ impl FileClass {
         ]
     }
 
-    fn generate_append(&self) -> Vec<Instruction> {
-        vec![
-            // For now, return false
-            // TODO: Implement file appending
-            Instruction::I32Const(0),
-        ]
+    fn generate_append(&self, codegen: &CodeGenerator) -> Result<Vec<Instruction>, CompilerError> {
+        let import_index = codegen.get_file_import_index("file_append")
+            .ok_or_else(|| CompilerError::codegen_error(
+                "File import function 'file_append' not found",
+                Some("Make sure file imports are properly registered".to_string()),
+                None
+            ))?;
+
+        Ok(vec![
+            // Load path string data pointer and length
+            Instruction::LocalGet(0), // path string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // path data ptr
+            Instruction::LocalGet(0),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
+            
+            // Load content string data pointer and length
+            Instruction::LocalGet(1), // content string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // content data ptr
+            Instruction::LocalGet(1),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // content length
+            
+            // Call the file_append import function
+            Instruction::Call(import_index),
+        ])
     }
 
     fn generate_copy(&self) -> Vec<Instruction> {
@@ -346,20 +402,46 @@ impl FileClass {
         ]
     }
 
-    fn generate_delete(&self) -> Vec<Instruction> {
-        vec![
-            // For now, return false
-            // TODO: Implement file deletion
-            Instruction::I32Const(0),
-        ]
+    fn generate_delete(&self, codegen: &CodeGenerator) -> Result<Vec<Instruction>, CompilerError> {
+        let import_index = codegen.get_file_import_index("file_delete")
+            .ok_or_else(|| CompilerError::codegen_error(
+                "File import function 'file_delete' not found",
+                Some("Make sure file imports are properly registered".to_string()),
+                None
+            ))?;
+
+        Ok(vec![
+            // Load path string data pointer and length
+            Instruction::LocalGet(0), // path string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // path data ptr
+            Instruction::LocalGet(0),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
+            
+            // Call the file_delete import function
+            Instruction::Call(import_index),
+        ])
     }
 
-    fn generate_exists(&self) -> Vec<Instruction> {
-        vec![
-            // For now, return false
-            // TODO: Implement file existence check
-            Instruction::I32Const(0),
-        ]
+    fn generate_exists(&self, codegen: &CodeGenerator) -> Result<Vec<Instruction>, CompilerError> {
+        let import_index = codegen.get_file_import_index("file_exists")
+            .ok_or_else(|| CompilerError::codegen_error(
+                "File import function 'file_exists' not found",
+                Some("Make sure file imports are properly registered".to_string()),
+                None
+            ))?;
+
+        Ok(vec![
+            // Load path string data pointer and length
+            Instruction::LocalGet(0), // path string pointer
+            Instruction::I32Const(4),
+            Instruction::I32Add, // path data ptr
+            Instruction::LocalGet(0),
+            Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
+            
+            // Call the file_exists import function
+            Instruction::Call(import_index),
+        ])
     }
 
     fn generate_is_file(&self) -> Vec<Instruction> {

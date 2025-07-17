@@ -23,6 +23,7 @@ impl TypeManager {
     }
 
     /// Get a reference to the type section
+    #[allow(dead_code)]
     pub(crate) fn get_type_section(&self) -> &TypeSection {
         &self.type_section
     }
@@ -56,11 +57,13 @@ impl TypeManager {
     }
 
     /// Get the function types stored in this manager
+    #[allow(dead_code)]
     pub(crate) fn get_function_types(&self) -> &Vec<FuncType> {
         &self.function_types
     }
 
     /// Check if conversion is possible between two types
+    #[allow(dead_code)]
     pub(crate) fn can_convert(&self, from: WasmType, to: WasmType) -> bool {
         // Any type is compatible with any other type
         if from == WasmType::I32 && to == WasmType::I32 {
@@ -79,6 +82,7 @@ impl TypeManager {
     }
     
     /// Check if the given expression is a string type
+    #[allow(dead_code)]
     pub(crate) fn is_string_type(&self, expr: &Expression) -> bool {
         match expr {
             Expression::Literal(Value::String(_)) => true,
@@ -89,6 +93,7 @@ impl TypeManager {
     }
 
     /// Convert AST type to WasmType
+    #[allow(dead_code)]
     pub(crate) fn ast_type_to_wasm_type(&self, ast_type: &Type) -> Result<WasmType, CompilerError> {
         match ast_type {
             Type::Boolean => Ok(WasmType::I32),
@@ -108,7 +113,6 @@ impl TypeManager {
             Type::IntegerSized { bits: 64, .. } => Ok(WasmType::I64),
             Type::NumberSized { bits: 32 } => Ok(WasmType::F32),
             Type::NumberSized { bits: 64 } => Ok(WasmType::F64),
-            Type::List(_) => Ok(WasmType::I32), // Pointer to list structure
             Type::Class { .. } => Ok(WasmType::I32), // Pointer to object
             Type::Function(_, _) => Ok(WasmType::I32), // Function pointer
             _ => Ok(WasmType::I32), // Default fallback for any other types
@@ -116,13 +120,13 @@ impl TypeManager {
     }
 
     /// Infer the WasmType from a Value
+    #[allow(dead_code)]
     pub(crate) fn infer_type(&self, value: &Value) -> Result<WasmType, CompilerError> {
         Ok(match value {
             Value::Integer(_) => WasmType::I32,
             Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
             Value::Number(_) => WasmType::F64,
-            Value::List(_) => WasmType::I32, // Lists are pointers in WASM
             Value::List(_) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
             Value::Void => WasmType::I32,       // Void represented as I32
@@ -138,13 +142,13 @@ impl TypeManager {
         })
     }
 
+    #[allow(dead_code)]
     pub fn convert_value_to_wasm_type(&self, value: &Value) -> Result<WasmType, CompilerError> {
         Ok(match value {
             Value::Integer(_) => WasmType::I32,
             Value::Boolean(_) => WasmType::I32, // Booleans are represented as I32 in WASM
             Value::String(_) => WasmType::I32,  // Strings are pointers in WASM
             Value::Number(_) => WasmType::F64,
-            Value::List(_) => WasmType::I32, // Lists are pointers in WASM
             Value::List(_) => WasmType::I32, // Lists are pointers in WASM
             Value::Matrix(_) => WasmType::I32,  // Matrices are pointers in WASM
             Value::Void => WasmType::I32,       // Void represented as I32
@@ -161,6 +165,7 @@ impl TypeManager {
     }
 
     /// Check if a type is Any
+    #[allow(dead_code)]
     pub(crate) fn is_any_type(&self, ast_type: &Type) -> bool {
         matches!(ast_type, Type::Any)
     }

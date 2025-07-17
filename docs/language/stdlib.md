@@ -5,7 +5,7 @@ The Clean Language comes with a comprehensive standard library that provides ess
 ## Table of Contents
 
 1. [String Operations](#string-operations)
-2. [Array Operations](#array-operations)
+2. [List Operations](#list-operations)
 3. [Math Functions](#math-functions)
 4. [Memory Management](#memory-management)
 5. [Error Handling](#error-handling)
@@ -118,44 +118,44 @@ start()
     print(sub)
 ```
 
-## Array Operations
+## List Operations
 
-The `array` module provides functions for working with arrays.
+The `list` module provides functions for working with lists.
 
-### array.length
+### list.length
 
-Returns the length of an array.
+Returns the length of a list.
 
 **Signature**
 ```
-function array.length(arr: array): int
+function list.length(arr: list): int
 ```
 
 **Parameters**
-- `arr`: The input array
+- `arr`: The input list
 
 **Returns**
-- The number of elements in the array
+- The number of elements in the list
 
 **Example**
 ```
 start()
     arr = [1, 2, 3, 4, 5]
-    len = array.length(arr)  // 5
+    len = list.length(arr)  // 5
     print(len)
 ```
 
-### array.get
+### list.get
 
 Gets the element at the specified index.
 
 **Signature**
 ```
-function array.get(arr: array, index: int): any
+function list.get(arr: list, index: int): any
 ```
 
 **Parameters**
-- `arr`: The input array
+- `arr`: The input list
 - `index`: The index (0-based)
 
 **Returns**
@@ -165,21 +165,21 @@ function array.get(arr: array, index: int): any
 ```
 start()
     arr = [10, 20, 30, 40, 50]
-    element = array.get(arr, 2)  // 30
+    element = list.get(arr, 2)  // 30
     print(element)
 ```
 
-### array.set
+### list.set
 
 Sets the element at the specified index.
 
 **Signature**
 ```
-function array.set(arr: array, index: int, value: any): void
+function list.set(arr: list, index: int, value: any): void
 ```
 
 **Parameters**
-- `arr`: The input array
+- `arr`: The input list
 - `index`: The index (0-based)
 - `value`: The new value
 
@@ -187,81 +187,81 @@ function array.set(arr: array, index: int, value: any): void
 ```
 start()
     arr = [10, 20, 30, 40, 50]
-    array.set(arr, 2, 99)  // arr becomes [10, 20, 99, 40, 50]
+    list.set(arr, 2, 99)  // arr becomes [10, 20, 99, 40, 50]
     print(arr)
 ```
 
-### array.iterate
+### list.iterate
 
-Iterates over an array, calling a function for each element.
+Iterates over a list, calling a function for each element.
 
 **Signature**
 ```
-function array.iterate(arr: array, callback: function): void
+function list.iterate(arr: list, callback: function): void
 ```
 
 **Parameters**
-- `arr`: The input array
+- `arr`: The input list
 - `callback`: A function that takes an element as its parameter
 
 **Example**
 ```
 start()
     arr = [1, 2, 3, 4, 5]
-    array.iterate(arr, printElement)
+    list.iterate(arr, printElement)
 
 function printElement(element)
     print(element)
 ```
 
-### array.map
+### list.map
 
-Creates a new array by calling a function on each element of the original array.
+Creates a new list by calling a function on each element of the original list.
 
 **Signature**
 ```
-function array.map(arr: array, callback: function): array
+function list.map(arr: list, callback: function): list
 ```
 
 **Parameters**
-- `arr`: The input array
+- `arr`: The input list
 - `callback`: A function that takes an element as its parameter and returns a new value
 
 **Returns**
-- A new array containing the results of calling the callback function on each element
+- A new list containing the results of calling the callback function on each element
 
 **Example**
 ```
 start()
     arr = [1, 2, 3, 4, 5]
-    doubled = array.map(arr, double)  // [2, 4, 6, 8, 10]
+    doubled = list.map(arr, double)  // [2, 4, 6, 8, 10]
     print(doubled)
 
 function double(x)
     return x * 2
 ```
 
-### array.filter
+### list.filter
 
-Creates a new array with all elements that pass the test implemented by the provided function.
+Creates a new list with all elements that pass the test implemented by the provided function.
 
 **Signature**
 ```
-function array.filter(arr: array, callback: function): array
+function list.filter(arr: list, callback: function): list
 ```
 
 **Parameters**
-- `arr`: The input array
+- `arr`: The input list
 - `callback`: A function that takes an element as its parameter and returns a boolean
 
 **Returns**
-- A new array containing the elements that pass the test
+- A new list containing the elements that pass the test
 
 **Example**
 ```
 start()
     arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    evens = array.filter(arr, isEven)  // [2, 4, 6, 8, 10]
+    evens = list.filter(arr, isEven)  // [2, 4, 6, 8, 10]
     print(evens)
 
 function isEven(x)

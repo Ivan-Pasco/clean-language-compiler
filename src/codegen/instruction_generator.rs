@@ -38,8 +38,11 @@ impl FuncType {
 
 /// Generates WebAssembly instructions for various language constructs
 pub(crate) struct InstructionGenerator {
+    #[allow(dead_code)]
     type_manager: TypeManager,
+    #[allow(dead_code)]
     variable_map: std::collections::HashMap<String, LocalVarInfo>,
+    #[allow(dead_code)]
     current_locals: Vec<LocalVarInfo>,
     function_map: std::collections::HashMap<String, u32>, // Simple name -> primary index mapping
     function_signatures: std::collections::HashMap<String, u32>, // signature -> index mapping
@@ -60,17 +63,20 @@ impl InstructionGenerator {
     }
     
     /// Add a function mapping from name to index
+    #[allow(dead_code)]
     pub(crate) fn add_function_mapping(&mut self, name: &str, index: u32) {
         self.function_map.insert(name.to_string(), index);
     }
     
     /// Reset locals for a new function
+    #[allow(dead_code)]
     pub(crate) fn reset_locals(&mut self) {
         self.current_locals.clear();
         self.variable_map.clear();
     }
     
     /// Get the current locals
+    #[allow(dead_code)]
     pub(crate) fn get_current_locals(&self) -> &Vec<LocalVarInfo> {
         &self.current_locals
     }
@@ -96,6 +102,7 @@ impl InstructionGenerator {
     }
     
     /// Determine the type of an expression without generating instructions
+    #[allow(dead_code)]
     pub(crate) fn get_expression_type(&self, expr: &Expression) -> Result<WasmType, CompilerError> {
         match expr {
             Expression::Literal(value) => {
@@ -151,11 +158,13 @@ impl InstructionGenerator {
     }
     
     /// Find a local variable by name
+    #[allow(dead_code)]
     pub(crate) fn find_local(&self, name: &str) -> Option<&LocalVarInfo> {
         self.variable_map.get(name)
     }
     
     /// Add a parameter to the list of locals
+    #[allow(dead_code)]
     pub(crate) fn add_parameter(&mut self, name: &str, wasm_type: WasmType) {
         let local_info = LocalVarInfo {
             index: self.current_locals.len() as u32,
@@ -166,6 +175,7 @@ impl InstructionGenerator {
     }
 
     /// Generate instructions for a binary operation
+    #[allow(dead_code)]
     pub(crate) fn generate_binary_operation(
         &mut self,
         left: &Expression,
@@ -240,12 +250,30 @@ impl InstructionGenerator {
                     ast::BinaryOperator::Subtract => { instructions.push(Instruction::I32Sub); Ok(WasmType::I32) },
                     ast::BinaryOperator::Multiply => { instructions.push(Instruction::I32Mul); Ok(WasmType::I32) },
                     ast::BinaryOperator::Divide => { instructions.push(Instruction::I32DivS); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Modulo => { instructions.push(Instruction::I32RemS); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Power => {
+                        // Convert to F64 for power operation
+                        instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                        instructions.push(Instruction::F64ConvertI32S);
+                        if let Some(pow_index) = self.get_function_index("pow") {
+                            instructions.push(Instruction::Call(pow_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Power function not found".to_string(), None, None
+                            ))
+                        }
+                    },
                     ast::BinaryOperator::Equal => { instructions.push(Instruction::I32Eq); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::NotEqual => { instructions.push(Instruction::I32Ne); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::Less => { instructions.push(Instruction::I32LtS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::Greater => { instructions.push(Instruction::I32GtS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::I32LeS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::I32GeS); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::And => { instructions.push(Instruction::I32And); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Or => { instructions.push(Instruction::I32Or); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Is => { instructions.push(Instruction::I32Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Not => { instructions.push(Instruction::I32Ne); Ok(WasmType::I32) },
                     _ => Err(CompilerError::type_error(
                         format!("Unsupported I32 binary operator: {:?}", op), None, None
                     )),
@@ -258,12 +286,46 @@ impl InstructionGenerator {
                     ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
                     ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
                     ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Modulo => {
+                        if let Some(mod_index) = self.get_function_index("mod") {
+                            instructions.push(Instruction::Call(mod_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Modulo function not found".to_string(), None, None
+                            ))
+                        }
+                    },
+                    ast::BinaryOperator::Power => {
+                        if let Some(pow_index) = self.get_function_index("pow") {
+                            instructions.push(Instruction::Call(pow_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Power function not found".to_string(), None, None
+                            ))
+                        }
+                    },
                     ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) }, 
+                    ast::BinaryOperator::And => { 
+                        // Convert F64 to I32 for logical operations
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32And);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Or => { 
+                        // Convert F64 to I32 for logical operations  
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32Or);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Is => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Not => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
                     _ => Err(CompilerError::type_error(
                         format!("Unsupported F64 binary operator: {:?}", op), None, None
                     ))
@@ -277,12 +339,46 @@ impl InstructionGenerator {
                     ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
                     ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
                     ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Modulo => {
+                        if let Some(mod_index) = self.get_function_index("mod") {
+                            instructions.push(Instruction::Call(mod_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Modulo function not found".to_string(), None, None
+                            ))
+                        }
+                    },
+                    ast::BinaryOperator::Power => {
+                        if let Some(pow_index) = self.get_function_index("pow") {
+                            instructions.push(Instruction::Call(pow_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Power function not found".to_string(), None, None
+                            ))
+                        }
+                    },
                     ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
                     ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
                     ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) },
                     ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) },
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) },
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) },
+                    ast::BinaryOperator::And => { 
+                        // Both are already converted to F64, truncate to I32 for logical ops
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32And);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Or => { 
+                        // Both are already converted to F64, truncate to I32 for logical ops
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32Or);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Is => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Not => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
                     _ => Err(CompilerError::type_error(
                         format!("Unsupported mixed I32/F64 binary operator: {:?}", op), None, None
                     ))
@@ -296,12 +392,46 @@ impl InstructionGenerator {
                     ast::BinaryOperator::Subtract => { instructions.push(Instruction::F64Sub); Ok(WasmType::F64) },
                     ast::BinaryOperator::Multiply => { instructions.push(Instruction::F64Mul); Ok(WasmType::F64) },
                     ast::BinaryOperator::Divide => { instructions.push(Instruction::F64Div); Ok(WasmType::F64) },
+                    ast::BinaryOperator::Modulo => {
+                        if let Some(mod_index) = self.get_function_index("mod") {
+                            instructions.push(Instruction::Call(mod_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Modulo function not found".to_string(), None, None
+                            ))
+                        }
+                    },
+                    ast::BinaryOperator::Power => {
+                        if let Some(pow_index) = self.get_function_index("pow") {
+                            instructions.push(Instruction::Call(pow_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error(
+                                "Power function not found".to_string(), None, None
+                            ))
+                        }
+                    },
                     ast::BinaryOperator::Equal => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
                     ast::BinaryOperator::NotEqual => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
                     ast::BinaryOperator::Less => { instructions.push(Instruction::F64Lt); Ok(WasmType::I32) },
                     ast::BinaryOperator::Greater => { instructions.push(Instruction::F64Gt); Ok(WasmType::I32) },
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) },
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) },
+                    ast::BinaryOperator::And => { 
+                        // Both are already converted to F64, truncate to I32 for logical ops
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32And);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Or => { 
+                        // Both are already converted to F64, truncate to I32 for logical ops
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32Or);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Is => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Not => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
                     _ => Err(CompilerError::type_error(
                         format!("Unsupported mixed F64/I32 binary operator: {:?}", op), None, None
                     ))
@@ -315,6 +445,7 @@ impl InstructionGenerator {
     }
 
     /// Generate instructions for a statement
+    #[allow(dead_code)]
     pub(crate) fn generate_statement(&mut self, stmt: &Statement, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         match stmt {
             Statement::VariableDecl { name, type_, initializer, location: _ } => {
@@ -554,6 +685,7 @@ impl InstructionGenerator {
     }
 
     /// Generate instructions for an expression
+    #[allow(dead_code)]
     pub(crate) fn generate_expression(&mut self, expr: &Expression, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
         // Extract location if available, or use None
         let loc = match expr {
@@ -651,8 +783,8 @@ impl InstructionGenerator {
                     ))
                 }
             },
-            Expression::ArrayAccess(array, index) => {
-                self.generate_array_access(array, index, instructions)
+            Expression::ListAccess(list, index) => {
+                self.generate_list_access(list, index, instructions)
             },
             Expression::MatrixAccess(matrix, row, col) => {
                 self.generate_expression(matrix, instructions)?;
@@ -698,6 +830,7 @@ impl InstructionGenerator {
     }
 
     /// Generate instructions for a value
+    #[allow(dead_code)]
     pub(crate) fn generate_value(&mut self, value: &Value, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
         match value {
             Value::Number(f) => {
@@ -716,12 +849,6 @@ impl InstructionGenerator {
             },
             Value::Boolean(b) => {
                 instructions.push(Instruction::I32Const(if *b { 1 } else { 0 }));
-                Ok(WasmType::I32)
-            },
-            Value::List(_) => {
-                // This should use memory.allocate_array
-                // For now, just return a placeholder pointing to "empty array"
-                instructions.push(Instruction::I32Const(0));
                 Ok(WasmType::I32)
             },
             Value::Matrix(_) => {
@@ -847,6 +974,7 @@ impl InstructionGenerator {
     }
     
     /// Generate string interpolation instructions
+    #[allow(dead_code)]
     pub(crate) fn generate_string_interpolation(
         &mut self, 
         parts: &[StringPart], 
@@ -895,6 +1023,7 @@ impl InstructionGenerator {
     }
     
     /// Generate error handler instructions
+    #[allow(dead_code)]
     pub(crate) fn generate_error_handler_blocks(
         &mut self,
         try_block: &[Statement],
@@ -944,6 +1073,7 @@ impl InstructionGenerator {
     }
 
     /// Generate matrix operation instructions
+    #[allow(dead_code)]
     pub(crate) fn generate_matrix_operation(
         &mut self,
         left: &Expression,
@@ -1055,6 +1185,7 @@ impl InstructionGenerator {
     }
     
     /// Check if a function returns void (has no return values)
+    #[allow(dead_code)]
     pub(crate) fn is_void_function(&self, index: u32) -> bool {
         if let Some(func_type) = self.get_function_type(index) {
             func_type.results().is_empty()
@@ -1063,43 +1194,49 @@ impl InstructionGenerator {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_array_get(&self) -> u32 {
         // Return default array_get function index
         self.get_function_index("array_get").unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_array_length(&self) -> u32 {
         // Return default array_length function index
         self.get_function_index("array_length").unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_matrix_get(&self) -> u32 {
         // Return default matrix_get function index
         self.get_function_index("matrix_get").unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_print_function_index(&self) -> u32 {
         // Return default print function index
         self.get_function_index("print").unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_printl_function_index(&self) -> u32 {
         // Return default printl function index
         self.get_function_index("printl").unwrap_or(0)
     }
 
-    pub(crate) fn generate_array_access(
+    #[allow(dead_code)]
+    pub(crate) fn generate_list_access(
         &mut self,
-        array: &Expression,
+        list: &Expression,
         index: &Expression,
         instructions: &mut Vec<Instruction>
     ) -> Result<WasmType, CompilerError> {
-        // First, generate the array expression
-        let array_type = self.generate_expression(array, instructions)?;
-        if array_type != WasmType::I32 {
+        // First, generate the list expression
+        let list_type = self.generate_expression(list, instructions)?;
+        if list_type != WasmType::I32 {
             return Err(CompilerError::codegen_error(
-                "Array access requires array pointer (I32)",
-                Some("The array must be a valid array pointer".to_string()),
+                "List access requires list pointer (I32)",
+                Some("The list must be a valid list pointer".to_string()),
                 None
             ));
         }
@@ -1108,15 +1245,15 @@ impl InstructionGenerator {
         let index_type = self.generate_expression(index, instructions)?;
         if index_type != WasmType::I32 {
             return Err(CompilerError::codegen_error(
-                "Array index must be I32",
-                Some("The array index must be an integer".to_string()),
+                "List index must be I32",
+                Some("The list index must be an integer".to_string()),
                 None
             ));
         }
         
-        // Get the array_get function index
-        if let Some(array_get_index) = self.get_function_index("array_get") {
-            instructions.push(Instruction::Call(array_get_index));
+        // Get the list_get function index
+        if let Some(list_get_index) = self.get_function_index("list.get") {
+            instructions.push(Instruction::Call(list_get_index));
             
             // Access the element from memory
             instructions.push(Instruction::I32Load(MemArg {
@@ -1128,8 +1265,8 @@ impl InstructionGenerator {
             return Ok(WasmType::I32);
         } else {
             return Err(CompilerError::codegen_error(
-                "array_get function not found",
-                Some("The array_get function is not registered".to_string()),
+                "list.get function not found",
+                Some("The list.get function is not registered".to_string()),
                 None
             ));
         }
@@ -1137,6 +1274,7 @@ impl InstructionGenerator {
 }
 
 /// Group locals of the same type to reduce WASM size
+#[allow(dead_code)]
 pub fn group_locals(locals: &[wasm_encoder::ValType]) -> Vec<(u32, wasm_encoder::ValType)> {
     let mut grouped: Vec<(u32, wasm_encoder::ValType)> = Vec::new();
     if locals.is_empty() {

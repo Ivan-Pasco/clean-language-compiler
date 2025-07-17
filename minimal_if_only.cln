@@ -1,0 +1,3 @@
+start()
+	if true
+		print "test"

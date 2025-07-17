@@ -79,11 +79,11 @@ true
 false
 ```
 
-#### Arrays
+#### Lists
 ```
 [1, 2, 3, 4]
 ["a", "b", "c"]
-[]  // Empty array
+[]  // Empty list
 ```
 
 #### Matrices
@@ -107,8 +107,8 @@ false
 
 | Type     | Description           | Example                |
 |----------|-----------------------|------------------------|
-| `array`  | List of values        | `[1, 2, 3]`            |
-| `matrix` | 2D array              | `[[1, 2], [3, 4]]`     |
+| `list`  | List of values        | `[1, 2, 3]`            |
+| `matrix` | 2D list              | `[[1, 2], [3, 4]]`     |
 | `object` | Instance of a class   | `Point(2, 3)`          |
 
 ### Type Annotations
@@ -383,15 +383,15 @@ import function1, function2 from "module"
 | `string.concat(s1, s2)` | Concatenates strings | `string.concat("a", "b")` |
 | `string.compare(s1, s2)` | Compares strings | `string.compare("a", "b")` |
 
-### Array Operations
+### List Operations
 
 | Function | Description | Example |
 |----------|-------------|---------|
-| `array.length(arr)` | Returns array length | `array.length([1,2,3])` |
-| `array.get(arr, index)` | Gets element at index | `array.get(arr, 0)` |
-| `array.set(arr, index, value)` | Sets element at index | `array.set(arr, 0, 42)` |
-| `array.iterate(arr, callback)` | Iterates over elements | `array.iterate(arr, print)` |
-| `array.map(arr, callback)` | Maps elements | `array.map(arr, double)` |
+| `list.length(arr)` | Returns list length | `list.length([1,2,3])` |
+| `list.get(arr, index)` | Gets element at index | `list.get(arr, 0)` |
+| `list.set(arr, index, value)` | Sets element at index | `list.set(arr, 0, 42)` |
+| `list.iterate(arr, callback)` | Iterates over elements | `list.iterate(arr, print)` |
+| `list.map(arr, callback)` | Maps elements | `list.map(arr, double)` |
 
 ### Math Operations
 
@@ -465,9 +465,9 @@ unary_expr = [ "not" | "-" ] primary_expr ;
 
 primary_expr = literal | identifier | function_call | "(" expression ")" ;
 
-literal = integer | float | string | boolean | array | matrix ;
+literal = integer | float | string | boolean | list | matrix ;
 
-type = "int" | "long" | "float" | "boolean" | "string" | "array" | "matrix" | identifier ;
+type = "int" | "long" | "float" | "boolean" | "string" | "list" | "matrix" | identifier ;
 ```
 
 Note: This grammar is simplified and not complete. The actual parser implements additional rules and error handling. 

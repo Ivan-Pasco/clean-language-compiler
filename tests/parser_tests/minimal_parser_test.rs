@@ -49,7 +49,7 @@ type_parameter = @{ identifier }
 type_parameters = { "<" ~ type_parameter ~ ("," ~ type_parameter)* ~ ">" }
 
 matrix_type = { "Matrix" ~ "<" ~ type_ ~ ">" }
-array_type = { "Array" ~ "<" ~ type_ ~ ">" }
+array_type = { "list" ~ "<" ~ type_ ~ ">" }
 
 // Block definition
 block = { "{" ~ statement* ~ "}" }

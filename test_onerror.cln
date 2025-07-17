@@ -1,0 +1,5 @@
+start()
+	string result = http.get("https://invalid-url") onError:
+		print "HTTP request failed"
+		return "error"
+	print result

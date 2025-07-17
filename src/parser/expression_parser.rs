@@ -234,7 +234,7 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
         Rule::function_call => parse_function_call(inner),
         Rule::method_call => parse_method_call(inner),
         Rule::property_access => parse_property_access(inner),
-        Rule::array_access => parse_array_access(inner),
+        Rule::list_access => parse_list_access(inner),
         Rule::error_variable => {
             // Parse error variable
             Ok(Expression::ErrorVariable {
@@ -536,18 +536,18 @@ pub fn parse_property_access(pair: Pair<Rule>) -> Result<Expression, CompilerErr
     Ok(current_expr)
 }
 
-pub fn parse_array_access(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+pub fn parse_list_access(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     let mut inner = pair.into_inner();
     
-    // First element is the array identifier
-    let array_name = inner.next().unwrap().as_str().to_string();
-    let array_expr = Expression::Variable(array_name);
+    // First element is the list identifier
+    let list_name = inner.next().unwrap().as_str().to_string();
+    let list_expr = Expression::Variable(list_name);
     
     // Second element is the index expression
     let index_pair = inner.next().unwrap();
     let index_expr = parse_expression(index_pair)?;
     
-    Ok(Expression::ArrayAccess(Box::new(array_expr), Box::new(index_expr)))
+    Ok(Expression::ListAccess(Box::new(list_expr), Box::new(index_expr)))
 }
 
 pub fn parse_multiline_parenthesized_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {

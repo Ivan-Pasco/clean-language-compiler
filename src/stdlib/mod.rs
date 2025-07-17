@@ -1,7 +1,7 @@
 // Core standard library modules
 pub mod numeric_ops;
 pub mod string_ops;
-pub mod array_ops;
+pub mod list_ops;
 pub mod matrix_ops;
 pub mod type_conv;
 pub mod memory;
@@ -12,7 +12,7 @@ pub mod console_ops;
 // Class-based standard library modules
 pub mod math_class;
 pub mod string_class;
-pub mod array_class;
+pub mod list_class;
 pub mod file_class;
 pub mod http_class;
 pub mod list_behavior;
@@ -20,7 +20,7 @@ pub mod list_behavior;
 // Re-exports for convenience
 pub use numeric_ops::NumericOperations;
 pub use string_ops::{StringOperations, StringManager};
-pub use array_ops::ArrayManager;
+pub use list_ops::ListManager;
 pub use matrix_ops::MatrixOperations;
 pub use type_conv::TypeConvOperations;
 pub use memory::MemoryManager;
@@ -28,7 +28,7 @@ pub use basic_ops::basic_ops::*;
 pub use error::StdlibError;
 pub use math_class::MathClass;
 pub use string_class::StringClass;
-pub use array_class::ArrayClass;
+pub use list_class::ListClass;
 pub use file_class::FileClass;
 pub use http_class::HttpClass;
 pub use list_behavior::ListBehaviorManager;
@@ -49,7 +49,7 @@ pub struct StandardLibrary {
     type_conv: TypeConvOperations,
     math_class: MathClass,
     string_class: StringClass,
-    array_class: ArrayClass,
+    list_class: ListClass,
     file_class: FileClass,
     http_class: HttpClass,
     list_behavior: ListBehaviorManager,
@@ -66,7 +66,7 @@ impl StandardLibrary {
             type_conv: TypeConvOperations::new(HEAP_START),
             math_class: MathClass::new(),
             string_class: StringClass::new(),
-            array_class: ArrayClass::new(),
+            list_class: ListClass::new(),
             file_class: FileClass::new(),
             http_class: HttpClass::new(),
             list_behavior: ListBehaviorManager::new(),
@@ -82,7 +82,7 @@ impl StandardLibrary {
         self.type_conv.register_functions(codegen)?;
         self.math_class.register_functions(codegen)?;
         self.string_class.register_functions(codegen)?;
-        self.array_class.register_functions(codegen)?;
+        self.list_class.register_functions(codegen)?;
         self.file_class.register_functions(codegen)?;
         self.http_class.register_functions(codegen)?;
         self.list_behavior.register_functions(codegen)?;
@@ -96,7 +96,7 @@ impl StandardLibrary {
 pub struct Runtime {
     pub memory: MemoryManager,
     pub strings: StringManager,
-    pub arrays: ArrayManager,
+    pub lists: ListManager,
 }
 
 impl Runtime {
@@ -104,14 +104,14 @@ impl Runtime {
         Self {
             memory: MemoryManager::new(16, Some(HEAP_START as u32)),
             strings: StringManager::new(MemoryManager::new(16, Some(HEAP_START as u32))),
-            arrays: ArrayManager::new(Rc::new(RefCell::new(MemoryManager::new(16, Some(HEAP_START as u32))))),
+            lists: ListManager::new(Rc::new(RefCell::new(MemoryManager::new(16, Some(HEAP_START as u32))))),
         }
     }
 
     pub fn reset(&mut self) {
         self.memory = MemoryManager::new(16, Some(HEAP_START as u32));
         self.strings = StringManager::new(MemoryManager::new(16, Some(HEAP_START as u32)));
-        self.arrays = ArrayManager::new(Rc::new(RefCell::new(MemoryManager::new(16, Some(HEAP_START as u32)))));
+        self.lists = ListManager::new(Rc::new(RefCell::new(MemoryManager::new(16, Some(HEAP_START as u32)))));
     }
 }
 
@@ -137,7 +137,7 @@ impl StdLib {
 
     pub fn register_functions(&mut self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
         self.runtime.strings.register_functions(codegen)?;
-        self.runtime.arrays.register_functions(codegen)?;
+        self.runtime.lists.register_functions(codegen)?;
         self.numeric_ops.register_functions(codegen)?;
         self.type_conv.register_functions(codegen)?;
         Ok(())

@@ -95,91 +95,153 @@ impl SemanticAnalyzer {
             vec![(vec![Type::Any, Type::Any], Type::Void, 2)]
         );
 
-        // Array and string operations (removed - now only available as methods)
+        // List and string operations (removed - now only available as methods)
         // length, isEmpty, isNotEmpty, isDefined, isNotDefined, keepBetween
         // are now ONLY available as method-style calls
 
-        // Math functions - register Integer version first for exact match priority
-        self.register_builtin("abs", vec![Type::Integer], Type::Integer);
-        self.register_builtin("abs", vec![Type::Number], Type::Number);
-        self.register_builtin("sqrt", vec![Type::Number], Type::Number);
-        self.register_builtin("pow", vec![Type::Number, Type::Number], Type::Number);
-        self.register_builtin("sin", vec![Type::Number], Type::Number);
-        self.register_builtin("cos", vec![Type::Number], Type::Number);
-        self.register_builtin("tan", vec![Type::Number], Type::Number);
-
-        // Console input functions
-        self.register_builtin("input", vec![Type::String], Type::String);
-
-        // Additional mathematical functions
+        // Math functions - module.function() syntax
         self.function_table.insert(
-            "ln".to_string(),
+            "math.abs".to_string(),
+            vec![(vec![Type::Integer], Type::Integer, 1), (vec![Type::Number], Type::Number, 1)]
+        );
+        self.function_table.insert(
+            "math.sqrt".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        self.function_table.insert(
+            "math.pow".to_string(),
+            vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
+        );
+        self.function_table.insert(
+            "math.sin".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        self.function_table.insert(
+            "math.cos".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        self.function_table.insert(
+            "math.tan".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+
+        // Console functions - accessed directly without module prefix
+        self.function_table.insert(
+            "print".to_string(),
+            vec![(vec![Type::String], Type::Void, 1)]
+        );
+        self.function_table.insert(
+            "println".to_string(),
+            vec![(vec![Type::String], Type::Void, 1)]
+        );
+        self.function_table.insert(
+            "printl".to_string(),
+            vec![(vec![Type::String], Type::Void, 1)]
+        );
+        self.function_table.insert(
+            "input".to_string(),
+            vec![(vec![Type::String], Type::String, 1)]
+        );
+
+        // Additional mathematical functions - module.function() syntax
+        self.function_table.insert(
+            "math.ln".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "log10".to_string(),
+            "math.log10".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "log2".to_string(),
+            "math.log2".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "exp".to_string(),
+            "math.exp".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "exp2".to_string(),
+            "math.exp2".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "sinh".to_string(),
+            "math.sinh".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "cosh".to_string(),
+            "math.cosh".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "tanh".to_string(),
+            "math.tanh".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "asin".to_string(),
+            "math.asin".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "acos".to_string(),
+            "math.acos".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "atan".to_string(),
+            "math.atan".to_string(),
             vec![(vec![Type::Number], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "atan2".to_string(),
+            "math.atan2".to_string(),
             vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
         );
 
         self.function_table.insert(
-            "pi".to_string(),
+            "math.pi".to_string(),
             vec![(vec![], Type::Number, 0)]
         );
 
         self.function_table.insert(
-            "e".to_string(),
+            "math.e".to_string(),
             vec![(vec![], Type::Number, 0)]
+        );
+
+        self.function_table.insert(
+            "math.floor".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+
+        self.function_table.insert(
+            "math.ceil".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+
+        self.function_table.insert(
+            "math.round".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+
+        self.function_table.insert(
+            "math.min".to_string(),
+            vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
+        );
+
+        self.function_table.insert(
+            "math.max".to_string(),
+            vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
+        );
+
+        self.function_table.insert(
+            "math.mod".to_string(),
+            vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
         );
 
         // Type conversion functions
@@ -188,24 +250,19 @@ impl SemanticAnalyzer {
             vec![(vec![Type::Number], Type::String, 1)]
         );
 
-        // Console input functions
+        // Console input functions - accessed directly without module prefix
         self.function_table.insert(
-            "input".to_string(),
-            vec![(vec![Type::String], Type::String, 1)]
-        );
-
-        self.function_table.insert(
-            "input_integer".to_string(),
+            "inputInteger".to_string(),
             vec![(vec![Type::String], Type::Integer, 1)]
         );
 
         self.function_table.insert(
-            "input_float".to_string(),
+            "inputFloat".to_string(),
             vec![(vec![Type::String], Type::Number, 1)]
         );
 
         self.function_table.insert(
-            "input_yesno".to_string(),
+            "inputYesNo".to_string(),
             vec![(vec![Type::String], Type::Boolean, 1)]
         );
 
@@ -235,176 +292,221 @@ impl SemanticAnalyzer {
             vec![(vec![Type::String, Type::Integer, Type::Integer], Type::Integer, 3)]
         );
 
-        // String operations
+        // String operations - module.function() syntax
         self.function_table.insert(
-            "string_concat".to_string(),
+            "string.concat".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
 
         self.function_table.insert(
-            "string_compare".to_string(),
+            "string.compare".to_string(),
             vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
 
         self.function_table.insert(
-            "indexOf".to_string(),
+            "string.indexOf".to_string(),
             vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
 
         self.function_table.insert(
-            "lastIndexOf".to_string(),
+            "string.lastIndexOf".to_string(),
             vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
 
         self.function_table.insert(
-            "startsWith".to_string(),
+            "string.startsWith".to_string(),
             vec![(vec![Type::String, Type::String], Type::Boolean, 2)]
         );
 
         self.function_table.insert(
-            "endsWith".to_string(),
+            "string.endsWith".to_string(),
             vec![(vec![Type::String, Type::String], Type::Boolean, 2)]
         );
 
         self.function_table.insert(
-            "toUpperCase".to_string(),
+            "string.toUpperCase".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
 
         self.function_table.insert(
-            "toLowerCase".to_string(),
+            "string.toLowerCase".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
 
-        // Array operations
+        // List operations - module.function() syntax
         self.function_table.insert(
-            "array_get".to_string(),
+            "array.get".to_string(),
             vec![(vec![Type::List(Box::new(Type::Any)), Type::Integer], Type::Any, 2)]
         );
 
         self.function_table.insert(
-            "array_length".to_string(),
+            "array.length".to_string(),
             vec![(vec![Type::List(Box::new(Type::Any))], Type::Integer, 1)]
         );
 
         self.function_table.insert(
-            "array_join".to_string(),
+            "array.join".to_string(),
             vec![(vec![Type::List(Box::new(Type::Any)), Type::String], Type::String, 2)]
         );
 
-        // HTTP functionality - camelCase naming
         self.function_table.insert(
-            "httpGet".to_string(),
+            "array.push".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Any], Type::Integer, 2)]
+        );
+
+        self.function_table.insert(
+            "array.pop".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any))], Type::Any, 1)]
+        );
+
+        self.function_table.insert(
+            "array.slice".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Integer, Type::Integer], Type::List(Box::new(Type::Any)), 3)]
+        );
+
+        self.function_table.insert(
+            "array.concat".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::List(Box::new(Type::Any))], Type::List(Box::new(Type::Any)), 2)]
+        );
+
+        self.function_table.insert(
+            "array.reverse".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any))], Type::List(Box::new(Type::Any)), 1)]
+        );
+
+        self.function_table.insert(
+            "array.contains".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Any], Type::Boolean, 2)]
+        );
+
+        self.function_table.insert(
+            "array.indexOf".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Any], Type::Integer, 2)]
+        );
+
+        self.function_table.insert(
+            "array.map".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Function(vec![Type::Any], Box::new(Type::Any))], Type::List(Box::new(Type::Any)), 2)]
+        );
+
+        self.function_table.insert(
+            "array.iterate".to_string(),
+            vec![(vec![Type::List(Box::new(Type::Any)), Type::Function(vec![Type::Any], Box::new(Type::Void))], Type::Void, 2)]
+        );
+
+        // HTTP functionality - module.function() syntax
+        self.function_table.insert(
+            "http.get".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "httpPost".to_string(),
+            "http.post".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
-            "httpPut".to_string(),
+            "http.put".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
-            "httpDelete".to_string(),
+            "http.delete".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "httpPatch".to_string(),
+            "http.patch".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
 
         // Additional HTTP methods
         self.function_table.insert(
-            "httpHead".to_string(),
+            "http.head".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "httpOptions".to_string(),
+            "http.options".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "httpPostJson".to_string(),
+            "http.postJson".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
-            "httpPutJson".to_string(),
+            "http.putJson".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
         
         self.function_table.insert(
-            "httpPatchJson".to_string(),
+            "http.patchJson".to_string(),
             vec![(vec![Type::String, Type::String], Type::String, 2)]
         );
 
         // HTTP configuration functions
         self.function_table.insert(
-            "httpSetTimeout".to_string(),
+            "http.setTimeout".to_string(),
             vec![(vec![Type::Integer], Type::Void, 1)]
         );
         
         self.function_table.insert(
-            "httpSetUserAgent".to_string(),
+            "http.setUserAgent".to_string(),
             vec![(vec![Type::String], Type::Void, 1)]
         );
         
         self.function_table.insert(
-            "httpEnableCookies".to_string(),
+            "http.enableCookies".to_string(),
             vec![(vec![Type::Boolean], Type::Void, 1)]
         );
 
         // HTTP response functions
         self.function_table.insert(
-            "httpGetResponseCode".to_string(),
+            "http.getResponseCode".to_string(),
             vec![(vec![], Type::Integer, 0)]
         );
         
         self.function_table.insert(
-            "httpGetResponseHeaders".to_string(),
+            "http.getResponseHeaders".to_string(),
             vec![(vec![], Type::String, 0)]
         );
 
         // HTTP utility functions
         self.function_table.insert(
-            "httpEncodeUrl".to_string(),
+            "http.encodeUrl".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "httpDecodeUrl".to_string(),
+            "http.decodeUrl".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
 
-        // File I/O functionality
+        // File I/O functionality - module.function() syntax
         self.function_table.insert(
-            "file_read".to_string(),
+            "file.read".to_string(),
             vec![(vec![Type::String], Type::String, 1)]
         );
         
         self.function_table.insert(
-            "file_write".to_string(),
+            "file.write".to_string(),
             vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
         
         self.function_table.insert(
-            "file_append".to_string(),
+            "file.append".to_string(),
             vec![(vec![Type::String, Type::String], Type::Integer, 2)]
         );
         
         self.function_table.insert(
-            "file_exists".to_string(),
+            "file.exists".to_string(),
             vec![(vec![Type::String], Type::Boolean, 1)]
         );
         
         self.function_table.insert(
-            "file_delete".to_string(),
+            "file.delete".to_string(),
             vec![(vec![Type::String], Type::Boolean, 1)]
         );
     }
@@ -858,8 +960,8 @@ impl SemanticAnalyzer {
                             let valid_array_methods = ["length", "isEmpty", "push", "pop", "get", "set"];
                             if !valid_array_methods.contains(&method_name.as_str()) {
                                 return Err(CompilerError::type_error(
-                                    &format!("Method '{}' not found on Array type", method_name),
-                                    Some("Valid Array methods: length, isEmpty, push, pop, get, set".to_string()),
+                                    &format!("Method '{}' not found on List type", method_name),
+                                    Some("Valid List methods: length, isEmpty, push, pop, get, set".to_string()),
                                     None
                                 ));
                             }
@@ -1006,7 +1108,6 @@ impl SemanticAnalyzer {
                 let collection_type = self.check_expression(collection)?;
                 
                 let element_type = match collection_type {
-                    Type::List(element_type) => *element_type,
                     Type::List(element_type) => *element_type,
                     Type::String => Type::String, // Iterating over characters
                     _ => return Err(CompilerError::type_error(
@@ -1438,6 +1539,33 @@ impl SemanticAnalyzer {
                     }
                 }
 
+                // Check for built-in module calls
+                if let Expression::Variable(module_name) = &**object {
+                    match module_name.as_str() {
+                        "http" => {
+                            let function_name = format!("http.{}", method);
+                            return self.check_function_call(&function_name, arguments, Some(location.clone()));
+                        },
+                        "math" => {
+                            let function_name = format!("math.{}", method);
+                            return self.check_function_call(&function_name, arguments, Some(location.clone()));
+                        },
+                        "array" => {
+                            let function_name = format!("array.{}", method);
+                            return self.check_function_call(&function_name, arguments, Some(location.clone()));
+                        },
+                        "string" => {
+                            let function_name = format!("string.{}", method);
+                            return self.check_function_call(&function_name, arguments, Some(location.clone()));
+                        },
+                        "file" => {
+                            let function_name = format!("file.{}", method);
+                            return self.check_function_call(&function_name, arguments, Some(location.clone()));
+                        },
+                        _ => {}
+                    }
+                }
+
                 // Check if this is a call to an imported module's method
                 if let Expression::Variable(module_name) = &**object {
                     if let Some(ref imports) = self.current_imports.clone() {
@@ -1574,7 +1702,7 @@ impl SemanticAnalyzer {
             
             Expression::StaticMethodCall { class_name, method: _, arguments, location: _ } => {
                 // Handle static method calls
-                if class_name == "MathUtils" || class_name == "Array" || class_name == "File" || class_name == "Http" {
+                if class_name == "MathUtils" || class_name == "List" || class_name == "File" || class_name == "Http" {
                     // Built-in static methods - validate arguments and return appropriate type
                     for arg in arguments {
                         self.check_expression(arg)?;
@@ -1589,13 +1717,13 @@ impl SemanticAnalyzer {
                 }
             },
             
-            Expression::ArrayAccess(array, index) => {
+            Expression::ListAccess(array, index) => {
                 let array_type = self.check_expression(array)?;
                 let index_type = self.check_expression(index)?;
                 
                 if index_type != Type::Integer {
                     return Err(CompilerError::type_error(
-                        "Array index must be an integer".to_string(),
+                        "List index must be an integer".to_string(),
                         Some("Use integer values for array indexing".to_string()),
                         None
                     ));
@@ -1604,7 +1732,7 @@ impl SemanticAnalyzer {
                 match array_type {
                     Type::List(element_type) => Ok(*element_type),
                     _ => Err(CompilerError::type_error(
-                        "Array access can only be used on arrays".to_string(),
+                        "List access can only be used on lists".to_string(),
                         None,
                         None
                     ))
@@ -1663,13 +1791,6 @@ impl SemanticAnalyzer {
                 Ok(Type::Future(Box::new(expr_type)))
             },
             
-            Expression::PropertyAccess { object, property: _, location: _ } => {
-                // Check the object type and return the property type
-                let object_type = self.check_expression(object)?;
-                // For now, assume properties return the same type as the object
-                // In a full implementation, this would look up property types
-                Ok(object_type)
-            },
             
             Expression::OnError { expression, fallback, location: _ } => {
                 // OnError expression returns the type of the expression if successful,
@@ -1723,12 +1844,6 @@ impl SemanticAnalyzer {
                 // Later assignment returns the type of the expression being assigned
                 self.check_expression(expression)
             },
-            
-            // Catch-all for any truly unhandled expressions
-            _ => {
-                // Return Any type for any remaining unhandled expressions
-                Ok(Type::Any)
-            }
         }
     }
 
@@ -1743,6 +1858,7 @@ impl SemanticAnalyzer {
     }
 
     // Convert ast::SourceLocation to a location we can use
+    #[allow(dead_code)]
     fn convert_location(&self, location: &SourceLocation) -> SourceLocation {
         location.clone()
     }
@@ -1849,7 +1965,7 @@ impl SemanticAnalyzer {
                 return Ok(Type::Number);
             },
             
-            // String and Array methods
+            // String and List methods
             (Type::String | Type::List(_), "length") => {
                 if !args.is_empty() {
                     return Err(CompilerError::type_error(
@@ -2128,7 +2244,7 @@ impl SemanticAnalyzer {
                 return Ok(Type::String);
             },
             
-            // Array-specific methods
+            // List-specific methods
             (Type::List(_), "join") => {
                 if args.len() != 1 {
                     return Err(CompilerError::type_error(
@@ -2442,6 +2558,7 @@ impl SemanticAnalyzer {
         }
     }
 
+    #[allow(dead_code)]
     fn check_type_conversion_method(&mut self, object: &Expression, method: &str, args: &[Expression]) -> Result<Type, CompilerError> {
         // Type conversion methods don't take arguments
         if !args.is_empty() {
@@ -2465,6 +2582,7 @@ impl SemanticAnalyzer {
         }
     }
     
+    #[allow(dead_code)]
     fn push_error_scope(&mut self) {
         self.error_context_depth += 1;
         // Add error variable to the current scope with proper Error type
@@ -2472,11 +2590,13 @@ impl SemanticAnalyzer {
     }
     
     /// Create the Error type with proper structure
+    #[allow(dead_code)]
     fn create_error_type(&self) -> Type {
         // Error object has message (String), code (Integer), and location (String) properties
         Type::Object("Error".to_string())
     }
     
+    #[allow(dead_code)]
     fn pop_error_scope(&mut self) {
         self.error_context_depth -= 1;
         if self.error_context_depth == 0 {
@@ -2485,6 +2605,7 @@ impl SemanticAnalyzer {
         }
     }
     
+    #[allow(dead_code)]
     fn in_error_context(&self) -> bool {
         self.error_context_depth > 0
     }
@@ -2515,7 +2636,6 @@ impl SemanticAnalyzer {
             Type::Integer | Type::Number | Type::String | Type::Boolean | Type::Void | Type::Any => true,
             Type::List(element_type) => self.is_valid_type(element_type),
             Type::Object(class_name) => self.class_table.contains_key(class_name),
-            Type::List(element_type) => self.is_valid_type(element_type),
             Type::Future(inner_type) => self.is_valid_type(inner_type),
             Type::IntegerSized { .. } | Type::NumberSized { .. } => true,
             Type::Class { .. } => true, // Assume class types are valid if parsed
@@ -2578,7 +2698,7 @@ impl SemanticAnalyzer {
                 let mut is_compatible = true;
                 let mut is_exact = true;
                 
-                for (i, (arg_type, expected_type)) in arg_types.iter().zip(param_types.iter()).enumerate() {
+                for (_i, (arg_type, expected_type)) in arg_types.iter().zip(param_types.iter()).enumerate() {
                     if !self.types_compatible(expected_type, arg_type) {
                         is_compatible = false;
                         break;
@@ -2599,7 +2719,7 @@ impl SemanticAnalyzer {
             }
             
             // Use exact match if found, otherwise use best compatible match
-            let (param_types, return_type, required_param_count) = exact_match.or(best_match)
+            let (param_types, return_type, _required_param_count) = exact_match.or(best_match)
                 .ok_or_else(|| {
                     let arg_type_str = arg_types.iter()
                         .map(|t| format!("{:?}", t))
@@ -2623,6 +2743,7 @@ impl SemanticAnalyzer {
         }
     }
 
+    #[allow(dead_code)]
     fn check_this_access(&mut self, location: &SourceLocation) -> Result<Type, CompilerError> {
         if !self.current_constructor {
             return Err(CompilerError::type_error(
@@ -2681,15 +2802,6 @@ impl SemanticAnalyzer {
             Value::Integer64(_) => Type::Integer,
             Value::Number32(_) => Type::Number,
             Value::Number64(_) => Type::Number,
-            Value::List(elements) => {
-                if elements.is_empty() {
-                    Type::List(Box::new(Type::Any))
-                } else {
-                    // Use the type of the first element, similar to Array handling
-                    let element_type = self.check_literal(&elements[0]);
-                    Type::List(Box::new(element_type))
-                }
-            },
         }
     }
 
@@ -2776,28 +2888,15 @@ impl SemanticAnalyzer {
     }
 
     fn is_builtin_class(&self, name: &str) -> bool {
-        matches!(name, "Array" | "List" | "String" | "Object" | "File" | "MathUtils" | "Http")
+        matches!(name, "List" | "String" | "Object" | "File" | "MathUtils" | "Http")
     }
 
     fn is_builtin_type_constructor(&self, name: &str) -> bool {
-        matches!(name, "Array" | "List")
+        matches!(name, "List")
     }
 
     fn check_builtin_type_constructor(&mut self, name: &str, args: &[Expression]) -> Result<Type, CompilerError> {
         match name {
-            "Array" => {
-                if args.len() != 1 {
-                    return Err(CompilerError::type_error(
-                        "Array constructor expects exactly one argument (element type)".to_string(),
-                        Some("Usage: Array(elementType)".to_string()),
-                        None
-                    ));
-                }
-                
-                // Get the element type from the argument
-                let element_type = self.check_expression(&args[0])?;
-                Ok(Type::List(Box::new(element_type)))
-            },
             "List" => {
                 if args.len() != 1 {
                     return Err(CompilerError::type_error(
@@ -2807,7 +2906,9 @@ impl SemanticAnalyzer {
                     ));
                 }
                 
-                Ok(Type::List(Box::new(Type::Any)))
+                // Get the element type from the argument
+                let element_type = self.check_expression(&args[0])?;
+                Ok(Type::List(Box::new(element_type)))
             },
             _ => Err(CompilerError::type_error(
                 format!("Unknown builtin type constructor: {}", name),
@@ -3014,7 +3115,7 @@ impl SemanticAnalyzer {
             // Numeric type promotions
             (Type::Number, Type::Integer) => true, // Integer can be promoted to Number
             
-            // Array element type compatibility
+            // List element type compatibility
             (Type::List(expected_elem), Type::List(actual_elem)) => {
                 self.types_compatible(expected_elem, actual_elem)
             }

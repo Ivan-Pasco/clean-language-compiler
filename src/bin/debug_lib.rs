@@ -1,5 +1,5 @@
 use clean_language_compiler::compile;
-use wasmtime::{Engine, Module, Store, Instance, Val};
+use wasmtime::{Engine, Module, Store, Instance};
 use std::fs;
 
 fn main() {

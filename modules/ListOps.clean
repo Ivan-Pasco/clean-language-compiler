@@ -1,0 +1,157 @@
+// ListOps module - List manipulation utilities
+// All functions are public and can be imported by other modules
+// Comprehensive list processing capabilities for data manipulation
+// Uses existing list_ops.rs functions from the standard library
+
+// Basic operations - using existing list_ops.rs functions
+public function length(list<Any> list) -> number
+    // Returns the number of elements in the list
+    // Perfect for validation and loop bounds
+    // Uses existing list.length function from stdlib
+    return list.length()
+
+public function get(list<Any> list, number index) -> Any
+    // Gets the element at the specified position
+    // Returns the value stored at that index
+    // Uses existing list.get function from stdlib
+    return list.get(index)
+
+public function set(list<Any> list, number index, Any value) -> void
+    // Sets the element at the specified position
+    // Updates the list with the new value
+    // Uses existing list.set function from stdlib
+    list.set(index, value)
+
+// Modification operations - dynamic list changes
+public function push(list<Any> list, Any item) -> list<Any>
+    // Adds an element to the end of the list
+    // Like adding a new item to the end of a list
+    // Uses list_push function from stdlib
+    return list_push(list, item)
+
+public function pop(list<Any> list) -> Any
+    // Removes and returns the last element from the list
+    // Like taking the top item off a stack
+    // Uses list_pop function from stdlib
+    return list_pop(list)
+
+public function insert(list<Any> list, number index, Any item) -> list<Any>
+    // Inserts an element at a specific position
+    // Shifts existing elements to make room
+    // Uses list_insert function from stdlib
+    return list_insert(list, index, item)
+
+public function remove(list<Any> list, number index) -> Any
+    // Removes and returns the element at the specified position
+    // Shifts remaining elements to fill the gap
+    // Uses list_remove function from stdlib
+    return list_remove(list, index)
+
+// Search operations - finding elements in lists
+public function contains(list<Any> list, Any item) -> boolean
+    // Checks if the list contains the specified item
+    // Returns true if found, false otherwise
+    // Uses list_contains function from stdlib
+    return list_contains(list, item)
+
+public function indexOf(list<Any> list, Any item) -> number
+    // Finds the first position of the item in the list
+    // Returns -1 if not found, position index if found
+    // Uses list_index_of function from stdlib
+    return list_index_of(list, item)
+
+public function lastIndexOf(list<Any> list, Any item) -> number
+    // Finds the last position of the item in the list
+    // Useful for finding the final occurrence of repeated items
+    // Uses list_last_index_of function from stdlib
+    return list_last_index_of(list, item)
+
+// List transformation operations - creating new lists from existing ones
+public function slice(list<Any> list, number start, number end) -> list<Any>
+    // Creates a new list containing elements from start to end position
+    // Like cutting out a section of the original list
+    // Uses list_slice function from stdlib
+    return list_slice(list, start, end)
+
+public function concat(list<Any> list1, list<Any> list2) -> list<Any>
+    // Combines two lists into a single new list
+    // Like joining two lists together
+    // Uses list_concat function from stdlib
+    return list_concat(list1, list2)
+
+public function reverse(list<Any> list) -> list<Any>
+    // Creates a new list with elements in reverse order
+    // Like flipping the list upside down
+    // Uses list_reverse function from stdlib
+    return list_reverse(list)
+
+public function sort(list<Any> list) -> list<Any>
+    // Creates a new list with elements sorted in ascending order
+    // Like organizing items from smallest to largest
+    // Uses list_sort function from stdlib
+    return list_sort(list)
+
+// Functional programming operations - advanced list processing
+public function map(list<Any> list, function callback) -> list<Any>
+    // Creates a new list by applying a function to each element
+    // Like transforming every item in the list
+    // Uses existing list.map function from stdlib
+    return list.map(callback)
+
+public function filter(list<Any> list, function callback) -> list<Any>
+    // Creates a new list containing only elements that pass a test
+    // Like keeping only the items that meet certain criteria
+    // Uses list_filter function from stdlib
+    return list_filter(list, callback)
+
+public function reduce(list<Any> list, function callback, Any initialValue) -> Any
+    // Reduces the list to a single value by applying a function
+    // Like combining all elements into one result
+    // Uses list_reduce function from stdlib
+    return list_reduce(list, callback, initialValue)
+
+public function forEach(list<Any> list, function callback) -> void
+    // Executes a function for each element in the list
+    // Like doing something with every item in the list
+    // Uses existing list.iterate function from stdlib
+    list.iterate(callback)
+
+// Utility operations - helpful list functions
+public function isEmpty(list<Any> list) -> boolean
+    // Checks if the list has no elements
+    // Like checking if a box is completely empty
+    return length(list) == 0
+
+public function isNotEmpty(list<Any> list) -> boolean
+    // Checks if the list has at least one element
+    // Opposite of isEmpty
+    return !isEmpty(list)
+
+public function first(list<Any> list) -> Any
+    // Gets the first element of the list
+    // Like looking at the item at the front of the line
+    return get(list, 0)
+
+public function last(list<Any> list) -> Any
+    // Gets the last element of the list
+    // Like looking at the item at the back of the line
+    return get(list, length(list) - 1)
+
+public function join(list<string> list, string separator) -> string
+    // Combines all list elements into a single string with separators
+    // Like gluing text pieces together with a connector
+    // Uses list_join function from stdlib
+    return list_join(list, separator)
+
+// List creation helpers
+public function fill(number size, Any value) -> list<Any>
+    // Creates a new list of specified size filled with the same value
+    // Like making multiple copies of the same item
+    // Uses list_fill function from stdlib
+    return list_fill(size, value)
+
+public function range(number start, number end) -> list<number>
+    // Creates a list of numbers from start to end
+    // Like counting from one number to another
+    // Uses list_range function from stdlib
+    return list_range(start, end) 

@@ -1,0 +1,40 @@
+start()
+	// Test file existence before writing
+	boolean existsBefore = File.exists("test.txt")
+	print "File exists before: "
+	print existsBefore
+	
+	// Test file writing
+	boolean writeSuccess = File.write("test.txt", "Hello Clean Language\!")
+	print "Write success: "
+	print writeSuccess
+	
+	// Test file existence after writing
+	boolean existsAfter = File.exists("test.txt")
+	print "File exists after: "
+	print existsAfter
+	
+	// Test file reading
+	string content = File.read("test.txt")
+	print "File content: "
+	print content
+	
+	// Test file appending
+	boolean appendSuccess = File.append("test.txt", "\nAppended line\!")
+	print "Append success: "
+	print appendSuccess
+	
+	// Test reading after append
+	string newContent = File.read("test.txt")
+	print "Content after append: "
+	print newContent
+	
+	// Test file deletion
+	boolean deleteSuccess = File.delete("test.txt")
+	print "Delete success: "
+	print deleteSuccess
+	
+	// Test file existence after deletion
+	boolean existsAfterDelete = File.exists("test.txt")
+	print "File exists after delete: "
+	print existsAfterDelete

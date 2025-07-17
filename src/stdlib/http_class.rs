@@ -28,64 +28,64 @@ impl HttpClass {
     }
     
     fn register_basic_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // httpGet(string url) -> string
+        // http.get(string url) -> string
         register_stdlib_function(
             codegen,
-            "httpGet",
+            "http.get",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_get")?
         )?;
         
-        // httpPost(string url, string data) -> string
+        // http.post(string url, string data) -> string
         register_stdlib_function(
             codegen,
-            "httpPost",
+            "http.post",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_post")?
         )?;
         
-        // httpPut(string url, string data) -> string
+        // http.put(string url, string data) -> string
         register_stdlib_function(
             codegen,
-            "httpPut",
+            "http.put",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_put")?
         )?;
         
-        // httpPatch(string url, string data) -> string
+        // http.patch(string url, string data) -> string
         register_stdlib_function(
             codegen,
-            "httpPatch",
+            "http.patch",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_patch")?
         )?;
         
-        // httpDelete(string url) -> string
+        // http.delete(string url) -> string
         register_stdlib_function(
             codegen,
-            "httpDelete",
+            "http.delete",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_delete")?
         )?;
         
-        // httpHead(string url) -> string
+        // http.head(string url) -> string
         register_stdlib_function(
             codegen,
-            "httpHead",
+            "http.head",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_head")?
         )?;
         
-        // httpOptions(string url) -> string
+        // http.options(string url) -> string
         register_stdlib_function(
             codegen,
-            "httpOptions",
+            "http.options",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_options")?
@@ -95,55 +95,55 @@ impl HttpClass {
     }
     
     fn register_advanced_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // httpGetWithHeaders(string url, array<string> headers) -> string
+        // http.getWithHeaders(string url, array<string> headers) -> string
         register_stdlib_function(
             codegen,
-            "httpGetWithHeaders",
+            "http.getWithHeaders",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_get_with_headers")?
         )?;
         
-        // httpPostWithHeaders(string url, string data, array<string> headers) -> string
+        // http.postWithHeaders(string url, string data, array<string> headers) -> string
         register_stdlib_function(
             codegen,
-            "httpPostWithHeaders",
+            "http.postWithHeaders",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_headers_host_call(codegen, "http_post_with_headers")?
         )?;
         
-        // httpPostJson(string url, string jsonData) -> string
+        // http.postJson(string url, string jsonData) -> string
         register_stdlib_function(
             codegen,
-            "httpPostJson",
+            "http.postJson",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_post_json")?
         )?;
         
-        // httpPutJson(string url, string jsonData) -> string
+        // http.putJson(string url, string jsonData) -> string
         register_stdlib_function(
             codegen,
-            "httpPutJson",
+            "http.putJson",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_put_json")?
         )?;
         
-        // httpPatchJson(string url, string jsonData) -> string
+        // http.patchJson(string url, string jsonData) -> string
         register_stdlib_function(
             codegen,
-            "httpPatchJson",
+            "http.patchJson",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_patch_json")?
         )?;
         
-        // httpPostForm(string url, array<string> formData) -> string
+        // http.postForm(string url, array<string> formData) -> string
         register_stdlib_function(
             codegen,
-            "httpPostForm",
+            "http.postForm",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_post_with_host_call(codegen, "http_post_form")?
@@ -153,82 +153,82 @@ impl HttpClass {
     }
     
     fn register_utility_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // httpSetUserAgent(string userAgent) -> void
+        // http.setUserAgent(string userAgent) -> void
         register_stdlib_function(
             codegen,
-            "httpSetUserAgent",
+            "http.setUserAgent",
             &[WasmType::I32],
             None,
             self.generate_set_user_agent_host_call(codegen, "http_set_user_agent")?
         )?;
         
-        // httpSetTimeout(integer timeoutMs) -> void
+        // http.setTimeout(integer timeoutMs) -> void
         register_stdlib_function(
             codegen,
-            "httpSetTimeout",
+            "http.setTimeout",
             &[WasmType::I32],
             None,
             self.generate_simple_host_call(codegen, "http_set_timeout")?
         )?;
         
-        // httpSetMaxRedirects(integer maxRedirects) -> void
+        // http.setMaxRedirects(integer maxRedirects) -> void
         register_stdlib_function(
             codegen,
-            "httpSetMaxRedirects",
+            "http.setMaxRedirects",
             &[WasmType::I32],
             None,
             self.generate_simple_host_call(codegen, "http_set_max_redirects")?
         )?;
         
-        // httpEnableCookies(boolean enable) -> void
+        // http.enableCookies(boolean enable) -> void
         register_stdlib_function(
             codegen,
-            "httpEnableCookies",
+            "http.enableCookies",
             &[WasmType::I32],
             None,
             self.generate_simple_host_call(codegen, "http_enable_cookies")?
         )?;
         
-        // httpGetResponseCode() -> integer
+        // http.getResponseCode() -> integer
         register_stdlib_function(
             codegen,
-            "httpGetResponseCode",
+            "http.getResponseCode",
             &[],
             Some(WasmType::I32),
             self.generate_no_params_host_call(codegen, "http_get_response_code")?
         )?;
         
-        // httpGetResponseHeaders() -> array<string>
+        // http.getResponseHeaders() -> array<string>
         register_stdlib_function(
             codegen,
-            "httpGetResponseHeaders",
+            "http.getResponseHeaders",
             &[],
             Some(WasmType::I32),
             self.generate_no_params_host_call(codegen, "http_get_response_headers")?
         )?;
         
-        // httpEncodeUrl(string url) -> string
+        // http.encodeUrl(string url) -> string
         register_stdlib_function(
             codegen,
-            "httpEncodeUrl",
+            "http.encodeUrl",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_encode_url")?
         )?;
         
-        // httpDecodeUrl(string encodedUrl) -> string
+        // http.decodeUrl(string encodedUrl) -> string
         register_stdlib_function(
             codegen,
-            "httpDecodeUrl",
+            "http.decodeUrl",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_decode_url")?
         )?;
         
-        // httpBuildQuery(array<string> params) -> string
+        // http.buildQuery(array<string> params) -> string
         register_stdlib_function(
             codegen,
-            "httpBuildQuery",
+            "http.buildQuery",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_get_with_host_call(codegen, "http_build_query")?

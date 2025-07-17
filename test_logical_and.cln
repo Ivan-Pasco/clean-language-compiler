@@ -1,0 +1,5 @@
+start()
+	boolean x = true
+	boolean y = false
+	boolean result = x and y
+	print result

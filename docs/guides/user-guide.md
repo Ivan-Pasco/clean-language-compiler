@@ -62,8 +62,8 @@ Clean supports several basic data types:
 - `float`: 64-bit floating-point number
 - `boolean`: true or false
 - `string`: Text string
-- `array`: Collection of values
-- `matrix`: Two-dimensional array
+- `list`: Collection of values
+- `matrix`: Two-dimensional list
 
 Example:
 
@@ -81,7 +81,7 @@ start()
     // String
     s = "Hello, Clean!"
     
-    // Array
+    // List
     a = [1, 2, 3, 4, 5]
     
     // Matrix
@@ -145,7 +145,7 @@ Examples:
 
 ```
 start()
-    // Simple iterate with array
+    // Simple iterate with list
     arr = [1, 2, 3, 4, 5]
     iterate element in arr
         print(element)
@@ -222,26 +222,26 @@ start()
     are_equal = string.compare(s1, s1)  // 0 (equal)
 ```
 
-### Array Operations
+### List Operations
 
 ```
 start()
     arr = [1, 2, 3, 4, 5]
     
     // Get length
-    length = array.length(arr)  // 5
+    length = list.length(arr)  // 5
     
     // Get element
-    element = array.get(arr, 2)  // 3 (zero-indexed)
+    element = list.get(arr, 2)  // 3 (zero-indexed)
     
     // Set element
-    array.set(arr, 1, 10)  // arr becomes [1, 10, 3, 4, 5]
+    list.set(arr, 1, 10)  // arr becomes [1, 10, 3, 4, 5]
     
     // Iterate
-    array.iterate(arr, printElement)
+    list.iterate(arr, printElement)
     
     // Map
-    doubled = array.map(arr, double)  // [2, 20, 6, 8, 10]
+    doubled = list.map(arr, double)  // [2, 20, 6, 8, 10]
 
 function printElement(element)
     print(element)

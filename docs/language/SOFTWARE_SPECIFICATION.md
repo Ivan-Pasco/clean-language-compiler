@@ -93,7 +93,7 @@ The Clean Language Compiler is a modern compiler for the Clean programming langu
   - I/O operations (print, println functions)
   - Mathematical operations (abs, arithmetic)
   - String manipulation utilities
-  - Array and collection operations
+  - List and collection operations
   - HTTP request functions
   - Memory management utilities
 

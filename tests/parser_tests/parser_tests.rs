@@ -47,7 +47,7 @@ fn test_parse_variable_declaration() {
         string my_str = "hello"
         boolean my_bool = true
         MyClass my_obj
-        number[] my_array
+        list<number> my_array
     "#;
     let result = CleanParser::parse_program(source);
     assert!(result.is_ok(), "Failed to parse var decls: {:?}", result.err());
@@ -85,12 +85,12 @@ fn test_parse_variable_declaration() {
         panic!("Fifth statement is not a VariableDecl for an object");
     }
 
-    // Check array type
+    // Check list type
     if let Statement::VariableDecl { type_, name, .. } = &program.statements[5] {
         assert_eq!(name, "my_array");
         assert!(matches!(type_, Type::Array(inner) if matches!(**inner, Type::Number)));
     } else {
-        panic!("Sixth statement is not a VariableDecl for an array");
+        panic!("Sixth statement is not a VariableDecl for a list");
     }
 }
 
@@ -309,22 +309,22 @@ fn test_parse_parenthesized_expressions() {
 }
 
 #[test]
-fn test_parse_array_literals() {
+fn test_parse_list_literals() {
     let source = r#"
-        number[] nums = [1, 2, 3]
-        string[] words = ["hello", "world"]
-        boolean[] flags = [true, false, true]
-        number[] expressions = [1 + 2, 3 * 4, 5]
-        number[] empty = []
+        list<number> nums = [1, 2, 3]
+        list<string> words = ["hello", "world"]
+        list<boolean> flags = [true, false, true]
+        list<number> expressions = [1 + 2, 3 * 4, 5]
+        list<number> empty = []
     "#;
     
     let result = CleanParser::parse_program(source);
-    assert!(result.is_ok(), "Failed to parse array literals: {:?}", result.err());
+    assert!(result.is_ok(), "Failed to parse list literals: {:?}", result.err());
     
     let program = result.unwrap();
     assert_eq!(program.statements.len(), 5);
     
-    // Check number array
+    // Check number list
     if let Statement::VariableDecl { type_, name, initializer } = &program.statements[0] {
         assert_eq!(name, "nums");
         assert!(matches!(type_, Type::Array(inner) if matches!(**inner, Type::Number)));
@@ -338,7 +338,7 @@ fn test_parse_array_literals() {
         }
     }
     
-    // Check string array
+    // Check string list
     if let Statement::VariableDecl { type_, name, initializer } = &program.statements[1] {
         assert_eq!(name, "words");
         assert!(matches!(type_, Type::Array(inner) if matches!(**inner, Type::String)));
@@ -351,7 +351,7 @@ fn test_parse_array_literals() {
         }
     }
     
-    // Check array with expressions
+    // Check list with expressions
     if let Statement::VariableDecl { type_, name, initializer } = &program.statements[3] {
         assert_eq!(name, "expressions");
         if let Some(Expression::ArrayLiteral(elements)) = initializer {
@@ -378,7 +378,7 @@ fn test_parse_array_literals() {
         }
     }
     
-    // Check empty array
+    // Check empty list
     if let Statement::VariableDecl { type_, name, initializer } = &program.statements[4] {
         assert_eq!(name, "empty");
         if let Some(Expression::ArrayLiteral(elements)) = initializer {
@@ -750,7 +750,7 @@ fn test_parse_iterate_statement() {
         panic!("Expected Iterate statement");
     }
     
-    // Check second iterate statement with array literal
+    // Check second iterate statement with list literal
     if let Statement::Iterate { iterator, collection, body } = &program.statements[1] {
         assert_eq!(iterator, "x");
         if let Expression::ArrayLiteral(elements) = &collection {

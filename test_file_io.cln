@@ -1,0 +1,9 @@
+start()
+	boolean exists = File.exists("test.txt")
+	print exists
+	
+	boolean success = File.write("test.txt", "Hello World")
+	print success
+	
+	string content = File.read("test.txt")
+	print content

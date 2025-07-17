@@ -1,0 +1,6 @@
+start()
+	integer score = 85
+	if score > 80
+		print "Good"
+	else
+		print "Needs improvement"

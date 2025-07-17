@@ -1,0 +1,23 @@
+class Rectangle
+	number width
+	number height
+	
+	constructor(number w, number h)
+		width = w
+		height = h
+
+functions:
+	number getArea()
+		return width * height
+	
+	number getPerimeter()
+		return 2 * (width + height)
+
+start()
+	Rectangle rect = Rectangle(5, 3)
+	number area = rect.getArea()
+	number perimeter = rect.getPerimeter()
+	print "Rectangle area:"
+	print area
+	print "Rectangle perimeter:"
+	print perimeter

@@ -37,7 +37,7 @@ This document outlines the testing strategy for the 3 critical WASM validation i
 **Target:** `src/codegen/instruction_generator.rs` (lines 2084, 2115)
 
 **Test Cases Needed:**
-- Dynamic memory allocation for strings and arrays
+- Dynamic memory allocation for strings and lists
 - Memory deallocation and cleanup
 - Bounds checking for memory operations
 - Memory leak prevention

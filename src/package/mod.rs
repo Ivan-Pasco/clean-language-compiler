@@ -99,10 +99,13 @@ pub struct PackageManager {
     /// Local package cache directory
     cache_dir: PathBuf,
     /// Registry URLs
+    #[allow(dead_code)]
     registries: Vec<String>,
     /// Module resolver for loading packages
+    #[allow(dead_code)]
     module_resolver: ModuleResolver,
     /// Installed packages cache
+    #[allow(dead_code)]
     installed_packages: HashMap<String, InstalledPackage>,
 }
 
@@ -464,6 +467,7 @@ impl PackageManager {
 /// Dependency resolver for handling version constraints and conflicts
 struct DependencyResolver {
     dependencies: HashMap<String, Vec<(DependencySpec, bool)>>, // name -> (spec, is_dev)
+    #[allow(dead_code)]
     resolved: HashMap<String, ResolvedPackage>,
 }
 

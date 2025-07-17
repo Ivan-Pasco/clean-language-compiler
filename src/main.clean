@@ -1,0 +1,4 @@
+// clean-language-compiler - Clean Language Package
+
+function start()
+	print("Hello from clean-language-compiler!")

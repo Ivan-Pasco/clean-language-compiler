@@ -30,8 +30,8 @@ fn test_any_type_conversion() {
             assert(add(1, 2) == 3)
             assert(add(1.5, 2.5) == 4.0)
             
-            // Test Any type in arrays
-            Array<Any> arr = [1, 2.5, "hello", true]
+            // Test Any type in lists
+            list<Any> arr = [1, 2.5, "hello", true]
             assert(arr[0] == 1)
             assert(arr[1] == 2.5)
             assert(arr[2] == "hello")

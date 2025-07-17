@@ -1,6 +1,6 @@
 use crate::error::{CompilerError};
 use wasm_encoder::{
-    BlockType, Instruction, MemArg,
+    Instruction, MemArg,
 };
 use crate::codegen::CodeGenerator;
 use crate::types::{WasmType};

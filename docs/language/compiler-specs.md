@@ -255,14 +255,14 @@ struct HeapAllocation {
 3. **Scope Exit:** Decrement reference count via `release`
 4. **Free:** When reference count reaches 0
 
-### Array and Object Memory Layout
+### List and Object Memory Layout
 
-#### Array Layout
+#### List Layout
 ```rust
-struct ArrayLayout {
+struct ListLayout {
    header: HeapAllocation, // Standard allocation header
    length: u32,           // Number of elements
-   elements: [Element],   // Array elements
+   elements: [Element],   // List elements
 }
 ```
 

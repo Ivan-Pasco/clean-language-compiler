@@ -85,10 +85,10 @@ These are essential implementation rules that must be followed by the Clean Lang
    ```
 
 5. **Drop `Utils` suffix from standard library classes**
-   - ✅ Use `Math`, `String`, `Array`, `File` — not `MathUtils`, etc.
+   - ✅ Use `Math`, `String`, `List`, `File` — not `MathUtils`, etc.
 
 6. **Use natural generic container syntax**
-   - ✅ `array<item>`, `matrix<type>`
+   - ✅ `list<item>`, `matrix<type>`
    - ❌ No angle brackets in user code (`<>`) - these are internal representations
 
 7. **Clean uses `any` as the single generic placeholder type**
@@ -223,12 +223,12 @@ true
 false
 ```
 
-#### Array Literals
+#### List Literals
 ```clean
-[1, 2, 3, 4]           // Integer array
-["a", "b", "c"]        // String array
-[]                     // Empty array
-[true, false, true]    // Boolean array
+[1, 2, 3, 4]           // Integer list
+["a", "b", "c"]        // String list
+[]                     // Empty list
+[true, false, true]    // Boolean list
 ```
 
 #### Matrix Literals
@@ -303,16 +303,16 @@ number:64:
 
 | Type syntax | What it is | Example |
 |-------------|------------|---------|
-| `array<any>`  | Homogeneous resizable list | `array<integer>`, `[1, 2, 3]` |
+| `list<any>`  | Homogeneous resizable list | `list<integer>`, `[1, 2, 3]` |
 | `list<any>` | Flexible list with behavior properties | `list<string>`, `[]`, behavior via `.type` property |
-| `matrix<any>` | 2-D array (array of arrays) | `matrix<number>`, `[[1.0, 2.0], [3.0, 4.0]]` |
+| `matrix<any>` | 2-D list (list of lists) | `matrix<number>`, `[[1.0, 2.0], [3.0, 4.0]]` |
 | `pairs<any,any>`  | Key-value associative container | `pairs<string, integer>` |
 | `any`         | Generic type parameter | Used in function definitions |
 
-Arrays in Clean are zero-indexed by default (array[0] is the first element).
+Lists in Clean are zero-indexed by default (list[0] is the first element).
 For readability, you can access elements starting from 1 using:
 
-array.at(index)
+list.at(index)
 This returns the element at position index - 1.
 
 ### List Properties - Collection Behavior Modifiers
@@ -563,11 +563,11 @@ println:
     "World"
 // Equivalent to: println("Hello"), println("World")
 
-array.push:
+list.push:
     item1
     item2
     item3
-// Equivalent to: array.push(item1), array.push(item2), array.push(item3)
+// Equivalent to: list.push(item1), list.push(item2), list.push(item3)
 ```
 
 ### Variable Declarations
@@ -600,13 +600,14 @@ From highest to lowest precedence:
 
 1. **Primary** - `()`, function calls, method calls, property access
 2. **Unary** - `not`, `-` (unary minus)
-3. **Multiplicative** - `*`, `/`, `%`
-4. **Additive** - `+`, `-`
-5. **Comparison** - `<`, `>`, `<=`, `>=`
-6. **Equality** - `==`, `!=`, `is`, `not`
-7. **Logical AND** - `and`
-8. **Logical OR** - `or`
-9. **Assignment** - `=`
+3. **Exponentiation** - `^` (right-associative)
+4. **Multiplicative** - `*`, `/`, `%`
+5. **Additive** - `+`, `-`
+6. **Comparison** - `<`, `>`, `<=`, `>=`
+7. **Equality** - `==`, `!=`, `is`, `not`
+8. **Logical AND** - `and`
+9. **Logical OR** - `or`
+10. **Assignment** - `=`
 
 ### Multi-Line Expressions
 
@@ -707,7 +708,8 @@ a not b     // Negated identity comparison
 ```clean
 a and b     // Logical AND
 a or b      // Logical OR
-not a       // Logical NOT
+a not b     // Logical NOT (binary, equivalent to !=)
+// Note: Unary not operator not yet implemented
 ```
 
 ### Matrix Operations
@@ -734,7 +736,7 @@ obj.method()            // Method call
 obj.property            // Property access
 obj.method(arg1, arg2)  // Method with arguments
 "string".length         // Property on literal
-array.get(0)           // Built-in method
+list.get(0)           // Built-in method
 ```
 
 ### Function Calls
@@ -761,7 +763,7 @@ boolean flag = true
 
 ```clean
 x = 42              // Simple assignment
-arr[0] = value      // Array element assignment
+arr[0] = value      // List element assignment
 obj.property = val  // Property assignment
 ```
 
@@ -829,7 +831,7 @@ Every type in Clean Language has a built-in `toString()` method with sensible de
 - **Floats**: `3.14` → `"3.14"`
 - **Booleans**: `true` → `"true"`, `false` → `"false"`
 - **Strings**: `"hello"` → `"hello"` (no change)
-- **Arrays**: `[1, 2, 3]` → `"[1, 2, 3]"`
+- **Lists**: `[1, 2, 3]` → `"[1, 2, 3]"`
 - **Objects**: `MyClass` instance → `"MyClass"` (default) or custom representation
 
 **Custom Classes:**
@@ -988,7 +990,7 @@ functions:
     any identity(any value)
         return value
     
-    any getFirst(array<any> items)
+    any getFirst(list<any> items)
         return items[0]
     
     void printAny(any value)
@@ -1247,12 +1249,12 @@ tests:
     "calculator chaining": Calculator(0).add(3).add(7) = 10
 ```
 
-#### Testing Array and String Operations
+#### Testing List and String Operations
 
 ```clean
 tests:
-    "array operations": [1, 2, 3].length() = 3
-    "array contains": [1, 2, 3].contains(2) = true
+    "list operations": [1, 2, 3].length() = 3
+    "list contains": [1, 2, 3].contains(2) = true
     "string operations": "hello".toUpperCase() = "HELLO"
     "string indexing": "world".indexOf("r") = 2
 ```
@@ -1268,7 +1270,7 @@ tests:
 2. **Test Edge Cases**: Include tests for boundary conditions
    ```clean
    tests:
-       "handles empty array": [].length() = 0
+       "handles empty list": [].length() = 0
        "handles single character": "a".toUpperCase() = "A"
        "handles zero input": factorial(0) = 1
    ```
@@ -1321,8 +1323,8 @@ else
 #### Iterate Loop (for-each)
 
 ```clean
-// Iterate over array elements
-iterate item in array
+// Iterate over list elements
+iterate item in list
     print(item)
 
 // Iterate over string characters
@@ -1765,12 +1767,12 @@ class String
             // Like find-and-replace-all - changes every match in the text
             // Example: replaceAll("Hello Hello", "Hello", "Hi") → "Hi Hi"
         
-        array<string> split(string text, string delimiter)
+        list<string> split(string text, string delimiter)
             // Breaks a string into pieces using a separator character
             // Like cutting a rope at specific points - very useful for data processing
             // Example: split("apple,banana,orange", ",") → ["apple", "banana", "orange"]
         
-        string join(array<string> parts, string separator)
+        string join(list<string> parts, string separator)
             // Combines an array of strings into one string with separators
             // The opposite of split - like gluing pieces back together
             // Example: join(["apple", "banana", "orange"], ", ") → "apple, banana, orange"
@@ -1838,7 +1840,7 @@ functions:
         
         // Text parsing and reconstruction
         string csvLine = "John,Doe,25,Engineer"
-        array<string> fields = String.split(csvLine, ",")     // ["John", "Doe", "25", "Engineer"]
+        list<string> fields = String.split(csvLine, ",")     // ["John", "Doe", "25", "Engineer"]
         string fullName = String.join([fields[0], fields[1]], " ")  // "John Doe"
         
         // Text replacement and cleaning
@@ -1859,141 +1861,141 @@ functions:
         boolean isValid = !String.isBlank(userField)          // false
 ```
 
-### Array Class
+### List Class
 
-The Array class provides powerful data collection capabilities. Whether you're managing lists of items, processing data sets, or organizing information, Array has all the tools you need for effective data manipulation.
+The List class provides powerful data collection capabilities. Whether you're managing lists of items, processing data sets, or organizing information, List has all the tools you need for effective data manipulation.
 
 ```clean
-class Array
+class List
     functions:
-        // Basic operations - fundamental array access
-        integer length(array<any> array)
-            // Returns the number of elements in the array
+        // Basic operations - fundamental list access
+        integer length(list<any> array)
+            // Returns the number of elements in the list
             // Like counting how many items are in a box
             // Example: length([1, 2, 3]) → 3
         
-        any get(array<any> array, integer index)
+        any get(list<any> array, integer index)
             // Gets the element at the specified position
             // Like picking out the 3rd item from a list
             // Example: get([10, 20, 30], 1) → 20 (positions start at 0)
         
-        void set(array<any> array, integer index, any value)
+        void set(list<any> array, integer index, any value)
             // Updates the element at the specified position
             // Like replacing an item in a specific slot
             // Example: set([1, 2, 3], 1, 99) → [1, 99, 3]
         
         // Modification operations - changing array contents
-        array<any> push(array<any> array, any item)
-            // Adds an element to the end of the array
+        list<any> push(list<any> array, any item)
+            // Adds an element to the end of the list
             // Like adding a new item to the end of a list
             // Example: push([1, 2], 3) → [1, 2, 3]
         
-        any pop(array<any> array)
-            // Removes and returns the last element from the array
+        any pop(list<any> array)
+            // Removes and returns the last element from the list
             // Like taking the top item off a stack
             // Example: pop([1, 2, 3]) → 3, array becomes [1, 2]
         
-        array<any> insert(array<any> array, integer index, any item)
+        list<any> insert(list<any> array, integer index, any item)
             // Inserts an element at a specific position
             // Like squeezing a new item into the middle of a line
             // Example: insert([1, 3], 1, 2) → [1, 2, 3]
         
-        any remove(array<any> array, integer index)
+        any remove(list<any> array, integer index)
             // Removes and returns the element at the specified position
             // Like taking out a specific item and closing the gap
             // Example: remove([1, 2, 3], 1) → 2, array becomes [1, 3]
         
-        // Search operations - finding elements in arrays
-        boolean contains(array<any> array, any item)
-            // Checks if the array contains the specified item
+        // Search operations - finding elements in lists
+        boolean contains(list<any> array, any item)
+            // Checks if the list contains the specified item
             // Like looking through a box to see if something is there
             // Example: contains([1, 2, 3], 2) → true
         
-        integer indexOf(array<any> array, any item)
-            // Finds the first position of the item in the array
+        integer indexOf(list<any> array, any item)
+            // Finds the first position of the item in the list
             // Like finding where something is located in a list
             // Example: indexOf([10, 20, 30], 20) → 1
         
-        integer lastIndexOf(array<any> array, any item)
-            // Finds the last position of the item in the array
+        integer lastIndexOf(list<any> array, any item)
+            // Finds the last position of the item in the list
             // Useful when the same item appears multiple times
             // Example: lastIndexOf([1, 2, 1, 3], 1) → 2
         
-        // Array transformation operations - creating new arrays
-        array<any> slice(array<any> array, integer start, integer end)
+        // List transformation operations - creating new lists
+        list<any> slice(list<any> array, integer start, integer end)
             // Creates a new array containing elements from start to end position
             // Like cutting out a section of the original array
             // Example: slice([1, 2, 3, 4, 5], 1, 4) → [2, 3, 4]
         
-        array<any> concat(array<any> array1, array<any> array2)
-            // Combines two arrays into a single new array
+        list<any> concat(list<any> array1, list<any> array2)
+            // Combines two lists into a single new array
             // Like joining two lists together
             // Example: concat([1, 2], [3, 4]) → [1, 2, 3, 4]
         
-        array<any> reverse(array<any> array)
+        list<any> reverse(list<any> array)
             // Creates a new array with elements in reverse order
-            // Like flipping the array upside down
+            // Like flipping the list upside down
             // Example: reverse([1, 2, 3]) → [3, 2, 1]
         
-        array<any> sort(array<any> array)
+        list<any> sort(list<any> array)
             // Creates a new array with elements sorted in ascending order
             // Like organizing items from smallest to largest
             // Example: sort([3, 1, 4, 2]) → [1, 2, 3, 4]
         
         // Functional programming operations - advanced array processing
-        array<any> map(array<any> array, function callback)
+        list<any> map(list<any> array, function callback)
             // Creates a new array by applying a function to each element
-            // Like transforming every item in the array using a rule
+            // Like transforming every item in the list using a rule
             // Example: map([1, 2, 3], x => x * 2) → [2, 4, 6]
         
-        array<any> filter(array<any> array, function callback)
+        list<any> filter(list<any> array, function callback)
             // Creates a new array containing only elements that pass a test
             // Like keeping only the items that meet certain criteria
             // Example: filter([1, 2, 3, 4], x => x > 2) → [3, 4]
         
-        any reduce(array<any> array, function callback, any initialValue)
-            // Reduces the array to a single value by applying a function
+        any reduce(list<any> array, function callback, any initialValue)
+            // Reduces the list to a single value by applying a function
             // Like combining all elements into one result
             // Example: reduce([1, 2, 3, 4], (sum, x) => sum + x, 0) → 10
         
-        void forEach(array<any> array, function callback)
-            // Executes a function for each element in the array
-            // Like doing something with every item in the array
+        void forEach(list<any> array, function callback)
+            // Executes a function for each element in the list
+            // Like doing something with every item in the list
             // Example: forEach([1, 2, 3], x => print(x)) → prints 1, 2, 3
         
         // Utility operations - helpful array functions
-        boolean isEmpty(array<any> array)
-            // Checks if the array has no elements
+        boolean isEmpty(list<any> array)
+            // Checks if the list has no elements
             // Like checking if a box is completely empty
             // Example: isEmpty([]) → true, isEmpty([1]) → false
         
-        boolean isNotEmpty(array<any> array)
-            // Checks if the array has at least one element
+        boolean isNotEmpty(list<any> array)
+            // Checks if the list has at least one element
             // Opposite of isEmpty - checks if there's something there
             // Example: isNotEmpty([1, 2]) → true
         
-        any first(array<any> array)
-            // Gets the first element of the array
+        any first(list<any> array)
+            // Gets the first element of the list
             // Like looking at the item at the front of the line
             // Example: first([10, 20, 30]) → 10
         
-        any last(array<any> array)
-            // Gets the last element of the array
+        any last(list<any> array)
+            // Gets the last element of the list
             // Like looking at the item at the back of the line
             // Example: last([10, 20, 30]) → 30
         
-        string join(array<string> array, string separator)
+        string join(list<string> array, string separator)
             // Combines all array elements into a single string with separators
             // Like gluing text pieces together with a connector
             // Example: join(["apple", "banana", "orange"], ", ") → "apple, banana, orange"
         
-        // Array creation helpers - building new arrays
-        array<any> fill(integer size, any value)
+        // List creation helpers - building new lists
+        list<any> fill(integer size, any value)
             // Creates a new array of specified size filled with the same value
             // Like making multiple copies of the same item
             // Example: fill(3, "hello") → ["hello", "hello", "hello"]
         
-        array<integer> range(integer start, integer end)
+        list<integer> range(integer start, integer end)
             // Creates an array of numbers from start to end
             // Like counting from one number to another
             // Example: range(1, 5) → [1, 2, 3, 4, 5]
@@ -2002,49 +2004,49 @@ class Array
 functions:
     void start()
         // Basic array operations
-        array<integer> numbers = [1, 2, 3]
-        integer size = Array.length(numbers)           // 3
-        integer first = Array.get(numbers, 0)          // 1
-        Array.set(numbers, 1, 99)                      // [1, 99, 3]
+        list<integer> numbers = [1, 2, 3]
+        integer size = List.length(numbers)           // 3
+        integer first = List.get(numbers, 0)          // 1
+        List.set(numbers, 1, 99)                      // [1, 99, 3]
         
-        // Building and modifying arrays
-        array<string> fruits = ["apple", "banana"]
-        fruits = Array.push(fruits, "orange")          // ["apple", "banana", "orange"]
-        string lastFruit = Array.pop(fruits)           // "orange", fruits becomes ["apple", "banana"]
+        // Building and modifying lists
+        list<string> fruits = ["apple", "banana"]
+        fruits = List.push(fruits, "orange")          // ["apple", "banana", "orange"]
+        string lastFruit = List.pop(fruits)           // "orange", fruits becomes ["apple", "banana"]
         
         // Searching through data
-        array<integer> scores = [85, 92, 78, 96, 88]
-        boolean hasHighScore = Array.contains(scores, 96)     // true
-        integer position = Array.indexOf(scores, 92)          // 1
+        list<integer> scores = [85, 92, 78, 96, 88]
+        boolean hasHighScore = List.contains(scores, 96)     // true
+        integer position = List.indexOf(scores, 92)          // 1
         
         // Data processing and transformation
-        array<integer> data = [1, 2, 3, 4, 5]
-        array<integer> doubled = Array.map(data, x => x * 2)  // [2, 4, 6, 8, 10]
-        array<integer> evens = Array.filter(data, x => x % 2 == 0)  // [2, 4]
-        integer sum = Array.reduce(data, (total, x) => total + x, 0)  // 15
+        list<integer> data = [1, 2, 3, 4, 5]
+        list<integer> doubled = List.map(data, x => x * 2)  // [2, 4, 6, 8, 10]
+        list<integer> evens = List.filter(data, x => x % 2 == 0)  // [2, 4]
+        integer sum = List.reduce(data, (total, x) => total + x, 0)  // 15
         
-        // Array manipulation
-        array<string> names1 = ["Alice", "Bob"]
-        array<string> names2 = ["Charlie", "Diana"]
-        array<string> allNames = Array.concat(names1, names2)  // ["Alice", "Bob", "Charlie", "Diana"]
-        array<string> reversed = Array.reverse(allNames)       // ["Diana", "Charlie", "Bob", "Alice"]
+        // List manipulation
+        list<string> names1 = ["Alice", "Bob"]
+        list<string> names2 = ["Charlie", "Diana"]
+        list<string> allNames = List.concat(names1, names2)  // ["Alice", "Bob", "Charlie", "Diana"]
+        list<string> reversed = List.reverse(allNames)       // ["Diana", "Charlie", "Bob", "Alice"]
         
-        // Working with sections of arrays
-        array<integer> bigList = [10, 20, 30, 40, 50]
-        array<integer> middle = Array.slice(bigList, 1, 4)     // [20, 30, 40]
+        // Working with sections of lists
+        list<integer> bigList = [10, 20, 30, 40, 50]
+        list<integer> middle = List.slice(bigList, 1, 4)     // [20, 30, 40]
         
-        // Text processing with arrays
-        array<string> words = ["hello", "world", "from", "Clean"]
-        string sentence = Array.join(words, " ")               // "hello world from Clean"
+        // Text processing with lists
+        list<string> words = ["hello", "world", "from", "Clean"]
+        string sentence = List.join(words, " ")               // "hello world from Clean"
         
-        // Creating arrays programmatically
-        array<string> greetings = Array.fill(3, "Hello")       // ["Hello", "Hello", "Hello"]
-        array<integer> countdown = Array.range(5, 1)           // [5, 4, 3, 2, 1]
+        // Creating lists programmatically
+        list<string> greetings = List.fill(3, "Hello")       // ["Hello", "Hello", "Hello"]
+        list<integer> countdown = List.range(5, 1)           // [5, 4, 3, 2, 1]
         
         // Validation and utility
-        boolean isEmpty = Array.isEmpty([])                    // true
-        string firstWord = Array.first(words)                  // "hello"
-        string lastWord = Array.last(words)                    // "Clean"
+        boolean isEmpty = List.isEmpty([])                    // true
+        string firstWord = List.first(words)                  // "hello"
+        string lastWord = List.last(words)                    // "Clean"
 ```
 
 ### File Class
@@ -2189,13 +2191,13 @@ These work on any value and help with common tasks:
 **Length and Size Functions:**
 
 ```clean
-// Get the length of text, arrays, or collections
+// Get the length of text, lists, or collections
 integer size = myText.length()
-integer count = myArray.length()
+integer count = myList.length()
 
 // Check if something is empty or has content
 boolean empty = myText.isEmpty()
-boolean hasContent = myArray.isNotEmpty()
+boolean hasContent = myList.isNotEmpty()
 
 // Check if a value exists (not null/undefined)
 boolean exists = myValue.isDefined()
@@ -2216,7 +2218,7 @@ boolean defaultFlag = defaultBool()         // Returns false
 ```clean
 // Check if something is empty or has content
 boolean empty = myText.isEmpty()
-boolean hasContent = myArray.isNotEmpty()
+boolean hasContent = myList.isNotEmpty()
 
 // Check if a value exists (not null/undefined)
 boolean exists = myValue.isDefined()
@@ -2332,13 +2334,13 @@ functions:
         string ageText = "Age: ".concat(age.toString())
         
     void dataProcessing()
-        // Array processing with methods
-        array<string> names = ["Alice", "Bob", "Charlie"]
+        // List processing with methods
+        list<string> names = ["Alice", "Bob", "Charlie"]
         integer count = names.length()
         boolean hasData = names.isNotEmpty()
         
         // Number processing
-        array<number> scores = [85.5, 92.3, 78.9]
+        list<number> scores = [85.5, 92.3, 78.9]
         number average = calculateAverage(scores).keepBetween(0.0, 100.0)
         string displayScore = average.toString().concat("%")
 ```

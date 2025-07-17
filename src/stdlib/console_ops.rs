@@ -1,12 +1,13 @@
 use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
-use wasm_encoder::{Instruction, MemArg};
+use wasm_encoder::Instruction;
 use crate::stdlib::register_stdlib_function;
 
 /// Console input operations for Clean Language
 /// Provides type-safe console input functionality
 pub struct ConsoleOperations {
+    #[allow(dead_code)]
     heap_start: usize,
 }
 

@@ -72,7 +72,7 @@
 ### 6. Memory Management (CRITICAL PRIORITY - NEEDS IMPLEMENTATION)
 **Status:** 🟡 **PLACEHOLDER IMPLEMENTATIONS REMAIN**
 - **Files:** `src/codegen/mod.rs`, `src/codegen/instruction_generator.rs`
-- **Issue:** String/array/object allocation returns null pointers (0)
+- **Issue:** String/list/object allocation returns null pointers (0)
 - **Impact:** Dynamic data structures don't work properly
 - **Next Steps:** Implement real memory allocation and pointer management
 

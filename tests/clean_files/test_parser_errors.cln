@@ -9,7 +9,7 @@ start()
 		print("negative"
 	
 	// Missing closing bracket
-	Array<string> arr = ["a", "b", "c"
+	list<string> arr = ["a", "b", "c"
 	
 	// Wrong function syntax
 	func add(integer a, integer b) -> integer

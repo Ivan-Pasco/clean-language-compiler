@@ -101,7 +101,7 @@ functions:
 
 ---
 
-🗓️ Arrays
+🗓️ Lists
 
 ```
 number[] numbers = 1,2,3,4

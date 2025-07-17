@@ -1,0 +1,4 @@
+import MathUtils
+
+start()
+	print "Testing imports"

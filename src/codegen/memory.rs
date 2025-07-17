@@ -3,7 +3,6 @@
 use wasm_encoder::{Instruction, ValType, DataSection, ConstExpr};
 use crate::error::{CompilerError};
 use crate::ast::Value;
-use crate::types::WasmType;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -94,6 +93,7 @@ pub(crate) struct MemoryUtils {
     string_pool: HashMap<String, usize>,
     
     // Shared memory manager for stdlib integration
+    #[allow(dead_code)]
     memory_manager: Rc<RefCell<MemoryManager>>,
 }
 
@@ -128,6 +128,7 @@ impl MemoryUtils {
     }
 
     /// Add string data to the data section with proper memory layout
+    #[allow(dead_code)]
     pub(crate) fn add_string_data(&mut self, data: &[u8]) -> u32 {
         let string_content = std::str::from_utf8(data).unwrap_or("");
         
@@ -384,6 +385,7 @@ impl MemoryUtils {
     }
 
     /// Mark an object as a root (never collected)
+    #[allow(dead_code)]
     pub(crate) fn add_root_object(&mut self, address: usize) {
         if !self.root_objects.contains(&address) {
             self.root_objects.push(address);
@@ -391,6 +393,7 @@ impl MemoryUtils {
     }
 
     /// Remove an object from roots
+    #[allow(dead_code)]
     pub(crate) fn remove_root_object(&mut self, address: usize) {
         self.root_objects.retain(|&addr| addr != address);
     }
@@ -441,6 +444,7 @@ impl MemoryUtils {
     }
 
     /// Generate memory initialization instructions
+    #[allow(dead_code)]
     pub(crate) fn generate_init_memory(&self) -> Vec<Instruction> {
         let mut instructions = Vec::new();
 
@@ -452,6 +456,7 @@ impl MemoryUtils {
     }
 
     /// Check if the memory utils has any allocated data
+    #[allow(dead_code)]
     pub(crate) fn is_empty(&self) -> bool {
         self.memory_blocks.is_empty() && self.current_address == self.heap_start
     }
@@ -642,6 +647,7 @@ impl MemoryUtils {
     }
 
     /// Generate memory management functions for WASM
+    #[allow(dead_code)]
     pub(crate) fn generate_memory_functions(&self) -> Vec<(Vec<ValType>, Option<ValType>, Vec<Instruction<'static>>)> {
         vec![
             // malloc(size: i32, type_id: i32) -> i32
@@ -676,6 +682,7 @@ impl MemoryUtils {
     }
 
     /// Get memory statistics
+    #[allow(dead_code)]
     pub(crate) fn get_stats(&self) -> (usize, usize, usize) {
         (
             self.allocated_objects,
@@ -684,6 +691,7 @@ impl MemoryUtils {
         )
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_memory_manager_ref(&self) -> Rc<RefCell<MemoryManager>> {
         // Return the shared memory manager instance for stdlib integration
         self.memory_manager.clone()

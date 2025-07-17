@@ -124,7 +124,7 @@ start()
 	println "✓ Type-first declarations"
 	println "✓ Apply-blocks (type, function, constant)"
 	println "✓ Mathematical operations"
-	println "✓ List/Array operations"
+	println "✓ List operations"
 	println "✓ String manipulations"
 	println "✓ Type conversions"
 	println "✓ Control flow (if/else, iteration)"

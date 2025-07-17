@@ -1,0 +1,5 @@
+start()
+	number x = 2.0
+	number y = 3.0
+	number result = x + y
+	print result

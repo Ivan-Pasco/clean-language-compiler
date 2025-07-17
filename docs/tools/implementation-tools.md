@@ -39,7 +39,7 @@ We've created several tools to automate applying the necessary fixes across the 
 - **Purpose**: Updates CallIndirect instructions to use the correct field names (`ty` and `table` instead of `ty_idx` and `table_idx`).
 - **How to run**: `cargo run --bin call_indirect_fix`
 - **What it does**:
-  - Automatically processes array_ops.rs to fix the CallIndirect field names
+  - Automatically processes list_ops.rs to fix the CallIndirect field names
   - Uses regex pattern matching to identify and replace incorrect field names
 
 ### 3. WasmType Usage Fixer
@@ -70,7 +70,7 @@ To complete the remaining implementation fixes, follow these steps:
 3. **Fix WasmType Usage**:
    ```sh
    cargo run --bin wasm_type_fix -- src/stdlib/string_ops.rs
-   cargo run --bin wasm_type_fix -- src/stdlib/array_ops.rs
+   cargo run --bin wasm_type_fix -- src/stdlib/list_ops.rs
    ```
 
 4. **Run the Tests**:

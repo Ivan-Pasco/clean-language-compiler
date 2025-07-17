@@ -111,9 +111,9 @@ functions:
     return base * multiplier
 ```
 
-## 🗓️ Arrays
+## 🗓️ Lists
 
-Arrays can be single or multi-dimensional:
+Lists can be single or multi-dimensional:
 
 ```clean
 number[] numbers = 1,2,3,4

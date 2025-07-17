@@ -162,8 +162,8 @@ pub enum Expression {
         location: SourceLocation,
     },
     
-    // Array and Matrix access
-    ArrayAccess(Box<Expression>, Box<Expression>),
+    // List and Matrix access
+    ListAccess(Box<Expression>, Box<Expression>),
     MatrixAccess(Box<Expression>, Box<Expression>, Box<Expression>),
     
     // String interpolation
@@ -254,8 +254,8 @@ pub enum Pattern {
         patterns: Vec<Pattern>,
     },
     
-    // Array patterns: [x, y, z] or [head, ...tail]
-    Array {
+    // List patterns: [x, y, z] or [head, ...tail]
+    List {
         patterns: Vec<Pattern>,
         rest: Option<String>,  // For spread patterns like [x, ...rest]
     },

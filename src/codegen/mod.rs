@@ -31,7 +31,7 @@ use instruction_generator::{InstructionGenerator, LocalVarInfo};
 pub const INTEGER_TYPE_ID: u32 = 1;
 pub const FLOAT_TYPE_ID: u32 = 2;
 pub const STRING_TYPE_ID: u32 = 3;
-pub const ARRAY_TYPE_ID: u32 = 4;
+pub const LIST_TYPE_ID: u32 = 4;
 pub const MATRIX_TYPE_ID: u32 = 5;
 pub const PAIRS_TYPE_ID: u32 = 6;
 
@@ -453,7 +453,6 @@ impl CodeGenerator {
             Type::IntegerSized { bits: 64, .. } => Ok(WasmType::I64),
             Type::NumberSized { bits: 32 } => Ok(WasmType::F32),
             Type::NumberSized { bits: 64 } => Ok(WasmType::F64),
-            Type::List(_) => Ok(WasmType::I32), // Pointer to list structure
             Type::Class { .. } => Ok(WasmType::I32), // Pointer to object
             Type::Function(_, _) => Ok(WasmType::I32), // Function pointer
             _ => Ok(WasmType::I32), // Default fallback for any other types
@@ -1238,7 +1237,7 @@ impl CodeGenerator {
             Expression::Binary(left, op, right) => { 
                 self.generate_binary_operation(left, op, right, instructions)
             },
-            Expression::ArrayAccess(array, index) => {
+            Expression::ListAccess(array, index) => {
                 self.generate_expression(&*array, instructions)?;
                 self.generate_expression(&*index, instructions)?;
                 instructions.push(Instruction::Call(self.get_array_get())); 
@@ -1356,6 +1355,35 @@ impl CodeGenerator {
                     }
                 }
                 
+                // Check for built-in module calls first
+                if let Expression::Variable(module_name) = object.as_ref() {
+                    match module_name.as_str() {
+                        "http" | "math" | "array" | "string" | "file" => {
+                            let function_name = format!("{}.{}", module_name, method);
+                            
+                            // Generate arguments
+                            for arg in arguments {
+                                self.generate_expression(arg, instructions)?;
+                            }
+                            
+                            // Find and call the function
+                            if let Some(&function_index) = self.function_map.get(&function_name) {
+                                instructions.push(Instruction::Call(function_index));
+                                
+                                // Return the appropriate type based on the function
+                                return Ok(self.get_function_return_type_by_name(&function_name));
+                            } else {
+                                return Err(CompilerError::codegen_error(
+                                    &format!("Function '{}' not found", function_name),
+                                    None,
+                                    None
+                                ));
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+
                 // Check if this is a static method call on a built-in class first
                 if let Expression::Variable(class_name) = object.as_ref() {
                     // Try to handle as built-in static method call
@@ -1511,7 +1539,7 @@ impl CodeGenerator {
                 // Handle specific array/collection methods
                 match method.as_str() {
                     "at" => {
-                        // Array.at(index) - 1-indexed access
+                        // List.at(index) - 1-indexed access
                         // Convert 1-indexed to 0-indexed by subtracting 1
                         instructions.push(Instruction::I32Const(1));
                         instructions.push(Instruction::I32Sub);
@@ -1519,7 +1547,7 @@ impl CodeGenerator {
                         Ok(WasmType::I32)
                     },
                     "length" => {
-                        // Array.length() - get array length
+                        // List.length() - get list length
                         instructions.push(Instruction::Call(self.get_array_length()));
                         Ok(WasmType::I32)
                     },
@@ -1825,7 +1853,7 @@ impl CodeGenerator {
                     },
                     _ => {
                         // Check if this is a method call on a user-defined class
-                        if let Expression::Variable(var_name) = object.as_ref() {
+                        if let Expression::Variable(_var_name) = object.as_ref() {
                             // Check if we can find a class method function
                             // Try different class names that this variable might represent
                             let possible_class_names = vec!["Rectangle", "Circle", "Point"]; // TODO: Get actual type from semantic analysis
@@ -2078,7 +2106,7 @@ impl CodeGenerator {
             },
             
             // Async expressions
-            Expression::StartExpression { expression, location: _ } => {
+            Expression::StartExpression { expression: _, location: _ } => {
                 // Generate proper async execution with future creation
                 
                 // Step 1: Create a unique future ID
@@ -2110,8 +2138,8 @@ impl CodeGenerator {
                 // Instead of executing immediately, we queue the task for the host-side async runtime
                 let task_id = self.function_count;
                 let future_task_name = format!("future_task_{}", task_id);
-                let future_task_ptr = self.add_string_to_pool(&future_task_name);
-                let future_task_len = future_task_name.len() as i32;
+                let _future_task_ptr = self.add_string_to_pool(&future_task_name);
+                let _future_task_len = future_task_name.len() as i32;
                 
                 // Create future task metadata
                 let future_metadata = format!("{{\"id\":{},\"name\":\"{}\",\"type\":\"future\",\"priority\":\"normal\"}}", 
@@ -2193,8 +2221,8 @@ impl CodeGenerator {
         // Special handling for string concatenation
         if let BinaryOperator::Add = op {
             if self.is_string_type(left) && self.is_string_type(right) {
-                let left_type = self.generate_expression(left, instructions)?;
-                let right_type = self.generate_expression(right, instructions)?;
+                let _left_type = self.generate_expression(left, instructions)?;
+                let _right_type = self.generate_expression(right, instructions)?;
                 
                 // Call string concatenation function
                 if let Ok(concat_index) = self.get_string_concat_index() {
@@ -2259,8 +2287,22 @@ impl CodeGenerator {
                     ast::BinaryOperator::Greater => { instructions.push(Instruction::I32GtS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::I32LeS); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::I32GeS); Ok(WasmType::I32) }, 
-                    // ast::BinaryOperator::And => { instructions.push(Instruction::I32And); Ok(WasmType::I32) }, // Assuming And/Or are in AST
-                    // ast::BinaryOperator::Or => { instructions.push(Instruction::I32Or); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Modulo => { instructions.push(Instruction::I32RemS); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Power => {
+                        // Convert to F64 for power operation
+                        instructions.insert(instructions.len() - 2, Instruction::F64ConvertI32S);
+                        instructions.push(Instruction::F64ConvertI32S);
+                        if let Some(pow_index) = self.get_function_index("pow") {
+                            instructions.push(Instruction::Call(pow_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error("Power function not found".to_string(), None, None))
+                        }
+                    },
+                    ast::BinaryOperator::And => { instructions.push(Instruction::I32And); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Or => { instructions.push(Instruction::I32Or); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Is => { instructions.push(Instruction::I32Eq); Ok(WasmType::I32) },
+                    ast::BinaryOperator::Not => { instructions.push(Instruction::I32Ne); Ok(WasmType::I32) },
                      _ => Err(CompilerError::type_error(format!("Unsupported I32 binary operator: {:?}", op), None, None)),
                 }
             },
@@ -2282,6 +2324,22 @@ impl CodeGenerator {
                     ast::BinaryOperator::Divide => { 
                         instructions.push(Instruction::F64Div); 
                         Ok(WasmType::F64) 
+                    },
+                    ast::BinaryOperator::Modulo => {
+                        if let Some(mod_index) = self.get_function_index("mod") {
+                            instructions.push(Instruction::Call(mod_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error("Modulo function not found".to_string(), None, None))
+                        }
+                    },
+                    ast::BinaryOperator::Power => {
+                        if let Some(pow_index) = self.get_function_index("pow") {
+                            instructions.push(Instruction::Call(pow_index));
+                            Ok(WasmType::F64)
+                        } else {
+                            Err(CompilerError::type_error("Power function not found".to_string(), None, None))
+                        }
                     },
                     ast::BinaryOperator::Equal => { 
                         instructions.push(Instruction::F64Eq); 
@@ -2307,6 +2365,24 @@ impl CodeGenerator {
                         instructions.push(Instruction::F64Ge); 
                         Ok(WasmType::I32) 
                     }, 
+                    ast::BinaryOperator::And => { 
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32And);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Or => { 
+                        instructions.push(Instruction::I32TruncF64S);
+                        instructions.push(Instruction::I32Or);
+                        Ok(WasmType::I32)
+                    },
+                    ast::BinaryOperator::Is => { 
+                        instructions.push(Instruction::F64Eq); 
+                        Ok(WasmType::I32) 
+                    },
+                    ast::BinaryOperator::Not => { 
+                        instructions.push(Instruction::F64Ne); 
+                        Ok(WasmType::I32) 
+                    },
                     _ => Err(CompilerError::type_error(format!("Unsupported F64 binary operator: {:?}", op), None, None))
                 }
             },
@@ -2433,6 +2509,7 @@ impl CodeGenerator {
         }
     }
     
+    #[allow(dead_code)]
     fn can_convert(&self, from: WasmType, to: WasmType) -> bool {
         match (from, to) {
             (WasmType::I32, WasmType::F64) => true,
@@ -2511,6 +2588,7 @@ impl CodeGenerator {
             .ok_or_else(|| CompilerError::codegen_error("String concatenation function not found", None, None))
     }
 
+    #[allow(dead_code)]
     fn get_string_compare_index(&self) -> Result<u32, CompilerError> {
         self.get_function_index("string_compare")
             .ok_or_else(|| CompilerError::codegen_error("String comparison function not found", None, None))
@@ -2569,6 +2647,7 @@ impl CodeGenerator {
     }
 
     /// Generate a vec of try-catch instructions
+    #[allow(dead_code)]
     fn generate_try_catch_block(&mut self, try_block: &[Instruction], catch_tag: u32) -> Vec<Instruction> {
         let mut result = Vec::new();
         result.push(Instruction::Try(BlockType::Empty));
@@ -2663,7 +2742,7 @@ impl CodeGenerator {
         self.register_numeric_operations()?;
         
         // 7. Register array operations
-        self.register_array_operations()?;
+        self.register_list_operations()?;
         
         // 8. Register type conversion operations
         self.register_type_conversion_operations()?;
@@ -2678,6 +2757,7 @@ impl CodeGenerator {
     }
     
     /// Register matrix operation functions using WASM instructions from MatrixOperations
+    #[allow(dead_code)]
     fn register_matrix_operations(&mut self) -> Result<(), CompilerError> {
         use crate::stdlib::matrix_ops::MatrixOperations;
         
@@ -2699,17 +2779,17 @@ impl CodeGenerator {
         Ok(())
     }
 
-    /// Register array operation functions using WASM instructions from ArrayManager
-    fn register_array_operations(&mut self) -> Result<(), CompilerError> {
-        use crate::stdlib::array_ops::ArrayManager;
+    /// Register list operation functions using WASM instructions from ListManager
+    fn register_list_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::list_ops::ListManager;
         use crate::stdlib::memory::MemoryManager;
         use std::rc::Rc;
         use std::cell::RefCell;
         
-        // Create a MemoryManager and ArrayManager instance
+        // Create a MemoryManager and ListManager instance
         let memory_manager = Rc::new(RefCell::new(MemoryManager::new(1, Some(16))));
-        let array_manager = ArrayManager::new(memory_manager);
-        array_manager.register_functions(self)?;
+        let list_manager = ListManager::new(memory_manager);
+        list_manager.register_functions(self)?;
         
         Ok(())
     }
@@ -3116,6 +3196,7 @@ impl CodeGenerator {
     }
     
     /// Create AST function definitions for stdlib functions
+    #[allow(dead_code)]
     fn create_stdlib_ast_functions(&self) -> Result<Vec<ast::Function>, CompilerError> {
         use crate::ast::{Parameter, FunctionSyntax, Visibility, FunctionModifier};
         
@@ -3126,7 +3207,7 @@ impl CodeGenerator {
         // Note: print and printl functions are now imported from the host environment
         // instead of being defined as stdlib functions
         
-        // array_get(array: Array, index: Integer) -> Integer
+        // list_get(list: List, index: Integer) -> Integer
         functions.push(AstFunction {
             name: "array_get".to_string(),
             type_parameters: vec![],
@@ -3175,7 +3256,7 @@ impl CodeGenerator {
             location: None,
         });
         
-        // array_length(array: Array) -> Integer
+        // list_length(list: List) -> Integer
         functions.push(AstFunction {
             name: "array_length".to_string(),
             type_parameters: vec![],
@@ -3516,6 +3597,44 @@ impl CodeGenerator {
         self.instruction_generator.get_function_return_type(index)
     }
 
+    /// Get the return type of a function by name
+    fn get_function_return_type_by_name(&self, function_name: &str) -> WasmType {
+        match function_name {
+            // HTTP functions
+            "http.get" | "http.post" | "http.put" | "http.delete" | "http.head" | "http.options" | 
+            "http.postJson" | "http.putJson" | "http.patchJson" | "http.encodeUrl" | "http.decodeUrl" => WasmType::I32, // String pointer
+            "http.getResponseCode" => WasmType::I32, // Integer
+            "http.getResponseHeaders" => WasmType::I32, // String pointer
+            "http.setTimeout" | "http.setUserAgent" | "http.enableCookies" => WasmType::I32, // Void (represented as I32)
+            
+            // Math functions
+            "math.sin" | "math.cos" | "math.tan" | "math.asin" | "math.acos" | "math.atan" | "math.atan2" |
+            "math.sinh" | "math.cosh" | "math.tanh" | "math.ln" | "math.log10" | "math.log2" | 
+            "math.exp" | "math.exp2" | "math.sqrt" | "math.pow" | "math.floor" | "math.ceil" | 
+            "math.round" | "math.abs" | "math.min" | "math.max" | "math.mod" | "math.pi" | "math.e" => WasmType::F64, // Number
+            
+            // List functions
+            "array.length" | "array.push" | "array.pop" | "array.indexOf" => WasmType::I32, // Integer
+            "array.get" | "array.set" | "array.slice" | "array.concat" | "array.reverse" | 
+            "array.join" | "array.map" | "array.iterate" => WasmType::I32, // Pointer or void
+            "array.contains" => WasmType::I32, // Boolean (as I32)
+            
+            // String functions
+            "string.length" | "string.indexOf" | "string.lastIndexOf" | "string.compare" => WasmType::I32, // Integer
+            "string.concat" | "string.substring" | "string.toUpperCase" | "string.toLowerCase" | 
+            "string.trim" | "string.replace" => WasmType::I32, // String pointer
+            "string.startsWith" | "string.endsWith" | "string.contains" => WasmType::I32, // Boolean (as I32)
+            
+            // File functions
+            "file.read" => WasmType::I32, // String pointer
+            "file.write" | "file.append" | "file.delete" => WasmType::I32, // Integer (success/failure)
+            "file.exists" => WasmType::I32, // Boolean (as I32)
+            
+            // Default case
+            _ => WasmType::I32 // Default to I32 for unknown functions
+        }
+    }
+
     pub fn get_array_get(&self) -> u32 {
         self.function_map.get("array_get").copied().unwrap_or(0)
     }
@@ -3548,7 +3667,7 @@ impl CodeGenerator {
         // Create a Function - parameters are automatically available as locals 0, 1, 2, ...
         // For complex functions, we need additional local variables beyond parameters
         // Determine how many locals are needed based on the highest LocalGet index in instructions
-        let max_local_index = instructions.iter()
+        let _max_local_index = instructions.iter()
             .filter_map(|inst| match inst {
                 Instruction::LocalGet(idx) | Instruction::LocalSet(idx) | Instruction::LocalTee(idx) => Some(*idx),
                 _ => None
@@ -3684,7 +3803,7 @@ impl CodeGenerator {
             // Use the existing modules/MathUtils.clean module instead
             // NOTE: StringUtils removed - all string operations are available in string_ops.rs
             // Use the existing string functions directly: string_length, string_concat, etc.
-            "Array" => {
+            "List" => {
                 match method {
                     "length" => {
                         // Generate the array argument
@@ -3730,7 +3849,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_push") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3785,7 +3904,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_slice") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3797,7 +3916,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_concat") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3808,7 +3927,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_reverse") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3913,7 +4032,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_insert") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3937,7 +4056,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_sort") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3949,7 +4068,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array.map") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3961,7 +4080,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_filter") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -3996,7 +4115,7 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_fill") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
@@ -4008,12 +4127,12 @@ impl CodeGenerator {
                         
                         if let Some(function_index) = self.get_function_index("array_range") {
                             instructions.push(Instruction::Call(function_index));
-                            Ok(Some(WasmType::I32)) // Array pointer
+                            Ok(Some(WasmType::I32)) // List pointer
                         } else {
                             Ok(Some(WasmType::I32))
                         }
                     },
-                    _ => Ok(None), // Method not found in Array
+                    _ => Ok(None), // Method not found in List
                 }
             },
             "File" => {
@@ -4470,6 +4589,7 @@ impl CodeGenerator {
     }
 
     /// Generate code for a class
+    #[allow(dead_code)]
     fn generate_class(&mut self, class: &Class) -> Result<(), CompilerError> {
         // Generate constructor
         if let Some(constructor) = &class.constructor {
@@ -4529,6 +4649,7 @@ impl CodeGenerator {
     }
 
     /// Generate code for a range iteration statement
+    #[allow(dead_code)]
     fn generate_range_iterate(&mut self, stmt: &Statement) -> Result<Vec<Instruction>, CompilerError> {
         if let Statement::RangeIterate { iterator, start, end, step, body, .. } = stmt {
             let mut instructions = Vec::new();
@@ -5191,6 +5312,11 @@ impl CodeGenerator {
          self.http_import_indices.get(func_name).copied()
      }
      
+     /// Get the import index for a file function
+     pub fn get_file_import_index(&self, func_name: &str) -> Option<u32> {
+         self.file_import_indices.get(func_name).copied()
+     }
+     
     /// Register simplified print function imports following WebAssembly best practices
     /// Only registers essential print functions to avoid duplication issues
     fn register_print_imports(&mut self) -> Result<(), CompilerError> {
@@ -5239,6 +5365,7 @@ impl CodeGenerator {
     }
 
     /// Register type conversion import functions - CRITICAL for runtime functionality
+    #[allow(dead_code)]
     fn register_type_conversion_imports(&mut self) -> Result<(), CompilerError> {
         // int_to_string(value: i32) -> i32 (returns string pointer)
         let int_to_string_type = self.add_function_type(&[WasmType::I32], Some(WasmType::I32))?;
@@ -5732,12 +5859,12 @@ impl CodeGenerator {
         Ok(())
     }
 
-    fn generate_background_statement(&mut self, expression: &Expression, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
+    fn generate_background_statement(&mut self, _expression: &Expression, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         // Generate a unique task ID for this background task
         let task_id = self.function_count;
         let task_name = format!("bg_task_{}", task_id);
-        let task_name_ptr = self.add_string_to_pool(&task_name);
-        let task_name_len = task_name.len() as i32;
+        let _task_name_ptr = self.add_string_to_pool(&task_name);
+        let _task_name_len = task_name.len() as i32;
         
         // Create task metadata for the runtime scheduler
         // This will be used by the host-side async runtime to execute the task
@@ -5890,7 +6017,7 @@ impl CodeGenerator {
                     for i in 1..=5 {
                         loop_context.insert(iterator.clone(), (Type::Number, i));
                         
-                        println!("DEBUG: Array iteration {} = {}", iterator, i);
+                        println!("DEBUG: List iteration {} = {}", iterator, i);
                         
                         // Process loop body statements
                         self.track_statements_in_context(body, &mut loop_context)?;
@@ -5965,6 +6092,7 @@ impl CodeGenerator {
     }
 
     /// Extract constant values from simple expressions for result tracking (legacy method)
+    #[allow(dead_code)]
     fn extract_constant_value(&self, expr: &Expression) -> Option<i32> {
         self.extract_constant_value_with_context(expr, &HashMap::new())
     }
@@ -6082,7 +6210,7 @@ impl CodeGenerator {
         self.function_count += 1;
 
         // Generate function body: just return the constant value
-        let mut instructions = vec![return_instruction];
+        let instructions = vec![return_instruction];
         
         // Create function and add to code section
         let locals = vec![]; // No local variables needed
@@ -6128,7 +6256,7 @@ impl CodeGenerator {
         self.function_count += 1;
 
         // Generate function body: just return the constant value
-        let mut instructions = vec![return_instruction];
+        let instructions = vec![return_instruction];
         
         // Create function and add to code section
         let locals = vec![]; // No local variables needed

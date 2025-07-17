@@ -110,14 +110,14 @@ function processText(string input) -> string
 
 ### Async Programming
 ```clean
-function heavyComputation(array data) -> Future<number> background
+function heavyComputation(list data) -> Future<number> background
     number total = 0
     for item in data do
         total = total + item * item
     return total
 
 function main() -> void
-    array numbers = [1, 2, 3, 4, 5]
+    list numbers = [1, 2, 3, 4, 5]
     
     // Start async computation
     later result = start heavyComputation(numbers)

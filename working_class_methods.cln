@@ -1,0 +1,11 @@
+class Rectangle
+	number width
+	number height
+	
+	constructor(number w, number h)
+		width = w
+		height = h
+
+start()
+	Rectangle rect = Rectangle(5.0, 3.0)
+	print "Created rectangle with width 5 and height 3"

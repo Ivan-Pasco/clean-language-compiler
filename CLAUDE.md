@@ -97,7 +97,7 @@ cargo run --bin clean-language-compiler package install
 - HTTP client functionality
 
 **Standard Library** (`src/stdlib/`): Built-in functions
-- Array operations, math functions, string manipulation
+- List operations, math functions, string manipulation
 - Memory management utilities
 - Type conversion functions
 
@@ -105,7 +105,7 @@ cargo run --bin clean-language-compiler package install
 
 **Type System**: Strong static typing with inference
 - Primitive types: `integer`, `number`, `string`, `boolean`
-- Complex types: `Array<T>`, `Matrix<T>`
+- Complex types: `list<T>`, `Matrix<T>`
 - Class inheritance with `base()` constructor calls
 
 **WebAssembly Target**: All code compiles to WASM
