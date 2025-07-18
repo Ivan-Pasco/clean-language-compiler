@@ -1,11 +1,12 @@
 // TestModule - Simple test module for module system verification
 // All functions are public by default according to specification
 
-function integer add(integer a, integer b)
-	return a + b
+functions:
+	integer add(integer a, integer b)
+		return a + b
 
-function integer multiply(integer a, integer b)
-	return a * b
+	integer multiply(integer a, integer b)
+		return a * b
 
-function string greet(string name)
-	return "Hello, " + name 
+	string greet(string name)
+		return "Hello, " + name 

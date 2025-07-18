@@ -1,0 +1,16 @@
+// Test calling functions from imported module
+
+import TestModule
+
+start()
+    print "Testing module function calls"
+    
+    // Test calling module functions
+    integer result = TestModule.add(5, 3)
+    print "TestModule.add(5, 3) = " + result.toString()
+    
+    integer result2 = TestModule.multiply(4, 7)
+    print "TestModule.multiply(4, 7) = " + result2.toString()
+    
+    string greeting = TestModule.greet("World")
+    print "TestModule.greet('World') = " + greeting

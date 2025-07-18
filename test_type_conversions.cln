@@ -1,26 +1,21 @@
 start()
-	// Test type conversion operations
+	// Test type conversions with corrected method names
+	string numStr = "123"
+	string floatStr = "45.67"
 	
-	// Test string to integer conversion
-	string numberStr = "123"
-	integer parsedInt = string_to_int(numberStr)
-	print "String to int:"
-	print numberStr
-	print "Parsed as:"
-	print parsedInt
+	print "Original strings:"
+	print numStr
+	print floatStr
 	
-	// Test negative number conversion
-	string negStr = "-456"
-	integer negInt = string_to_int(negStr)
-	print "Negative string:"
-	print negStr
-	print "Parsed as:"
-	print negInt
+	// Test string to number conversions (use toFloat instead of toNumber)
+	integer num = numStr.toInteger()
+	number flt = floatStr.toFloat()
 	
-	// Test integer to string conversion
-	integer testNum = 789
-	string convertedStr = int_to_string(testNum)
-	print "Integer:"
-	print testNum
-	print "Converted to string:"
-	print convertedStr
+	print "Converted to numbers:"
+	print num
+	print flt
+	
+	// Test number to string conversions
+	string backToStr = num.toString()
+	print "Back to string:"
+	print backToStr

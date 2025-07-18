@@ -1,0 +1,8 @@
+// Test simple boolean operator
+start()
+	integer age = 25
+	boolean hasLicense = true
+	
+	// Test the specific failing case from TASKS.md
+	if age >= 21 and hasLicense
+		print "Can drive and drink"

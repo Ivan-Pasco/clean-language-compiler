@@ -1,0 +1,4 @@
+// Simple onError test
+start()
+	integer result = 10 / 0 onError 42
+	print "Result: " + result.toString()

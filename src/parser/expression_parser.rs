@@ -1,5 +1,5 @@
 use pest::iterators::Pair;
-use crate::ast::{Expression, Value, BinaryOperator, StringPart};
+use crate::ast::{Expression, Value, BinaryOperator, UnaryOperator, StringPart};
 use crate::error::CompilerError;
 use super::{get_location, convert_to_ast_location};
 use super::Rule;
@@ -163,8 +163,8 @@ pub fn parse_comparison_expression(pair: Pair<Rule>) -> Result<Expression, Compi
 
     for item in pair.into_inner() {
         match item.as_rule() {
-            Rule::arithmetic_expression => {
-                expr_stack.push(parse_arithmetic_expression(item)?);
+            Rule::unary_expression => {
+                expr_stack.push(parse_unary_expression(item)?);
             }
             Rule::comparison_op => {
                 let op = match item.as_str() {
@@ -175,11 +175,10 @@ pub fn parse_comparison_expression(pair: Pair<Rule>) -> Result<Expression, Compi
                     ">" => BinaryOperator::Greater,
                     ">=" => BinaryOperator::GreaterEqual,
                     "is" => BinaryOperator::Is,
-                    "not" => BinaryOperator::Not,
                     _ => return Err(CompilerError::parse_error(
                         format!("Invalid comparison operator: {}", item.as_str()),
                         Some(convert_to_ast_location(&get_location(&item))),
-                        Some("Valid comparison operators are: ==, !=, <, <=, >, >=, is, not".to_string())
+                        Some("Valid comparison operators are: ==, !=, <, <=, >, >=, is".to_string())
                     )),
                 };
                 op_stack.push(op);
@@ -210,6 +209,51 @@ pub fn parse_comparison_expression(pair: Pair<Rule>) -> Result<Expression, Compi
         i += 1;
     }
 
+    Ok(result)
+}
+
+pub fn parse_unary_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
+    let mut unary_ops = Vec::new();
+    let mut arithmetic_expr = None;
+    
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::unary_op => {
+                let op = match item.as_str() {
+                    "not" => UnaryOperator::Not,
+                    "-" => UnaryOperator::Negate,
+                    _ => return Err(CompilerError::parse_error(
+                        format!("Invalid unary operator: {}", item.as_str()),
+                        Some(convert_to_ast_location(&get_location(&item))),
+                        Some("Valid unary operators are: not, -".to_string())
+                    )),
+                };
+                unary_ops.push(op);
+            }
+            Rule::arithmetic_expression => {
+                arithmetic_expr = Some(parse_arithmetic_expression(item)?);
+            }
+            _ => return Err(CompilerError::parse_error(
+                format!("Unexpected rule in unary expression: {:?}", item.as_rule()),
+                Some(convert_to_ast_location(&get_location(&item))),
+                Some("Expected unary operator or arithmetic expression".to_string())
+            )),
+        }
+    }
+    
+    let mut result = arithmetic_expr.ok_or_else(|| {
+        CompilerError::parse_error(
+            "Missing arithmetic expression in unary expression".to_string(),
+            None,
+            Some("Unary expression must contain an arithmetic expression".to_string())
+        )
+    })?;
+    
+    // Apply unary operators from right to left (since we parsed left to right)
+    for op in unary_ops.into_iter().rev() {
+        result = Expression::Unary(op, Box::new(result));
+    }
+    
     Ok(result)
 }
 
@@ -705,11 +749,10 @@ pub fn parse_multiline_expression(pair: Pair<Rule>) -> Result<Expression, Compil
                     ">" => BinaryOperator::Greater,
                     ">=" => BinaryOperator::GreaterEqual,
                     "is" => BinaryOperator::Is,
-                    "not" => BinaryOperator::Not,
                     _ => return Err(CompilerError::parse_error(
                         format!("Invalid comparison operator: {}", item.as_str()),
                         Some(convert_to_ast_location(&get_location(&item))),
-                        Some("Valid comparison operators are: ==, !=, <, <=, >, >=, is, not".to_string())
+                        Some("Valid comparison operators are: ==, !=, <, <=, >, >=, is".to_string())
                     )),
                 };
                 op_stack.push(ParsedOperator::Binary(op));

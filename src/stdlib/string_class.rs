@@ -46,7 +46,7 @@ impl StringClass {
         // String.length(string text) -> integer
         register_stdlib_function(
             codegen,
-            "String.length",
+            "string.length",
             &[WasmType::I32],
             Some(WasmType::I32),
             vec![
@@ -64,7 +64,7 @@ impl StringClass {
         // String.concat(string a, string b) -> string
         register_stdlib_function(
             codegen,
-            "String.concat",
+            "string.concat",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_concat()
@@ -73,7 +73,7 @@ impl StringClass {
         // String.substring(string text, integer start, integer end) -> string
         register_stdlib_function(
             codegen,
-            "String.substring",
+            "string.substring",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_substring()
@@ -86,7 +86,7 @@ impl StringClass {
         // String.toUpperCase(string text) -> string
         register_stdlib_function(
             codegen,
-            "String.toUpperCase",
+            "string.toUpperCase",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_to_upper()
@@ -95,7 +95,7 @@ impl StringClass {
         // String.toLowerCase(string text) -> string
         register_stdlib_function(
             codegen,
-            "String.toLowerCase",
+            "string.toLowerCase",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_to_lower()
@@ -108,7 +108,7 @@ impl StringClass {
         // String.contains(string text, string search) -> boolean
         register_stdlib_function(
             codegen,
-            "String.contains",
+            "string.contains",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_contains()
@@ -117,7 +117,7 @@ impl StringClass {
         // String.indexOf(string text, string search) -> integer
         register_stdlib_function(
             codegen,
-            "String.indexOf",
+            "string.indexOf",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_index_of()
@@ -126,7 +126,7 @@ impl StringClass {
         // String.lastIndexOf(string text, string search) -> integer
         register_stdlib_function(
             codegen,
-            "String.lastIndexOf",
+            "string.lastIndexOf",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_last_index_of()
@@ -135,7 +135,7 @@ impl StringClass {
         // String.startsWith(string text, string prefix) -> boolean
         register_stdlib_function(
             codegen,
-            "String.startsWith",
+            "string.startsWith",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_starts_with()
@@ -144,7 +144,7 @@ impl StringClass {
         // String.endsWith(string text, string suffix) -> boolean
         register_stdlib_function(
             codegen,
-            "String.endsWith",
+            "string.endsWith",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_ends_with()
@@ -157,7 +157,7 @@ impl StringClass {
         // String.trim(string text) -> string
         register_stdlib_function(
             codegen,
-            "String.trim",
+            "string.trim",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_trim()
@@ -166,7 +166,7 @@ impl StringClass {
         // String.trimStart(string text) -> string
         register_stdlib_function(
             codegen,
-            "String.trimStart",
+            "string.trimStart",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_trim_start()
@@ -175,7 +175,7 @@ impl StringClass {
         // String.trimEnd(string text) -> string
         register_stdlib_function(
             codegen,
-            "String.trimEnd",
+            "string.trimEnd",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_trim_end()
@@ -188,7 +188,7 @@ impl StringClass {
         // String.replace(string text, string oldValue, string newValue) -> string
         register_stdlib_function(
             codegen,
-            "String.replace",
+            "string.replace",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_replace()
@@ -197,7 +197,7 @@ impl StringClass {
         // String.replaceAll(string text, string oldValue, string newValue) -> string
         register_stdlib_function(
             codegen,
-            "String.replaceAll",
+            "string.replaceAll",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_replace_all()
@@ -206,7 +206,7 @@ impl StringClass {
         // String.split(string text, string delimiter) -> array<string>
         register_stdlib_function(
             codegen,
-            "String.split",
+            "string.split",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_split()
@@ -215,7 +215,7 @@ impl StringClass {
         // String.join(array<string> parts, string separator) -> string
         register_stdlib_function(
             codegen,
-            "String.join",
+            "string.join",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_join()
@@ -228,7 +228,7 @@ impl StringClass {
         // String.charAt(string text, integer index) -> string
         register_stdlib_function(
             codegen,
-            "String.charAt",
+            "string.charAt",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_char_at()
@@ -237,7 +237,7 @@ impl StringClass {
         // String.charCodeAt(string text, integer index) -> integer
         register_stdlib_function(
             codegen,
-            "String.charCodeAt",
+            "string.charCodeAt",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_char_code_at()
@@ -250,7 +250,7 @@ impl StringClass {
         // String.isEmpty(string text) -> boolean
         register_stdlib_function(
             codegen,
-            "String.isEmpty",
+            "string.isEmpty",
             &[WasmType::I32],
             Some(WasmType::I32),
             vec![
@@ -271,7 +271,7 @@ impl StringClass {
         // String.isBlank(string text) -> boolean
         register_stdlib_function(
             codegen,
-            "String.isBlank",
+            "string.isBlank",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_is_blank()
@@ -284,7 +284,7 @@ impl StringClass {
         // String.padStart(string text, integer length, string padString) -> string
         register_stdlib_function(
             codegen,
-            "String.padStart",
+            "string.padStart",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_pad_start()
@@ -293,7 +293,7 @@ impl StringClass {
         // String.padEnd(string text, integer length, string padString) -> string
         register_stdlib_function(
             codegen,
-            "String.padEnd",
+            "string.padEnd",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_pad_end()

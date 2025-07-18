@@ -43,7 +43,7 @@ impl MathClass {
         // Math.add(number a, number b) -> number
         register_stdlib_function(
             codegen,
-            "Math.add",
+            "math.add",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -56,7 +56,7 @@ impl MathClass {
         // Math.subtract(number a, number b) -> number
         register_stdlib_function(
             codegen,
-            "Math.subtract",
+            "math.subtract",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -69,7 +69,7 @@ impl MathClass {
         // Math.multiply(number a, number b) -> number
         register_stdlib_function(
             codegen,
-            "Math.multiply",
+            "math.multiply",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -82,7 +82,7 @@ impl MathClass {
         // Math.divide(number a, number b) -> number
         register_stdlib_function(
             codegen,
-            "Math.divide",
+            "math.divide",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -99,7 +99,7 @@ impl MathClass {
         // Math.sqrt(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.sqrt",
+            "math.sqrt",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -111,7 +111,7 @@ impl MathClass {
         // Math.abs(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.abs",
+            "math.abs",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -123,7 +123,7 @@ impl MathClass {
         // Math.abs(integer x) -> integer (overload)
         register_stdlib_function(
             codegen,
-            "Math.abs",
+            "math.abs",
             &[WasmType::I32],
             Some(WasmType::I32),
             vec![
@@ -143,7 +143,7 @@ impl MathClass {
         // Math.max(number a, number b) -> number
         register_stdlib_function(
             codegen,
-            "Math.max",
+            "math.max",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -156,7 +156,7 @@ impl MathClass {
         // Math.min(number a, number b) -> number
         register_stdlib_function(
             codegen,
-            "Math.min",
+            "math.min",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -173,7 +173,7 @@ impl MathClass {
         // Math.floor(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.floor",
+            "math.floor",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -185,7 +185,7 @@ impl MathClass {
         // Math.ceil(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.ceil",
+            "math.ceil",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -197,7 +197,7 @@ impl MathClass {
         // Math.round(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.round",
+            "math.round",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -209,7 +209,7 @@ impl MathClass {
         // Math.trunc(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.trunc",
+            "math.trunc",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -221,7 +221,7 @@ impl MathClass {
         // Math.sign(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.sign",
+            "math.sign",
             &[WasmType::F64],
             Some(WasmType::F64),
             vec![
@@ -247,7 +247,7 @@ impl MathClass {
         // Math.sin(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.sin",
+            "math.sin",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_sin()
@@ -256,7 +256,7 @@ impl MathClass {
         // Math.cos(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.cos",
+            "math.cos",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_cos()
@@ -265,7 +265,7 @@ impl MathClass {
         // Math.tan(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.tan",
+            "math.tan",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_tan()
@@ -274,7 +274,7 @@ impl MathClass {
         // Math.asin(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.asin",
+            "math.asin",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_asin()
@@ -283,7 +283,7 @@ impl MathClass {
         // Math.acos(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.acos",
+            "math.acos",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_acos()
@@ -292,7 +292,7 @@ impl MathClass {
         // Math.atan(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.atan",
+            "math.atan",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_atan()
@@ -301,7 +301,7 @@ impl MathClass {
         // Math.atan2(number y, number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.atan2",
+            "math.atan2",
             &[WasmType::F64, WasmType::F64],
             Some(WasmType::F64),
             self.generate_atan2()
@@ -314,7 +314,7 @@ impl MathClass {
         // Math.ln(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.ln",
+            "math.ln",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_ln()
@@ -323,7 +323,7 @@ impl MathClass {
         // Math.log10(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.log10",
+            "math.log10",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_log10()
@@ -332,7 +332,7 @@ impl MathClass {
         // Math.log2(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.log2",
+            "math.log2",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_log2()
@@ -341,7 +341,7 @@ impl MathClass {
         // Math.exp(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.exp",
+            "math.exp",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_exp()
@@ -350,7 +350,7 @@ impl MathClass {
         // Math.exp2(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.exp2",
+            "math.exp2",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_exp2()
@@ -363,7 +363,7 @@ impl MathClass {
         // Math.sinh(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.sinh",
+            "math.sinh",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_sinh()
@@ -372,7 +372,7 @@ impl MathClass {
         // Math.cosh(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.cosh",
+            "math.cosh",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_cosh()
@@ -381,7 +381,7 @@ impl MathClass {
         // Math.tanh(number x) -> number
         register_stdlib_function(
             codegen,
-            "Math.tanh",
+            "math.tanh",
             &[WasmType::F64],
             Some(WasmType::F64),
             self.generate_tanh()
@@ -394,7 +394,7 @@ impl MathClass {
         // Math.pi() -> number
         register_stdlib_function(
             codegen,
-            "Math.pi",
+            "math.pi",
             &[],
             Some(WasmType::F64),
             vec![
@@ -405,7 +405,7 @@ impl MathClass {
         // Math.e() -> number
         register_stdlib_function(
             codegen,
-            "Math.e",
+            "math.e",
             &[],
             Some(WasmType::F64),
             vec![
@@ -416,7 +416,7 @@ impl MathClass {
         // Math.tau() -> number
         register_stdlib_function(
             codegen,
-            "Math.tau",
+            "math.tau",
             &[],
             Some(WasmType::F64),
             vec![

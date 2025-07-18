@@ -1,0 +1,32 @@
+// Test all standard library classes with lowercase camelCase naming
+start()
+	print "Testing all stdlib classes:"
+	
+	// Test Math class
+	number result = math.sqrt(25.0)
+	print "math.sqrt(25.0) = " + result.toString()
+	
+	number absResult = math.abs(-10.5)
+	print "math.abs(-10.5) = " + absResult.toString()
+	
+	// Test String class
+	string text = "hello world"
+	string upper = string.toUpperCase(text)
+	print "string.toUpperCase('hello world') = " + upper
+	
+	string lower = string.toLowerCase(upper)
+	print "string.toLowerCase(upper) = " + lower
+	
+	integer length = string.length(text)
+	print "string.length('hello world') = " + length.toString()
+	
+	// Test List class
+	list<string> myList = ["apple", "banana", "cherry"]
+	integer listLength = list.length(myList)
+	print "list.length([apple, banana, cherry]) = " + listLength.toString()
+	
+	boolean isEmpty = list.isEmpty(myList)
+	print "list.isEmpty(myList) = " + isEmpty.toString()
+	
+	string firstItem = list.get(myList, 0)
+	print "list.get(myList, 0) = " + firstItem

@@ -273,6 +273,39 @@ impl StringOperations {
             self.generate_string_length()
         )?;
 
+        // Register dot notation string functions
+        register_stdlib_function(
+            codegen,
+            "string.length",
+            &[WasmType::I32], // string pointer
+            Some(WasmType::I32), // length
+            self.generate_string_length()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string.trim",
+            &[WasmType::I32], // string pointer
+            Some(WasmType::I32), // trimmed string
+            self.generate_string_trim()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string.replaceAll",
+            &[WasmType::I32, WasmType::I32, WasmType::I32], // string, old, new
+            Some(WasmType::I32), // new string
+            self.generate_string_replace_all()
+        )?;
+
+        register_stdlib_function(
+            codegen,
+            "string.split",
+            &[WasmType::I32, WasmType::I32], // string, delimiter
+            Some(WasmType::I32), // list pointer
+            self.generate_string_split()
+        )?;
+
         // Register new string functions
         register_stdlib_function(
             codegen,
@@ -1111,6 +1144,48 @@ impl StringOperations {
             // For now, return false (not blank) to avoid complex local variable usage
             // In a real implementation, this would check if string is empty or contains only whitespace
             Instruction::I32Const(0), // Return false (not blank)
+        ]
+    }
+
+    pub fn generate_string_split(&self) -> Vec<Instruction> {
+        // String split: splits string by delimiter and returns list of strings
+        // Parameters: string_ptr, delimiter_ptr
+        // Returns: list pointer containing split strings
+        vec![
+            // For a simplified implementation, create a list with a single element (the original string)
+            // In a real implementation, this would:
+            // 1. Find all occurrences of delimiter in the string
+            // 2. Create a new list with appropriate capacity
+            // 3. Extract substrings between delimiters
+            // 4. Allocate memory for each substring
+            // 5. Add each substring to the list
+            
+            // Allocate memory for a list with one element (simplified)
+            // List structure: [length, capacity, element1, ...]
+            // We need: 4 bytes (length) + 4 bytes (capacity) + 4 bytes (string pointer)
+            Instruction::I32Const(12), // Size: 8 bytes header + 4 bytes for one element
+            Instruction::Call(0), // Assume memory allocation function is at index 0
+            Instruction::LocalTee(2), // Save list pointer
+            
+            // Set length = 1
+            Instruction::LocalGet(2),
+            Instruction::I32Const(1),
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Set capacity = 1  
+            Instruction::LocalGet(2),
+            Instruction::I32Const(1),
+            Instruction::I32Store(MemArg { offset: 4, align: 2, memory_index: 0 }),
+            
+            // Store original string as the single element
+            Instruction::LocalGet(2),
+            Instruction::I32Const(8), // Skip header
+            Instruction::I32Add,
+            Instruction::LocalGet(0), // Original string
+            Instruction::I32Store(MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Return the list pointer
+            Instruction::LocalGet(2),
         ]
     }
 

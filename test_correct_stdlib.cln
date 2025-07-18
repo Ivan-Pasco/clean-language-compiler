@@ -1,0 +1,9 @@
+// Test with correct standard library method names
+start()
+	print "Testing stdlib with correct names:"
+	number result = math.sqrt(16.0)
+	print "math.sqrt(16.0) = " + result.toString()
+	
+	string text = "hello"
+	string upper = string.toUpperCase(text)
+	print "string.toUpperCase('hello') = " + upper

@@ -333,6 +333,32 @@ impl SemanticAnalyzer {
             vec![(vec![Type::String], Type::String, 1)]
         );
 
+        // Add missing string functions
+        self.function_table.insert(
+            "string.length".to_string(),
+            vec![(vec![Type::String], Type::Integer, 1)]
+        );
+
+        self.function_table.insert(
+            "string.replace".to_string(),
+            vec![(vec![Type::String, Type::String, Type::String], Type::String, 3)]
+        );
+
+        self.function_table.insert(
+            "string.replaceAll".to_string(),
+            vec![(vec![Type::String, Type::String, Type::String], Type::String, 3)]
+        );
+
+        self.function_table.insert(
+            "string.trim".to_string(),
+            vec![(vec![Type::String], Type::String, 1)]
+        );
+
+        self.function_table.insert(
+            "string.split".to_string(),
+            vec![(vec![Type::String, Type::String], Type::List(Box::new(Type::String)), 2)]
+        );
+
         // List operations - module.function() syntax
         self.function_table.insert(
             "array.get".to_string(),
@@ -525,6 +551,7 @@ impl SemanticAnalyzer {
                         .take_while(|p| p.default_value.is_none())
                         .count();
                     let qualified_name = format!("{}.{}", module_name, func_name);
+                    println!("DEBUG: Adding function '{}' to function table", qualified_name);
                     self.function_table.insert(qualified_name, vec![(param_types, function.return_type.clone(), required_param_count)]);
                 }
                 
@@ -1607,6 +1634,39 @@ impl SemanticAnalyzer {
                                     Some(module_name)
                                 ));
                             }
+                        } else {
+                            // Module not found in imports, but it might be a valid module name
+                            // Check if we have a qualified function in the function table
+                            let qualified_name = format!("{}.{}", module_name, method);
+                            if self.function_table.contains_key(&qualified_name) {
+                                return self.check_function_call(&qualified_name, arguments, Some(location.clone()));
+                            }
+                        }
+                    } else {
+                        // No imports, but check if we have a qualified function in the function table
+                        let qualified_name = format!("{}.{}", module_name, method);
+                        if self.function_table.contains_key(&qualified_name) {
+                            return self.check_function_call(&qualified_name, arguments, Some(location.clone()));
+                        }
+                    }
+                }
+
+                // Check if this is a module method call (even if module not found in imports)
+                if let Expression::Variable(module_name) = &**object {
+                    let qualified_name = format!("{}.{}", module_name, method);
+                    println!("DEBUG: Checking for function '{}' in function table", qualified_name);
+                    if self.function_table.contains_key(&qualified_name) {
+                        println!("DEBUG: Found function '{}' in function table", qualified_name);
+                        return self.check_function_call(&qualified_name, arguments, Some(location.clone()));
+                    } else {
+                        println!("DEBUG: Function '{}' not found in function table", qualified_name);
+                        // Check if this looks like a module method call but function not found
+                        if module_name.chars().next().unwrap_or('a').is_uppercase() {
+                            return Err(CompilerError::type_error(
+                                format!("Function '{}' not found in module '{}'", method, module_name),
+                                Some(format!("Available functions can be checked in the module definition")),
+                                Some(location.clone())
+                            ));
                         }
                     }
                 }
@@ -1915,6 +1975,25 @@ impl SemanticAnalyzer {
     }
 
     fn check_method_call(&mut self, object: &Expression, method: &str, args: &[Expression], location: &SourceLocation) -> Result<Type, CompilerError> {
+        // Check for imported modules first before trying to resolve the object
+        if let Expression::Variable(module_name) = object {
+            if let Some(ref imports) = self.current_imports.clone() {
+                if imports.resolved_imports.contains_key(module_name) {
+                    // This is an imported module, check if we have a qualified function
+                    let qualified_name = format!("{}.{}", module_name, method);
+                    if self.function_table.contains_key(&qualified_name) {
+                        return self.check_function_call(&qualified_name, args, Some(location.clone()));
+                    }
+                }
+            }
+            
+            // Also check if we have a qualified function regardless of imports
+            let qualified_name = format!("{}.{}", module_name, method);
+            if self.function_table.contains_key(&qualified_name) {
+                return self.check_function_call(&qualified_name, args, Some(location.clone()));
+            }
+        }
+        
         let object_type = self.check_expression(object)?;
         
         // Check for built-in method-style functions first

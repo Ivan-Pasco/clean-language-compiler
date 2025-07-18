@@ -1,0 +1,5 @@
+// Test simple standard library class calls
+start()
+	print "Testing stdlib classes:"
+	number result = math.sqrt(16.0)
+	print "Result: " + result.toString()

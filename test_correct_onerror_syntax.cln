@@ -1,0 +1,7 @@
+// Test correct onError syntax
+start()
+	integer result = 10 / 0
+	onError:
+		print "Division by zero error"
+		result = -1
+	print "Result: " + result.toString()

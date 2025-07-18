@@ -1,0 +1,10 @@
+// Test single symbol import
+
+import TestModule.add
+
+start()
+    print "Testing single symbol import"
+    
+    // Test calling imported function directly
+    integer result = add(5, 3)
+    print "add(5, 3) = " + result.toString()

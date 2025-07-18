@@ -1,0 +1,25 @@
+start()
+	// Test string operations
+	string original = "Hello World"
+	
+	print "Original string:"
+	print original
+	
+	// Test string replace
+	string replaced = string.replace(original, "World", "Clean")
+	print "After replace 'World' with 'Clean':"
+	print replaced
+	
+	// Test string trim
+	string padded = "  hello  "
+	string trimmed = string.trim(padded)
+	print "Original padded:"
+	print padded
+	print "After trim:"
+	print trimmed
+	
+	// Test replace all
+	string multiReplace = "hello hello hello"
+	string replaceAll = string.replaceAll(multiReplace, "hello", "hi")
+	print "Replace all 'hello' with 'hi':"
+	print replaceAll

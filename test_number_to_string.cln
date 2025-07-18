@@ -1,0 +1,16 @@
+start()
+	// Test number to string conversion specifically
+	integer num = 42
+	number flt = 3.14
+	
+	print "Original numbers:"
+	print num
+	print flt
+	
+	// Test number to string conversions  
+	string numStr = num.toString()
+	string fltStr = flt.toString()
+	
+	print "Converted to strings:"
+	print numStr
+	print fltStr

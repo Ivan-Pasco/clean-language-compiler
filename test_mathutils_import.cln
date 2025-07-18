@@ -1,0 +1,13 @@
+// Test importing the existing MathUtils module
+
+import MathUtils
+
+start()
+    print "Testing MathUtils import"
+    
+    // Test calling module functions
+    integer result = MathUtils.max(5, 3)
+    print "MathUtils.max(5, 3) = " + result.toString()
+    
+    integer result2 = MathUtils.min(5, 3)
+    print "MathUtils.min(5, 3) = " + result2.toString()

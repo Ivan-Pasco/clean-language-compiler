@@ -147,16 +147,18 @@ multiline_expression = { primary ~ (NEWLINE* ~ INDENT* ~ (logical_op | compariso
 on_error_expr = { base_expression ~ "onError" ~ base_expression }
 on_error_block = { base_expression ~ "onError" ~ ":" ~ indented_block }
 
-// Expression with proper operator precedence (logical < comparison < arithmetic)
+// Expression with proper operator precedence (logical < comparison < arithmetic < unary)
 logical_expression = { comparison_expression ~ (logical_op ~ comparison_expression)* }
-comparison_expression = { arithmetic_expression ~ (comparison_op ~ arithmetic_expression)* }
+comparison_expression = { unary_expression ~ (comparison_op ~ unary_expression)* }
+unary_expression = { unary_op* ~ arithmetic_expression }
 arithmetic_expression = { primary ~ (arithmetic_op ~ primary)* }
 base_expression = { logical_expression }
 expression = { on_error_block | on_error_expr | base_expression }
 
 // Operators with proper precedence levels
 logical_op = { "and" | "or" }
-comparison_op = { "==" | "!=" | "<=" | ">=" | "<" | ">" | "is" | "not" }
+comparison_op = { "==" | "!=" | "<=" | ">=" | "<" | ">" | "is" }
+unary_op = { "not" | "-" }
 arithmetic_op = { "+" | "-" | "*" | "/" | "%" | "^" }
 
 // Lists and Matrices
@@ -187,6 +189,7 @@ if_stmt = { "if" ~ expression ~ indented_block ~ (NEWLINE* ~ INDENT* ~ "else" ~ 
 // Iteration
 iterate_stmt = { "iterate" ~ identifier ~ "in" ~ expression ~ indented_block }
 range_iterate_stmt = { "iterate" ~ identifier ~ "in" ~ expression ~ "to" ~ expression ~ ("step" ~ expression)? ~ indented_block }
+
 
 // Test
 test = { "test" ~ string ~ indented_block }

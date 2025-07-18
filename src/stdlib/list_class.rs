@@ -37,7 +37,7 @@ impl ListClass {
         // List.length(list lst) -> integer
         register_stdlib_function(
             codegen,
-            "List.length",
+            "list.length",
             &[WasmType::I32],
             Some(WasmType::I32),
             vec![
@@ -55,7 +55,7 @@ impl ListClass {
         // List.isEmpty(list lst) -> boolean
         register_stdlib_function(
             codegen,
-            "List.isEmpty",
+            "list.isEmpty",
             &[WasmType::I32],
             Some(WasmType::I32),
             vec![
@@ -76,7 +76,7 @@ impl ListClass {
         // List.get(list lst, integer index) -> any
         register_stdlib_function(
             codegen,
-            "List.get",
+            "list.get",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_list_get()
@@ -85,7 +85,7 @@ impl ListClass {
         // List.set(list lst, integer index, any value) -> void
         register_stdlib_function(
             codegen,
-            "List.set",
+            "list.set",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             None,
             self.generate_list_set()
@@ -98,7 +98,7 @@ impl ListClass {
         // List.indexOf(list lst, any value) -> integer
         register_stdlib_function(
             codegen,
-            "List.indexOf",
+            "list.indexOf",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_index_of()
@@ -107,7 +107,7 @@ impl ListClass {
         // List.lastIndexOf(list lst, any value) -> integer
         register_stdlib_function(
             codegen,
-            "List.lastIndexOf",
+            "list.lastIndexOf",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_last_index_of()
@@ -116,7 +116,7 @@ impl ListClass {
         // List.contains(list lst, any value) -> boolean
         register_stdlib_function(
             codegen,
-            "List.contains",
+            "list.contains",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_contains()
@@ -125,7 +125,7 @@ impl ListClass {
         // List.find(list lst, any value) -> any
         register_stdlib_function(
             codegen,
-            "List.find",
+            "list.find",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_find()
@@ -138,7 +138,7 @@ impl ListClass {
         // List.push(list lst, any value) -> list
         register_stdlib_function(
             codegen,
-            "List.push",
+            "list.push",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_push()
@@ -147,7 +147,7 @@ impl ListClass {
         // List.pop(list lst) -> any
         register_stdlib_function(
             codegen,
-            "List.pop",
+            "list.pop",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_pop()
@@ -156,7 +156,7 @@ impl ListClass {
         // List.shift(list lst) -> any
         register_stdlib_function(
             codegen,
-            "List.shift",
+            "list.shift",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_shift()
@@ -165,7 +165,7 @@ impl ListClass {
         // List.unshift(list lst, any value) -> void
         register_stdlib_function(
             codegen,
-            "List.unshift",
+            "list.unshift",
             &[WasmType::I32, WasmType::I32],
             None,
             self.generate_unshift()
@@ -174,7 +174,7 @@ impl ListClass {
         // List.insert(list lst, integer index, any value) -> integer (success/failure)
         register_stdlib_function(
             codegen,
-            "List.insert",
+            "list.insert",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_insert()
@@ -183,7 +183,7 @@ impl ListClass {
         // List.remove(list lst, integer index) -> any
         register_stdlib_function(
             codegen,
-            "List.remove",
+            "list.remove",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_remove()
@@ -192,7 +192,7 @@ impl ListClass {
         // List.clear(list lst) -> void
         register_stdlib_function(
             codegen,
-            "List.clear",
+            "list.clear",
             &[WasmType::I32],
             None,
             self.generate_clear()
@@ -205,7 +205,7 @@ impl ListClass {
         // List.slice(list lst, integer start, integer end) -> list
         register_stdlib_function(
             codegen,
-            "List.slice",
+            "list.slice",
             &[WasmType::I32, WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_slice()
@@ -214,7 +214,7 @@ impl ListClass {
         // List.concat(list lst1, list lst2) -> list
         register_stdlib_function(
             codegen,
-            "List.concat",
+            "list.concat",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_concat()
@@ -223,7 +223,7 @@ impl ListClass {
         // List.reverse(list lst) -> list
         register_stdlib_function(
             codegen,
-            "List.reverse",
+            "list.reverse",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_reverse()
@@ -232,7 +232,7 @@ impl ListClass {
         // List.sort(list lst) -> list
         register_stdlib_function(
             codegen,
-            "List.sort",
+            "list.sort",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_sort()
@@ -241,7 +241,7 @@ impl ListClass {
         // List.join(list lst, string separator) -> string
         register_stdlib_function(
             codegen,
-            "List.join",
+            "list.join",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_join()
@@ -254,7 +254,7 @@ impl ListClass {
         // List.copy(list lst) -> list
         register_stdlib_function(
             codegen,
-            "List.copy",
+            "list.copy",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_copy()
@@ -263,7 +263,7 @@ impl ListClass {
         // List.equals(list lst1, list lst2) -> boolean
         register_stdlib_function(
             codegen,
-            "List.equals",
+            "list.equals",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_equals()
@@ -272,7 +272,7 @@ impl ListClass {
         // List.fill(list lst, any value) -> void
         register_stdlib_function(
             codegen,
-            "List.fill",
+            "list.fill",
             &[WasmType::I32, WasmType::I32],
             None,
             self.generate_fill()
@@ -281,7 +281,7 @@ impl ListClass {
         // List.toString(list lst) -> string
         register_stdlib_function(
             codegen,
-            "List.toString",
+            "list.toString",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_to_string()

@@ -1183,7 +1183,23 @@ pub fn parse_import_statement(pair: Pair<Rule>) -> Result<Statement, CompilerErr
                     }
                 }
             },
-            _ => {}
+            Rule::import_item => {
+                // Handle single import item case (e.g., import: Math.sqrt)
+                let import = parse_import_item(inner)?;
+                imports.push(import);
+            },
+            Rule::identifier => {
+                // Handle simple import case (e.g., import TestModule)
+                let module_name = inner.as_str().to_string();
+                let import = ImportItem { 
+                    name: module_name, 
+                    alias: None 
+                };
+                imports.push(import);
+            },
+            _ => {
+                // Ignore other rules
+            }
         }
     }
     

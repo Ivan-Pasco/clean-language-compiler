@@ -1,0 +1,11 @@
+// Test iterate loops to verify they work correctly
+start()
+	print "Testing iterate loops:"
+	
+	iterate i in 1 to 5
+		print "Number: " + i.toString()
+	
+	iterate j in 2 to 10 step 2
+		print "Even: " + j.toString()
+		
+	print "Iterate loops completed successfully"

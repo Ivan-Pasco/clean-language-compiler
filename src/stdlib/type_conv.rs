@@ -427,14 +427,11 @@ impl TypeConvOperations {
     }
 
     fn generate_to_string_function(&self) -> Vec<Instruction> {
-        // Convert integer to string representation (simplified)
+        // Convert integer to string representation 
         // Parameters: integer value
         // Returns: pointer to a string
-        vec![
-            // For now, return a dummy string pointer
-            // In a complete implementation, this would convert integers to strings
-            Instruction::I32Const(1024), // Return a dummy pointer
-        ]
+        // Use the same implementation as generate_int_to_string_function
+        self.generate_int_to_string_function()
     }
 
     fn generate_parse_bool_function(&self) -> Vec<Instruction> {
@@ -470,9 +467,90 @@ impl TypeConvOperations {
     }
 
     fn generate_bool_to_string_function(&self) -> Vec<Instruction> {
+        // Convert boolean to string ("true" or "false")
+        // Parameters: boolean value (0 or 1)
+        // Returns: pointer to a string
         vec![
-            // Simplified implementation - return a dummy string pointer
-            Instruction::I32Const(1024), // Return a dummy pointer
+            // Check boolean value
+            Instruction::LocalGet(0), // boolean value
+            Instruction::I32Const(0),
+            Instruction::I32Eq, // value == 0 (false)
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Create "false" string (5 characters)
+            Instruction::I32Const(21), // 16 bytes header + 5 bytes for "false"
+            Instruction::I32Const(3), // STRING_TYPE_ID  
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalTee(1), // save string_ptr
+            Instruction::I32Const(5), // length = 5
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Store "false" characters
+            Instruction::LocalGet(1), // string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::I32Const(102), // 'f'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 17
+            Instruction::I32Const(17),
+            Instruction::I32Add,
+            Instruction::I32Const(97), // 'a'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 18
+            Instruction::I32Const(18),
+            Instruction::I32Add,
+            Instruction::I32Const(108), // 'l'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 19
+            Instruction::I32Const(19),
+            Instruction::I32Add,
+            Instruction::I32Const(115), // 's'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 20
+            Instruction::I32Const(20),
+            Instruction::I32Add,
+            Instruction::I32Const(101), // 'e'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Return string pointer
+            Instruction::LocalGet(1),
+            
+            Instruction::Else,
+            
+            // Create "true" string (4 characters)
+            Instruction::I32Const(20), // 16 bytes header + 4 bytes for "true"
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalTee(1), // save string_ptr
+            Instruction::I32Const(4), // length = 4
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Store "true" characters
+            Instruction::LocalGet(1), // string_ptr
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::I32Const(116), // 't'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 17
+            Instruction::I32Const(17),
+            Instruction::I32Add,
+            Instruction::I32Const(114), // 'r'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 18
+            Instruction::I32Const(18),
+            Instruction::I32Add,
+            Instruction::I32Const(117), // 'u'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1), // string_ptr + 19
+            Instruction::I32Const(19),
+            Instruction::I32Add,
+            Instruction::I32Const(101), // 'e'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Return string pointer
+            Instruction::LocalGet(1),
+            
+            Instruction::End,
         ]
     }
 
@@ -646,9 +724,92 @@ impl TypeConvOperations {
     }
 
     fn generate_float_to_string_function(&self) -> Vec<Instruction> {
+        // Convert float to string representation (simplified)
+        // Parameters: float value
+        // Returns: pointer to a string
+        // For a complete implementation, this would format the float properly
+        // For now, we'll create a basic representation
         vec![
-            // Simplified implementation - return a dummy string pointer
-            Instruction::I32Const(1024), // Return a dummy pointer
+            // Get float value
+            Instruction::LocalGet(0), // float value
+            
+            // Check for special case: 0.0
+            Instruction::LocalGet(0),
+            Instruction::F64Const(0.0),
+            Instruction::F64Eq,
+            Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+            
+            // Create "0.0" string (3 characters)
+            Instruction::I32Const(19), // 16 bytes header + 3 bytes for "0.0"
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalTee(1), // save string_ptr
+            Instruction::I32Const(3), // length = 3
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Store "0.0" characters
+            Instruction::LocalGet(1),
+            Instruction::I32Const(16), // skip header
+            Instruction::I32Add,
+            Instruction::I32Const(48), // '0'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1),
+            Instruction::I32Const(17),
+            Instruction::I32Add,
+            Instruction::I32Const(46), // '.'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1),
+            Instruction::I32Const(18),
+            Instruction::I32Add,
+            Instruction::I32Const(48), // '0'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Return string pointer
+            Instruction::LocalGet(1),
+            
+            Instruction::Else,
+            
+            // For non-zero values, create a generic float string
+            // This is a simplified implementation - a complete version would
+            // format the actual float value
+            Instruction::I32Const(22), // 16 bytes header + 6 bytes for "float"
+            Instruction::I32Const(3), // STRING_TYPE_ID
+            Instruction::Call(0), // allocate memory
+            Instruction::LocalTee(1), // save string_ptr
+            Instruction::I32Const(5), // length = 5
+            Instruction::I32Store(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }),
+            
+            // Store "float" as placeholder
+            Instruction::LocalGet(1),
+            Instruction::I32Const(16),
+            Instruction::I32Add,
+            Instruction::I32Const(102), // 'f'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1),
+            Instruction::I32Const(17),
+            Instruction::I32Add,
+            Instruction::I32Const(108), // 'l'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1),
+            Instruction::I32Const(18),
+            Instruction::I32Add,
+            Instruction::I32Const(111), // 'o'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1),
+            Instruction::I32Const(19),
+            Instruction::I32Add,
+            Instruction::I32Const(97), // 'a'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            Instruction::LocalGet(1),
+            Instruction::I32Const(20),
+            Instruction::I32Add,
+            Instruction::I32Const(116), // 't'
+            Instruction::I32Store8(wasm_encoder::MemArg { offset: 0, align: 0, memory_index: 0 }),
+            
+            // Return string pointer
+            Instruction::LocalGet(1),
+            
+            Instruction::End,
         ]
     }
 

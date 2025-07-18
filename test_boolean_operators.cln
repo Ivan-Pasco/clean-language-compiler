@@ -1,0 +1,21 @@
+// Test boolean operators in complex expressions
+start()
+	integer age = 25
+	boolean hasLicense = true
+	
+	// Test simple boolean expressions first
+	if age > 18
+		print "Adult"
+	
+	if hasLicense
+		print "Has license"
+		
+	// Test complex boolean expressions (this should fail according to TASKS.md)
+	if age >= 21 and hasLicense
+		print "Can drive and drink"
+		
+	// Test OR operator
+	if age < 16 or not hasLicense
+		print "Cannot drive"
+	else
+		print "Can drive"

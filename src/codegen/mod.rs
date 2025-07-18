@@ -2765,6 +2765,15 @@ impl CodeGenerator {
         // 10. Register HTTP operations
         self.register_http_operations()?;
         
+        // 11. Register math operations
+        self.register_math_operations()?;
+        
+        // 12. Register string class operations
+        self.register_string_class_operations()?;
+        
+        // 13. Register list class operations
+        self.register_list_class_operations()?;
+        
         Ok(())
     }
     
@@ -2835,6 +2844,39 @@ impl CodeGenerator {
         // Create an HttpClass instance and register its functions
         let http_class = HttpClass::new();
         http_class.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register math operation functions using WASM instructions from MathClass
+    fn register_math_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::math_class::MathClass;
+        
+        // Create a MathClass instance and register its functions
+        let math_class = MathClass::new();
+        math_class.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register string class operation functions using WASM instructions from StringClass
+    fn register_string_class_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::string_class::StringClass;
+        
+        // Create a StringClass instance and register its functions
+        let string_class = StringClass::new();
+        string_class.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register list class operation functions using WASM instructions from ListClass
+    fn register_list_class_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::list_class::ListClass;
+        
+        // Create a ListClass instance and register its functions
+        let list_class = ListClass::new();
+        list_class.register_functions(self)?;
         
         Ok(())
     }
