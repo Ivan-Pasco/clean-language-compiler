@@ -1,0 +1,7 @@
+// Test current onError syntax
+integer x = 10 / 0 onError 42
+print("Result: " + x.toString())
+
+// Test block syntax
+string result = http.get("https://invalid-url") onError: "default"
+print("HTTP result: " + result)

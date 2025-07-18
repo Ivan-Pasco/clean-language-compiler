@@ -1,0 +1,7 @@
+// Test specification-compliant onError syntax
+integer value = 10 / 0 onError 0
+print("Value: " + value.toString())
+
+// Test with error variable access 
+string data = "test" onError print("An error occurred")
+print("Data: " + data)

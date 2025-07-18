@@ -1,0 +1,7 @@
+// Test specification-compliant onError syntax
+integer value = 10 / 0 onError 0
+print("Value: " + value.toString())
+
+// Test with string fallback
+string data = "test" onError "error"
+print("Data: " + data)

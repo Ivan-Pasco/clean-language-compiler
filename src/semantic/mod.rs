@@ -1295,6 +1295,30 @@ impl SemanticAnalyzer {
                     // Built-in class names are valid "variables" that represent the class itself
                     // This allows static method calls like File.read() to work
                     Ok(Type::Object(name.clone()))
+                } else if let Some(ref imports) = self.current_imports {
+                    // Check if this is a module name from imports
+                    if imports.resolved_imports.contains_key(name) {
+                        // Module names are valid "variables" that represent the module itself
+                        // This allows method calls like TestModule.add() to work
+                        Ok(Type::Object(name.clone()))
+                    } else {
+                        // Enhanced error with suggestions for similar variable names
+                        let available_vars = self.current_scope.get_all_variable_names();
+                        let available_var_refs: Vec<&str> = available_vars.iter().map(|s| s.as_str()).collect();
+                        let suggestions = crate::error::ErrorUtils::suggest_similar_names(name, &available_var_refs, 3);
+                        
+                        let mut enhanced_suggestions = suggestions;
+                        enhanced_suggestions.push("Check if the variable name is correct and the variable is declared".to_string());
+                        enhanced_suggestions.push("Ensure the variable is declared before use".to_string());
+                        
+                        Err(CompilerError::enhanced_type_error(
+                            format!("Variable '{}' not found", name),
+                            Some("variable".to_string()),
+                            None,
+                            None,
+                            enhanced_suggestions,
+                        ))
+                    }
                 } else {
                     // Enhanced error with suggestions for similar variable names
                     let available_vars = self.current_scope.get_all_variable_names();
