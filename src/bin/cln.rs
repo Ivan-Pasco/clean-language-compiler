@@ -1,3 +1,13 @@
+/*!
+ * Clean Language Compiler - Command Line Interface
+ * 
+ * Author: Ivan Pasco Lizarraga
+ * Date: 17-07-2025
+ * Website: https://www.cleanlanguage.dev
+ * 
+ * A modern, type-safe programming language that compiles to WebAssembly
+ */
+
 use std::path::Path;
 use std::fs;
 use std::env;
@@ -5,6 +15,8 @@ use clean_language_compiler::parser::CleanParser;
 use clean_language_compiler::semantic::SemanticAnalyzer;
 use clean_language_compiler::codegen::CodeGenerator;
 use clean_language_compiler::error::CompilerError;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), CompilerError> {
     let args: Vec<String> = env::args().collect();
@@ -82,7 +94,9 @@ fn main() -> Result<(), CompilerError> {
 }
 
 fn print_usage() {
-    println!("🧹 Clean Language Compiler (cln)");
+    println!("🧹 Clean Language Compiler (cln) v{}", VERSION);
+    println!("Author: Ivan Pasco Lizarraga");
+    println!("Website: https://www.cleanlanguage.dev");
     println!();
     println!("USAGE:");
     println!("    cln <COMMAND> [OPTIONS]");
@@ -102,12 +116,14 @@ fn print_usage() {
     println!("    cln parse hello.cln                 # Check syntax only");
     println!("    cln check hello.cln                 # Type checking only");
     println!();
-    println!("For more information, visit: https://github.com/your-repo/clean-language");
+    println!("For more information, visit: https://www.cleanlanguage.dev");
 }
 
 fn print_version() {
-    println!("🧹 Clean Language Compiler (cln) v0.1.0");
-    println!("Built with Rust and WebAssembly support");
+    println!("Clean Language Compiler v{}", VERSION);
+    println!("Author: Ivan Pasco Lizarraga");
+    println!("Date: 17-07-2025");
+    println!("Website: https://www.cleanlanguage.dev");
 }
 
 fn compile_file(input_file: &str, output_file: &str) -> Result<(), CompilerError> {

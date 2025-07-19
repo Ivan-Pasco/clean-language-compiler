@@ -1,8 +1,12 @@
 [package]
 name = "clean-language-compiler"
 version = "0.1.0"
-authors = ["CleanLanguage Team"]
+authors = ["Ivan Pasco Lizarraga"]
 edition = "2021"
+homepage = "https://www.cleanlanguage.dev"
+repository = "https://github.com/cleanlang/clean-language-compiler"
+description = "A modern, type-safe programming language that compiles to WebAssembly"
+license = "MIT"
 
 [dependencies]
 # Parsing

@@ -1,3 +1,13 @@
+/*!
+ * Clean Language Compiler Library
+ * 
+ * Author: Ivan Pasco Lizarraga
+ * Date: 17-07-2025
+ * Website: https://www.cleanlanguage.dev
+ * 
+ * A modern, type-safe programming language that compiles to WebAssembly
+ */
+
 pub mod ast;
 pub mod parser;
 pub mod semantic;

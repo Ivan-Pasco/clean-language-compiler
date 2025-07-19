@@ -2,6 +2,10 @@
 
 A modern, type-safe programming language that compiles to WebAssembly.
 
+**Author:** Ivan Pasco Lizarraga  
+**Website:** https://www.cleanlanguage.dev  
+**Date:** 17-07-2025
+
 ## Overview
 
 Clean Language is designed to be a simple, expressive, and type-safe programming language that compiles to WebAssembly. It combines the readability of JavaScript with the safety of Rust, while being more approachable for beginners.

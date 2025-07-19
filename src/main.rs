@@ -1,3 +1,13 @@
+/*!
+ * Clean Language Compiler - Main Application
+ * 
+ * Author: Ivan Pasco Lizarraga
+ * Date: 17-07-2025
+ * Website: https://www.cleanlanguage.dev
+ * 
+ * A modern, type-safe programming language that compiles to WebAssembly
+ */
+
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::path::Path;
