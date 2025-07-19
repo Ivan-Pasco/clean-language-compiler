@@ -1,5 +1,0 @@
-// Test with uppercase Math class
-start()
-	print "Testing Math class:"
-	number result = Math.sqrt(16.0)
-	print "Math.sqrt(16.0) = " + result.toString()

@@ -1,9 +1,0 @@
-// Test async functionality according to specification
-start()
-	later data = start http.get("https://api.example.com")
-	print "Working..."
-	print data
-	
-	background print("Background task")
-	
-	print "Main task complete"

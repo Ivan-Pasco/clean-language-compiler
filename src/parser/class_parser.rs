@@ -173,6 +173,13 @@ fn parse_constructor(pair: Pair<Rule>, location: crate::ast::SourceLocation) -> 
                     }
                 }
             },
+            Rule::constructor_block => {
+                for stmt in item.into_inner() {
+                    if stmt.as_rule() == Rule::statement {
+                        body.push(parse_statement(stmt)?);
+                    }
+                }
+            },
             _ => {}
         }
     }

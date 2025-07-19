@@ -1,6 +1,0 @@
-// Test module loading - just try to import 
-
-import TestModule
-
-start()
-    print "Module import test"

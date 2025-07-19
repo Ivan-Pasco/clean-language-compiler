@@ -1,3 +1,0 @@
-list<integer> numbers = [10, 20, 30]
-iterate item in numbers
-	print("Item: " + item.toString())

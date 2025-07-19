@@ -1,8 +1,0 @@
-// Test simple import syntax
-
-import Math
-
-start()
-    print "Testing simple import"
-    number result = Math.sqrt(16.0)
-    print "Math.sqrt(16.0) = " + result.toString()

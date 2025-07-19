@@ -1,3 +1,0 @@
-import TestModule
-
-integer result = TestModule.add(5, 3)

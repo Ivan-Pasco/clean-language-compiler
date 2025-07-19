@@ -1,4 +1,0 @@
-start()
-    string url = "https://api.example.com"
-    string response = httpGet(url)
-    print(response)

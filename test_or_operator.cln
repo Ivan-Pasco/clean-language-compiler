@@ -1,8 +1,0 @@
-start()
-	integer age = 25
-	integer income = 50000
-	boolean hasLicense = true
-	
-	// This specific case that failed
-	boolean result1 = age >= 21 and income > 30000 or hasLicense
-	print result1

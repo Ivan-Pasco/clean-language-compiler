@@ -1,7 +1,0 @@
-start()
-	integer age = 25
-	integer income = 50000
-	
-	// This should fail - let's see exactly what happens
-	boolean result = age >= 21 and income > 30000
-	print result

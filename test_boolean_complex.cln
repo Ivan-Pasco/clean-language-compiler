@@ -1,9 +1,0 @@
-start()
-	// Test complex boolean expressions
-	integer age = 25
-	boolean hasLicense = true
-	
-	if age >= 21 and hasLicense
-		print "Can drive"
-	else
-		print "Cannot drive"

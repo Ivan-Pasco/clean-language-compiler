@@ -1,6 +1,0 @@
-// Simple module test without method calls
-
-import TestModule
-
-start()
-    print "Module imported successfully"

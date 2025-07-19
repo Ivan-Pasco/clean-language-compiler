@@ -1,3 +1,0 @@
-start()
-	async string response = http.get("https://api.example.com")
-	print response

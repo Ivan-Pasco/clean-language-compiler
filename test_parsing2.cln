@@ -1,3 +1,0 @@
-test.method(1, 2)
-someFunction(1, 2)
-print("done")

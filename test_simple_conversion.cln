@@ -1,5 +1,0 @@
-start()
-	// Test simple type conversions
-	integer num = 42
-	print "Number:"
-	print num

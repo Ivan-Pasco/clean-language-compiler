@@ -1,6 +1,0 @@
-start()
-	integer score = 85
-	if score >= 90
-		print "A grade"
-	else
-		print "Lower grade"

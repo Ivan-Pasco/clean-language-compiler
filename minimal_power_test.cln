@@ -1,3 +1,0 @@
-start()
-	number result = 2.0 ^ 3.0
-	print result

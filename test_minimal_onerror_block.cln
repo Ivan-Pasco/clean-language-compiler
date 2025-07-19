@@ -1,6 +1,0 @@
-// Minimal onError block test
-start()
-	integer x = 42 onError:
-		print "Error occurred"
-		0
-	print x.toString()

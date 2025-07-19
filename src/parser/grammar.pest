@@ -3,7 +3,7 @@ WHITESPACE = _{ " " | "\r" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 // Keywords and identifiers
-keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "test" | "tests" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "list" | "matrix" | "pairs" | "integer" | "number" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
+keyword = { ("return" | "if" | "else" | "then" | "iterate" | "in" | "to" | "step" | "tests" | "error" | "function" | "functions" | "input" | "description" | "class" | "constructor" | "is" | "and" | "or" | "not" | "true" | "false" | "onError" | "constant" | "private" | "base" | "list" | "matrix" | "pairs" | "integer" | "number" | "boolean" | "string" | "void" | "any" | "import" | "from" | "as" | "later" | "background") ~ !ASCII_ALPHANUMERIC }
 identifier = @{ !keyword ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
@@ -45,14 +45,14 @@ type_arguments = { type_ ~ ("," ~ type_)* }
 
 // Type definition
 type_ = { 
-    sized_type |
-    core_type |
     matrix_type |
     list_type |
     pairs_type |
     generic_type |
+    core_type |
     identifier |
-    type_parameter
+    type_parameter |
+    sized_type
 }
 
 // Indentation-based blocks
@@ -102,10 +102,10 @@ indented_block_with_declarations = { NEWLINE ~ INDENT+ ~ input_declaration ~ (NE
 setup_block = { (description_block ~ NEWLINE ~ input_block) | (input_block ~ NEWLINE ~ description_block) | input_block | description_block }
 
 // Object access and method calls
-builtin_class_name = { "list" | "string" | "file" | "http" | "math" }
+builtin_class_name = { "list" | "file" | "http" | "math" }
 function_call = { identifier ~ type_arguments? ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
 method_call_base = { builtin_class_name | identifier | "(" ~ expression ~ ")" }
-method_name = { identifier | "number" | "integer" | "string" | "boolean" }
+method_name = { identifier | "number" | "integer" | "boolean" }
 method_call_segment = { "." ~ method_name ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
 method_call = { method_call_base ~ method_call_segment+ }
 property_access = { identifier ~ ("." ~ identifier)+ }
@@ -126,8 +126,8 @@ primary = {
     property_access |
     error_variable |
     identifier |
-    multiline_parenthesized_expr |
-    "(" ~ expression ~ ")"
+    "(" ~ expression ~ ")" |
+    multiline_parenthesized_expr
 }
 
 // Base constructor call
@@ -199,18 +199,25 @@ return_stmt = { "return" ~ expression? }
 
 // Function declarations - All functions must be in functions: blocks per specification
 
-// Standalone functions removed - all functions must be in functions: blocks per specification
+// Parameter definitions for function declarations
 parameter_list = { parameter ~ ("," ~ parameter)* }
 parameter = { type_ ~ identifier ~ ("=" ~ expression)? }
 
 // Functions block (the main supported syntax for function declarations)
 functions_block = { "functions" ~ ":" ~ indented_functions_block }
 indented_functions_block = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ function_in_block ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ function_in_block)* }
-function_in_block = { function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ function_body }
-// Function body statements (similar to indented_block but without initial NEWLINE/INDENT)
-function_statements = { statement ~ (NEWLINE ~ INDENT+ ~ statement)* }
 
-function_body = { (NEWLINE ~ INDENT+ ~ setup_block ~ NEWLINE ~ INDENT+ ~ function_statements) | (NEWLINE ~ INDENT+ ~ function_statements) }
+// Function declaration inside functions block - Clean Language spec compliant
+function_in_block = { function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ function_body }
+
+// Function body can have setup blocks (description and input) or just statements
+function_body = { 
+    (NEWLINE ~ INDENT+ ~ setup_block ~ NEWLINE ~ INDENT+ ~ function_statements) | 
+    (NEWLINE ~ INDENT+ ~ function_statements) 
+}
+
+// Function statements - statements inside function body
+function_statements = { statement ~ (NEWLINE ~ INDENT+ ~ statement)* }
 
 // Function return type (excludes generic identifiers)
 function_type = { 
@@ -235,7 +242,7 @@ anonymous_test = { expression ~ "=" ~ expression }
 
 // Class definition with "is" inheritance
 class_field = { type_ ~ identifier ~ ("=" ~ expression)? }
-class_body_item = { class_field | constructor | functions_block }
+class_body_item = { functions_block | constructor | class_field }
 indented_class_body = { NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ class_body_item)* ~ (NEWLINE ~ (empty_line)*)? }
 
 class_decl = { 
@@ -244,7 +251,8 @@ class_decl = {
     indented_class_body?
 }
 
-constructor = { "constructor" ~ "(" ~ constructor_parameter_list? ~ ")" ~ indented_block? }
+constructor = { "constructor" ~ "(" ~ constructor_parameter_list? ~ ")" ~ constructor_block? }
+constructor_block = { NEWLINE ~ (empty_line)* ~ INDENT ~ INDENT+ ~ statement ~ (NEWLINE ~ (empty_line)* ~ INDENT ~ INDENT+ ~ statement)* }
 constructor_parameter_list = { constructor_parameter ~ ("," ~ constructor_parameter)* }
 constructor_parameter = { (constructor_type ~ identifier) | identifier }
 constructor_type = { 
@@ -272,10 +280,9 @@ import_item = {
 import_list = { import_item ~ (NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_item)* }
 import_stmt = { ("import" ~ ":" ~ NEWLINE ~ (empty_line)* ~ INDENT+ ~ import_list) | ("import" ~ identifier) | ("import" ~ ":" ~ import_item) }
 
-// Async expressions and statements
+// Async expressions and statements  
 later_assignment = { "later" ~ identifier ~ "=" ~ "start" ~ expression }
 background_stmt = { "background" ~ expression }
-background_function = { "function" ~ function_type? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ "background" ~ function_body }
 
 // Update statements to include async features and imports
 statement = {
@@ -299,8 +306,9 @@ statement = {
 }
 
 // Program with proper newline handling
-program_item = { import_stmt | start_function | implicit_start_function | background_function | functions_block | tests_block | class_decl | statement }
+program_item = { import_stmt | start_function | implicit_start_function | functions_block | tests_block | class_decl | statement }
 program = { SOI ~ NEWLINE* ~ (program_item ~ NEWLINE*)* ~ EOI }
 
-start_function = { "start" ~ "(" ~ ")" ~ indented_block } 
+// Start function - the entry point of a Clean Language program
+start_function = { "start" ~ "(" ~ ")" ~ indented_block }
 implicit_start_function = { "start" ~ "(" ~ ")" ~ indented_block } 

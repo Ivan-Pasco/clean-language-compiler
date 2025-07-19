@@ -1,8 +1,0 @@
-start()
-	integer age = 25
-	integer income = 50000
-	boolean hasLicense = true
-	
-	boolean result1 = age >= 21 and income > 30000 or hasLicense
-	print "Result 1 (should be true):"
-	print result1

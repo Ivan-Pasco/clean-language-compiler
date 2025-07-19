@@ -1,4 +1,0 @@
-start()
-	number x = 2.0
-	number sqrtResult = sqrt(x)
-	print sqrtResult

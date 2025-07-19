@@ -1,6 +1,0 @@
-// Test onError inline block syntax
-start()
-	string result = http.get("https://invalid-url") onError:
-		print "HTTP request failed"
-		"error"
-	print result

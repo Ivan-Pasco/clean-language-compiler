@@ -1,9 +1,0 @@
-functions:
-	void test()
-		if true
-			print "true"
-		else
-			print "false"
-
-start()
-	test()

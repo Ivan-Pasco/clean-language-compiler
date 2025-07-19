@@ -1,7 +1,0 @@
-start()
-	integer age = 25
-	integer income = 50000
-	
-	// Test division in boolean context
-	boolean result3 = income / 1000 > 40
-	print result3
