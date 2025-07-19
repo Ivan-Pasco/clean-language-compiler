@@ -21,18 +21,23 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: cln-linux-x86_64
+            archive: tar.gz
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             name: cln-linux-aarch64
+            archive: tar.gz
           - target: x86_64-apple-darwin
             os: macos-latest
             name: cln-macos-x86_64
+            archive: tar.gz
           - target: aarch64-apple-darwin
             os: macos-latest
             name: cln-macos-aarch64
+            archive: tar.gz
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            name: cln-windows-x86_64.exe
+            name: cln-windows-x86_64
+            archive: zip
 
     steps:
     - name: Checkout code
@@ -52,6 +57,7 @@ jobs:
     - name: Configure cross-compilation (Linux ARM64)
       if: matrix.target == 'aarch64-unknown-linux-gnu'
       run: |
+        mkdir -p ~/.cargo
         echo '[target.aarch64-unknown-linux-gnu]' >> ~/.cargo/config.toml
         echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
 
@@ -59,8 +65,12 @@ jobs:
       run: cargo build --release --bin cln --target ${{ matrix.target }}
 
     - name: Strip binary (Unix)
-      if: matrix.os != 'windows-latest'
-      run: strip target/${{ matrix.target }}/release/cln
+      if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-unknown-linux-gnu'
+      run: strip target/${{ matrix.target }}/release/cln || true
+
+    - name: Strip binary (Linux ARM64)
+      if: matrix.target == 'aarch64-unknown-linux-gnu'
+      run: aarch64-linux-gnu-strip target/${{ matrix.target }}/release/cln || true
 
     - name: Create archive (Unix)
       if: matrix.os != 'windows-latest'
@@ -76,52 +86,42 @@ jobs:
         7z a ../../../${{ matrix.name }}.zip cln.exe
         cd -
 
-    - name: Upload binary artifact (Unix)
-      if: matrix.os != 'windows-latest'
+    - name: Upload binary artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.name }}
-        path: ${{ matrix.name }}.tar.gz
-
-    - name: Upload binary artifact (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.name }}
-        path: ${{ matrix.name }}.zip
+        path: ${{ matrix.name }}.${{ matrix.archive }}
 
   release:
     name: Create Release
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Download all artifacts
       uses: actions/download-artifact@v4
+      with:
+        path: artifacts
 
-    - name: Get tag name
-      id: tag_name
+    - name: Move artifacts to root
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
-        else
-          echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        fi
+        find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
+          mv "$file" .
+        done
+        ls -la *.tar.gz *.zip
 
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
-        release_name: Clean Language Compiler ${{ steps.tag_name.outputs.TAG_NAME }}
-        draft: false
-        prerelease: false
+        files: |
+          *.tar.gz
+          *.zip
         body: |
-          ## Clean Language Compiler ${{ steps.tag_name.outputs.TAG_NAME }}
+          ## Clean Language Compiler ${{ github.ref_name }}
           
           **Author:** Ivan Pasco Lizarraga  
           **Website:** https://www.cleanlanguage.dev  
@@ -138,7 +138,7 @@ jobs:
           - **Linux ARM64**: `cln-linux-aarch64.tar.gz`
           - **macOS x86_64**: `cln-macos-x86_64.tar.gz`
           - **macOS ARM64**: `cln-macos-aarch64.tar.gz`
-          - **Windows x86_64**: `cln-windows-x86_64.exe.zip`
+          - **Windows x86_64**: `cln-windows-x86_64.zip`
           
           ### Usage
           
@@ -154,53 +154,5 @@ jobs:
           ```
           
           For more information, visit: https://www.cleanlanguage.dev
-
-    - name: Upload Linux x86_64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./cln-linux-x86_64/cln-linux-x86_64.tar.gz
-        asset_name: cln-linux-x86_64.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload Linux ARM64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./cln-linux-aarch64/cln-linux-aarch64.tar.gz
-        asset_name: cln-linux-aarch64.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload macOS x86_64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./cln-macos-x86_64/cln-macos-x86_64.tar.gz
-        asset_name: cln-macos-x86_64.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload macOS ARM64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./cln-macos-aarch64/cln-macos-aarch64.tar.gz
-        asset_name: cln-macos-aarch64.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload Windows x86_64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./cln-windows-x86_64/cln-windows-x86_64.exe.zip
-        asset_name: cln-windows-x86_64.exe.zip
-        asset_content_type: application/zip 
+        draft: false
+        prerelease: false 
