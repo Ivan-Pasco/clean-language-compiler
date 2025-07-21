@@ -1,3 +1,0 @@
-start()
-	print_simple(42)
-	print_simple(1024)

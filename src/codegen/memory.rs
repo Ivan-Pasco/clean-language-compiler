@@ -29,6 +29,7 @@ const LARGE_POOL_SIZE: usize = 1024;
 /// Offset 12-15: Next free block pointer (u32, 0 if not free)
 #[derive(Debug, Clone)]
 pub struct MemoryBlock {
+    #[allow(dead_code)]
     pub address: usize,
     pub size: usize,
     pub is_free: bool,
@@ -500,6 +501,30 @@ impl MemoryUtils {
         self.add_data_segment((string_ptr + 4) as u32, bytes);
         
         Ok(string_ptr)
+    }
+
+    /// Force allocate a string at a specific address for type conversion functions
+    pub(crate) fn force_string_at_address(&mut self, s: &str, target_addr: u32) -> Result<(), CompilerError> {
+        let bytes = s.as_bytes();
+        let len = bytes.len();
+        
+        // Debug: Log what we're allocating
+        eprintln!("DEBUG: Allocating '{}' (len={}) at address {}", s, len, target_addr);
+        
+        // Create data segment for the string length (4 bytes, little-endian)
+        let len_bytes = (len as u32).to_le_bytes().to_vec();
+        self.add_data_segment(target_addr, &len_bytes);
+        
+        // Create data segment for the string content 
+        self.add_data_segment(target_addr + 4, bytes);
+        
+        // Debug: Log the bytes being written
+        eprintln!("DEBUG: Length bytes: {:?}, Content bytes: {:?}", len_bytes, bytes);
+        
+        // Add to string pool for consistency
+        self.string_pool.insert(s.to_string(), target_addr as usize);
+        
+        Ok(())
     }
 
     /// Allocates memory for an array with proper ARC

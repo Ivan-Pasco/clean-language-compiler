@@ -48,6 +48,7 @@ pub struct StandardLibrary {
     matrix_ops: MatrixOperations,
     type_conv: TypeConvOperations,
     math_class: MathClass,
+    #[allow(dead_code)]
     string_class: StringClass,
     list_class: ListClass,
     file_class: FileClass,
@@ -81,6 +82,7 @@ impl StandardLibrary {
         self.matrix_ops.register_functions(codegen)?;
         self.type_conv.register_functions(codegen)?;
         self.math_class.register_functions(codegen)?;
+        // Re-enabling to test for specific control flow issues
         self.string_class.register_functions(codegen)?;
         self.list_class.register_functions(codegen)?;
         self.file_class.register_functions(codegen)?;

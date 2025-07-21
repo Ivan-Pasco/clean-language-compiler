@@ -1,6 +1,7 @@
 // Simple HTTP Client Implementation for Clean Language (std only)
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::sync::OnceLock;
 use crate::error::CompilerError;
 
 pub struct HttpClient;
@@ -197,20 +198,16 @@ impl HttpClient {
 }
 
 /// Global HTTP client instance
-static mut HTTP_CLIENT: Option<HttpClient> = None;
+static HTTP_CLIENT: OnceLock<HttpClient> = OnceLock::new();
 
 /// Initialize the global HTTP client
 pub fn init_http_client() {
-    unsafe {
-        HTTP_CLIENT = Some(HttpClient::new());
-    }
+    HTTP_CLIENT.get_or_init(|| HttpClient::new());
 }
 
 /// Get the global HTTP client
 pub fn get_http_client() -> &'static HttpClient {
-    unsafe {
-        HTTP_CLIENT.as_ref().expect("HTTP client not initialized")
-    }
+    HTTP_CLIENT.get().expect("HTTP client not initialized")
 }
 
 /// Convert HttpResponse to a string for Clean Language runtime

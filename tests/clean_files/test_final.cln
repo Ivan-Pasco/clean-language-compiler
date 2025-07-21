@@ -1,3 +1,0 @@
-// Final test to verify WASM fix
-start()
-	print("WASM validation fix successful!")

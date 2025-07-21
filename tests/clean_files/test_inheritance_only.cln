@@ -1,4 +1,0 @@
-class Circle is Shape
-	number radius
-	constructor(color, radius)
-		super(color) 

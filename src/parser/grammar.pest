@@ -49,10 +49,10 @@ type_ = {
     list_type |
     pairs_type |
     generic_type |
+    sized_type |
     core_type |
     identifier |
-    type_parameter |
-    sized_type
+    type_parameter
 }
 
 // Indentation-based blocks

@@ -1,0 +1,47 @@
+[build]
+# Use all available CPU cores for parallel compilation
+jobs = 8
+
+# Enable build pipelining for faster incremental builds  
+pipelining = true
+
+# Set target for WebAssembly compilation
+target-dir = "target"
+
+[target.wasm32-unknown-unknown]
+# Optimize for WebAssembly size and performance
+rustflags = [
+    "-C", "opt-level=3",
+    "-C", "lto=fat",
+    "-C", "codegen-units=1",
+    "-C", "panic=abort",
+    "-C", "target-feature=+simd128"
+]
+
+# Use default linker on macOS (lld not available)
+# [target.x86_64-apple-darwin]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# Development optimizations
+[profile.dev]
+# Optimize dependencies but not our code for faster dev builds
+opt-level = 1
+debug = true
+incremental = true
+
+[profile.release]
+# Maximum optimization for production WebAssembly
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
+
+# Use faster incremental builds in development
+[incremental]
+debug-assertions = true
+
+# Cache configuration for faster rebuilds
+[env]
+CARGO_TARGET_DIR = "target"

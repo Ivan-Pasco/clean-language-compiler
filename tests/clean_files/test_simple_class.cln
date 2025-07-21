@@ -1,3 +1,0 @@
-class Shape
-	string color
-	constructor(color) 

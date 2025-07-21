@@ -1,0 +1,20 @@
+functions:
+	string formatTask(string title, boolean completed)
+		string status = "○"
+		if completed
+			status = "✓"
+		return status + " " + title
+
+start()
+	string task1 = formatTask("Learn Clean Language", true)
+	string task2 = formatTask("Write tests", false)
+	string task3 = formatTask("Build project", true)
+	
+	print("Tasks:")
+	print(task1)
+	print(task2)
+	print(task3)
+	
+	integer completedCount = 2
+	integer totalCount = 3
+	print("Completed: " + completedCount.toString() + "/" + totalCount.toString())

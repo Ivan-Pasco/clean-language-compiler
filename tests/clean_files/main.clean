@@ -1,4 +1,0 @@
-// test-package - Clean Language Package
-
-start()
-	print("Hello from test-package!")

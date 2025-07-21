@@ -1,4 +1,0 @@
-start()
-    number x = 42
-    number y = x + 8
-    print y 

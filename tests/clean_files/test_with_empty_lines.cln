@@ -1,7 +1,0 @@
-class Shape
-	string color
-	
-	constructor(color)
-	
-class Circle is Shape
-	number radius 

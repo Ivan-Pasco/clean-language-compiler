@@ -1,7 +1,0 @@
-class Rectangle
-	number width = 0
-	number height = 0
-	
-	functions:
-		number area()
-			return width * height

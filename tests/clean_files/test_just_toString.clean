@@ -1,4 +1,0 @@
-start()
-	integer value = 42
-	print_simple(1080)
-	print_simple(value)

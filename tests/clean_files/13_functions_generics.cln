@@ -1,0 +1,10 @@
+
+start()
+	list<integer> numbers = [1, 2, 3]
+	list<string> names = ["Alice", "Bob"]
+	
+	integer firstNumber = numbers[0]
+	string firstName = names[0]
+	
+	print(firstNumber)
+	print(firstName)

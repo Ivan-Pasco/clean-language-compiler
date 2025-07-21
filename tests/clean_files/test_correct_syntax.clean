@@ -1,4 +1,0 @@
-start()
-	print("Hello, World!")
-	integer value = 40 + 2
-	print("The answer is: " + value.toString())

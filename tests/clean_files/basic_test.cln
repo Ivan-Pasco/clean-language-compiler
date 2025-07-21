@@ -1,5 +1,0 @@
-start()
-	integer x = 5
-	integer y = 10
-	integer result = x + y
-	print("Basic math works!") 

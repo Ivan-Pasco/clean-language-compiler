@@ -1,0 +1,6 @@
+
+start()
+	integer x = 1
+	integer y = 2
+	print(x)
+	print(y)

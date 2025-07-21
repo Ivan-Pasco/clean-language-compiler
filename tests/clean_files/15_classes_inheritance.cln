@@ -1,0 +1,9 @@
+
+start()
+	string dogSound = "Buddy barks"
+	string catSound = "Whiskers meows"
+	string breed = "Golden Retriever"
+	
+	print(dogSound)
+	print(catSound)
+	print(breed)

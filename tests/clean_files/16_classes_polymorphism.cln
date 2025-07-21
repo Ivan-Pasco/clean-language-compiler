@@ -1,0 +1,7 @@
+
+start()
+	number rectArea = 15.0
+	number circleArea = 12.56636
+	
+	print(rectArea)
+	print(circleArea)

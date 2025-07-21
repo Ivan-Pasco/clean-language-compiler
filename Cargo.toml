@@ -8,20 +8,21 @@ repository = "https://github.com/cleanlang/clean-language-compiler"
 description = "A modern, type-safe programming language that compiles to WebAssembly"
 license = "MIT"
 
+
 [dependencies]
 # Parsing
-pest = "2.5.5"
-pest_derive = "2.5.5"
-lazy_static = "1.4"
+pest = "2.7"
+pest_derive = "2.7"
+lazy_static = "1.5"
 
 # WebAssembly
-wasm-encoder = "0.20.0"
+wasm-encoder = "0.35"
 wasmparser = "0.121"
-wasmtime = "0.35.2"
+wasmtime = "16.0"
 wat = "1.0"
 
 # Error handling
-thiserror = "1.0.40"
+thiserror = "1.0"
 anyhow = "1.0"
 
 # Serialization
@@ -33,17 +34,30 @@ toml = "0.8"
 tokio = { version = "1.0", features = ["full"] }
 
 # CLI
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
 
 # Package management
 dirs = "5.0"
 
 # Utilities (only used in specific utility binaries)
-regex = "1.10.2"
+regex = "1.11"
 rand = "0.8"
 
 # HTTP client for real network requests
 # HTTP client temporarily disabled
+
+[profile.release]
+# WebAssembly optimization settings for best performance
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+# Faster dev builds while maintaining debug info
+opt-level = 1
+debug = true
 
 [dev-dependencies]
 # Testing

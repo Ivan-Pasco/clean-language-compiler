@@ -274,9 +274,6 @@ impl InstructionGenerator {
                     ast::BinaryOperator::Or => { instructions.push(Instruction::I32Or); Ok(WasmType::I32) },
                     ast::BinaryOperator::Is => { instructions.push(Instruction::I32Eq); Ok(WasmType::I32) },
                     ast::BinaryOperator::Not => { instructions.push(Instruction::I32Ne); Ok(WasmType::I32) },
-                    _ => Err(CompilerError::type_error(
-                        format!("Unsupported I32 binary operator: {:?}", op), None, None
-                    )),
                 }
             },
             // Handle F64 operations
@@ -326,9 +323,6 @@ impl InstructionGenerator {
                     },
                     ast::BinaryOperator::Is => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
                     ast::BinaryOperator::Not => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
-                    _ => Err(CompilerError::type_error(
-                        format!("Unsupported F64 binary operator: {:?}", op), None, None
-                    ))
                 }
             },
             (WasmType::I32, WasmType::F64) => {
@@ -379,9 +373,6 @@ impl InstructionGenerator {
                     },
                     ast::BinaryOperator::Is => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
                     ast::BinaryOperator::Not => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
-                    _ => Err(CompilerError::type_error(
-                        format!("Unsupported mixed I32/F64 binary operator: {:?}", op), None, None
-                    ))
                 }
             },
             (WasmType::F64, WasmType::I32) => {
@@ -432,9 +423,6 @@ impl InstructionGenerator {
                     },
                     ast::BinaryOperator::Is => { instructions.push(Instruction::F64Eq); Ok(WasmType::I32) },
                     ast::BinaryOperator::Not => { instructions.push(Instruction::F64Ne); Ok(WasmType::I32) },
-                    _ => Err(CompilerError::type_error(
-                        format!("Unsupported mixed F64/I32 binary operator: {:?}", op), None, None
-                    ))
                 }
             },
             _ => Err(CompilerError::type_error(

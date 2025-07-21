@@ -1,6 +1,0 @@
-start()
-	integer value = 42
-	print("Testing - literal:")
-	print(value.toString())
-	print("Testing - explicit:")
-	printl(value.toString())

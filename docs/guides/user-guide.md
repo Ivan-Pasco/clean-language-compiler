@@ -17,7 +17,7 @@ cd clean-language-compiler
 cargo build --release
 ```
 
-After building, the compiler will be available at `target/release/cleanc`.
+After building, the compiler will be available at `build/release/cleanc`.
 
 ## Basic Syntax
 
@@ -255,13 +255,13 @@ function double(element)
 To compile a Clean program to WebAssembly:
 
 ```bash
-./target/release/cleanc compile path/to/your/program.cl path/to/output.wasm
+./build/release/cleanc compile path/to/your/program.cl path/to/output.wasm
 ```
 
 To compile and run a Clean program directly:
 
 ```bash
-./target/release/cleanc run path/to/your/program.cl
+./build/release/cleanc run path/to/your/program.cl
 ```
 
 ## Examples

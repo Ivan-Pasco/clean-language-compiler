@@ -1,0 +1,6 @@
+
+start()
+	string name = "Alice"
+	integer age = 25
+	print(name)
+	print(age)

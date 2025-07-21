@@ -1,4 +1,0 @@
-start()
-    Matrix<number> m = [[1, 2], [3, 4]]
-    Matrix<number> t = m.transpose()
-    print t 

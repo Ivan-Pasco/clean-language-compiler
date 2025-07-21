@@ -1,4 +1,0 @@
-// Test integers
-start()
-	integer x = 5
-	print(x)

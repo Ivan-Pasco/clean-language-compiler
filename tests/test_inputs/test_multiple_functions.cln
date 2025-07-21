@@ -1,8 +1,0 @@
-functions:
-    integer add(integer x, integer y)
-        return x + y
-
-start()
-    number a = 42
-    number result = add(a, 8)
-    return result 
