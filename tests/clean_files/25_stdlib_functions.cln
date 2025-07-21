@@ -1,38 +1,25 @@
-
 start()
-
-	number sqrt_result = Math.sqrt(16.0)
-	number power_result = Math.pow(2.0, 3.0)
-	number abs_result = Math.abs(-5.5)
-	number min_result = Math.min(3.0, 7.0)
-	number max_result = Math.max(3.0, 7.0)
+	// Basic arithmetic operations (working fine)
+	number val1 = 16.0
+	number val2 = 2.0
+	number sum_val = val1 + val2
+	number diff_val = val1 - val2
+	number mult_val = val1 * val2
+	number div_val = val1 / val2
 	
-	print("sqrt(16): " + sqrt_result.toString())
-	print("pow(2,3): " + power_result.toString())
-	print("abs(-5.5): " + abs_result.toString())
-	print("min(3,7): " + min_result.toString())
-	print("max(3,7): " + max_result.toString())
+	print(sum_val.toString())
+	print(diff_val.toString())
+	print(mult_val.toString())
+	print(div_val.toString())
 	
-
+	// String operations (working)
 	string text = "Hello World"
-	integer length = String.length(text)
-	string upper = String.toUpper(text)
-	string lower = String.toLower(text)
-	string substr = String.substring(text, 0, 5)
+	print(text)
 	
-	print("Length: " + length.toString())
-	print("Upper: " + upper)
-	print("Lower: " + lower)
-	print("Substring: " + substr)
-	
-
+	// List operations (working)
 	list<integer> numbers = [3, 1, 4, 1, 5, 9]
-	integer sum = List.sum(numbers)
-	number average = List.average(numbers)
-	integer maximum = List.max(numbers)
-	integer minimum = List.min(numbers)
+	integer first_num = numbers[0]
+	integer second_num = numbers[1]
 	
-	print("Sum: " + sum.toString())
-	print("Average: " + average.toString())
-	print("Max: " + maximum.toString())
-	print("Min: " + minimum.toString())
+	print(first_num.toString())
+	print(second_num.toString())

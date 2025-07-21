@@ -585,13 +585,18 @@ impl MemoryUtils {
                     f64_value.to_le_bytes().to_vec()
                 }
                 WasmType::I32 => {
-                    // Convert all values to I32 for integer/boolean arrays
+                    // Convert all values to I32 for integer/boolean/string arrays
                     let i32_value = match element {
                         Value::Integer(i) => *i as u32,
                         Value::Boolean(b) => *b as u32,
                         Value::Number(f) => *f as u32,
+                        Value::String(s) => {
+                            // For string elements, allocate string and store pointer
+                            let str_ptr = self.allocate_string(s)?;
+                            str_ptr as u32
+                        },
                         _ => return Err(CompilerError::type_error(
-                            format!("Cannot convert {:?} to integer for array storage", element),
+                            format!("Cannot convert {:?} to I32 for array storage", element),
                             None, None
                         )),
                     };

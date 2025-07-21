@@ -102,6 +102,53 @@ impl NumericOperations {
             ]
         )?;
         
+        // Add global versions of common math functions
+        register_stdlib_function(
+            codegen,
+            "sqrt",
+            &[WasmType::F64],
+            Some(WasmType::F64),
+            vec![
+                Instruction::LocalGet(0),
+                Instruction::F64Sqrt,
+            ]
+        )?;
+        
+        register_stdlib_function(
+            codegen,
+            "abs",
+            &[WasmType::F64],
+            Some(WasmType::F64),
+            vec![
+                Instruction::LocalGet(0),
+                Instruction::F64Abs,
+            ]
+        )?;
+        
+        register_stdlib_function(
+            codegen,
+            "min",
+            &[WasmType::F64, WasmType::F64],
+            Some(WasmType::F64),
+            vec![
+                Instruction::LocalGet(0),
+                Instruction::LocalGet(1),
+                Instruction::F64Min,
+            ]
+        )?;
+        
+        register_stdlib_function(
+            codegen,
+            "max",
+            &[WasmType::F64, WasmType::F64],
+            Some(WasmType::F64),
+            vec![
+                Instruction::LocalGet(0),
+                Instruction::LocalGet(1),
+                Instruction::F64Max,
+            ]
+        )?;
+        
         Ok(())
     }
     

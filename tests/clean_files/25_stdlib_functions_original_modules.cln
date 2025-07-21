@@ -1,0 +1,38 @@
+
+start()
+
+	number sqrt_result = Math.sqrt(16.0)
+	number power_result = Math.pow(2.0, 3.0)
+	number abs_result = Math.abs(-5.5)
+	number min_result = Math.min(3.0, 7.0)
+	number max_result = Math.max(3.0, 7.0)
+	
+	print("sqrt(16): " + sqrt_result.toString())
+	print("pow(2,3): " + power_result.toString())
+	print("abs(-5.5): " + abs_result.toString())
+	print("min(3,7): " + min_result.toString())
+	print("max(3,7): " + max_result.toString())
+	
+
+	string text = "Hello World"
+	integer length = String.length(text)
+	string upper = String.toUpper(text)
+	string lower = String.toLower(text)
+	string substr = String.substring(text, 0, 5)
+	
+	print("Length: " + length.toString())
+	print("Upper: " + upper)
+	print("Lower: " + lower)
+	print("Substring: " + substr)
+	
+
+	list<integer> numbers = [3, 1, 4, 1, 5, 9]
+	integer sum = List.sum(numbers)
+	number average = List.average(numbers)
+	integer maximum = List.max(numbers)
+	integer minimum = List.min(numbers)
+	
+	print("Sum: " + sum.toString())
+	print("Average: " + average.toString())
+	print("Max: " + maximum.toString())
+	print("Min: " + minimum.toString())
