@@ -110,7 +110,7 @@ impl ModuleResolver {
                     // Verify the symbol exists in the module
                     if !module.exports.has_function(&symbol_name) && !module.exports.has_class(&symbol_name) {
                         return Err(CompilerError::symbol_error(
-                            format!("Symbol '{}' not found in module '{}'", symbol_name, module_name),
+                            format!("Symbol '{symbol_name}' not found in module '{module_name}'"),
                             &symbol_name,
                             Some(&module_name)
                         ));
@@ -132,7 +132,7 @@ impl ModuleResolver {
                     // Verify the symbol exists in the module
                     if !module.exports.has_function(&symbol_name) && !module.exports.has_class(&symbol_name) {
                         return Err(CompilerError::symbol_error(
-                            format!("Symbol '{}' not found in module '{}'", symbol_name, module_name),
+                            format!("Symbol '{symbol_name}' not found in module '{module_name}'"),
                             &symbol_name,
                             Some(&module_name)
                         ));
@@ -140,7 +140,7 @@ impl ModuleResolver {
                     
                     if let Some(alias) = &import_item.alias {
                         single_symbols.insert(alias.clone(), (module_name.clone(), symbol_name.clone()));
-                        symbol_map.insert(alias.clone(), format!("{}.{}", module_name, symbol_name));
+                        symbol_map.insert(alias.clone(), format!("{module_name}.{symbol_name}"));
                     }
                     
                     // Also store the module for reference
@@ -172,7 +172,7 @@ impl ModuleResolver {
         let parts: Vec<&str> = import_name.split('.').collect();
         if parts.len() != 2 {
             return Err(CompilerError::import_error(
-                format!("Invalid single symbol import format: '{}'", import_name),
+                format!("Invalid single symbol import format: '{import_name}'"),
                 import_name,
                 None
             ));
@@ -194,7 +194,7 @@ impl ModuleResolver {
         // Read and parse the module
         let source = fs::read_to_string(&module_path)
             .map_err(|e| CompilerError::module_error(
-                format!("Failed to read module '{}': {}", module_name, e),
+                format!("Failed to read module '{module_name}': {e}"),
                 Some(format!("Check if the file exists and is readable: {}", module_path.display())),
                 None
             ))?;
@@ -202,7 +202,7 @@ impl ModuleResolver {
         // Parse the module
         let program = parser::parse_with_file(&source, &module_path.to_string_lossy())
             .map_err(|e| CompilerError::module_error(
-                format!("Failed to parse module '{}': {}", module_name, e),
+                format!("Failed to parse module '{module_name}': {e}"),
                 Some("Check the syntax of the module file".to_string()),
                 None
             ))?;
@@ -230,7 +230,7 @@ impl ModuleResolver {
         
         for search_path in &self.module_paths {
             for extension in &possible_extensions {
-                let file_path = search_path.join(format!("{}.{}", module_name, extension));
+                let file_path = search_path.join(format!("{module_name}.{extension}"));
                 if file_path.exists() {
                     return Ok(file_path);
                 }
@@ -243,8 +243,8 @@ impl ModuleResolver {
             .join(", ");
 
         Err(CompilerError::module_error(
-            format!("Module '{}' not found in search paths", module_name),
-            Some(format!("Search paths: {}", search_paths_str)),
+            format!("Module '{module_name}' not found in search paths"),
+            Some(format!("Search paths: {search_paths_str}")),
             None
         ))
     }

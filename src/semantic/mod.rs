@@ -249,6 +249,103 @@ impl SemanticAnalyzer {
             "float_to_string".to_string(),
             vec![(vec![Type::Number], Type::String, 1)]
         );
+        
+        // Add type conversion functions from stdlib
+        self.function_table.insert(
+            "to_string".to_string(),
+            vec![(vec![Type::Integer], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "int_to_string".to_string(),
+            vec![(vec![Type::Integer], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "number_to_string".to_string(),
+            vec![(vec![Type::Number], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "bool_to_string".to_string(),
+            vec![(vec![Type::Boolean], Type::String, 1)]
+        );
+        
+        self.function_table.insert(
+            "to_number".to_string(),
+            vec![(vec![Type::String], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "to_integer".to_string(),
+            vec![(vec![Type::Number], Type::Integer, 1)]
+        );
+        
+        self.function_table.insert(
+            "string_to_int".to_string(),
+            vec![(vec![Type::String], Type::Integer, 1)]
+        );
+        
+        self.function_table.insert(
+            "string_to_float".to_string(),
+            vec![(vec![Type::String], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "float_to_int".to_string(),
+            vec![(vec![Type::Number], Type::Integer, 1)]
+        );
+        
+        self.function_table.insert(
+            "int_to_float".to_string(),
+            vec![(vec![Type::Integer], Type::Number, 1)]
+        );
+        
+        // Add commonly used math functions available directly (without math. prefix)
+        self.function_table.insert(
+            "abs".to_string(),
+            vec![(vec![Type::Integer], Type::Integer, 1), (vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "sqrt".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "pow".to_string(),
+            vec![(vec![Type::Number, Type::Number], Type::Number, 2)]
+        );
+        
+        self.function_table.insert(
+            "sin".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "cos".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "tan".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "floor".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "ceil".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
+        
+        self.function_table.insert(
+            "round".to_string(),
+            vec![(vec![Type::Number], Type::Number, 1)]
+        );
 
         // Console input functions - accessed directly without module prefix
         self.function_table.insert(

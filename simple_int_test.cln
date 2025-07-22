@@ -1,0 +1,4 @@
+
+start()
+	integer x = 42
+	print(x)

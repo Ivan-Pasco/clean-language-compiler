@@ -202,7 +202,7 @@ impl ErrorContext {
         source_snippet: Option<String>,
     ) -> Self {
         let func_name = function_name.into();
-        let message = format!("Function '{}' is only available as a method", func_name);
+        let message = format!("Function '{func_name}' is only available as a method");
         let suggestion = match func_name.as_str() {
             "length" => "Use 'object.length()' instead of 'length(object)'".to_string(),
             "isEmpty" => "Use 'object.isEmpty()' instead of 'isEmpty(object)'".to_string(),
@@ -210,7 +210,7 @@ impl ErrorContext {
             "isDefined" => "Use 'object.isDefined()' instead of 'isDefined(object)'".to_string(),
             "isNotDefined" => "Use 'object.isNotDefined()' instead of 'isNotDefined(object)'".to_string(),
             "keepBetween" => "Use 'value.keepBetween(min, max)' instead of 'keepBetween(value, min, max)'".to_string(),
-            _ => format!("Use 'object.{}()' method syntax instead", func_name),
+            _ => format!("Use 'object.{func_name}()' method syntax instead"),
         };
 
         Self {
@@ -263,12 +263,12 @@ impl ErrorContext {
     ) -> Self {
         let block = block_type.into();
         Self {
-            message: format!("Expected {} block", block),
+            message: format!("Expected {block} block"),
             help: Some("Clean Language uses indentation to define code blocks. Use tabs for indentation".to_string()),
             error_type: ErrorType::Syntax,
             location,
             suggestions: vec![
-                format!("Add an indented block after the {} declaration", block),
+                format!("Add an indented block after the {block} declaration"),
                 "Make sure to use consistent indentation (tabs or spaces)".to_string(),
             ],
             source_snippet: None,
@@ -317,14 +317,14 @@ impl Into<String> for ErrorContext {
 
         // Help text
         if let Some(help) = &self.help {
-            result.push_str(&format!("  = help: {}\n", help));
+            result.push_str(&format!("  = help: {help}\n"));
         }
 
         // Suggestions
         if !self.suggestions.is_empty() {
             result.push_str("  = suggestions:\n");
             for suggestion in &self.suggestions {
-                result.push_str(&format!("    - {}\n", suggestion));
+                result.push_str(&format!("    - {suggestion}\n"));
             }
         }
 
@@ -332,7 +332,7 @@ impl Into<String> for ErrorContext {
         if !self.related_errors.is_empty() {
             result.push_str("  = related:\n");
             for related in &self.related_errors {
-                result.push_str(&format!("    - {}\n", related));
+                result.push_str(&format!("    - {related}\n"));
             }
         }
         
@@ -379,85 +379,85 @@ impl Default for ErrorContext {
 #[derive(Debug, Clone)]
 pub enum CompilerError {
     Syntax {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     Type {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     Memory {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     Codegen {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     IO {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     Runtime {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     Validation {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
     Module {
-        context: ErrorContext,
+        context: Box<ErrorContext>,
     },
 }
 
 impl CompilerError {
     pub fn syntax_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::new(message, help, ErrorType::Syntax, location)
-                .with_error_code("E001")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Syntax, location)
+                .with_error_code("E001"))
         }
     }
 
     pub fn type_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Type {
-            context: ErrorContext::new(message, help, ErrorType::Type, location)
-                .with_error_code("E002")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Type, location)
+                .with_error_code("E002"))
         }
     }
 
     pub fn memory_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Memory {
-            context: ErrorContext::new(message, help, ErrorType::Memory, location)
-                .with_error_code("E006")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Memory, location)
+                .with_error_code("E006"))
         }
     }
 
     pub fn codegen_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Codegen {
-            context: ErrorContext::new(message, help, ErrorType::Codegen, location)
-                .with_error_code("E007")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Codegen, location)
+                .with_error_code("E007"))
         }
     }
 
     pub fn io_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::IO {
-            context: ErrorContext::new(message, help, ErrorType::IO, location)
-                .with_error_code("E008")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::IO, location)
+                .with_error_code("E008"))
         }
     }
 
     pub fn runtime_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Runtime {
-            context: ErrorContext::new(message, help, ErrorType::Runtime, location)
-                .with_error_code("E009")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Runtime, location)
+                .with_error_code("E009"))
         }
     }
 
     pub fn validation_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Validation {
-            context: ErrorContext::new(message, help, ErrorType::Validation, location)
-                .with_error_code("E010")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Validation, location)
+                .with_error_code("E010"))
         }
     }
     
     pub fn parse_error<T: Into<String>>(message: T, location: Option<SourceLocation>, help: Option<String>) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::new(message, help, ErrorType::Syntax, location)
-                .with_error_code("E001")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Syntax, location)
+                .with_error_code("E001"))
         }
     }
 
@@ -470,8 +470,8 @@ impl CompilerError {
         help: Option<String>,
     ) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions)
-                .with_help_option(help)
+            context: Box::new(ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions)
+                .with_help_option(help))
         }
     }
 
@@ -484,8 +484,8 @@ impl CompilerError {
         suggestions: Vec<String>,
     ) -> Self {
         CompilerError::Type {
-            context: ErrorContext::enhanced_type_error(message, expected_type, actual_type, location)
-                .with_suggestions(suggestions)
+            context: Box::new(ErrorContext::enhanced_type_error(message, expected_type, actual_type, location)
+                .with_suggestions(suggestions))
         }
     }
 
@@ -497,7 +497,7 @@ impl CompilerError {
         source_snippet: Option<String>,
     ) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions)
+            context: Box::new(ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions))
         }
     }
 
@@ -517,13 +517,13 @@ impl CompilerError {
         };
 
         let suggestions = vec![
-            format!("Replace '{}' with one of the expected tokens", found),
+            format!("Replace '{found}' with one of the expected tokens"),
             "Check the Clean Language syntax guide for proper formatting".to_string(),
         ];
 
         CompilerError::Syntax {
-            context: ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions)
-                .with_help("Refer to the Clean Language syntax guide for proper formatting")
+            context: Box::new(ErrorContext::enhanced_syntax_error(message, location, source_snippet, suggestions)
+                .with_help("Refer to the Clean Language syntax guide for proper formatting"))
         }
     }
 
@@ -534,7 +534,7 @@ impl CompilerError {
         suggestions: Vec<String>,
     ) -> Self {
         let element = element_type.into();
-        let message = format!("Missing {}", element);
+        let message = format!("Missing {element}");
         let help = match element.as_str() {
             "function name" => "Function declarations require a valid function name after the 'function' keyword",
             "indented block" => "Clean Language uses indentation to define code blocks. Use tabs for indentation",
@@ -542,9 +542,9 @@ impl CompilerError {
         };
 
         CompilerError::Syntax {
-            context: ErrorContext::enhanced_syntax_error(message, location, None, suggestions)
+            context: Box::new(ErrorContext::enhanced_syntax_error(message, location, None, suggestions)
                 .with_help(help)
-                .with_error_code("E005")
+                .with_error_code("E005"))
         }
     }
 
@@ -555,7 +555,7 @@ impl CompilerError {
         source_snippet: Option<String>,
     ) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::method_suggestion_error(function_name, location, source_snippet)
+            context: Box::new(ErrorContext::method_suggestion_error(function_name, location, source_snippet))
         }
     }
 
@@ -579,7 +579,7 @@ impl CompilerError {
         // Find similar function names
         let suggestions = ErrorUtils::suggest_similar_names(&func_name, available_functions, 3);
         let mut error_suggestions = vec![
-            format!("Check if '{}' is defined and spelled correctly", func_name)
+            format!("Check if '{func_name}' is defined and spelled correctly")
         ];
         
         if !suggestions.is_empty() {
@@ -587,14 +587,14 @@ impl CompilerError {
         }
 
         CompilerError::Type {
-            context: ErrorContext::new(
-                format!("Function '{}' not found", func_name),
+            context: Box::new(ErrorContext::new(
+                format!("Function '{func_name}' not found"),
                 Some("Check if the function name is correct and the function is defined".to_string()),
                 ErrorType::Type,
                 Some(location)
             )
             .with_suggestions(error_suggestions)
-            .with_error_code("E011")
+            .with_error_code("E011"))
         }
     }
 
@@ -607,7 +607,7 @@ impl CompilerError {
         let var_name = name.into();
         let suggestions = ErrorUtils::suggest_similar_names(&var_name, available_variables, 3);
         let mut error_suggestions = vec![
-            format!("Check if '{}' is declared and spelled correctly", var_name)
+            format!("Check if '{var_name}' is declared and spelled correctly")
         ];
         
         if !suggestions.is_empty() {
@@ -615,14 +615,14 @@ impl CompilerError {
         }
 
         CompilerError::Type {
-            context: ErrorContext::new(
-                format!("Variable '{}' not found", var_name),
+            context: Box::new(ErrorContext::new(
+                format!("Variable '{var_name}' not found"),
                 Some("Variables must be declared before use".to_string()),
                 ErrorType::Type,
                 Some(location)
             )
             .with_suggestions(error_suggestions)
-            .with_error_code("E012")
+            .with_error_code("E012"))
         }
     }
 
@@ -634,7 +634,7 @@ impl CompilerError {
         actual_indent: usize,
     ) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::indentation_error(message, location, expected_indent, actual_indent)
+            context: Box::new(ErrorContext::indentation_error(message, location, expected_indent, actual_indent))
         }
     }
 
@@ -644,25 +644,25 @@ impl CompilerError {
         location: Option<SourceLocation>,
     ) -> Self {
         CompilerError::Syntax {
-            context: ErrorContext::missing_block_error(block_type, location)
+            context: Box::new(ErrorContext::missing_block_error(block_type, location))
         }
     }
 
     /// Module-related error
     pub fn module_error<T: Into<String>>(message: T, help: Option<String>, location: Option<SourceLocation>) -> Self {
         CompilerError::Module {
-            context: ErrorContext::new(message, help, ErrorType::Module, location)
-                .with_error_code("E013")
+            context: Box::new(ErrorContext::new(message, help, ErrorType::Module, location)
+                .with_error_code("E013"))
         }
     }
 
     /// Import resolution error
     pub fn import_error<T: Into<String>>(message: T, import_name: &str, location: Option<SourceLocation>) -> Self {
         let detailed_message = format!("Import '{}': {}", import_name, message.into());
-        let help = Some(format!("Check if the module '{}' exists and is accessible", import_name));
+        let help = Some(format!("Check if the module '{import_name}' exists and is accessible"));
         CompilerError::Module {
-            context: ErrorContext::new(detailed_message, help, ErrorType::Import, location)
-                .with_error_code("E014")
+            context: Box::new(ErrorContext::new(detailed_message, help, ErrorType::Import, location)
+                .with_error_code("E014"))
         }
     }
 
@@ -672,10 +672,10 @@ impl CompilerError {
             Some(module) => format!("Symbol '{}' in module '{}': {}", symbol_name, module, message.into()),
             None => format!("Symbol '{}': {}", symbol_name, message.into()),
         };
-        let help = Some(format!("Check if the symbol '{}' is properly exported and accessible", symbol_name));
+        let help = Some(format!("Check if the symbol '{symbol_name}' is properly exported and accessible"));
         CompilerError::Module {
-            context: ErrorContext::new(detailed_message, help, ErrorType::Module, None)
-                .with_error_code("E015")
+            context: Box::new(ErrorContext::new(detailed_message, help, ErrorType::Module, None)
+                .with_error_code("E015"))
         }
     }
 
@@ -702,8 +702,8 @@ impl CompilerError {
         ));
         
         CompilerError::Memory {
-            context: ErrorContext::new(full_message, help, ErrorType::Memory, location)
-                .with_error_code("E016")
+            context: Box::new(ErrorContext::new(full_message, help, ErrorType::Memory, location)
+                .with_error_code("E016"))
         }
     }
 
@@ -723,21 +723,21 @@ impl CompilerError {
         );
         
         CompilerError::Type {
-            context: ErrorContext::new(full_message, help, ErrorType::Type, location)
-                .with_error_code("E017")
+            context: Box::new(ErrorContext::new(full_message, help, ErrorType::Type, location)
+                .with_error_code("E017"))
         }
     }
     
     /// Division by zero error
     pub fn division_by_zero_error(location: Option<SourceLocation>) -> Self {
         CompilerError::Runtime {
-            context: ErrorContext::new(
+            context: Box::new(ErrorContext::new(
                 "Division by zero",
                 Some("Check divisor values to ensure they are not zero.".to_string()),
                 ErrorType::Runtime,
                 location
             )
-            .with_error_code("E018")
+            .with_error_code("E018"))
         }
     }
     
@@ -893,20 +893,20 @@ impl CompilerWarning {
 
     pub fn unused_variable(name: &str, location: Option<SourceLocation>) -> Self {
         Self::new(
-            format!("Variable '{}' is declared but never used", name),
+            format!("Variable '{name}' is declared but never used"),
             WarningType::UnusedVariable,
             location
         ).with_help("Consider removing the variable or using it in your code")
-         .with_suggestion(format!("Remove 'let {}' or use the variable", name))
+         .with_suggestion(format!("Remove 'let {name}' or use the variable"))
     }
 
     pub fn unused_function(name: &str, location: Option<SourceLocation>) -> Self {
         Self::new(
-            format!("Function '{}' is defined but never called", name),
+            format!("Function '{name}' is defined but never called"),
             WarningType::UnusedFunction,
             location
         ).with_help("Consider removing the function or calling it")
-         .with_suggestion(format!("Remove function '{}' or add a call to it", name))
+         .with_suggestion(format!("Remove function '{name}' or add a call to it"))
     }
 
     pub fn dead_code(location: Option<SourceLocation>) -> Self {
@@ -920,11 +920,11 @@ impl CompilerWarning {
 
     pub fn type_inference_warning(inferred_type: &str, location: Option<SourceLocation>) -> Self {
         Self::new(
-            format!("Type inferred as '{}' - consider adding explicit type annotation", inferred_type),
+            format!("Type inferred as '{inferred_type}' - consider adding explicit type annotation"),
             WarningType::TypeInference,
             location
         ).with_help("Explicit type annotations improve code readability and catch type errors early")
-         .with_suggestion(format!("Add ': {}' to specify the type explicitly", inferred_type))
+         .with_suggestion(format!("Add ': {inferred_type}' to specify the type explicitly"))
     }
 }
 
@@ -981,7 +981,7 @@ impl ErrorUtils {
                     " ".repeat(location.column.saturating_sub(1)), 
                     "^".repeat(std::cmp::max(1, 1))
                 );
-                snippet.push_str(&format!("{}\n", pointer_line));
+                snippet.push_str(&format!("{pointer_line}\n"));
             } else {
                 snippet.push_str(&format!("     {}: {}\n", line_num, line_content));
             }
@@ -1002,7 +1002,7 @@ impl ErrorUtils {
         suggestions
             .into_iter()
             .take(max_suggestions)
-            .map(|(_, name)| format!("Did you mean '{}'?", name))
+            .map(|(_, name)| format!("Did you mean '{name}'?"))
             .collect()
     }
 
@@ -1298,7 +1298,7 @@ impl ErrorUtils {
         } else if error_context.contains("print") {
             "Check the print statement syntax and arguments".to_string()
         } else {
-            format!("Error in: '{}'", message)
+            format!("Error in: '{message}'")
         }
     }
 
@@ -1429,13 +1429,13 @@ impl ErrorUtils {
 
         // Summary
         if syntax_errors > 0 {
-            analysis.push(format!("🔸 Syntax Errors: {}", syntax_errors));
+            analysis.push(format!("🔸 Syntax Errors: {syntax_errors}"));
         }
         if type_errors > 0 {
-            analysis.push(format!("🔸 Type Errors: {}", type_errors));
+            analysis.push(format!("🔸 Type Errors: {type_errors}"));
         }
         if other_errors > 0 {
-            analysis.push(format!("🔸 Other Errors: {}", other_errors));
+            analysis.push(format!("🔸 Other Errors: {other_errors}"));
         }
 
         // Error distribution by line

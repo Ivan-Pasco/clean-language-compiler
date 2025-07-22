@@ -128,7 +128,7 @@ impl InstructionGenerator {
                     eprintln!("DEBUG: Variable '{}' has type {:?}", name, wasm_type);
                     Ok(wasm_type)
                 } else {
-                    eprintln!("DEBUG: Variable '{}' not found in locals, defaulting to I32", name);
+                    eprintln!("DEBUG: Variable '{name}' not found in locals, defaulting to I32");
                     // Default to I32 if we can't determine the type
                     Ok(WasmType::I32)
                 }
@@ -310,14 +310,18 @@ impl InstructionGenerator {
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) }, 
                     ast::BinaryOperator::And => { 
-                        // Convert F64 to I32 for logical operations
-                        instructions.push(Instruction::I32TruncF64S);
+                        // For F64 logical operations, just convert using saturating truncation
+                        // This avoids trapping on NaN/infinity by using saturation
+                        instructions.push(Instruction::I32TruncSatF64S);
+                        instructions.insert(instructions.len() - 1, Instruction::I32TruncSatF64S);
                         instructions.push(Instruction::I32And);
                         Ok(WasmType::I32)
                     },
                     ast::BinaryOperator::Or => { 
-                        // Convert F64 to I32 for logical operations  
-                        instructions.push(Instruction::I32TruncF64S);
+                        // For F64 logical operations, just convert using saturating truncation
+                        // This avoids trapping on NaN/infinity by using saturation
+                        instructions.push(Instruction::I32TruncSatF64S);
+                        instructions.insert(instructions.len() - 1, Instruction::I32TruncSatF64S);
                         instructions.push(Instruction::I32Or);
                         Ok(WasmType::I32)
                     },
@@ -501,33 +505,57 @@ impl InstructionGenerator {
                     instructions.push(Instruction::LocalSet(local_index));
                 } else {
                     return Err(CompilerError::codegen_error(
-                        format!("Cannot assign to unknown variable: {}", target),
+                        format!("Cannot assign to unknown variable: {target}"),
                         None, None
                     ));
                 }
             },
             Statement::Print { expression, newline, location: _ } => {
-                // For print functions, we need to handle them specially since they expect (ptr, len)
-                // but the old implementation was just generating the expression and calling print
-                // This is causing stack mismatches. For now, we'll generate a placeholder.
+                // Handle print statements using the new simplified print interface
+                // This should delegate to the same logic as function calls
                 
                 // Generate the expression to get its value
-                self.generate_expression(expression, instructions)?;
+                let expr_type = self.generate_expression(expression, instructions)?;
                 
-                // For string literals, we need to convert to (ptr, len) format
-                // For now, we'll drop the value and generate a placeholder string
-                instructions.push(Instruction::Drop);
-                
-                // Generate placeholder string data
-                instructions.push(Instruction::I32Const(0)); // ptr placeholder
-                instructions.push(Instruction::I32Const(0)); // len placeholder
+                // Convert the value to a string pointer using the same logic as function calls
+                match expr_type {
+                    WasmType::F64 => {
+                        // Convert f64 to string using float_to_string function
+                        if let Some(float_to_string_index) = self.get_function_index("float_to_string") {
+                            instructions.push(Instruction::Call(float_to_string_index));
+                        } else {
+                            // Fallback: Drop the f64 and use a placeholder string
+                            instructions.push(Instruction::Drop);
+                            instructions.push(Instruction::I32Const(350)); // "[float]" placeholder address
+                        }
+                    },
+                    WasmType::I32 => {
+                        // For I32, we need to convert it to a string using int_to_string
+                        if let Some(int_to_string_index) = self.get_function_index("int_to_string") {
+                            instructions.push(Instruction::Call(int_to_string_index));
+                        } else {
+                            // Fallback: Drop the i32 and use a placeholder string
+                            instructions.push(Instruction::Drop);
+                            instructions.push(Instruction::I32Const(330)); // "[int]" placeholder address
+                        }
+                    },
+                    WasmType::Unit => {
+                        // Unit expressions don't leave values on stack, push a placeholder
+                        instructions.push(Instruction::I32Const(0));
+                    },
+                    _ => {
+                        // Other types - drop and use placeholder
+                        instructions.push(Instruction::Drop);
+                        instructions.push(Instruction::I32Const(0));
+                    }
+                }
                 
                 let function_name = if *newline { "printl" } else { "print" };
                 if let Some(print_function_index) = self.get_function_index(function_name) {
                     instructions.push(Instruction::Call(print_function_index));
                 } else {
                     return Err(CompilerError::codegen_error(
-                        format!("{} function not found", function_name),
+                        format!("{function_name} function not found"),
                         None,
                         None
                     ));
@@ -689,7 +717,7 @@ impl InstructionGenerator {
             Expression::Variable(name) => {
                 let local = self.find_local(name)
                     .ok_or_else(|| CompilerError::codegen_error(
-                        &format!("Undefined variable '{}'", name),
+                        &format!("Undefined variable '{name}'"),
                         Some("Check if the variable is defined".to_string()),
                         None
                     ))?;
@@ -734,16 +762,16 @@ impl InstructionGenerator {
                 // Try signature-based function resolution first
                 eprintln!("DEBUG: Function call '{}' with arg types: {:?}", func_name, arg_types);
                 let func_index = if let Some(index) = self.get_function_index_by_signature(func_name, &arg_types) {
-                    eprintln!("DEBUG: Found signature-based match: function[{}]", index);
+                    eprintln!("DEBUG: Found signature-based match: function[{index}]");
                     Some(index)
                 } else {
                     eprintln!("DEBUG: No signature match, trying name-based lookup");
                     // Fall back to name-based resolution for backwards compatibility
                     if let Some(index) = self.get_function_index(func_name) {
-                        eprintln!("DEBUG: Found name-based match: function[{}]", index);
+                        eprintln!("DEBUG: Found name-based match: function[{index}]");
                         Some(index)
                     } else {
-                        eprintln!("DEBUG: No function found for '{}'", func_name);
+                        eprintln!("DEBUG: No function found for '{func_name}'");
                         None
                     }
                 };
@@ -767,7 +795,7 @@ impl InstructionGenerator {
                     }
                 } else {
                     Err(CompilerError::codegen_error(
-                        format!("Function not found: {}", func_name), None, None
+                        format!("Function not found: {func_name}"), None, None
                     ))
                 }
             },
@@ -794,12 +822,12 @@ impl InstructionGenerator {
                     self.generate_expression(arg, instructions)?;
                 }
                 
-                if let Some(method_index) = self.get_function_index(&format!("matrix_{}", method)) {
+                if let Some(method_index) = self.get_function_index(&format!("matrix_{method}")) {
                     instructions.push(Instruction::Call(method_index));
                     Ok(WasmType::I32) // Method calls return appropriate type
                 } else {
                 Err(CompilerError::codegen_error(
-                        &format!("Method '{}' not found", method), None, None
+                        &format!("Method '{method}' not found"), None, None
                 ))
                 }
             },
@@ -933,8 +961,9 @@ impl InstructionGenerator {
                                 instructions.push(Instruction::I32ReinterpretF32);
                             },
                             WasmType::F64 => {
-                                // Convert F64 to I32 (truncate and cast)
-                                instructions.push(Instruction::I32TruncF64S);
+                                // Convert F64 to I32 safely without trapping
+                                // Use saturating truncation instead of trapping truncation
+                                instructions.push(Instruction::I32TruncSatF64S);
                             },
                             _ => {
                                 // For other types, just use as-is (already I32)
@@ -1083,7 +1112,7 @@ impl InstructionGenerator {
             "transpose" => "matrix_transpose",
             "inverse" => "matrix_inverse",
             _ => return Err(CompilerError::codegen_error(
-                &format!("Unknown matrix operation: {}", op),
+                &format!("Unknown matrix operation: {op}"),
                 Some("Use valid matrix operations".to_string()),
                 None
             ))
@@ -1095,7 +1124,7 @@ impl InstructionGenerator {
             Ok(WasmType::I32) // Matrix operations return a pointer to the result matrix
         } else {
             Err(CompilerError::codegen_error(
-                &format!("Matrix operation function not found: {}", function_name),
+                &format!("Matrix operation function not found: {function_name}"),
                 Some("Ensure the matrix operations are registered".to_string()),
                 None
             ))
@@ -1239,24 +1268,101 @@ impl InstructionGenerator {
             ));
         }
         
-        // Get the list_get function index
+        // Get the list_get function index (fallback to array_get)
         if let Some(list_get_index) = self.get_function_index("list.get") {
             instructions.push(Instruction::Call(list_get_index));
-            
-            // Access the element from memory
-            instructions.push(Instruction::I32Load(MemArg {
-                offset: 0,
-                align: 2,
-                memory_index: 0,
-            }));
-            
-            return Ok(WasmType::I32);
+        } else if let Some(array_get_index) = self.get_function_index("array_get") {
+            instructions.push(Instruction::Call(array_get_index));
         } else {
             return Err(CompilerError::codegen_error(
-                "list.get function not found",
-                Some("The list.get function is not registered".to_string()),
+                "No list access function found (list.get or array_get)",
+                Some("Register list operations to enable list access".to_string()),
                 None
             ));
+        }
+        
+        // The list access function returns a pointer to the element
+        // Now we need to load the actual value based on the expected type
+        
+        // For now, determine the type based on context or assume integer
+        // TODO: This should be enhanced with proper type inference
+        let element_type = self.infer_list_element_type(list)?;
+        
+        match element_type {
+            WasmType::I32 => {
+                // Load 32-bit integer
+                instructions.push(Instruction::I32Load(MemArg {
+                    offset: 0,
+                    align: 2,
+                    memory_index: 0,
+                }));
+                Ok(WasmType::I32)
+            },
+            WasmType::F64 => {
+                // Load 64-bit float  
+                instructions.push(Instruction::F64Load(MemArg {
+                    offset: 0,
+                    align: 3,
+                    memory_index: 0,
+                }));
+                Ok(WasmType::F64)
+            },
+            WasmType::I64 => {
+                // Load 64-bit integer
+                instructions.push(Instruction::I64Load(MemArg {
+                    offset: 0,
+                    align: 3,
+                    memory_index: 0,
+                }));
+                Ok(WasmType::I64)
+            },
+            WasmType::F32 => {
+                // Load 32-bit float
+                instructions.push(Instruction::F32Load(MemArg {
+                    offset: 0,
+                    align: 2,
+                    memory_index: 0,
+                }));
+                Ok(WasmType::F32)
+            },
+            WasmType::V128 => {
+                // SIMD not supported in list elements for now
+                return Err(CompilerError::codegen_error(
+                    "V128 types not supported in list elements",
+                    Some("Use basic types (i32, f64, etc.) for list elements".to_string()),
+                    None
+                ));
+            },
+            WasmType::Unit => {
+                // Unit type doesn't make sense for list elements
+                return Err(CompilerError::codegen_error(
+                    "Unit type not supported in list elements",
+                    Some("Use concrete types for list elements".to_string()),
+                    None
+                ));
+            }
+        }
+    }
+
+    /// Infer the element type of a list based on its declaration or context
+    fn infer_list_element_type(&self, list_expr: &Expression) -> Result<WasmType, CompilerError> {
+        use crate::ast::Expression;
+        
+        match list_expr {
+            Expression::Variable(var_name) => {
+                // Try to look up the variable type in our type context
+                // For now, use heuristics based on variable name
+                if var_name.contains("number") || var_name.contains("float") {
+                    Ok(WasmType::F64)
+                } else if var_name.contains("string") || var_name.contains("name") {
+                    Ok(WasmType::I32) // String pointers are i32
+                } else {
+                    // Default to i32 for integer lists
+                    Ok(WasmType::I32)
+                }
+            },
+            // For other expressions, default to i32
+            _ => Ok(WasmType::I32)
         }
     }
 }

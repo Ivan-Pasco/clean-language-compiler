@@ -58,7 +58,7 @@ impl DebugUtils {
         println!("{}📤 Return Type: {}", prefix, Self::type_to_string(&func.return_type));
         
         if !func.parameters.is_empty() {
-            println!("{}📥 Parameters:", prefix);
+            println!("{prefix}📥 Parameters:");
             for param in &func.parameters {
                 println!("{}  • {} : {}", prefix, param.name, Self::type_to_string(&param.type_));
             }
@@ -83,7 +83,7 @@ impl DebugUtils {
             Type::List(inner) => format!("list<{}>", Self::type_to_string(inner)),
             Type::Object(name) => name.clone(),
             Type::Any => "any".to_string(),
-            _ => format!("{:?}", type_),
+            _ => format!("{type_:?}"),
         }
     }
 
@@ -94,7 +94,7 @@ impl DebugUtils {
                 format!("var {} : {}", name, Self::type_to_string(type_))
             },
             Statement::Assignment { target, .. } => {
-                format!("assign to {}", target)
+                format!("assign to {target}")
             },
             Statement::Expression { expr, .. } => {
                 format!("expr: {}", Self::expression_to_string(expr))
@@ -118,14 +118,14 @@ impl DebugUtils {
                 result.push(')');
                 result
             },
-            _ => format!("{:?}", stmt).chars().take(50).collect::<String>() + "...",
+            _ => format!("{stmt:?}").chars().take(50).collect::<String>() + "...",
         }
     }
 
     /// Convert an expression to a readable string
     fn expression_to_string(expr: &Expression) -> String {
         match expr {
-            Expression::Literal(val) => format!("{:?}", val),
+            Expression::Literal(val) => format!("{val:?}"),
             Expression::Variable(name) => name.clone(),
             Expression::Call(name, arguments) => {
                 format!("{}({})", name, arguments.len())
@@ -136,7 +136,7 @@ impl DebugUtils {
                     operator, 
                     Self::expression_to_string(right))
             },
-            _ => format!("{:?}", expr).chars().take(30).collect::<String>() + "...",
+            _ => format!("{expr:?}").chars().take(30).collect::<String>() + "...",
         }
     }
 
@@ -256,7 +256,7 @@ impl DebugUtils {
     /// Print detailed error analysis
     pub fn analyze_error(error: &CompilerError) {
         println!("=== Error Analysis ===");
-        println!("Error: {}", error);
+        println!("Error: {error}");
         
         // Provide contextual help based on error type
         match error {
@@ -292,7 +292,7 @@ impl DebugUtils {
         let mut analysis = Vec::new();
         
         for error in errors {
-            analysis.push(format!("Error: {}", error));
+            analysis.push(format!("Error: {error}"));
             
             // Add specific suggestions based on error type
             match error {
@@ -350,7 +350,7 @@ impl DebugUtils {
     ) -> String {
         let mut report = String::new();
         
-        report.push_str(&format!("=== Debug Report for {} ===\n", file_path));
+        report.push_str(&format!("=== Debug Report for {file_path} ===\n"));
         report.push_str(&format!("Source length: {} characters\n", source.len()));
         report.push_str(&format!("Source lines: {}\n", source.lines().count()));
         
@@ -363,14 +363,14 @@ impl DebugUtils {
             },
             Err(error) => {
                 report.push_str("❌ Parsing: FAILED\n");
-                report.push_str(&format!("Error: {}\n", error));
+                report.push_str(&format!("Error: {error}\n"));
             }
         }
         
         if !warnings.is_empty() {
             report.push_str(&format!("⚠️  Warnings: {}\n", warnings.len()));
             for warning in warnings {
-                report.push_str(&format!("  - {}\n", warning));
+                report.push_str(&format!("  - {warning}\n"));
             }
         }
         
@@ -379,7 +379,7 @@ impl DebugUtils {
         if !style_issues.is_empty() {
             report.push_str(&format!("🎨 Style Issues: {}\n", style_issues.len()));
             for issue in style_issues {
-                report.push_str(&format!("  - {}\n", issue));
+                report.push_str(&format!("  - {issue}\n"));
             }
         }
         
@@ -397,7 +397,7 @@ impl DebugUtils {
             "statement" => Rule::statement,
             "expression" => Rule::expression,
             "primary" => Rule::primary,
-            _ => return Err(format!("Unknown rule: {}", rule_name)),
+            _ => return Err(format!("Unknown rule: {rule_name}")),
         };
 
         match CleanParser::parse(rule, source) {
@@ -408,7 +408,7 @@ impl DebugUtils {
                 }
                 Ok(result)
             },
-            Err(e) => Err(format!("Parse error: {}", e)),
+            Err(e) => Err(format!("Parse error: {e}")),
         }
     }
 
@@ -488,14 +488,14 @@ impl DebugUtils {
         // Show each error with context
         for (i, error) in errors.iter().enumerate() {
             writeln!(report, "Error {} of {}:", i + 1, errors.len()).unwrap();
-            writeln!(report, "{}", error).unwrap();
+            writeln!(report, "{error}").unwrap();
             writeln!(report, "{}", "─".repeat(40)).unwrap();
         }
         
         // Add analysis
         let analysis = crate::error::ErrorUtils::analyze_multiple_errors(errors);
         for line in analysis {
-            writeln!(report, "{}", line).unwrap();
+            writeln!(report, "{line}").unwrap();
         }
         
         // Add fix suggestions
@@ -503,7 +503,7 @@ impl DebugUtils {
         if !suggestions.is_empty() {
             writeln!(report, "\n🔧 Specific Fix Suggestions:").unwrap();
             for suggestion in suggestions {
-                writeln!(report, "• {}", suggestion).unwrap();
+                writeln!(report, "• {suggestion}").unwrap();
             }
         }
         
@@ -539,14 +539,14 @@ impl StyleReport {
         if !self.warnings.is_empty() {
             println!("⚠️  Warnings:");
             for warning in &self.warnings {
-                println!("  - {}", warning);
+                println!("  - {warning}");
             }
         }
         
         if !self.suggestions.is_empty() {
             println!("💡 Suggestions:");
             for suggestion in &self.suggestions {
-                println!("  - {}", suggestion);
+                println!("  - {suggestion}");
             }
         }
         

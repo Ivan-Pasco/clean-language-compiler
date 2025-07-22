@@ -85,10 +85,9 @@ impl ErrorRecoveringParser {
             }
             
             // Look for statement boundaries (lines starting with tabs/spaces)
-            if pos == 0 || chars[pos-1] == '\n' {
-                if pos < chars.len() && (chars[pos] == '\t' || chars[pos] == ' ') {
-                    self.recovery_points.push(pos);
-                }
+            if (pos == 0 || chars[pos-1] == '\n') 
+                && pos < chars.len() && (chars[pos] == '\t' || chars[pos] == ' ') {
+                self.recovery_points.push(pos);
             }
             
             pos += 1;
@@ -368,54 +367,51 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
     let mut top_level_statements = Vec::new();
 
     for pair in pairs {
-        match pair.as_rule() {
-            Rule::program => {
-                for inner in pair.into_inner() {
-                    match inner.as_rule() {
-                        Rule::program_item => {
-                            for program_item_inner in inner.into_inner() {
-                                match program_item_inner.as_rule() {
-                                    Rule::import_stmt => {
-                                        if let Statement::Import { imports: import_items, location: _ } = parse_import_statement(program_item_inner)? {
-                                            imports.extend(import_items);
-                                        }
-                                    },
-                                    Rule::functions_block => {
-                                        let block_functions = parse_functions_block(program_item_inner)?;
-                                        functions.extend(block_functions);
-                                    },
-                                    // Standalone functions removed - all functions must be in functions: blocks per specification
-                                    Rule::start_function => {
-                                        let func = parse_start_function(program_item_inner)?;
-                                        start_function = Some(func);
-                                    },
-                                    Rule::implicit_start_function => {
-                                        let func = parse_start_function(program_item_inner)?;
-                                        start_function = Some(func);
-                                    },
-                                    Rule::class_decl => {
-                                        let class = parse_class_decl(program_item_inner)?;
-                                        classes.push(class);
-                                    },
-                                    Rule::tests_block => {
-                                        let test_cases = parse_tests_block(program_item_inner)?;
-                                        tests.extend(test_cases);
-                                    },
-                                    Rule::statement => {
-                                        // Handle top-level statements - these should be added to the start function
-                                        let stmt = parse_statement(program_item_inner)?;
-                                        top_level_statements.push(stmt);
-                                    },
-                                    _ => {}
-                                }
+        if pair.as_rule() == Rule::program {
+            for inner in pair.into_inner() {
+                match inner.as_rule() {
+                    Rule::program_item => {
+                        for program_item_inner in inner.into_inner() {
+                            match program_item_inner.as_rule() {
+                                Rule::import_stmt => {
+                                    if let Statement::Import { imports: import_items, location: _ } = parse_import_statement(program_item_inner)? {
+                                        imports.extend(import_items);
+                                    }
+                                },
+                                Rule::functions_block => {
+                                    let block_functions = parse_functions_block(program_item_inner)?;
+                                    functions.extend(block_functions);
+                                },
+                                // Standalone functions removed - all functions must be in functions: blocks per specification
+                                Rule::start_function => {
+                                    let func = parse_start_function(program_item_inner)?;
+                                    start_function = Some(func);
+                                },
+                                Rule::implicit_start_function => {
+                                    let func = parse_start_function(program_item_inner)?;
+                                    start_function = Some(func);
+                                },
+                                Rule::class_decl => {
+                                    let class = parse_class_decl(program_item_inner)?;
+                                    classes.push(class);
+                                },
+                                Rule::tests_block => {
+                                    let test_cases = parse_tests_block(program_item_inner)?;
+                                    tests.extend(test_cases);
+                                },
+                                Rule::statement => {
+                                    // Handle top-level statements - these should be added to the start function
+                                    let stmt = parse_statement(program_item_inner)?;
+                                    top_level_statements.push(stmt);
+                                },
+                                _ => {}
                             }
-                        },
-                        Rule::EOI => {}, // End of input
-                        _ => {}
-                    }
+                        }
+                    },
+                    Rule::EOI => {}, // End of input
+                    _ => {}
                 }
-            },
-            _ => {}
+            }
         }
     }
 
@@ -425,10 +421,8 @@ pub fn parse_program_ast(pairs: pest::iterators::Pairs<Rule>) -> Result<Program,
         let _original_count = top_level_statements.len();
         let filtered_statements: Vec<Statement> = top_level_statements.into_iter()
             .filter(|stmt| {
-                if let Statement::Expression { expr, location: _ } = stmt {
-                    if let Expression::Call(name, _args) = expr {
-                        return name != "start";
-                    }
+                if let Statement::Expression { expr: Expression::Call(name, _args), location: _ } = stmt {
+                    return name != "start";
                 }
                 true
             })
@@ -467,18 +461,12 @@ pub fn parse_start_function(pair: Pair<Rule>) -> Result<Function, CompilerError>
     let location = Some(convert_to_ast_location(&get_location(&pair)));
 
     for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::indented_block => {
-                for stmt_pair in inner.into_inner() {
-                    match stmt_pair.as_rule() {
-                        Rule::statement => {
-                            body.push(parse_statement(stmt_pair)?);
-                        },
-                        _ => {}
-                    }
+        if inner.as_rule() == Rule::indented_block {
+            for stmt_pair in inner.into_inner() {
+                if stmt_pair.as_rule() == Rule::statement {
+                    body.push(parse_statement(stmt_pair)?);
                 }
-            },
-            _ => {}
+            }
         }
     }
 
@@ -557,16 +545,13 @@ pub fn parse_functions_block(functions_block: Pair<Rule>) -> Result<Vec<Function
     let mut functions = Vec::new();
     
     for item in functions_block.into_inner() {
-        match item.as_rule() {
-            Rule::indented_functions_block => {
-                for func_item in item.into_inner() {
-                    if func_item.as_rule() == Rule::function_in_block {
-                        let func = parse_function_in_block(func_item)?;
-                        functions.push(func);
-                    }
+        if item.as_rule() == Rule::indented_functions_block {
+            for func_item in item.into_inner() {
+                if func_item.as_rule() == Rule::function_in_block {
+                    let func = parse_function_in_block(func_item)?;
+                    functions.push(func);
                 }
-            },
-            _ => {}
+            }
         }
     }
     
@@ -578,15 +563,12 @@ pub fn parse_tests_block(tests_pair: Pair<Rule>) -> Result<Vec<TestCase>, Compil
     let mut test_cases = Vec::new();
     
     for inner in tests_pair.into_inner() {
-        match inner.as_rule() {
-            Rule::indented_tests_block => {
-                for test_pair in inner.into_inner() {
-                    if test_pair.as_rule() == Rule::test_case {
-                        test_cases.push(parse_test_case(test_pair)?);
-                    }
+        if inner.as_rule() == Rule::indented_tests_block {
+            for test_pair in inner.into_inner() {
+                if test_pair.as_rule() == Rule::test_case {
+                    test_cases.push(parse_test_case(test_pair)?);
                 }
-            },
-            _ => {}
+            }
         }
     }
     

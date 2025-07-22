@@ -563,53 +563,53 @@ impl fmt::Display for Type {
             Type::Void => f.write_str("void"),
             Type::IntegerSized { bits, unsigned } => {
                 if *unsigned {
-                    write!(f, "integer:{}u", bits)
+                    write!(f, "integer:{bits}u")
                 } else {
-                    write!(f, "integer:{}", bits)
+                    write!(f, "integer:{bits}")
                 }
             },
-            Type::NumberSized { bits } => write!(f, "number:{}", bits),
+            Type::NumberSized { bits } => write!(f, "number:{bits}"),
             // Type::Array removed - now using Type::List
-            Type::List(inner) => write!(f, "list<{}>", inner),
-            Type::Matrix(inner) => write!(f, "matrix<{}>", inner),
-            Type::Pairs(key, value) => write!(f, "pairs<{}, {}>", key, value),
+            Type::List(inner) => write!(f, "list<{inner}>"),
+            Type::Matrix(inner) => write!(f, "matrix<{inner}>"),
+            Type::Pairs(key, value) => write!(f, "pairs<{key}, {value}>"),
             Type::Function(params, ret) => {
                 write!(f, "function(")?;
                 for (i, param) in params.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", param)?;
+                    write!(f, "{param}")?;
                 }
-                write!(f, ") returns {}", ret)
+                write!(f, ") returns {ret}")
             },
-            Type::Object(name) => write!(f, "{}", name),
+            Type::Object(name) => write!(f, "{name}"),
             Type::Class { name, type_args } => {
                 if type_args.is_empty() {
-                    write!(f, "{}", name)
+                    write!(f, "{name}")
                 } else {
-                    write!(f, "{}<", name)?;
+                    write!(f, "{name}<")?;
                     for (i, arg) in type_args.iter().enumerate() {
                         if i > 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", arg)?;
+                        write!(f, "{arg}")?;
                     }
                     write!(f, ">")
                 }
             },
             Type::Generic(base, args) => {
-                write!(f, "{}<", base)?;
+                write!(f, "{base}<")?;
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", arg)?;
+                    write!(f, "{arg}")?;
                 }
                 write!(f, ">")
             },
-            Type::TypeParameter(name) => write!(f, "{}", name),
-            Type::Future(inner) => write!(f, "Future<{}>", inner),
+            Type::TypeParameter(name) => write!(f, "{name}"),
+            Type::Future(inner) => write!(f, "Future<{inner}>"),
             Type::Any => f.write_str("any"),
         }
     }
@@ -618,17 +618,17 @@ impl fmt::Display for Type {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Integer(i) => write!(f, "{}", i),
-            Value::Number(n) => write!(f, "{}", n),
-            Value::String(s) => write!(f, "\"{}\"", s),
-            Value::Boolean(b) => write!(f, "{}", b),
+            Value::Integer(i) => write!(f, "{i}"),
+            Value::Number(n) => write!(f, "{n}"),
+            Value::String(s) => write!(f, "\"{s}\""),
+            Value::Boolean(b) => write!(f, "{b}"),
             Value::List(items) => {
                 write!(f, "[")?;
                 for (i, item) in items.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
                 write!(f, "]")
             },
@@ -643,27 +643,27 @@ impl fmt::Display for Value {
                         if j > 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", value)?;
+                        write!(f, "{value}")?;
                     }
                     write!(f, "]")?;
                 }
                 write!(f, "]")
             },
             Value::Void => write!(f, "()"),
-            Value::Integer8(i) => write!(f, "{}:8", i),
-            Value::Integer8u(u) => write!(f, "{}:8u", u),
-            Value::Integer16(i) => write!(f, "{}:16", i),
-            Value::Integer16u(u) => write!(f, "{}:16u", u),
-            Value::Integer32(i) => write!(f, "{}:32", i),
-            Value::Integer64(i) => write!(f, "{}:64", i),
-            Value::Number32(f_val) => write!(f, "{}:32", f_val),
-            Value::Number64(f_val) => write!(f, "{}:64", f_val),
+            Value::Integer8(i) => write!(f, "{i}:8"),
+            Value::Integer8u(u) => write!(f, "{u}:8u"),
+            Value::Integer16(i) => write!(f, "{i}:16"),
+            Value::Integer16u(u) => write!(f, "{u}:16u"),
+            Value::Integer32(i) => write!(f, "{i}:32"),
+            Value::Integer64(i) => write!(f, "{i}:64"),
+            Value::Number32(f_val) => write!(f, "{f_val}:32"),
+            Value::Number64(f_val) => write!(f, "{f_val}:64"),
         }
     }
 }
 
 impl Type {
-    pub fn as_ref(&self) -> &Type {
+    pub fn as_type_ref(&self) -> &Type {
         self
     }
 } 

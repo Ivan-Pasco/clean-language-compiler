@@ -249,16 +249,17 @@ impl HttpClass {
             ))?;
 
         Ok(vec![
-            // Load URL string data pointer (skip 4-byte length prefix)
-            Instruction::LocalGet(0), // url string pointer
+            // Stack at call: [url_string_ptr] - length-prefixed string
+            // Extract string data pointer (skip 4-byte length prefix)
+            Instruction::LocalGet(0), // url string pointer (parameter)
             Instruction::I32Const(4), // offset to string data (past length field)
             Instruction::I32Add, // ptr + 4 = actual string data pointer
             
-            // Load URL string length
+            // Extract string length from the length field
             Instruction::LocalGet(0), // url string pointer again
             Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // load string length from [ptr]
             
-            // Call the HTTP host function
+            // Call the HTTP host function with [data_ptr, length] on stack
             Instruction::Call(import_index),
         ])
     }
@@ -273,21 +274,24 @@ impl HttpClass {
             ))?;
 
         Ok(vec![
-            // Load URL string data pointer and length
+            // Parameters: url_string_ptr (local 0), body_string_ptr (local 1)
+            // Both are length-prefixed strings
+            
+            // Extract URL data pointer and length
             Instruction::LocalGet(0), // url string pointer
             Instruction::I32Const(4),
             Instruction::I32Add, // url data ptr
-            Instruction::LocalGet(0),
+            Instruction::LocalGet(0), // url string pointer again
             Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // url length
             
-            // Load body string data pointer and length
+            // Extract body data pointer and length
             Instruction::LocalGet(1), // body string pointer
             Instruction::I32Const(4),
             Instruction::I32Add, // body data ptr
-            Instruction::LocalGet(1),
+            Instruction::LocalGet(1), // body string pointer again
             Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // body length
             
-            // Call the HTTP host function
+            // Call the HTTP host function with [url_data_ptr, url_len, body_data_ptr, body_len] on stack
             Instruction::Call(import_index),
         ])
     }

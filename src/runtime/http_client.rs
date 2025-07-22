@@ -21,7 +21,7 @@ impl HttpClient {
     
     /// Make an HTTP GET request
     pub fn get(&self, url: &str) -> Result<HttpResponse, CompilerError> {
-        println!("🌐 [HTTP GET] Making real request to: {}", url);
+        println!("🌐 [HTTP GET] Making real request to: {url}");
         
         // Parse URL (simple implementation)
         let (host, path) = self.parse_url(url)?;
@@ -37,7 +37,7 @@ impl HttpClient {
     
     /// Make an HTTP POST request
     pub fn post(&self, url: &str, body: &str) -> Result<HttpResponse, CompilerError> {
-        println!("🌐 [HTTP POST] Making real request to: {}", url);
+        println!("🌐 [HTTP POST] Making real request to: {url}");
         
         let (host, path) = self.parse_url(url)?;
         
@@ -51,7 +51,7 @@ impl HttpClient {
     
     /// Make an HTTP PUT request
     pub fn put(&self, url: &str, body: &str) -> Result<HttpResponse, CompilerError> {
-        println!("🌐 [HTTP PUT] Making real request to: {}", url);
+        println!("🌐 [HTTP PUT] Making real request to: {url}");
         
         let (host, path) = self.parse_url(url)?;
         
@@ -65,7 +65,7 @@ impl HttpClient {
     
     /// Make an HTTP PATCH request
     pub fn patch(&self, url: &str, body: &str) -> Result<HttpResponse, CompilerError> {
-        println!("🌐 [HTTP PATCH] Making real request to: {}", url);
+        println!("🌐 [HTTP PATCH] Making real request to: {url}");
         
         let (host, path) = self.parse_url(url)?;
         
@@ -79,7 +79,7 @@ impl HttpClient {
     
     /// Make an HTTP DELETE request
     pub fn delete(&self, url: &str) -> Result<HttpResponse, CompilerError> {
-        println!("🌐 [HTTP DELETE] Making real request to: {}", url);
+        println!("🌐 [HTTP DELETE] Making real request to: {url}");
         
         let (host, path) = self.parse_url(url)?;
         
@@ -101,7 +101,7 @@ impl HttpClient {
             &url[7..]
         } else {
             return Err(CompilerError::runtime_error(
-                format!("Unsupported URL scheme: {}", url),
+                format!("Unsupported URL scheme: {url}"),
                 None, None
             ));
         };

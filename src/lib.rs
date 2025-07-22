@@ -49,10 +49,7 @@ pub fn compile_with_file(source: &str, file_path: &str) -> Result<Vec<u8>, Compi
 /// Compiles with detailed error reporting and recovery
 pub fn compile_with_recovery(source: &str, file_path: &str) -> Result<Vec<u8>, Vec<CompilerError>> {
     // Try parsing with error recovery first
-    let program = match CleanParser::parse_program_with_recovery(source, file_path) {
-        Ok(program) => program,
-        Err(parse_errors) => return Err(parse_errors),
-    };
+    let program = CleanParser::parse_program_with_recovery(source, file_path)?;
 
     // Perform semantic analysis
     let mut analyzer = SemanticAnalyzer::new();

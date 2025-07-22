@@ -11,16 +11,16 @@ pub struct FileIO;
 impl FileIO {
     /// Read file contents as string
     pub fn read_file(path: &str) -> Result<String, CompilerError> {
-        println!("📁 [FILE READ] Reading file: {}", path);
+        println!("📁 [FILE READ] Reading file: {path}");
         
         match fs::read_to_string(path) {
             Ok(content) => {
-                println!("✅ [FILE READ] Successfully read {} bytes from {}", content.len(), path);
+                println!("✅ [FILE READ] Successfully read {} bytes from {path}", content.len());
                 Ok(content)
             }
             Err(e) => {
-                let error_msg = format!("Failed to read file '{}': {}", path, e);
-                println!("❌ [FILE READ] {}", error_msg);
+                let error_msg = format!("Failed to read file '{path}': {e}");
+                println!("❌ [FILE READ] {error_msg}");
                 Err(CompilerError::runtime_error(error_msg, None, None))
             }
         }
@@ -28,15 +28,15 @@ impl FileIO {
     
     /// Write content to file
     pub fn write_file(path: &str, content: &str) -> Result<(), CompilerError> {
-        println!("📁 [FILE WRITE] Writing {} bytes to: {}", content.len(), path);
+        println!("📁 [FILE WRITE] Writing {} bytes to: {path}", content.len());
         
         match fs::write(path, content) {
             Ok(()) => {
-                println!("✅ [FILE WRITE] Successfully wrote to {}", path);
+                println!("✅ [FILE WRITE] Successfully wrote to {path}");
                 Ok(())
             }
             Err(e) => {
-                let error_msg = format!("Failed to write file '{}': {}", path, e);
+                let error_msg = format!("Failed to write file '{path}': {e}");
                 println!("❌ [FILE WRITE] {}", error_msg);
                 Err(CompilerError::runtime_error(error_msg, None, None))
             }

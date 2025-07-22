@@ -1,0 +1,4 @@
+
+start()
+	list<integer> numbers = [1, 2, 3]
+	integer x = numbers[0]

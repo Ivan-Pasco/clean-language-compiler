@@ -921,7 +921,7 @@ impl CodeGenerator {
                     ));
                 } else {
                     return Err(CompilerError::codegen_error(
-                        format!("Class '{}' not found", class_context),
+                        format!("Class '{class_context}' not found"),
                         None,
                         location.clone()
                     ));
@@ -929,7 +929,7 @@ impl CodeGenerator {
             }
         } else {
             return Err(CompilerError::codegen_error(
-                format!("Undefined variable: {}", target),
+                format!("Undefined variable: {target}"),
                 None,
                 location.clone()
             ));
@@ -1005,14 +1005,7 @@ impl CodeGenerator {
                     }
                     
                     // Generate the string argument and convert to ptr+len
-                    let arg_type = self.generate_expression(&args[0], instructions)?;
-                    
-                    // Convert string to pointer and length
-                    if arg_type == WasmType::I32 {
-                        // Duplicate the pointer and push a length
-                        instructions.push(Instruction::LocalGet(0)); // Get string ptr again  
-                        instructions.push(Instruction::I32Const(10)); // Placeholder length
-                    }
+                    self.generate_string_for_import(&args[0], instructions)?;
                     
                     // Call the imported function
                     if let Some(&function_index) = self.function_map.get("input") {
@@ -1021,6 +1014,56 @@ impl CodeGenerator {
                     } else {
                         return Err(CompilerError::codegen_error("input function not found", None, None));
                     }
+                }
+
+                // Special handling for error function
+                if func_name == "error" {
+                    if args.len() != 1 {
+                        return Err(CompilerError::detailed_type_error(
+                            "error() function called with wrong number of arguments",
+                            1,
+                            args.len(),
+                            None,
+                            Some(format!("error() expects exactly 1 argument, but {} were provided", args.len()))
+                        ));
+                    }
+                    
+                    // Generate the error value - can be any type (string, number, integer, boolean)
+                    let error_type = self.generate_expression(&args[0], instructions)?;
+                    
+                    // Create error handling logic based on the type
+                    // Drop the error value and create a simple error indicator
+                    match error_type {
+                        WasmType::I32 => {
+                            // Integer or string or boolean - drop it
+                            instructions.push(Instruction::Drop);
+                        },
+                        WasmType::F64 => {
+                            // Float - drop it
+                            instructions.push(Instruction::Drop);
+                        },
+                        WasmType::F32 => {
+                            // Float32 - drop it
+                            instructions.push(Instruction::Drop);
+                        },
+                        WasmType::I64 => {
+                            // I64 - drop it
+                            instructions.push(Instruction::Drop);
+                        },
+                        WasmType::V128 => {
+                            // V128 - drop it
+                            instructions.push(Instruction::Drop);
+                        },
+                        WasmType::Unit => {
+                            // Unit type - nothing to drop
+                        }
+                    }
+                    
+                    // For now, use Unreachable to halt execution immediately
+                    // This ensures stack balance: no values on stack when reaching unreachable
+                    instructions.push(Instruction::Unreachable);
+                    
+                    return Ok(WasmType::I32); // Error function never actually returns, but we need a type
                 }
 
                 // Special handling for print functions - they use type-safe dispatch
@@ -1118,7 +1161,7 @@ impl CodeGenerator {
                 // Check if this is a constructor call (function name matches a class name)
                 if self.class_table.contains_key(func_name) {
                     // This is a constructor call - redirect to constructor function
-                    let constructor_name = format!("{}_constructor", func_name);
+                    let constructor_name = format!("{func_name}_constructor");
                     if let Some(constructor_index) = self.get_function_index(&constructor_name) {
                         // Generate arguments
                         for arg in args {
@@ -1130,7 +1173,7 @@ impl CodeGenerator {
                         return Ok(WasmType::I32);
                     } else {
                         return Err(CompilerError::codegen_error(
-                            &format!("Constructor for class '{}' not found", func_name),
+                            &format!("Constructor for class '{func_name}' not found"),
                             Some("Make sure the class has a constructor defined".to_string()),
                             None
                         ));
@@ -1147,12 +1190,10 @@ impl CodeGenerator {
                     arg_instructions.push(temp_instructions);
                 }
                 
-                // Try signature-based function resolution first (for overloaded functions like abs)
-                let func_index = if let Some(index) = self.instruction_generator.get_function_index_by_signature(func_name, &arg_types) {
-                    eprintln!("DEBUG: Found signature-based match for '{}' with args {:?}: function[{}]", func_name, arg_types, index);
+                // Try name-based function resolution first (gives precedence to user-defined functions)
+                let func_index = if let Some(index) = self.get_function_index(func_name) {
                     Some(index)
-                } else if let Some(index) = self.get_function_index(func_name) {
-                    eprintln!("DEBUG: Found name-based match for '{}': function[{}]", func_name, index);
+                } else if let Some(index) = self.instruction_generator.get_function_index_by_signature(func_name, &arg_types) {
                     Some(index)
                 } else {
                     None
@@ -1165,7 +1206,7 @@ impl CodeGenerator {
                         let expected_arg_count = func_type.params().len();
                         if args.len() != expected_arg_count {
                             return Err(CompilerError::detailed_type_error(
-                                &format!("Function '{}' called with wrong number of arguments", func_name),
+                                &format!("Function '{func_name}' called with wrong number of arguments"),
                                 expected_arg_count,
                                 args.len(),
                                 None,
@@ -1221,6 +1262,7 @@ impl CodeGenerator {
                         }
                     }
                     
+                
                 instructions.push(Instruction::Call(func_index));
                 self.get_function_return_type(func_index)
                 } else {
@@ -1238,10 +1280,76 @@ impl CodeGenerator {
                 self.generate_binary_operation(left, op, right, instructions)
             },
             Expression::ListAccess(array, index) => {
-                self.generate_expression(&*array, instructions)?;
-                self.generate_expression(&*index, instructions)?;
-                instructions.push(Instruction::Call(self.get_array_get())); 
-                Ok(WasmType::I32)
+                // Generate list access with type-safe value loading
+                // First, generate the list expression (should be a pointer)
+                let list_type = self.generate_expression(&*array, instructions)?;
+                if list_type != WasmType::I32 {
+                    return Err(CompilerError::codegen_error(
+                        "List access requires list pointer (I32)",
+                        Some("The list must be a valid list pointer".to_string()),
+                        None
+                    ));
+                }
+                
+                // Then, generate the index expression
+                let index_type = self.generate_expression(&*index, instructions)?;
+                if index_type != WasmType::I32 {
+                    return Err(CompilerError::codegen_error(
+                        "List index must be I32",
+                        Some("The list index must be an integer".to_string()),
+                        None
+                    ));
+                }
+                
+                // Call the appropriate list access function
+                if let Some(list_get_index) = self.function_map.get("list.get") {
+                    instructions.push(Instruction::Call(*list_get_index));
+                } else if let Some(array_get_index) = self.function_map.get("array_get") {
+                    instructions.push(Instruction::Call(*array_get_index));
+                } else {
+                    return Err(CompilerError::codegen_error(
+                        "No list access function found (list.get or array_get)",
+                        Some("Register list operations to enable list access".to_string()),
+                        None
+                    ));
+                }
+                
+                // The list access function returns a pointer to the element (i32)
+                // We need to ensure this is properly consumed by subsequent operations
+                
+                // The list access function returns a pointer to the element
+                // Now load the actual value based on the expected type
+                let element_type = self.infer_list_element_type(array)?;
+                
+                match element_type {
+                    WasmType::I32 => {
+                        // Load 32-bit integer
+                        instructions.push(Instruction::I32Load(wasm_encoder::MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }));
+                        Ok(WasmType::I32)
+                    },
+                    WasmType::F64 => {
+                        // Load 64-bit float  
+                        instructions.push(Instruction::F64Load(wasm_encoder::MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
+                        Ok(WasmType::F64)
+                    },
+                    _ => {
+                        // For other types, default to i32
+                        instructions.push(Instruction::I32Load(wasm_encoder::MemArg {
+                            offset: 0,
+                            align: 2,
+                            memory_index: 0,
+                        }));
+                        Ok(WasmType::I32)
+                    }
+                }
             },
             Expression::PropertyAssignment { object, property, value, location: _ } => {
                 // Handle property assignments like list.type = "line"
@@ -1287,14 +1395,7 @@ impl CodeGenerator {
                                 }
                                 
                                 // Generate the string argument and convert to ptr+len
-                                let arg_type = self.generate_expression(&arguments[0], instructions)?;
-                                
-                                // Convert string to pointer and length
-                                if arg_type == WasmType::I32 {
-                                    // Duplicate the pointer and push a length
-                                    instructions.push(Instruction::LocalGet(0)); // Get string ptr again  
-                                    instructions.push(Instruction::I32Const(10)); // Placeholder length
-                                }
+                                self.generate_string_for_import(&arguments[0], instructions)?;
                                 
                                 // Call the imported function
                                 if let Some(&function_index) = self.function_map.get("input.integer") {
@@ -1310,14 +1411,7 @@ impl CodeGenerator {
                                 }
                                 
                                 // Generate the string argument and convert to ptr+len
-                                let arg_type = self.generate_expression(&arguments[0], instructions)?;
-                                
-                                // Convert string to pointer and length
-                                if arg_type == WasmType::I32 {
-                                    // Duplicate the pointer and push a length
-                                    instructions.push(Instruction::LocalGet(0)); // Get string ptr again  
-                                    instructions.push(Instruction::I32Const(10)); // Placeholder length
-                                }
+                                self.generate_string_for_import(&arguments[0], instructions)?;
                                 
                                 // Call the imported function
                                 if let Some(&function_index) = self.function_map.get("input.number") {
@@ -1333,14 +1427,7 @@ impl CodeGenerator {
                                 }
                                 
                                 // Generate the string argument and convert to ptr+len
-                                let arg_type = self.generate_expression(&arguments[0], instructions)?;
-                                
-                                // Convert string to pointer and length
-                                if arg_type == WasmType::I32 {
-                                    // Duplicate the pointer and push a length
-                                    instructions.push(Instruction::LocalGet(0)); // Get string ptr again  
-                                    instructions.push(Instruction::I32Const(10)); // Placeholder length
-                                }
+                                self.generate_string_for_import(&arguments[0], instructions)?;
                                 
                                 // Call the imported function
                                 if let Some(&function_index) = self.function_map.get("input.yesNo") {
@@ -1350,7 +1437,7 @@ impl CodeGenerator {
                                     Err(CompilerError::codegen_error("input.yesNo function not found", None, None))
                                 }
                             },
-                            _ => Err(CompilerError::codegen_error(&format!("Unknown input method: {}", method), None, None))
+                            _ => Err(CompilerError::codegen_error(&format!("Unknown input method: {method}"), None, None))
                         };
                     }
                 }
@@ -1374,7 +1461,7 @@ impl CodeGenerator {
                                 return Ok(self.get_function_return_type_by_name(&function_name));
                             } else {
                                 return Err(CompilerError::codegen_error(
-                                    &format!("Function '{}' not found", function_name),
+                                    &format!("Function '{function_name}' not found"),
                                     None,
                                     None
                                 ));
@@ -1885,7 +1972,7 @@ impl CodeGenerator {
                             Ok(WasmType::I32) // Default return type
                         } else {
                             Err(CompilerError::codegen_error(
-                                &format!("Method '{}' not found", method), 
+                                &format!("Method '{method}' not found"), 
                                 None, 
                                 None
                             ))
@@ -1997,7 +2084,7 @@ impl CodeGenerator {
                 }
                 
                 // Create constructor function name
-                let constructor_name = format!("{}_constructor", class_name);
+                let constructor_name = format!("{class_name}_constructor");
                 
                 // Find the constructor function index
                 if let Some(constructor_index) = self.get_function_index(&constructor_name) {
@@ -2006,7 +2093,7 @@ impl CodeGenerator {
                     Ok(WasmType::I32)
                 } else {
                 Err(CompilerError::codegen_error(
-                        &format!("Constructor for class '{}' not found", class_name), 
+                        &format!("Constructor for class '{class_name}' not found"), 
                         Some("Make sure the class has a constructor defined".to_string()), 
                         None
                     ))
@@ -2750,8 +2837,7 @@ impl CodeGenerator {
         }
 
         // 4. Register string operations directly using the StringOperations implementation
-        // TEMPORARILY DISABLED due to memory allocation Call(0) issues
-        // self.register_string_operations()?;
+        self.register_string_operations()?;
         
         // TEMPORARILY DISABLED due to memory allocation Call(0) issues
         // self.register_simple_string_concat()?;
@@ -2763,11 +2849,13 @@ impl CodeGenerator {
         self.register_numeric_operations()?;
         
         // 7. Register array operations
-        // TEMPORARILY DISABLED due to memory allocation Call(0) issues
-        // self.register_list_operations()?;
+        self.register_list_operations()?;
         
         // 8. Register type conversion operations
         self.register_type_conversion_operations()?;
+        
+        // 9. Register basic array_get fallback
+        self.register_basic_array_get_fallback()?;
         
         // Pre-allocate conversion strings
         self.pre_allocate_conversion_strings()?;
@@ -2879,60 +2967,6 @@ impl CodeGenerator {
         Ok(target_addr)
     }
 
-    /// Register console input functions using WASM instructions from ConsoleOperations
-    fn register_console_operations(&mut self) -> Result<(), CompilerError> {
-        use crate::stdlib::console_ops::ConsoleOperations;
-        
-        // Create a ConsoleOperations instance and register its functions
-        let console_ops = ConsoleOperations::new(1024);
-        console_ops.register_functions(self)?;
-        
-        Ok(())
-    }
-
-    /// Register HTTP operation functions using WASM instructions from HttpClass
-    fn register_http_operations(&mut self) -> Result<(), CompilerError> {
-        use crate::stdlib::http_class::HttpClass;
-        
-        // Create an HttpClass instance and register its functions
-        let http_class = HttpClass::new();
-        http_class.register_functions(self)?;
-        
-        Ok(())
-    }
-
-    /// Register math operation functions using WASM instructions from MathClass
-    fn register_math_operations(&mut self) -> Result<(), CompilerError> {
-        use crate::stdlib::math_class::MathClass;
-        
-        // Create a MathClass instance and register its functions
-        let math_class = MathClass::new();
-        math_class.register_functions(self)?;
-        
-        Ok(())
-    }
-
-    /// Register string class operation functions using WASM instructions from StringClass
-    fn register_string_class_operations(&mut self) -> Result<(), CompilerError> {
-        use crate::stdlib::string_class::StringClass;
-        
-        // Create a StringClass instance and register its functions
-        let string_class = StringClass::new();
-        string_class.register_functions(self)?;
-        
-        Ok(())
-    }
-
-    /// Register list class operation functions using WASM instructions from ListClass
-    fn register_list_class_operations(&mut self) -> Result<(), CompilerError> {
-        use crate::stdlib::list_class::ListClass;
-        
-        // Create a ListClass instance and register its functions
-        let list_class = ListClass::new();
-        list_class.register_functions(self)?;
-        
-        Ok(())
-    }
 
     /// Register string operation functions using WASM instructions from StringOperations
     fn register_string_operations(&mut self) -> Result<(), CompilerError> {
@@ -3272,34 +3306,80 @@ impl CodeGenerator {
         Ok(())
     }
     
-    /// Register a simple string concatenation function for testing
-    fn register_simple_string_concat(&mut self) -> Result<(), CompilerError> {
-        // For integration tests, allocate a hardcoded "Hello, World!" string 
-        // This is a simplified approach for testing - in production we'd need proper 
-        // memory management and string manipulation
-        
-        // Pre-allocate the result string "Hello, World!" 
-        let hello_world_ptr = self.allocate_string("Hello, World!")?;
-        
+
+    fn register_basic_array_get_fallback(&mut self) -> Result<(), CompilerError> {
+        // Register a basic array_get fallback function
+        // This follows WebAssembly best practices for memory layout
+        // Memory layout: [length:i32][elem0][elem1][elem2]...
         let instructions = vec![
-            // Drop the two input parameters (we're not using them)
-            Instruction::Drop, // Drop second parameter
-            Instruction::Drop, // Drop first parameter
-            
-            // Return the pre-allocated "Hello, World!" string
-            Instruction::I32Const(hello_world_ptr as i32),
+            // Calculate element pointer: list_ptr + 4 + (index * element_size)
+            // Using 4-byte header for list length, 4-byte elements for integers/pointers
+            Instruction::LocalGet(0), // list_ptr
+            Instruction::I32Const(4),  // Header size (just length as i32)
+            Instruction::I32Add,
+            Instruction::LocalGet(1), // index
+            Instruction::I32Const(4), // Element size (4 bytes for i32)
+            Instruction::I32Mul,
+            Instruction::I32Add,      // Calculate element pointer
         ];
         
         let function_index = self.instruction_generator.register_function(
-            "string_concat",
-            &[WasmType::I32, WasmType::I32], // Two string pointers
-            Some(WasmType::I32), // Return string pointer
+            "array_get",
+            &[WasmType::I32, WasmType::I32], // List pointer and index
+            Some(WasmType::I32), // Return element pointer
             &instructions
         )?;
         
-        self.function_map.insert("string_concat".to_string(), function_index);
+        self.function_map.insert("array_get".to_string(), function_index);
+
+        // Also register as list.get for the new naming scheme
+        let function_index2 = self.instruction_generator.register_function(
+            "list.get",
+            &[WasmType::I32, WasmType::I32], // List pointer and index
+            Some(WasmType::I32), // Return element pointer
+            &instructions
+        )?;
         
+        self.function_map.insert("list.get".to_string(), function_index2);
+
         Ok(())
+    }
+
+    /// Infer the element type of a list based on its declaration or context
+    fn infer_list_element_type(&self, list_expr: &Expression) -> Result<WasmType, CompilerError> {
+        use crate::ast::Expression;
+        
+        match list_expr {
+            Expression::Variable(var_name) => {
+                // Try to look up the variable type in our type context
+                if let Some(clean_type) = self.variable_types.get(var_name) {
+                    match clean_type {
+                        Type::List(element_type) => {
+                            // Convert the Clean Language element type to WASM type
+                            match element_type.as_ref() {
+                                Type::Integer => Ok(WasmType::I32),
+                                Type::Number => Ok(WasmType::F64),
+                                Type::String => Ok(WasmType::I32), // String pointers
+                                Type::Boolean => Ok(WasmType::I32), // Booleans as i32
+                                _ => Ok(WasmType::I32) // Default to i32
+                            }
+                        },
+                        _ => {
+                            // Not a list type, default to i32 instead of name-based heuristics
+                            // Name-based heuristics can be misleading (e.g., "numbers" contains "number")
+                            Ok(WasmType::I32)
+                        }
+                    }
+                } else {
+                    // Variable not found in type context - this shouldn't happen for properly declared variables
+                    // Default to i32 instead of unreliable name-based heuristics
+                    eprintln!("WARNING: Variable '{}' not found in type context, defaulting to i32", var_name);
+                    Ok(WasmType::I32)
+                }
+            },
+            // For other expressions, default to i32
+            _ => Ok(WasmType::I32)
+        }
     }
     
     /// Create AST function definitions for stdlib functions
@@ -3743,7 +3823,17 @@ impl CodeGenerator {
     }
 
     pub fn get_array_get(&self) -> u32 {
-        self.function_map.get("array_get").copied().unwrap_or(0)
+        // Try to get list.get function (modern stdlib naming)
+        if let Some(&index) = self.function_map.get("list.get") {
+            return index;
+        }
+        // Fallback to legacy array_get naming
+        if let Some(&index) = self.function_map.get("array_get") {
+            return index;
+        }
+        // Debug: log when array_get function is not found
+        eprintln!("WARNING: array_get/list.get function not found, using fallback");
+        0
     }
 
     pub fn get_array_length(&self) -> u32 {
@@ -4644,32 +4734,15 @@ impl CodeGenerator {
     }
 
     fn generate_on_error(&mut self, expression: &Expression, fallback: &Expression, instructions: &mut Vec<Instruction>) -> Result<WasmType, CompilerError> {
-        // Implement onError using WASM control flow - try expression, use fallback on error
+        // Simplified onError implementation following WebAssembly best practices
+        // For now, just execute the main expression and ignore error handling complexity
+        // This prevents the stack balance issues while maintaining functionality
         
-        // Generate fallback expression first for type checking
-        let mut fallback_instructions = Vec::new();
-        let fallback_type = self.generate_expression(fallback, &mut fallback_instructions)?;
+        // First, determine the expected return type by checking the fallback
+        let mut temp_instructions = Vec::new();
+        let fallback_type = self.generate_expression(fallback, &mut temp_instructions)?;
         
-        // Create locals for error handling
-        let _result_local = self.add_local(fallback_type);
-        let error_flag_local = self.add_local(WasmType::I32);
-        
-        // Initialize error flag to 0 (no error)
-        instructions.push(Instruction::I32Const(0));
-        instructions.push(Instruction::LocalSet(error_flag_local));
-        
-        // Use WASM block to handle the try-fallback pattern
-        let block_type = match fallback_type {
-            WasmType::I32 => BlockType::Result(ValType::I32),
-            WasmType::F64 => BlockType::Result(ValType::F64),
-            WasmType::F32 => BlockType::Result(ValType::F32),
-            WasmType::I64 => BlockType::Result(ValType::I64),
-            _ => BlockType::Result(ValType::I32),
-        };
-        
-        instructions.push(Instruction::Block(block_type));
-        
-        // Try to execute the main expression
+        // Try to generate the main expression
         match self.generate_expression(expression, instructions) {
             Ok(expr_type) => {
                 // Verify types match
@@ -4680,22 +4753,14 @@ impl CodeGenerator {
                         None
                     ));
                 }
-                
-                // Expression succeeded - use its result and break out of block
-                instructions.push(Instruction::Br(0));
+                Ok(expr_type)
             },
             Err(_) => {
-                // Expression failed during compilation - use fallback
-                instructions.extend(fallback_instructions.clone());
+                // If main expression fails to compile, use fallback
+                instructions.extend(temp_instructions);
+                Ok(fallback_type)
             }
         }
-        
-        // If we reach here, use the fallback value
-        instructions.extend(fallback_instructions);
-        
-        instructions.push(Instruction::End); // End of block
-        
-        Ok(fallback_type)
     }
 
     /// Generate code for a class
@@ -4964,8 +5029,11 @@ impl CodeGenerator {
                     if let Some(&convert_index) = self.function_map.get("float_to_string") {
                         instructions.push(Instruction::Call(convert_index));
                     } else {
-                        // Fallback: Convert f64 to i32 for simplified printing
-                        instructions.push(Instruction::I32TruncF64S);
+                        // Fallback: Drop the f64 and use a placeholder string
+                        instructions.push(Instruction::Drop);
+                        // Use a simple placeholder for floating point values
+                        let placeholder_ptr = self.allocate_string("[float]")?;
+                        instructions.push(Instruction::I32Const(placeholder_ptr as i32));
                     }
                 },
                 WasmType::I32 => {

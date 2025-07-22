@@ -99,19 +99,19 @@ impl AsyncRuntime {
         let sender = self.message_sender.clone();
         
         tokio::spawn(async move {
-            println!("🔄 Executing background operation: {}", operation);
+            println!("🔄 Executing background operation: {operation}");
             
             // Simulate some work
             tokio::time::sleep(Duration::from_millis(50)).await;
             
-            println!("✅ Background operation completed: {}", operation);
+            println!("✅ Background operation completed: {operation}");
             let _ = sender.send(AsyncMessage::BackgroundOperation { operation });
         });
     }
     
     /// Create a future that will be resolved later
     pub async fn create_future(&self, future_id: String) -> FutureHandle {
-        println!("🔮 Creating future: {}", future_id);
+        println!("🔮 Creating future: {future_id}");
         FutureHandle::new(future_id, self.message_sender.clone())
     }
     
@@ -147,7 +147,7 @@ impl AsyncRuntime {
                         completed_tasks += 1;
                     }
                     Some(AsyncMessage::BackgroundOperation { operation }) => {
-                        println!("🔄 Background operation completed: {}", operation);
+                        println!("🔄 Background operation completed: {operation}");
                     }
                     Some(AsyncMessage::FutureResolved { future_id, value }) => {
                         println!("🔮 Future '{}' resolved with value: {}", future_id, value);
@@ -183,7 +183,7 @@ impl AsyncRuntime {
         tokio::time::sleep(Duration::from_millis(delay)).await;
         
         println!("✅ [{}] Request completed: {}", method, url);
-        AsyncResult::String(format!("Response from {}", url))
+        AsyncResult::String(format!("Response from {url}"))
     }
     
     /// Simulate async file operation
@@ -202,7 +202,7 @@ impl AsyncRuntime {
         
         println!("✅ [{}] File operation completed: {}", operation, path);
         match operation {
-            "read" => AsyncResult::String(format!("Content of {}", path)),
+            "read" => AsyncResult::String(format!("Content of {path}")),
             "exists" => AsyncResult::Boolean(true),
             _ => AsyncResult::Boolean(true),
         }
@@ -234,7 +234,7 @@ impl FutureHandle {
             let mut value = self.value.lock().unwrap();
             
             if *resolved {
-                println!("⚠️  Future '{}' is already resolved", self.id);
+                println!("⚠️  Future '{id}' is already resolved", id = self.id);
                 return;
             }
             
@@ -312,18 +312,18 @@ pub mod helpers {
     pub async fn delayed_task(name: String, delay_ms: u64, value: i32) -> AsyncResult {
         println!("⏰ Starting delayed task: {} ({}ms delay)", name, delay_ms);
         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-        println!("⏰ Delayed task '{}' completed", name);
+        println!("⏰ Delayed task '{name}' completed");
         AsyncResult::Value(value)
     }
     
     /// Create a file processing task
     pub async fn file_processing_task(filename: String) -> AsyncResult {
-        println!("📄 Processing file: {}", filename);
+        println!("📄 Processing file: {filename}");
         
         // Simulate file processing
         tokio::time::sleep(Duration::from_millis(200)).await;
         
-        println!("📄 File processing completed: {}", filename);
+        println!("📄 File processing completed: {filename}");
         AsyncResult::Boolean(true)
     }
 } 

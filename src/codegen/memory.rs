@@ -329,7 +329,7 @@ impl MemoryUtils {
             Ok(())
         } else {
             Err(CompilerError::runtime_error(
-                format!("Attempt to retain invalid memory address: {}", address),
+                format!("Attempt to retain invalid memory address: {address}"),
                 None,
                 None,
             ))
@@ -353,7 +353,7 @@ impl MemoryUtils {
             Ok(())
         } else {
             Err(CompilerError::runtime_error(
-                format!("Attempt to release invalid memory address: {}", address),
+                format!("Attempt to release invalid memory address: {address}"),
                 None,
                 None,
             ))

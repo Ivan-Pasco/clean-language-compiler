@@ -298,10 +298,7 @@ impl FileClass {
             Instruction::LocalGet(0),
             Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
             
-            // Allocate memory for result - for now, use a simple fixed allocation
-            Instruction::I32Const(1024), // result buffer pointer (placeholder - should be proper allocation)
-            
-            // Call the file_read import function
+            // Call the file_read import function (expects 2 params: pathPtr, pathLen)
             Instruction::Call(import_index),
         ])
     }

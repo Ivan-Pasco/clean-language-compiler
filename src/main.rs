@@ -262,7 +262,7 @@ async fn handle_compile(input: String, output: String, _opt_level: u8, test: boo
     
     fs::write(&output, wasm_binary)?;
     
-    println!("Successfully compiled to {}", output);
+    println!("Successfully compiled to {output}");
     
     if include_tests && !program.tests.is_empty() {
         println!("📝 Tests included in binary (accessible via --run-tests flag)");
@@ -292,11 +292,11 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
                     .to_string()
             });
             
-            println!("📦 Initializing Clean Language package: {}", package_name);
+            println!("📦 Initializing Clean Language package: {package_name}");
             
             match package_manager.init_package(&current_dir, package_name, version, description) {
                 Ok(_) => println!("✅ Package initialized successfully!"),
-                Err(e) => eprintln!("❌ Failed to initialize package: {}", e),
+                Err(e) => eprintln!("❌ Failed to initialize package: {e}"),
             }
         }
         PackageCommands::Add { package, version, dev, .. } => {
@@ -317,7 +317,7 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
             
             match package_manager.add_dependency(&manifest_path, package, version_spec, dev) {
                 Ok(_) => println!("✅ Dependency added successfully!"),
-                Err(e) => eprintln!("❌ Failed to add dependency: {}", e),
+                Err(e) => eprintln!("❌ Failed to add dependency: {e}"),
             }
         }
         PackageCommands::Remove { package } => {
@@ -328,11 +328,11 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
                 return Ok(());
             }
             
-            println!("📦 Removing dependency: {}", package);
+            println!("📦 Removing dependency: {package}");
             
             match package_manager.remove_dependency(&manifest_path, &package) {
                 Ok(_) => println!("✅ Dependency removed successfully!"),
-                Err(e) => eprintln!("❌ Failed to remove dependency: {}", e),
+                Err(e) => eprintln!("❌ Failed to remove dependency: {e}"),
             }
         }
         PackageCommands::Install => {
@@ -361,7 +361,7 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
                     }
                     println!("✅ Dependencies would be installed (simulation mode)");
                 }
-                Err(e) => eprintln!("❌ Failed to load manifest: {}", e),
+                Err(e) => eprintln!("❌ Failed to load manifest: {e}"),
             }
         }
         PackageCommands::List { .. } => {
@@ -390,24 +390,24 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
                         }
                     }
                 }
-                Err(e) => eprintln!("❌ Failed to load manifest: {}", e),
+                Err(e) => eprintln!("❌ Failed to load manifest: {e}"),
             }
         }
         PackageCommands::Search { query, .. } => {
-            println!("🔍 Searching for packages matching '{}'...", query);
+            println!("🔍 Searching for packages matching '{query}'...");
             println!("📡 Package registry search not yet implemented");
             println!("   This would search https://packages.cleanlang.org for packages");
         }
         PackageCommands::Info { package, version } => {
-            println!("ℹ️  Package information for: {}", package);
+            println!("ℹ️  Package information for: {package}");
             if let Some(v) = version {
-                println!("   Version: {}", v);
+                println!("   Version: {v}");
             }
             println!("📡 Package registry info not yet implemented");
         }
         PackageCommands::Update { package } => {
             if let Some(pkg) = package {
-                println!("🔄 Updating package: {}", pkg);
+                println!("🔄 Updating package: {pkg}");
             } else {
                 println!("🔄 Updating all dependencies...");
             }
@@ -426,7 +426,7 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
                     println!("📤 Publishing {} {}...", manifest.package.name, manifest.package.version);
                     println!("📡 Package publishing not yet implemented");
                 }
-                Err(e) => eprintln!("❌ Failed to load manifest: {}", e),
+                Err(e) => eprintln!("❌ Failed to load manifest: {e}"),
             }
         }
     }
@@ -475,7 +475,7 @@ async fn handle_simple_test(verbose: bool) -> Result<(), Box<dyn std::error::Err
             Ok(())
         },
         Err(error) => {
-            eprintln!("✗ Simple test failed: {}", error);
+            eprintln!("✗ Simple test failed: {error}");
             Err(error.into())
         }
     }
@@ -514,7 +514,7 @@ async fn handle_comprehensive_test(verbose: bool) -> Result<(), Box<dyn std::err
                 passed += 1;
             },
             Err(error) => {
-                println!("✗ {}", error);
+                println!("✗ {error}");
             }
         }
     }
@@ -530,7 +530,7 @@ async fn handle_comprehensive_test(verbose: bool) -> Result<(), Box<dyn std::err
 }
 
 async fn handle_debug(input: String, show_ast: bool, check_style: bool, analyze_errors: bool) -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔍 Debugging Clean Language file: {}\n", input);
+    println!("🔍 Debugging Clean Language file: {input}\n");
     
     let source = match fs::read_to_string(&input) {
         Ok(content) => content,
@@ -561,7 +561,7 @@ async fn handle_debug(input: String, show_ast: bool, check_style: bool, analyze_
                 println!("\n");
                 let analysis = DebugUtils::analyze_errors(&[error.clone()]);
                 for line in analysis {
-                    println!("{}", line);
+                    println!("{line}");
                 }
             }
         }
@@ -575,7 +575,7 @@ async fn handle_debug(input: String, show_ast: bool, check_style: bool, analyze_
         } else {
             println!("🎨 Style Issues Found:");
             for issue in style_issues {
-                println!("  {}", issue);
+                println!("  {issue}");
             }
         }
     }
@@ -583,7 +583,7 @@ async fn handle_debug(input: String, show_ast: bool, check_style: bool, analyze_
 }
 
 async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧹 Linting: {}", input);
+    println!("🧹 Linting: {input}");
     
     let path = Path::new(&input);
     let files_to_lint = if path.is_file() {
@@ -603,7 +603,7 @@ async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), 
         }
         clean_files
     } else {
-        eprintln!("❌ Error: '{}' is not a valid file or directory", input);
+        eprintln!("❌ Error: '{input}' is not a valid file or directory");
         return Ok(());
     };
     
@@ -619,12 +619,12 @@ async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), 
     let mut total_errors = 0;
     
     for file_path in &files_to_lint {
-        println!("\n📄 Linting: {}", file_path);
+        println!("\n📄 Linting: {file_path}");
         
         let source = match fs::read_to_string(file_path) {
             Ok(content) => content,
             Err(e) => {
-                eprintln!("  ❌ Error reading file: {}", e);
+                eprintln!("  ❌ Error reading file: {e}");
                 continue;
             }
         };
@@ -634,7 +634,7 @@ async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), 
             total_errors += 1;
             if !errors_only {
                 println!("  ❌ Compilation Error:");
-                println!("     {}", error);
+                println!("     {error}");
             }
         }
         
@@ -644,7 +644,7 @@ async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), 
             if !errors_only {
                 println!("🎨 Style Issues Found:");
                 for issue in &style_issues {
-                    println!("  {}", issue);
+                    println!("  {issue}");
                 }
             }
         }
@@ -656,8 +656,8 @@ async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), 
     
     println!("\n=== Lint Summary ===");
     println!("Files checked: {}", files_to_lint.len());
-    println!("Compilation errors: {}", total_errors);
-    println!("Style issues: {}", total_issues);
+    println!("Compilation errors: {total_errors}");
+    println!("Style issues: {total_issues}");
     
     if fix {
         println!("Note: Automatic fixing is not yet implemented");
@@ -666,7 +666,7 @@ async fn handle_lint(input: String, fix: bool, errors_only: bool) -> Result<(), 
 }
 
 async fn handle_parse(input: String, show_tree: bool, recover_errors: bool) -> Result<(), Box<dyn std::error::Error>> {
-    println!("📝 Parsing file: {}", input);
+    println!("📝 Parsing file: {input}");
     
     let source = match fs::read_to_string(&input) {
         Ok(content) => content,
@@ -700,7 +700,7 @@ async fn handle_parse(input: String, show_tree: bool, recover_errors: bool) -> R
                 if !recovery_parser.warnings.is_empty() {
                     println!("\n⚠️  Warnings collected during parsing:");
                     for warning in &recovery_parser.warnings {
-                        println!("  • {}", warning);
+                        println!("  • {warning}");
                     }
                 }
                 
@@ -718,7 +718,7 @@ async fn handle_parse(input: String, show_tree: bool, recover_errors: bool) -> R
                 
                 // Generate comprehensive error report
                 let error_report = DebugUtils::create_error_report(&source, &errors);
-                println!("{}", error_report);
+                println!("{error_report}");
                 
                 // If partial parsing was successful, show what we recovered
                 if !recovery_parser.errors.is_empty() && errors.len() < 20 {
@@ -752,7 +752,7 @@ async fn handle_parse(input: String, show_tree: bool, recover_errors: bool) -> R
             }
             Err(error) => {
                 eprintln!("❌ Parsing failed:");
-                println!("{}", error);
+                println!("{error}");
                 
                 // Provide basic suggestions even in standard mode
                 println!("\n💡 Suggestions:");
@@ -762,7 +762,7 @@ async fn handle_parse(input: String, show_tree: bool, recover_errors: bool) -> R
                 // Basic error analysis
                 let suggestions = DebugUtils::suggest_error_fixes(&source, &[error]);
                 for suggestion in suggestions {
-                    println!("  • {}", suggestion);
+                    println!("  • {suggestion}");
                 }
             }
         }
@@ -776,7 +776,7 @@ fn run_tests(program: &clean_language_compiler::ast::Program, file_path: &str) -
     let mut passed = 0;
     let mut failed = 0;
     
-    println!("Running tests for {}...\n", file_path);
+    println!("Running tests for {file_path}...\n");
     
     for (i, test) in program.tests.iter().enumerate() {
         let test_name = test.description.as_ref()
@@ -789,11 +789,11 @@ fn run_tests(program: &clean_language_compiler::ast::Program, file_path: &str) -
         
         match test_result {
             Ok(true) => {
-                println!("✅ {}: PASS", test_name);
+                println!("✅ {test_name}: PASS");
                 passed += 1;
             }
             Ok(false) => {
-                println!("❌ {}: FAIL", test_name);
+                println!("❌ {test_name}: FAIL");
                 println!("   Expected: {:?}", test.expected_value);
                 println!("   Got: {:?}", test.test_expression);
                 failed += 1;
