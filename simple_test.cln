@@ -1,4 +1,0 @@
-integer x = 5
-integer y = 10
-integer sum = x + y
-print "Result: " + sum.toString()
