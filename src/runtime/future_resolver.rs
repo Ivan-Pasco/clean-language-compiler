@@ -76,8 +76,8 @@ impl FutureResolver {
             *id_counter += 1;
             
             match name_hint {
-                Some(hint) => format!("{}_{}", hint, id),
-                None => format!("future_{}", id),
+                Some(hint) => format!("{hint}_{id}"),
+                None => format!("future_{id}"),
             }
         };
         
@@ -100,7 +100,7 @@ impl FutureResolver {
             waiters.insert(future_id.clone(), Vec::new());
         }
         
-        println!("🔮 Created future: {}", future_id);
+        println!("🔮 Created future: {future_id}");
         
         let _ = self.message_sender.send(FutureMessage::FutureCreated {
             id: future_id.clone(),
@@ -120,7 +120,7 @@ impl FutureResolver {
             if let Some(future) = futures.get_mut(&future_id) {
                 if future.resolved {
                     return Err(CompilerError::runtime_error(
-                        format!("Future '{}' is already resolved", future_id),
+                        format!("Future '{future_id}' is already resolved"),
                         None, None
                     ));
                 }
@@ -130,7 +130,7 @@ impl FutureResolver {
                 future.resolved_at = Some(resolved_at);
             } else {
                 return Err(CompilerError::runtime_error(
-                    format!("Future '{}' not found", future_id),
+                    format!("Future '{future_id}' not found"),
                     None, None
                 ));
             }
@@ -146,7 +146,7 @@ impl FutureResolver {
             }
         }
         
-        println!("🔮 Future '{}' resolved with: {:?}", future_id, value);
+        println!("🔮 Future '{future_id}' resolved with: {value:?}");
         
         let _ = self.message_sender.send(FutureMessage::FutureResolved {
             id: future_id,
@@ -164,7 +164,7 @@ impl FutureResolver {
             let futures = self.futures.lock().unwrap();
             if !futures.contains_key(&future_id) {
                 return Err(CompilerError::runtime_error(
-                    format!("Future '{}' not found", future_id),
+                    format!("Future '{future_id}' not found"),
                     None, None
                 ));
             }
@@ -206,7 +206,7 @@ impl FutureResolver {
             }
         }
         
-        println!("⏳ Awaiting future: {}", future_id);
+        println!("⏳ Awaiting future: {future_id}");
         
         let _ = self.message_sender.send(FutureMessage::FutureAwaited {
             id: future_id.clone(),
@@ -285,16 +285,16 @@ impl FutureResolver {
             while let Some(message) = recv.recv().await {
                 match message {
                     FutureMessage::FutureCreated { id, created_at } => {
-                        println!("📝 Future created: {} at {:?}", id, created_at);
+                        println!("📝 Future created: {id} at {created_at:?}");
                     }
                     FutureMessage::FutureResolved { id, value, resolved_at } => {
-                        println!("✅ Future resolved: {} = {:?} at {:?}", id, value, resolved_at);
+                        println!("✅ Future resolved: {id} = {value:?} at {resolved_at:?}");
                     }
                     FutureMessage::FutureAwaited { id, awaiter_count } => {
-                        println!("⏳ Future awaited: {} ({} waiters)", id, awaiter_count);
+                        println!("⏳ Future awaited: {id} ({awaiter_count} waiters)");
                     }
                     FutureMessage::FutureError { id, error } => {
-                        println!("❌ Future error: {} - {}", id, error);
+                        println!("❌ Future error: {id} - {error}");
                     }
                 }
             }
@@ -326,7 +326,7 @@ impl FutureHandle {
         if let Some(receiver) = self.receiver.take() {
             match receiver.await {
                 Ok(value) => {
-                    println!("🎯 Future '{}' awaited successfully: {:?}", self.id, value);
+                    println!("🎯 Future '{}' awaited successfully: {value:?}", self.id);
                     Ok(value)
                 }
                 Err(_) => {
@@ -438,7 +438,7 @@ pub mod helpers {
             
             tokio::time::sleep(Duration::from_millis(delay)).await;
             
-            let response = format!("Response from {} {}", method, url);
+            let response = format!("Response from {method} {url}");
             let _ = resolver_clone.resolve_future(future_id_clone, FutureValue::String(response));
         });
         

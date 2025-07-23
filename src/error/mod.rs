@@ -178,7 +178,7 @@ impl ErrorContext {
     ) -> Self {
         let mut help_text = String::new();
         if let (Some(expected), Some(actual)) = (expected_type, actual_type) {
-            help_text = format!("Expected type '{}', but found '{}'", expected, actual);
+            help_text = format!("Expected type '{expected}', but found '{actual}'");
         }
 
         Self {
@@ -235,8 +235,7 @@ impl ErrorContext {
         actual_indent: usize,
     ) -> Self {
         let help = format!(
-            "Expected {} spaces of indentation, but found {}. Clean Language uses consistent indentation to define code blocks.",
-            expected_indent, actual_indent
+            "Expected {expected_indent} spaces of indentation, but found {actual_indent}. Clean Language uses consistent indentation to define code blocks."
         );
 
         Self {
@@ -280,26 +279,26 @@ impl ErrorContext {
     }
 }
 
-impl Into<String> for ErrorContext {
-    fn into(self) -> String {
+impl From<ErrorContext> for String {
+    fn from(error: ErrorContext) -> String {
         let mut result = String::new();
         
         // Error header with severity and code
-        let severity_str = match self.severity {
+        let severity_str = match error.severity {
             ErrorSeverity::Error => "Error",
             ErrorSeverity::Warning => "Warning", 
             ErrorSeverity::Info => "Info",
             ErrorSeverity::Hint => "Hint",
         };
         
-        if let Some(code) = &self.error_code {
-            result.push_str(&format!("{} [{}]: {}\n", severity_str, code, self.message));
+        if let Some(code) = &error.error_code {
+            result.push_str(&format!("{} [{}]: {}\n", severity_str, code, error.message));
         } else {
-            result.push_str(&format!("{}: {}\n", severity_str, self.message));
+            result.push_str(&format!("{}: {}\n", severity_str, error.message));
         }
         
         // Location information
-        if let Some(location) = &self.location {
+        if let Some(location) = &error.location {
             result.push_str(&format!(
                 "  --> {}:{}:{}\n",
                 location.file, location.line, location.column
@@ -307,7 +306,7 @@ impl Into<String> for ErrorContext {
         }
         
         // Source snippet with highlighting
-        if let Some(snippet) = &self.source_snippet {
+        if let Some(snippet) = &error.source_snippet {
             result.push_str("   |\n");
             for (i, line) in snippet.lines().enumerate() {
                 result.push_str(&format!("{:3} | {}\n", i + 1, line));
@@ -316,22 +315,22 @@ impl Into<String> for ErrorContext {
         }
 
         // Help text
-        if let Some(help) = &self.help {
+        if let Some(help) = &error.help {
             result.push_str(&format!("  = help: {help}\n"));
         }
 
         // Suggestions
-        if !self.suggestions.is_empty() {
+        if !error.suggestions.is_empty() {
             result.push_str("  = suggestions:\n");
-            for suggestion in &self.suggestions {
+            for suggestion in &error.suggestions {
                 result.push_str(&format!("    - {suggestion}\n"));
             }
         }
 
         // Related errors
-        if !self.related_errors.is_empty() {
+        if !error.related_errors.is_empty() {
             result.push_str("  = related:\n");
-            for related in &self.related_errors {
+            for related in &error.related_errors {
                 result.push_str(&format!("    - {related}\n"));
             }
         }

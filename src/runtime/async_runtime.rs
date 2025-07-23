@@ -72,11 +72,11 @@ impl AsyncRuntime {
         
         // Spawn the async task
         let handle = tokio::spawn(async move {
-            println!("🔄 Starting background task '{}' (ID: {})", task_name, task_id);
+            println!("🔄 Starting background task '{task_name}' (ID: {task_id})");
             
             match task().await {
                 result => {
-                    println!("✅ Background task '{}' completed with result: {:?}", task_name, result);
+                    println!("✅ Background task '{task_name}' completed with result: {result:?}");
                     let _ = sender.send(AsyncMessage::TaskCompleted {
                         id: task_id,
                         result,
@@ -127,7 +127,7 @@ impl AsyncRuntime {
             return Ok(());
         }
         
-        println!("⏳ Waiting for {} background task(s) to complete...", total_tasks);
+        println!("⏳ Waiting for {total_tasks} background task(s) to complete...");
         
         // Take the receiver to process messages
         let receiver = {
@@ -139,21 +139,21 @@ impl AsyncRuntime {
             while completed_tasks < total_tasks {
                 match recv.recv().await {
                     Some(AsyncMessage::TaskCompleted { id, result }) => {
-                        println!("✅ Task {} completed with result: {:?}", id, result);
+                        println!("✅ Task {id} completed with result: {result:?}");
                         completed_tasks += 1;
                     }
                     Some(AsyncMessage::TaskFailed { id, error }) => {
-                        println!("❌ Task {} failed: {}", id, error);
+                        println!("❌ Task {id} failed: {error}");
                         completed_tasks += 1;
                     }
                     Some(AsyncMessage::BackgroundOperation { operation }) => {
                         println!("🔄 Background operation completed: {operation}");
                     }
                     Some(AsyncMessage::FutureResolved { future_id, value }) => {
-                        println!("🔮 Future '{}' resolved with value: {}", future_id, value);
+                        println!("🔮 Future '{future_id}' resolved with value: {value}");
                     }
                     Some(AsyncMessage::TaskStarted { id, name }) => {
-                        println!("🚀 Task {} '{}' started", id, name);
+                        println!("🚀 Task {id} '{name}' started");
                     }
                     None => break,
                 }
@@ -170,7 +170,7 @@ impl AsyncRuntime {
     
     /// Simulate async HTTP request
     pub async fn http_request(&self, method: &str, url: &str) -> AsyncResult {
-        println!("🌐 [{}] Sending async request to: {}", method, url);
+        println!("🌐 [{method}] Sending async request to: {url}");
         
         // Simulate network delay
         let delay = match method {
@@ -182,13 +182,13 @@ impl AsyncRuntime {
         
         tokio::time::sleep(Duration::from_millis(delay)).await;
         
-        println!("✅ [{}] Request completed: {}", method, url);
+        println!("✅ [{method}] Request completed: {url}");
         AsyncResult::String(format!("Response from {url}"))
     }
     
     /// Simulate async file operation
     pub async fn file_operation(&self, operation: &str, path: &str) -> AsyncResult {
-        println!("📁 [{}] Async file operation: {}", operation, path);
+        println!("📁 [{operation}] Async file operation: {path}");
         
         // Simulate file I/O delay
         let delay = match operation {
@@ -200,7 +200,7 @@ impl AsyncRuntime {
         
         tokio::time::sleep(Duration::from_millis(delay)).await;
         
-        println!("✅ [{}] File operation completed: {}", operation, path);
+        println!("✅ [{operation}] File operation completed: {path}");
         match operation {
             "read" => AsyncResult::String(format!("Content of {path}")),
             "exists" => AsyncResult::Boolean(true),
@@ -255,7 +255,7 @@ impl FutureHandle {
             value: value_i32,
         });
         
-        println!("🔮 Future '{}' resolved with: {:?}", self.id, result);
+        println!("🔮 Future '{}' resolved with: {result:?}", self.id);
     }
     
     /// Check if the future is resolved
@@ -292,7 +292,7 @@ pub mod helpers {
     
     /// Create a simple computation task
     pub async fn computation_task(name: String, iterations: u32) -> AsyncResult {
-        println!("🧮 Starting computation: {} ({} iterations)", name, iterations);
+        println!("🧮 Starting computation: {name} ({iterations} iterations)");
         
         let mut result = 0;
         for i in 0..iterations {
@@ -304,13 +304,13 @@ pub mod helpers {
             }
         }
         
-        println!("🧮 Computation '{}' completed with result: {}", name, result);
+        println!("🧮 Computation '{name}' completed with result: {result}");
         AsyncResult::Value(result as i32)
     }
     
     /// Create a delayed task
     pub async fn delayed_task(name: String, delay_ms: u64, value: i32) -> AsyncResult {
-        println!("⏰ Starting delayed task: {} ({}ms delay)", name, delay_ms);
+        println!("⏰ Starting delayed task: {name} ({delay_ms}ms delay)");
         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
         println!("⏰ Delayed task '{name}' completed");
         AsyncResult::Value(value)

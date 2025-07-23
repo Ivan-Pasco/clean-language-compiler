@@ -335,7 +335,7 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
                 .map(Value::Integer)
                 .map(Expression::Literal)
                 .map_err(|_| CompilerError::parse_error(
-                    format!("Invalid integer: {}", num_str),
+                    format!("Invalid integer: {num_str}"),
                     Some(convert_to_ast_location(&location)),
                     Some("Check that the integer is in a valid format".to_string())
                 ))
@@ -346,7 +346,7 @@ pub fn parse_primary(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
                 .map(Value::Number)
                 .map(Expression::Literal)
                 .map_err(|_| CompilerError::parse_error(
-                    format!("Invalid float: {}", num_str),
+                    format!("Invalid float: {num_str}"),
                     Some(convert_to_ast_location(&location)),
                     Some("Check that the float is in a valid format".to_string())
                 ))
@@ -413,7 +413,7 @@ fn parse_number_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
             .map(Value::Number)
             .map(Expression::Literal)
             .map_err(|_| CompilerError::parse_error(
-                format!("Invalid float: {}", num_str),
+                format!("Invalid float: {num_str}"),
                 None,
                 Some("Check that the float is in a valid format".to_string())
             ))
@@ -423,7 +423,7 @@ fn parse_number_literal(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
             .map(Value::Integer)
             .map(Expression::Literal)
             .map_err(|_| CompilerError::parse_error(
-                format!("Invalid integer: {}", num_str),
+                format!("Invalid integer: {num_str}"),
                 None,
                 Some("Check that the integer is in a valid format".to_string())
             ))
@@ -688,12 +688,10 @@ pub fn parse_list_access(pair: Pair<Rule>) -> Result<Expression, CompilerError> 
 pub fn parse_multiline_parenthesized_expression(pair: Pair<Rule>) -> Result<Expression, CompilerError> {
     // The multiline_parenthesized_expr contains a multiline_expression
     for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::multiline_expression => {
-                return parse_multiline_expression(inner);
-            },
-            _ => {} // Skip NEWLINE and INDENT tokens
+        if inner.as_rule() == Rule::multiline_expression {
+            return parse_multiline_expression(inner);
         }
+        // Skip NEWLINE and INDENT tokens
     }
     
     Err(CompilerError::parse_error(

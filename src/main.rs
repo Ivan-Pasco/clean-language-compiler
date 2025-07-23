@@ -238,7 +238,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn handle_compile(input: String, output: String, _opt_level: u8, test: bool, include_tests: bool) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Compiling {} to {}", input, output);
+    println!("Compiling {input} to {output}");
     
     let source = fs::read_to_string(&input)?;
     
@@ -309,10 +309,8 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
             
             let version_spec = version.unwrap_or_else(|| "latest".to_string());
             
-            println!("📦 Adding {} dependency: {} {}", 
-                if dev { "development" } else { "runtime" }, 
-                package, 
-                version_spec
+            println!("📦 Adding {} dependency: {package} {version_spec}", 
+                if dev { "development" } else { "runtime" }
             );
             
             match package_manager.add_dependency(&manifest_path, package, version_spec, dev) {
@@ -350,13 +348,13 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
                     if let Some(deps) = &manifest.dependencies {
                         println!("Runtime dependencies:");
                         for (name, spec) in deps {
-                            println!("  - {} {:?}", name, spec);
+                            println!("  - {name} {spec:?}");
                         }
                     }
                     if let Some(dev_deps) = &manifest.dev_dependencies {
                         println!("Development dependencies:");
                         for (name, spec) in dev_deps {
-                            println!("  - {} {:?}", name, spec);
+                            println!("  - {name} {spec:?}");
                         }
                     }
                     println!("✅ Dependencies would be installed (simulation mode)");
@@ -374,19 +372,19 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
             
             match PackageManager::load_manifest(&manifest_path) {
                 Ok(manifest) => {
-                    println!("📦 Package: {} {}", manifest.package.name, manifest.package.version);
+                    println!("📦 Package: {}", format!("{} {}", manifest.package.name, manifest.package.version));
                     
                     if let Some(deps) = &manifest.dependencies {
                         println!("\n📋 Runtime Dependencies:");
                         for (name, spec) in deps {
-                            println!("  {} {:?}", name, spec);
+                            println!("  {name} {spec:?}");
                         }
                     }
                     
                     if let Some(dev_deps) = &manifest.dev_dependencies {
                         println!("\n🔧 Development Dependencies:");
                         for (name, spec) in dev_deps {
-                            println!("  {} {:?}", name, spec);
+                            println!("  {name} {spec:?}");
                         }
                     }
                 }
@@ -423,7 +421,7 @@ async fn handle_package(package_cmd: PackageCommands) -> Result<(), Box<dyn std:
             
             match PackageManager::load_manifest(&manifest_path) {
                 Ok(manifest) => {
-                    println!("📤 Publishing {} {}...", manifest.package.name, manifest.package.version);
+                    println!("📤 Publishing {}...", format!("{} {}", manifest.package.name, manifest.package.version));
                     println!("📡 Package publishing not yet implemented");
                 }
                 Err(e) => eprintln!("❌ Failed to load manifest: {e}"),
@@ -439,7 +437,7 @@ async fn handle_test(verbose: bool, dirs: Vec<String>) -> Result<(), Box<dyn std
         println!("Verbose output enabled");
     }
     if !dirs.is_empty() {
-        println!("Additional test directories: {:?}", dirs);
+        println!("Additional test directories: {dirs:?}");
     }
     
     let mut cmd = std::process::Command::new("cargo");
@@ -507,7 +505,7 @@ async fn handle_comprehensive_test(verbose: bool) -> Result<(), Box<dyn std::err
     let total = test_cases.len();
     
     for (name, source) in test_cases {
-        print!("Testing {}: ", name);
+        print!("Testing {name}: ");
         match compile_with_file(source, &format!("{}_test.clean", name.to_lowercase())) {
             Ok(wasm_binary) => {
                 println!("✓ {} bytes", wasm_binary.len());
@@ -519,7 +517,7 @@ async fn handle_comprehensive_test(verbose: bool) -> Result<(), Box<dyn std::err
         }
     }
     
-    println!("Results: {}/{} tests passed", passed, total);
+    println!("Results: {passed}/{total} tests passed");
     if passed == total {
         println!("🎉 All comprehensive tests passed!");
         Ok(())
@@ -535,7 +533,7 @@ async fn handle_debug(input: String, show_ast: bool, check_style: bool, analyze_
     let source = match fs::read_to_string(&input) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("❌ Error reading file '{}': {}", input, e);
+            eprintln!("❌ Error reading file '{input}': {e}");
             return Ok(());
         }
     };
@@ -547,7 +545,7 @@ async fn handle_debug(input: String, show_ast: bool, check_style: bool, analyze_
     let warnings = Vec::new(); 
     
     let debug_report = DebugUtils::create_debug_report(&source, &input, &parse_result, &warnings);
-    println!("{}", debug_report);
+    println!("{debug_report}");
     
     match &parse_result {
         Ok(program) => {
@@ -671,7 +669,7 @@ async fn handle_parse(input: String, show_tree: bool, recover_errors: bool) -> R
     let source = match fs::read_to_string(&input) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("❌ Error reading file '{}': {}", input, e);
+            eprintln!("❌ Error reading file '{input}': {e}");
             return Ok(());
         }
     };
@@ -799,16 +797,16 @@ fn run_tests(program: &clean_language_compiler::ast::Program, file_path: &str) -
                 failed += 1;
             }
             Err(e) => {
-                println!("❌ {}: ERROR - {}", test_name, e);
+                println!("❌ {test_name}: ERROR - {e}");
                 failed += 1;
             }
         }
     }
     
-    println!("\nTest Results: {} passed, {} failed, {} total", passed, failed, passed + failed);
+    println!("\nTest Results: {passed} passed, {failed} failed, {total} total", total = passed + failed);
     
     if failed > 0 {
-        return Err(format!("{} test(s) failed", failed).into());
+        return Err(format!("{failed} test(s) failed").into());
     }
     
     Ok(())
@@ -835,7 +833,7 @@ fn evaluate_test_expression(test_expr: &clean_language_compiler::ast::Expression
         _ => {
             // For complex expressions, we'd need to compile and execute
             // For now, we'll just compare the AST structure
-            Ok(format!("{:?}", test_expr) == format!("{:?}", expected))
+            Ok(format!("{test_expr:?}") == format!("{expected:?}"))
         }
     }
 } 

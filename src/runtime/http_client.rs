@@ -119,14 +119,14 @@ impl HttpClient {
     
     fn send_request(&self, host: &str, request: &str) -> Result<HttpResponse, CompilerError> {
         // Connect to server (port 80 for HTTP, 443 for HTTPS not supported in this simple implementation)
-        let address = format!("{}:80", host);
+        let address = format!("{host}:80");
         
         match TcpStream::connect(&address) {
             Ok(mut stream) => {
                 // Send request
                 if let Err(e) = stream.write_all(request.as_bytes()) {
                     return Err(CompilerError::runtime_error(
-                        format!("Failed to send HTTP request: {}", e),
+                        format!("Failed to send HTTP request: {e}"),
                         None, None
                     ));
                 }
@@ -135,7 +135,7 @@ impl HttpClient {
                 let mut response = String::new();
                 if let Err(e) = stream.read_to_string(&mut response) {
                     return Err(CompilerError::runtime_error(
-                        format!("Failed to read HTTP response: {}", e),
+                        format!("Failed to read HTTP response: {e}"),
                         None, None
                     ));
                 }
@@ -145,7 +145,7 @@ impl HttpClient {
             }
             Err(e) => {
                 Err(CompilerError::runtime_error(
-                    format!("Failed to connect to {}: {}", host, e),
+                    format!("Failed to connect to {host}: {e}"),
                     None, None
                 ))
             }
@@ -188,7 +188,7 @@ impl HttpClient {
             String::new()
         };
         
-        println!("✅ [HTTP] Response received: {} bytes, status {}", body.len(), status_code);
+        println!("✅ [HTTP] Response received: {} bytes, status {status_code}", body.len());
         
         Ok(HttpResponse {
             status_code,

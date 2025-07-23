@@ -122,7 +122,7 @@ impl TaskScheduler {
             for dep_id in &dependencies {
                 if !tasks.contains_key(dep_id) {
                     return Err(CompilerError::runtime_error(
-                        format!("Dependency task {} does not exist", dep_id),
+                        format!("Dependency task {dep_id} does not exist"),
                         None, None
                     ));
                 }
@@ -152,7 +152,7 @@ impl TaskScheduler {
             self.add_to_pending_queue(task_id, priority).await;
         }
         
-        println!("📋 Scheduled task '{}' (ID: {}, Priority: {:?})", name, task_id, priority);
+        println!("📋 Scheduled task '{name}' (ID: {task_id}, Priority: {priority:?})");
         
         // Send scheduling message
         let _ = self.task_sender.send(TaskMessage::TaskScheduled {
@@ -349,7 +349,7 @@ impl TaskScheduler {
                 
                 match recv.recv().await {
                     Some(TaskMessage::TaskCompleted { id, result }) => {
-                        println!("✅ Task {} completed successfully", id);
+                        println!("✅ Task {id} completed successfully");
                         {
                             let mut running = self.running_tasks.lock().unwrap();
                             running.remove(&id);
@@ -363,14 +363,14 @@ impl TaskScheduler {
                         self.resolve_dependencies(id).await;
                     }
                     Some(TaskMessage::TaskFailed { id, error }) => {
-                        println!("❌ Task {} failed: {}", id, error);
+                        println!("❌ Task {id} failed: {error}");
                         {
                             let mut running = self.running_tasks.lock().unwrap();
                             running.remove(&id);
                         }
                     }
                     Some(TaskMessage::TaskStarted { id, started_at: _ }) => {
-                        println!("🔄 Task {} started execution", id);
+                        println!("🔄 Task {id} started execution");
                     }
                     Some(_) => {
                         // Handle other message types
@@ -413,7 +413,7 @@ impl TaskScheduler {
                 };
                 
                 self.add_to_pending_queue(task_id, priority).await;
-                println!("🔓 Task {} dependencies resolved, added to pending queue", task_id);
+                println!("🔓 Task {task_id} dependencies resolved, added to pending queue");
             }
         }
     }
@@ -426,25 +426,25 @@ impl TaskScheduler {
                 match task.state {
                     TaskState::Pending => {
                         task.state = TaskState::Cancelled;
-                        println!("🚫 Cancelled pending task {} '{}'", task_id, task.name);
+                        println!("🚫 Cancelled pending task {task_id} '{}'", task.name);
                     }
                     TaskState::Running => {
                         if let Some(handle) = &task.handle {
                             handle.abort();
                         }
                         task.state = TaskState::Cancelled;
-                        println!("🚫 Cancelled running task {} '{}'", task_id, task.name);
+                        println!("🚫 Cancelled running task {task_id} '{}'", task.name);
                     }
                     _ => {
                         return Err(CompilerError::runtime_error(
-                            format!("Cannot cancel task {} in state {:?}", task_id, task.state),
+                            format!("Cannot cancel task {task_id} in state {:?}", task.state),
                             None, None
                         ));
                     }
                 }
             } else {
                 return Err(CompilerError::runtime_error(
-                    format!("Task {} not found", task_id),
+                    format!("Task {task_id} not found"),
                     None, None
                 ));
             }

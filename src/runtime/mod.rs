@@ -75,7 +75,7 @@ impl CleanRuntime {
         
         let engine = Engine::new(&config)
             .map_err(|e| CompilerError::runtime_error(
-                format!("Failed to create async WebAssembly engine: {}", e),
+                format!("Failed to create async WebAssembly engine: {e}"),
                 None, None
             ))?;
         
@@ -91,7 +91,7 @@ impl CleanRuntime {
     pub async fn execute_async(&self, wasm_bytes: &[u8]) -> Result<(), CompilerError> {
         let module = Module::new(&self.engine, wasm_bytes)
             .map_err(|e| CompilerError::runtime_error(
-                format!("Failed to create WebAssembly module: {}", e),
+                format!("Failed to create WebAssembly module: {e}"),
                 None, None
             ))?;
         
@@ -104,7 +104,7 @@ impl CleanRuntime {
         // Instantiate the module
         let instance = linker.instantiate_async(&mut store, &module).await
             .map_err(|e| CompilerError::runtime_error(
-                format!("Failed to instantiate WebAssembly module: {}", e),
+                format!("Failed to instantiate WebAssembly module: {e}"),
                 None, None
             ))?;
         
@@ -122,7 +122,7 @@ impl CleanRuntime {
             
             start_func.call_async(&mut store, &[], &mut results).await
                 .map_err(|e| CompilerError::runtime_error(
-                    format!("Runtime error during execution: {}", e),
+                    format!("Runtime error during execution: {e}"),
                     None, None
                 ))?;
             
@@ -178,7 +178,7 @@ impl CleanRuntime {
             Ok(())
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create print function: {}", e),
+            format!("Failed to create print function: {e}"),
             None, None
         ))?;
         
@@ -206,7 +206,7 @@ impl CleanRuntime {
             Ok(())
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create println function: {}", e),
+            format!("Failed to create println function: {e}"),
             None, None
         ))?;
 
@@ -235,7 +235,7 @@ impl CleanRuntime {
             Ok(())
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create printl function: {}", e),
+            format!("Failed to create printl function: {e}"),
             None, None
         ))?;
 
@@ -245,7 +245,7 @@ impl CleanRuntime {
             Ok(())
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create print_simple function: {}", e),
+            format!("Failed to create print_simple function: {e}"),
             None, None
         ))?;
 
@@ -254,7 +254,7 @@ impl CleanRuntime {
             Ok(())
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create printl_simple function: {}", e),
+            format!("Failed to create printl_simple function: {e}"),
             None, None
         ))?;
         
@@ -263,11 +263,11 @@ impl CleanRuntime {
         linker.func_wrap("env", "start_background_task", move |_caller: Caller<'_, ()>, _task_name_ptr: i32, _task_name_len: i32| -> i32 {
             let mut scheduler = task_scheduler_clone.lock().unwrap();
             let task_id = scheduler.create_task("background_task".to_string());
-            println!("🔄 Started background task #{}", task_id);
+            println!("🔄 Started background task #{task_id}");
             task_id as i32
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create start_background_task function: {}", e),
+            format!("Failed to create start_background_task function: {e}"),
             None, None
         ))?;
         
@@ -277,24 +277,24 @@ impl CleanRuntime {
             let mut resolver = future_resolver_clone.lock().unwrap();
             let future_id = format!("future_{}", resolver.futures.len());
             resolver.create_future(future_id.clone());
-            println!("🔮 Created future: {}", future_id);
+            println!("🔮 Created future: {future_id}");
             1 // Return success
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create create_future function: {}", e),
+            format!("Failed to create create_future function: {e}"),
             None, None
         ))?;
         
         let future_resolver_clone2 = Arc::clone(&future_resolver);
         linker.func_wrap("env", "resolve_future", move |_caller: Caller<'_, ()>, future_id: i32, value: i32| -> i32 {
             let mut resolver = future_resolver_clone2.lock().unwrap();
-            let future_name = format!("future_{}", future_id);
+            let future_name = format!("future_{future_id}");
             resolver.resolve_future(future_name, value);
-            println!("✅ Resolved future #{} with value: {}", future_id, value);
+            println!("✅ Resolved future #{future_id} with value: {value}");
             1 // Return success
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create resolve_future function: {}", e),
+            format!("Failed to create resolve_future function: {e}"),
             None, None
         ))?;
         
@@ -320,7 +320,7 @@ impl CleanRuntime {
             1 // Return success
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create execute_background function: {}", e),
+            format!("Failed to create execute_background function: {e}"),
             None, None
         ))?;
         
@@ -370,7 +370,7 @@ impl CleanRuntime {
             0 // Return null pointer on failure
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create int_to_string function: {}", e),
+            format!("Failed to create int_to_string function: {e}"),
             None, None
         ))?;
         
@@ -409,7 +409,7 @@ impl CleanRuntime {
             0 // Return null pointer on failure
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create float_to_string function: {}", e),
+            format!("Failed to create float_to_string function: {e}"),
             None, None
         ))?;
         
@@ -444,7 +444,7 @@ impl CleanRuntime {
             0
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create bool_to_string function: {}", e),
+            format!("Failed to create bool_to_string function: {e}"),
             None, None
         ))?;
         
@@ -472,7 +472,7 @@ impl CleanRuntime {
             0
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create string_to_int function: {}", e),
+            format!("Failed to create string_to_int function: {e}"),
             None, None
         ))?;
         
@@ -497,7 +497,7 @@ impl CleanRuntime {
             0.0
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create string_to_float function: {}", e),
+            format!("Failed to create string_to_float function: {e}"),
             None, None
         ))?;
         
@@ -530,7 +530,7 @@ impl CleanRuntime {
                     } else { "" };
                     
                     // Concatenate strings
-                    let result = format!("{}{}", str1, str2);
+                    let result = format!("{str1}{str2}");
                     let result_bytes = result.as_bytes();
                     
                     // For now, use a simple approach: find space in existing memory
@@ -564,7 +564,7 @@ impl CleanRuntime {
             0
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create string_concat function: {}", e),
+            format!("Failed to create string_concat function: {e}"),
             None, None
         ))?;
         
@@ -607,7 +607,7 @@ impl CleanRuntime {
             0
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create string_compare function: {}", e),
+            format!("Failed to create string_compare function: {e}"),
             None, None
         ))?;
         
@@ -633,7 +633,7 @@ impl CleanRuntime {
                                         return 1; // Success indicator
                                     }
                                     Err(e) => {
-                                        println!("❌ [HTTP GET] Request failed: {}", e);
+                                        println!("❌ [HTTP GET] Request failed: {e}");
                                         return 0; // Failure indicator
                                     }
                                 }
@@ -647,7 +647,7 @@ impl CleanRuntime {
             0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create http_get function: {}", e),
+            format!("Failed to create http_get function: {e}"),
             None, None
         ))?;
         
@@ -678,7 +678,7 @@ impl CleanRuntime {
                                         return 1; // Success indicator
                                     }
                                     Err(e) => {
-                                        println!("❌ [HTTP POST] Request failed: {}", e);
+                                        println!("❌ [HTTP POST] Request failed: {e}");
                                         return 0; // Failure indicator
                                     }
                                 }
@@ -692,7 +692,7 @@ impl CleanRuntime {
             0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create http_post function: {}", e),
+            format!("Failed to create http_post function: {e}"),
             None, None
         ))?;
 
@@ -723,7 +723,7 @@ impl CleanRuntime {
                                         return 1; // Success indicator
                                     }
                                     Err(e) => {
-                                        println!("❌ [HTTP PUT] Request failed: {}", e);
+                                        println!("❌ [HTTP PUT] Request failed: {e}");
                                         return 0; // Failure indicator
                                     }
                                 }
@@ -737,7 +737,7 @@ impl CleanRuntime {
             0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create http_put function: {}", e),
+            format!("Failed to create http_put function: {e}"),
             None, None
         ))?;
 
@@ -768,7 +768,7 @@ impl CleanRuntime {
                                         return 1; // Success indicator
                                     }
                                     Err(e) => {
-                                        println!("❌ [HTTP PATCH] Request failed: {}", e);
+                                        println!("❌ [HTTP PATCH] Request failed: {e}");
                                         return 0; // Failure indicator
                                     }
                                 }
@@ -782,7 +782,7 @@ impl CleanRuntime {
             0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create http_patch function: {}", e),
+            format!("Failed to create http_patch function: {e}"),
             None, None
         ))?;
 
@@ -808,7 +808,7 @@ impl CleanRuntime {
                                         return 1; // Success indicator
                                     }
                                     Err(e) => {
-                                        println!("❌ [HTTP DELETE] Request failed: {}", e);
+                                        println!("❌ [HTTP DELETE] Request failed: {e}");
                                         return 0; // Failure indicator
                                     }
                                 }
@@ -822,7 +822,7 @@ impl CleanRuntime {
             0 // Failure indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create http_delete function: {}", e),
+            format!("Failed to create http_delete function: {e}"),
             None, None
         ))?;
         
@@ -878,7 +878,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create file_read function: {}", e),
+            format!("Failed to create file_read function: {e}"),
             None, None
         ))?;
         
@@ -917,7 +917,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create file_write function: {}", e),
+            format!("Failed to create file_write function: {e}"),
             None, None
         ))?;
 
@@ -944,7 +944,7 @@ impl CleanRuntime {
             0 // File doesn't exist or error
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create file_exists function: {}", e),
+            format!("Failed to create file_exists function: {e}"),
             None, None
         ))?;
 
@@ -978,7 +978,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create file_delete function: {}", e),
+            format!("Failed to create file_delete function: {e}"),
             None, None
         ))?;
 
@@ -1017,7 +1017,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create file_append function: {}", e),
+            format!("Failed to create file_append function: {e}"),
             None, None
         ))?;
 
@@ -1052,7 +1052,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create file_size function: {}", e),
+            format!("Failed to create file_size function: {e}"),
             None, None
         ))?;
 
@@ -1087,7 +1087,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create create_directory function: {}", e),
+            format!("Failed to create create_directory function: {e}"),
             None, None
         ))?;
 
@@ -1109,9 +1109,9 @@ impl CleanRuntime {
                                         // For now, just return the count of files
                                         // TODO: In a full implementation, we'd serialize the file list
                                         // into WebAssembly memory at result_ptr
-                                        println!("📁 [LIST DIRECTORY] Found {} files in {}", files.len(), path);
+                                        println!("📁 [LIST DIRECTORY] Found {} files in {path}", files.len());
                                         for (i, file) in files.iter().enumerate() {
-                                            println!("  {}: {}", i, file);
+                                            println!("  {i}: {file}");
                                         }
                                         return files.len() as i32; // Return count
                                     }
@@ -1129,7 +1129,7 @@ impl CleanRuntime {
             -1 // Error indicator
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create list_directory function: {}", e),
+            format!("Failed to create list_directory function: {e}"),
             None, None
         ))?;
         
@@ -1138,7 +1138,7 @@ impl CleanRuntime {
             base.powf(exponent)
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create pow function: {}", e),
+            format!("Failed to create pow function: {e}"),
             None, None
         ))?;
         
@@ -1146,7 +1146,7 @@ impl CleanRuntime {
             x.sin()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create sin function: {}", e),
+            format!("Failed to create sin function: {e}"),
             None, None
         ))?;
         
@@ -1154,7 +1154,7 @@ impl CleanRuntime {
             x.cos()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create cos function: {}", e),
+            format!("Failed to create cos function: {e}"),
             None, None
         ))?;
         
@@ -1162,7 +1162,7 @@ impl CleanRuntime {
             x.tan()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create tan function: {}", e),
+            format!("Failed to create tan function: {e}"),
             None, None
         ))?;
         
@@ -1170,7 +1170,7 @@ impl CleanRuntime {
             x.ln()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create ln function: {}", e),
+            format!("Failed to create ln function: {e}"),
             None, None
         ))?;
         
@@ -1178,7 +1178,7 @@ impl CleanRuntime {
             x.log10()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create log10 function: {}", e),
+            format!("Failed to create log10 function: {e}"),
             None, None
         ))?;
         
@@ -1186,7 +1186,7 @@ impl CleanRuntime {
             x.log2()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create log2 function: {}", e),
+            format!("Failed to create log2 function: {e}"),
             None, None
         ))?;
         
@@ -1194,7 +1194,7 @@ impl CleanRuntime {
             x.exp()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create exp function: {}", e),
+            format!("Failed to create exp function: {e}"),
             None, None
         ))?;
         
@@ -1202,7 +1202,7 @@ impl CleanRuntime {
             x.exp2()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create exp2 function: {}", e),
+            format!("Failed to create exp2 function: {e}"),
             None, None
         ))?;
         
@@ -1210,7 +1210,7 @@ impl CleanRuntime {
             x.sqrt()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create sqrt function: {}", e),
+            format!("Failed to create sqrt function: {e}"),
             None, None
         ))?;
         
@@ -1218,7 +1218,7 @@ impl CleanRuntime {
             x.sinh()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create sinh function: {}", e),
+            format!("Failed to create sinh function: {e}"),
             None, None
         ))?;
         
@@ -1226,7 +1226,7 @@ impl CleanRuntime {
             x.cosh()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create cosh function: {}", e),
+            format!("Failed to create cosh function: {e}"),
             None, None
         ))?;
         
@@ -1234,7 +1234,7 @@ impl CleanRuntime {
             x.tanh()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create tanh function: {}", e),
+            format!("Failed to create tanh function: {e}"),
             None, None
         ))?;
         
@@ -1242,7 +1242,7 @@ impl CleanRuntime {
             x.asin()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create asin function: {}", e),
+            format!("Failed to create asin function: {e}"),
             None, None
         ))?;
         
@@ -1250,7 +1250,7 @@ impl CleanRuntime {
             x.acos()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create acos function: {}", e),
+            format!("Failed to create acos function: {e}"),
             None, None
         ))?;
         
@@ -1258,7 +1258,7 @@ impl CleanRuntime {
             x.atan()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create atan function: {}", e),
+            format!("Failed to create atan function: {e}"),
             None, None
         ))?;
         
@@ -1266,7 +1266,7 @@ impl CleanRuntime {
             std::f64::consts::PI
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create pi function: {}", e),
+            format!("Failed to create pi function: {e}"),
             None, None
         ))?;
         
@@ -1274,7 +1274,7 @@ impl CleanRuntime {
             std::f64::consts::E
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create e function: {}", e),
+            format!("Failed to create e function: {e}"),
             None, None
         ))?;
         
@@ -1282,7 +1282,7 @@ impl CleanRuntime {
             x.abs()
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create abs function: {}", e),
+            format!("Failed to create abs function: {e}"),
             None, None
         ))?;
         
@@ -1349,14 +1349,14 @@ impl CleanRuntime {
                     }
                 }
                 Err(e) => {
-                    println!("❌ [INPUT] Error reading input: {}", e);
+                    println!("❌ [INPUT] Error reading input: {e}");
                 }
             }
             
             0 // Return null pointer on failure
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create input function: {}", e),
+            format!("Failed to create input function: {e}"),
             None, None
         ))?;
         
@@ -1402,14 +1402,14 @@ impl CleanRuntime {
                         }
                     }
                     Err(e) => {
-                        println!("❌ [INPUT INTEGER] Error reading input: {}", e);
+                        println!("❌ [INPUT INTEGER] Error reading input: {e}");
                         return 0;
                     }
                 }
             }
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create input_integer function: {}", e),
+            format!("Failed to create input_integer function: {e}"),
             None, None
         ))?;
         
@@ -1455,14 +1455,14 @@ impl CleanRuntime {
                         }
                     }
                     Err(e) => {
-                        println!("❌ [INPUT FLOAT] Error reading input: {}", e);
+                        println!("❌ [INPUT FLOAT] Error reading input: {e}");
                         return 0.0;
                     }
                 }
             }
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create input_float function: {}", e),
+            format!("Failed to create input_float function: {e}"),
             None, None
         ))?;
         
@@ -1509,14 +1509,14 @@ impl CleanRuntime {
                         }
                     }
                     Err(e) => {
-                        println!("❌ [INPUT YES/NO] Error reading input: {}", e);
+                        println!("❌ [INPUT YES/NO] Error reading input: {e}");
                         return 0;
                     }
                 }
             }
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create input_yesno function: {}", e),
+            format!("Failed to create input_yesno function: {e}"),
             None, None
         ))?;
         
@@ -1547,7 +1547,7 @@ impl CleanRuntime {
             // Get integer input within specified range with validation and retry
             use std::io::{self, Write};
             loop {
-                print!("{} ({}-{}): ", prompt, min, max);
+                print!("{prompt} ({min}-{max}): ");
                 io::stdout().flush().unwrap();
                 
                 let mut input = String::new();
@@ -1559,25 +1559,25 @@ impl CleanRuntime {
                                 if value >= min && value <= max {
                                     return value;
                                 } else {
-                                    println!("❌ Value must be between {} and {}. You entered: {}", min, max, value);
+                                    println!("❌ Value must be between {min} and {max}. You entered: {value}");
                                     continue;
                                 }
                             },
                             Err(_) => {
-                                println!("❌ Invalid integer. Please enter a whole number between {} and {}.", min, max);
+                                println!("❌ Invalid integer. Please enter a whole number between {min} and {max}.");
                                 continue;
                             }
                         }
                     }
                     Err(e) => {
-                        println!("❌ [INPUT RANGE] Error reading input: {}", e);
+                        println!("❌ [INPUT RANGE] Error reading input: {e}");
                         return min; // Return minimum value as fallback
                     }
                 }
             }
         })
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create input_range function: {}", e),
+            format!("Failed to create input_range function: {e}"),
             None, None
         ))?;
         
@@ -1598,7 +1598,7 @@ impl CleanRuntime {
                 if !completed {
                     let running_count = tasks.iter().filter(|task| matches!(task.status, TaskStatus::Running)).count();
                     if running_count > 0 {
-                        println!("⏳ Waiting for {} background task(s) to complete...", running_count);
+                        println!("⏳ Waiting for {running_count} background task(s) to complete...");
                     }
                 }
             }
@@ -1614,6 +1614,12 @@ impl CleanRuntime {
         } else {
             println!("✅ All background tasks completed");
         }
+    }
+}
+
+impl Default for TaskScheduler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1650,6 +1656,12 @@ impl TaskScheduler {
         if let Some(task) = self.running_tasks.get_mut(&task_id) {
             task.status = TaskStatus::Failed(error);
         }
+    }
+}
+
+impl Default for FutureResolver {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1696,7 +1708,7 @@ pub async fn run_clean_program_async(wasm_bytes: &[u8]) -> Result<(), CompilerEr
 pub fn run_clean_program_sync(wasm_bytes: &[u8]) -> Result<(), CompilerError> {
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| CompilerError::runtime_error(
-            format!("Failed to create async runtime: {}", e),
+            format!("Failed to create async runtime: {e}"),
             None, None
         ))?;
     

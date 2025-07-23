@@ -255,7 +255,10 @@ impl ErrorRecoveringParser {
         // Standalone functions removed - all functions must be in functions: blocks per specification
         
         Err(CompilerError::parse_error(
-            format!("Could not parse function segment: {}", segment.lines().next().unwrap_or("").trim()),
+            {
+                let segment_line = segment.lines().next().unwrap_or("").trim();
+                format!("Could not parse function segment: {segment_line}")
+            },
             None,
             Some("Check function syntax: function name() or function returnType name()".to_string())
         ))
@@ -690,34 +693,31 @@ pub fn parse_class_decl(class_pair: Pair<Rule>) -> Result<Class, CompilerError> 
             Rule::indented_class_body => {
                 // Parse the class body containing field declarations, constructors, methods
                 for body_item in item.into_inner() {
-                    match body_item.as_rule() {
-                        Rule::class_body_item => {
-                            for class_item in body_item.into_inner() {
-                                match class_item.as_rule() {
-                                    Rule::class_field => {
-                                        let field = parse_class_field(class_item)?;
-                                        
-                                        // If field type is a type parameter, add it to type_parameters if not already present
-                                        if let Type::TypeParameter(ref param_name) = field.type_ {
-                                            if !type_parameters.contains(param_name) {
-                                                type_parameters.push(param_name.clone());
-                                            }
+                    if body_item.as_rule() == Rule::class_body_item {
+                        for class_item in body_item.into_inner() {
+                            match class_item.as_rule() {
+                                Rule::class_field => {
+                                    let field = parse_class_field(class_item)?;
+                                    
+                                    // If field type is a type parameter, add it to type_parameters if not already present
+                                    if let Type::TypeParameter(ref param_name) = field.type_ {
+                                        if !type_parameters.contains(param_name) {
+                                            type_parameters.push(param_name.clone());
                                         }
-                                        
-                                        fields.push(field);
-                                    },
-                                    Rule::constructor => {
-                                        constructor = Some(parse_constructor(class_item)?);
-                                    },
-                                    Rule::functions_block => {
-                                        let block_methods = parse_functions_block(class_item)?;
-                                        methods.extend(block_methods);
-                                    },
-                                    _ => {}
-                                }
+                                    }
+                                    
+                                    fields.push(field);
+                                },
+                                Rule::constructor => {
+                                    constructor = Some(parse_constructor(class_item)?);
+                                },
+                                Rule::functions_block => {
+                                    let block_methods = parse_functions_block(class_item)?;
+                                    methods.extend(block_methods);
+                                },
+                                _ => {}
                             }
-                        },
-                        _ => {}
+                        }
                     }
                 }
             },
@@ -810,11 +810,8 @@ fn parse_constructor(constructor_pair: Pair<Rule>) -> Result<Constructor, Compil
             },
             Rule::indented_block => {
                 for stmt_pair in item.into_inner() {
-                    match stmt_pair.as_rule() {
-                        Rule::statement => {
-                            body.push(parse_statement(stmt_pair)?);
-                        },
-                        _ => {}
+                    if stmt_pair.as_rule() == Rule::statement {
+                        body.push(parse_statement(stmt_pair)?);
                     }
                 }
             },
@@ -972,7 +969,7 @@ fn parse_parameters_from_input_block(input_block: Pair<Rule>) -> Result<Vec<Para
                     if let Some(pt) = param_type {
                         if !seen_names.insert(param_name.clone()) {
                             return Err(CompilerError::parse_error(
-                                format!("Duplicate parameter name '{}' in input block", param_name),
+                                format!("Duplicate parameter name '{param_name}' in input block"),
                                 None,
                                 None,
                             ));
@@ -1085,28 +1082,25 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
                             found_body = true;
                             // Process statements, handling input_declaration specially
                             for stmt_pair in body_item.into_inner() {
-                                match stmt_pair.as_rule() {
-                                    Rule::statement => {
-                                        // Check if this statement contains an input_declaration
-                                        let inner = stmt_pair.clone().into_inner().next().unwrap();
-                                        if inner.as_rule() == Rule::standalone_input_declaration {
-                                            // Parse as parameter and add to parameters list
-                                            let param = parse_standalone_input_declaration_as_parameter(inner)?;
-                                            // Check for duplicate parameter names
-                                            if parameters.iter().any(|p| p.name == param.name) {
-                                                return Err(CompilerError::parse_error(
-                                                    format!("Duplicate parameter name '{}' in function '{}'", param.name, func_name),
-                                                    location.clone(),
-                                                    None,
-                                                ));
-                                            }
-                                            parameters.push(param);
-                                        } else {
-                                            // Regular statement
-                                            body.push(parse_statement(stmt_pair)?);
+                                if stmt_pair.as_rule() == Rule::statement {
+                                    // Check if this statement contains an input_declaration
+                                    let inner = stmt_pair.clone().into_inner().next().unwrap();
+                                    if inner.as_rule() == Rule::standalone_input_declaration {
+                                        // Parse as parameter and add to parameters list
+                                        let param = parse_standalone_input_declaration_as_parameter(inner)?;
+                                        // Check for duplicate parameter names
+                                        if parameters.iter().any(|p| p.name == param.name) {
+                                            return Err(CompilerError::parse_error(
+                                                format!("Duplicate parameter name '{param_name}' in function '{func_name}'", param_name = param.name, func_name = func_name),
+                                                location.clone(),
+                                                None,
+                                            ));
                                         }
-                                    },
-                                    _ => {}
+                                        parameters.push(param);
+                                    } else {
+                                        // Regular statement
+                                        body.push(parse_statement(stmt_pair)?);
+                                    }
                                 }
                             }
                         },
@@ -1115,7 +1109,7 @@ pub fn parse_function_in_block(func_pair: Pair<Rule>) -> Result<Function, Compil
                 }
                 if !found_body {
                     return Err(CompilerError::parse_error(
-                        format!("Function '{}' is missing a body.", func_name),
+                        format!("Function '{func_name}' is missing a body."),
                         location.clone(),
                         None,
                     ));
@@ -1199,11 +1193,8 @@ fn parse_import_item(pair: Pair<Rule>) -> Result<ImportItem, CompilerError> {
     let import_text = pair.as_str().to_string();
     
     for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::identifier => {
-                identifiers.push(inner.as_str().to_string());
-            },
-            _ => {}
+        if inner.as_rule() == Rule::identifier {
+            identifiers.push(inner.as_str().to_string());
         }
     }
     
@@ -1235,7 +1226,7 @@ fn parse_import_item(pair: Pair<Rule>) -> Result<ImportItem, CompilerError> {
     }
     
     Err(CompilerError::parse_error(
-        format!("Invalid import syntax: '{}'", import_text),
+        format!("Invalid import syntax: '{import_text}'"),
         None,
         None,
     ))

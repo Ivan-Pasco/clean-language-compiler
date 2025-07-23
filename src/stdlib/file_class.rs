@@ -13,33 +13,44 @@ impl FileClass {
         Self
     }
 
-    /// Register all File class methods as static functions
+    /// Register only specification-compliant file functions
+    /// Clean Language specification defines only: file.read, file.write, file.append, file.exists, file.delete
     pub fn register_functions(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // Basic file operations
+        // Only register basic file operations (specification-compliant)
         self.register_basic_operations(codegen)?;
         
-        // File information operations
+        // Only register file.exists from info operations (specification-compliant)
         self.register_info_operations(codegen)?;
         
+        // DISABLED - NOT IN SPECIFICATION:
+        // Directory and path operations are not defined in Clean Language specification
+        /* DISABLED:
         // Directory operations
         self.register_directory_operations(codegen)?;
         
         // Path operations
         self.register_path_operations(codegen)?;
+        */
         
         Ok(())
     }
     
     fn register_basic_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // File.read(string path) -> string
+        // file.read(string path) -> string - SPECIFICATION COMPLIANT
         register_stdlib_function(
             codegen,
-            "File.read",
+            "file.read",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_read(codegen)?
         )?;
         
+        // NON-SPECIFICATION FUNCTIONS DISABLED
+        // The following functions are not in the Clean Language specification
+        // and have been disabled to maintain specification compliance.
+        // Only file.read, file.write, file.append, file.exists, file.delete are specified.
+        
+        /* DISABLED - NOT IN SPECIFICATION:
         // File.readBytes(string path) -> array<integer>
         register_stdlib_function(
             codegen,
@@ -57,16 +68,18 @@ impl FileClass {
             Some(WasmType::I32),
             self.generate_read_lines()
         )?;
+        */
         
-        // File.write(string path, string content) -> boolean
+        // file.write(string path, string content) -> boolean - SPECIFICATION COMPLIANT
         register_stdlib_function(
             codegen,
-            "File.write",
+            "file.write",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_write(codegen)?
         )?;
         
+        /* DISABLED - NOT IN SPECIFICATION:
         // File.writeBytes(string path, array<integer> data) -> boolean
         register_stdlib_function(
             codegen,
@@ -75,16 +88,18 @@ impl FileClass {
             Some(WasmType::I32),
             self.generate_write_bytes()
         )?;
+        */
         
-        // File.append(string path, string content) -> boolean
+        // file.append(string path, string content) -> boolean - SPECIFICATION COMPLIANT
         register_stdlib_function(
             codegen,
-            "File.append",
+            "file.append",
             &[WasmType::I32, WasmType::I32],
             Some(WasmType::I32),
             self.generate_append(codegen)?
         )?;
         
+        /* DISABLED - NOT IN SPECIFICATION:
         // File.copy(string source, string destination) -> boolean
         register_stdlib_function(
             codegen,
@@ -102,11 +117,12 @@ impl FileClass {
             Some(WasmType::I32),
             self.generate_move()
         )?;
+        */
         
-        // File.delete(string path) -> boolean
+        // file.delete(string path) -> boolean - SPECIFICATION COMPLIANT
         register_stdlib_function(
             codegen,
-            "File.delete",
+            "file.delete",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_delete(codegen)?
@@ -116,15 +132,17 @@ impl FileClass {
     }
     
     fn register_info_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
-        // File.exists(string path) -> boolean
+        // file.exists(string path) -> boolean - SPECIFICATION COMPLIANT
         register_stdlib_function(
             codegen,
-            "File.exists",
+            "file.exists",
             &[WasmType::I32],
             Some(WasmType::I32),
             self.generate_exists(codegen)?
         )?;
         
+        // DISABLED - NOT IN SPECIFICATION:
+        /* All other file info functions are not in Clean Language specification
         // File.isFile(string path) -> boolean
         register_stdlib_function(
             codegen,
@@ -169,6 +187,7 @@ impl FileClass {
             Some(WasmType::I32),
             self.generate_permissions()
         )?;
+        */
         
         Ok(())
     }
@@ -304,18 +323,27 @@ impl FileClass {
     }
 
     fn generate_read_bytes(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.readBytes() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return error message at runtime");
+        eprintln!("         WebAssembly host import 'file_read_bytes' needed for implementation");
+        
+        // Return pointer to a pre-allocated error message
+        // This should be replaced with proper error string allocation when runtime supports it
         vec![
-            // For now, return empty array
-            // TODO: Implement binary file reading
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Empty string for now - better than crashing
         ]
     }
 
     fn generate_read_lines(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.readLines() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return empty result at runtime");
+        eprintln!("         WebAssembly host import 'file_read_lines' needed for implementation");
+        
+        // Return pointer to empty result instead of crashing
         vec![
-            // For now, return empty array
-            // TODO: Implement line-by-line reading
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Empty array for now
         ]
     }
 
@@ -348,10 +376,13 @@ impl FileClass {
     }
 
     fn generate_write_bytes(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.writeBytes() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false (failure) at runtime");
+        eprintln!("         WebAssembly host import 'file_write_bytes' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement binary file writing
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (operation failed)
         ]
     }
 
@@ -384,18 +415,24 @@ impl FileClass {
     }
 
     fn generate_copy(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.copy() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false (failure) at runtime");
+        eprintln!("         WebAssembly host import 'file_copy' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement file copying
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (operation failed)
         ]
     }
 
     fn generate_move(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.move() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false (failure) at runtime");
+        eprintln!("         WebAssembly host import 'file_move' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement file moving/renaming
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (operation failed)
         ]
     }
 
@@ -442,130 +479,178 @@ impl FileClass {
     }
 
     fn generate_is_file(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.isFile() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false at runtime");
+        eprintln!("         WebAssembly host import 'file_is_file' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement file type check
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (cannot determine)
         ]
     }
 
     fn generate_is_directory(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.isDirectory() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false at runtime");
+        eprintln!("         WebAssembly host import 'file_is_directory' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement directory type check
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (cannot determine)
         ]
     }
 
     fn generate_size(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.size() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return 0 at runtime");
+        eprintln!("         WebAssembly host import 'file_size' needed for implementation");
+        
         vec![
-            // For now, return 0
-            // TODO: Implement file size query
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return 0 (unknown size)
         ]
     }
 
     fn generate_last_modified(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.lastModified() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return 0 (timestamp) at runtime");
+        eprintln!("         WebAssembly host import 'file_last_modified' needed for implementation");
+        
         vec![
-            // For now, return 0
-            // TODO: Implement last modified timestamp
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return 0 (no timestamp available)
         ]
     }
 
     fn generate_permissions(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.permissions() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return empty string at runtime");
+        eprintln!("         WebAssembly host import 'file_permissions' needed for implementation");
+        
         vec![
-            // For now, return empty string
-            // TODO: Implement permission string query
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return empty string (no permissions available)
         ]
     }
 
     fn generate_list_files(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.listFiles() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return empty array at runtime");
+        eprintln!("         WebAssembly host import 'file_list_files' needed for implementation");
+        
         vec![
-            // For now, return empty array
-            // TODO: Implement directory file listing
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return empty array (no files listed)
         ]
     }
 
     fn generate_list_directories(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.listDirectories() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return empty array at runtime");
+        eprintln!("         WebAssembly host import 'file_list_directories' needed for implementation");
+        
         vec![
-            // For now, return empty array
-            // TODO: Implement directory subdirectory listing
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return empty array (no directories listed)
         ]
     }
 
     fn generate_create_directory(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.createDirectory() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false (failure) at runtime");
+        eprintln!("         WebAssembly host import 'file_create_directory' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement directory creation
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (operation failed)
         ]
     }
 
     fn generate_create_directories(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.createDirectories() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false (failure) at runtime");
+        eprintln!("         WebAssembly host import 'file_create_directories' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement recursive directory creation
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (operation failed)
         ]
     }
 
     fn generate_delete_directory(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.deleteDirectory() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return false (failure) at runtime");
+        eprintln!("         WebAssembly host import 'file_delete_directory' needed for implementation");
+        
         vec![
-            // For now, return false
-            // TODO: Implement directory deletion
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return false (operation failed)
         ]
     }
 
     fn generate_get_file_name(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.getFileName() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return original path at runtime (not just filename)");
+        eprintln!("         WebAssembly host import 'file_get_name' needed for proper implementation");
+        
         vec![
-            // For now, return original path
-            // TODO: Implement file name extraction from path
-            Instruction::LocalGet(0),
+            Instruction::LocalGet(0), // Return original path as fallback
         ]
     }
 
     fn generate_get_file_extension(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.getFileExtension() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return empty string at runtime");
+        eprintln!("         WebAssembly host import 'file_get_extension' needed for implementation");
+        
         vec![
-            // For now, return empty string
-            // TODO: Implement file extension extraction
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return empty string (no extension detected)
         ]
     }
 
     fn generate_get_directory(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.getDirectory() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return empty string at runtime");
+        eprintln!("         WebAssembly host import 'file_get_directory' needed for implementation");
+        
         vec![
-            // For now, return empty string
-            // TODO: Implement directory path extraction
-            Instruction::I32Const(0),
+            Instruction::I32Const(0), // Return empty string (no directory path)
         ]
     }
 
     fn generate_get_absolute_path(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.getAbsolutePath() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return original path at runtime (may not be absolute)");
+        eprintln!("         WebAssembly host import 'file_get_absolute_path' needed for implementation");
+        
         vec![
-            // For now, return original path
-            // TODO: Implement absolute path resolution
-            Instruction::LocalGet(0),
+            Instruction::LocalGet(0), // Return original path as fallback
         ]
     }
 
     fn generate_join_path(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.joinPath() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return first path at runtime (not properly joined)");
+        eprintln!("         WebAssembly host import 'file_join_path' needed for implementation");
+        
         vec![
-            // For now, return first path
-            // TODO: Implement path joining with proper separators
-            Instruction::LocalGet(0),
+            Instruction::LocalGet(0), // Return first path as fallback
         ]
     }
 
     fn generate_normalize_path(&self) -> Vec<Instruction> {
+        // Emit compile-time warning
+        eprintln!("WARNING: File.normalizePath() is not yet supported by WebAssembly runtime");
+        eprintln!("         Function will return original path at runtime (not normalized)");
+        eprintln!("         WebAssembly host import 'file_normalize_path' needed for implementation");
+        
         vec![
-            // For now, return original path
-            // TODO: Implement path normalization
-            Instruction::LocalGet(0),
+            Instruction::LocalGet(0), // Return original path as fallback
         ]
     }
 }

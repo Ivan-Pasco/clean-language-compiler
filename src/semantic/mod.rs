@@ -37,6 +37,12 @@ pub struct SemanticAnalyzer {
     imported_modules: HashSet<String>,
 }
 
+impl Default for SemanticAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SemanticAnalyzer {
     pub fn new() -> Self {
         let mut analyzer = Self {
@@ -615,12 +621,12 @@ impl SemanticAnalyzer {
         
         self.function_table.insert(
             "file.write".to_string(),
-            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
+            vec![(vec![Type::String, Type::String], Type::Boolean, 2)]
         );
         
         self.function_table.insert(
             "file.append".to_string(),
-            vec![(vec![Type::String, Type::String], Type::Integer, 2)]
+            vec![(vec![Type::String, Type::String], Type::Boolean, 2)]
         );
         
         self.function_table.insert(
@@ -647,14 +653,14 @@ impl SemanticAnalyzer {
                     let required_param_count = function.parameters.iter()
                         .take_while(|p| p.default_value.is_none())
                         .count();
-                    let qualified_name = format!("{}.{}", module_name, func_name);
-                    println!("DEBUG: Adding function '{}' to function table", qualified_name);
+                    let qualified_name = format!("{module_name}.{func_name}");
+                    println!("DEBUG: Adding function '{qualified_name}' to function table");
                     self.function_table.insert(qualified_name, vec![(param_types, function.return_type.clone(), required_param_count)]);
                 }
                 
                 // Add imported classes with qualified names
                 for (class_name, class) in &module.exports.classes {
-                    let qualified_name = format!("{}.{}", module_name, class_name);
+                    let qualified_name = format!("{module_name}.{class_name}");
                     self.class_table.insert(qualified_name, class.clone());
                 }
             }
@@ -748,7 +754,7 @@ impl SemanticAnalyzer {
             while let Some(class_name) = current {
                 if visited.contains(&class_name) {
                     return Err(CompilerError::type_error(
-                        &format!("Inheritance cycle detected involving class '{}'", class_name),
+                        &format!("Inheritance cycle detected involving class '{class_name}'"),
                         Some("Remove circular inheritance relationships".to_string()),
                         class.location.clone()
                     ));
@@ -973,7 +979,7 @@ impl SemanticAnalyzer {
                     let init_type = self.check_expression(init_expr)?;
                     if !self.types_compatible(&resolved_type, &init_type) {
                         return Err(CompilerError::type_error(
-                            &format!("Cannot assign {:?} to variable of type {:?}", init_type, resolved_type),
+                            &format!("Cannot assign {init_type:?} to variable of type {resolved_type:?}"),
                             Some("Change the initializer expression to match the variable type".to_string()),
                             location.clone()
                         ));
@@ -1033,7 +1039,7 @@ impl SemanticAnalyzer {
                     } // Close the first() check
                 } else if !self.is_builtin_function(function_name) {
                     return Err(CompilerError::type_error(
-                        &format!("Function '{}' not found", function_name),
+                        &format!("Function '{function_name}' not found"),
                         Some("Check if the function name is correct and the function is declared".to_string()),
                         None
                     ));
@@ -1052,7 +1058,7 @@ impl SemanticAnalyzer {
                     var_type
                 } else {
                     return Err(CompilerError::type_error(
-                        &format!("Object '{}' not found", object_name),
+                        &format!("Object '{object_name}' not found"),
                         Some("Check if the object name is correct and the object is declared".to_string()),
                         None
                     ));
@@ -1074,7 +1080,7 @@ impl SemanticAnalyzer {
                             let valid_string_methods = ["length", "isEmpty", "contains", "startsWith", "endsWith", "toUpper", "toLower"];
                             if !valid_string_methods.contains(&method_name.as_str()) {
                                 return Err(CompilerError::type_error(
-                                    &format!("Method '{}' not found on String type", method_name),
+                                    &format!("Method '{method_name}' not found on String type"),
                                     Some("Valid String methods: length, isEmpty, contains, startsWith, endsWith, toUpper, toLower".to_string()),
                                     None
                                 ));
@@ -1084,7 +1090,7 @@ impl SemanticAnalyzer {
                             let valid_array_methods = ["length", "isEmpty", "push", "pop", "get", "set"];
                             if !valid_array_methods.contains(&method_name.as_str()) {
                                 return Err(CompilerError::type_error(
-                                    &format!("Method '{}' not found on List type", method_name),
+                                    &format!("Method '{method_name}' not found on List type"),
                                     Some("Valid List methods: length, isEmpty, push, pop, get, set".to_string()),
                                     None
                                 ));
@@ -1096,7 +1102,7 @@ impl SemanticAnalyzer {
                                 let has_method = class_def.methods.iter().any(|m| &m.name == method_name);
                                 if !has_method {
                                     return Err(CompilerError::type_error(
-                                        &format!("Method '{}' not found on class '{}'", method_name, class_name),
+                                        &format!("Method '{method_name}' not found on class '{class_name}'"),
                                         Some("Check the class definition for available methods".to_string()),
                                         None
                                     ));

@@ -1,0 +1,9 @@
+// String output investigation test
+
+start()
+    // Test string literals
+    print "Hello World"
+    
+    // Test integers for comparison
+    integer num = 42
+    print num

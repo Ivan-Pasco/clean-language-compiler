@@ -95,10 +95,10 @@ impl InstructionGenerator {
     /// Create a function signature string for overload resolution
     fn create_function_signature(&self, name: &str, param_types: &[WasmType]) -> String {
         let param_str = param_types.iter()
-            .map(|t| format!("{:?}", t))
+            .map(|t| format!("{t:?}"))
             .collect::<Vec<_>>()
             .join(",");
-        format!("{}({})", name, param_str)
+        format!("{name}({param_str})")
     }
     
     /// Determine the type of an expression without generating instructions
@@ -125,7 +125,7 @@ impl InstructionGenerator {
                         wasm_encoder::ValType::V128 => WasmType::V128,
                         _ => WasmType::I32,
                     };
-                    eprintln!("DEBUG: Variable '{}' has type {:?}", name, wasm_type);
+                    eprintln!("DEBUG: Variable '{name}' has type {wasm_type:?}");
                     Ok(wasm_type)
                 } else {
                     eprintln!("DEBUG: Variable '{name}' not found in locals, defaulting to I32");
@@ -239,7 +239,7 @@ impl InstructionGenerator {
                         }
                     },
                     _ => Err(CompilerError::type_error(
-                        format!("Unsupported string binary operator: {:?}", op), None, None
+                        format!("Unsupported string binary operator: {op:?}"), None, None
                     )),
                 }
             },
@@ -430,7 +430,7 @@ impl InstructionGenerator {
                 }
             },
             _ => Err(CompilerError::type_error(
-                format!("Type mismatch: Cannot apply {:?} to {:?} and {:?}", op, left_type, right_type),
+                format!("Type mismatch: Cannot apply {op:?} to {left_type:?} and {right_type:?}"),
                 None, None
             )),
         }
@@ -441,30 +441,21 @@ impl InstructionGenerator {
     pub(crate) fn generate_statement(&mut self, stmt: &Statement, instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         match stmt {
             Statement::VariableDecl { name, type_, initializer, location: _ } => {
-                let specified_type = Some(self.type_manager.ast_type_to_wasm_type(type_)?);
+                let specified_type = self.type_manager.ast_type_to_wasm_type(type_)?;
                 
                 let (var_type, init_instructions) = if let Some(init_expr) = initializer {
                     let mut init_instr = Vec::new();
                     let init_type = self.generate_expression(init_expr, &mut init_instr)?;
                     (init_type, Some(init_instr))
                 } else {
-                    if specified_type.is_none() {
-                        return Err(CompilerError::codegen_error(
-                            "Variable declaration without initializer must have a type annotation",
-                            None, None
-                        ));
-                    }
-                    (specified_type.unwrap(), None)
+                    (specified_type, None)
                 };
 
-                if let (Some(st), declared_type) = (specified_type, var_type) {
-                    if st != declared_type {
-                        return Err(CompilerError::type_error(
-                            format!("Initializer type {:?} does not match specified type {:?} for variable '{}'", 
-                                declared_type, st, name),
-                            None, None
-                        ));
-                    }
+                if specified_type != var_type {
+                    return Err(CompilerError::type_error(
+                        format!("Initializer type {var_type:?} does not match specified type {specified_type:?} for variable '{name}'"),
+                        None, None
+                    ));
                 }
 
                 let local_info = LocalVarInfo {
@@ -484,7 +475,7 @@ impl InstructionGenerator {
                         WasmType::F32 => instructions.push(Instruction::F32Const(0.0)),
                         WasmType::F64 => instructions.push(Instruction::F64Const(0.0)),
                         _ => return Err(CompilerError::codegen_error(
-                            format!("Cannot determine default value for type {:?}", var_type), 
+                            format!("Cannot determine default value for type {var_type:?}"), 
                             None, None
                         ))
                     }
@@ -717,7 +708,7 @@ impl InstructionGenerator {
             Expression::Variable(name) => {
                 let local = self.find_local(name)
                     .ok_or_else(|| CompilerError::codegen_error(
-                        &format!("Undefined variable '{name}'"),
+                        format!("Undefined variable '{name}'"),
                         Some("Check if the variable is defined".to_string()),
                         None
                     ))?;
@@ -730,7 +721,7 @@ impl InstructionGenerator {
                 
                 if left_type != right_type {
                     return Err(CompilerError::codegen_error(
-                        &format!("Type mismatch in binary operation: {:?} and {:?}", left_type, right_type),
+                        format!("Type mismatch in binary operation: {left_type:?} and {right_type:?}"),
                         Some("Use operands of the same type".to_string()),
                         None
                     ));
@@ -739,15 +730,15 @@ impl InstructionGenerator {
                 match (left_type, op) {
                     (WasmType::I32, BinaryOperator::Add) => {
                         instructions.push(Instruction::I32Add);
-                        return Ok(WasmType::I32);
+                        Ok(WasmType::I32)
                     },
                     // Add more operators as needed
                     _ => {
-                        return Err(CompilerError::codegen_error(
-                            &format!("Unsupported binary operation: {:?} for type {:?}", op, left_type),
+                        Err(CompilerError::codegen_error(
+                            format!("Unsupported binary operation: {op:?} for type {left_type:?}"),
                             Some("Check operand types".to_string()),
                             None
-                        ));
+                        ))
                     }
                 }
             },
@@ -760,7 +751,7 @@ impl InstructionGenerator {
                 }
                 
                 // Try signature-based function resolution first
-                eprintln!("DEBUG: Function call '{}' with arg types: {:?}", func_name, arg_types);
+                eprintln!("DEBUG: Function call '{func_name}' with arg types: {arg_types:?}");
                 let func_index = if let Some(index) = self.get_function_index_by_signature(func_name, &arg_types) {
                     eprintln!("DEBUG: Found signature-based match: function[{index}]");
                     Some(index)
@@ -827,7 +818,7 @@ impl InstructionGenerator {
                     Ok(WasmType::I32) // Method calls return appropriate type
                 } else {
                 Err(CompilerError::codegen_error(
-                        &format!("Method '{method}' not found"), None, None
+                        format!("Method '{method}' not found"), None, None
                 ))
                 }
             },
@@ -836,11 +827,11 @@ impl InstructionGenerator {
                 Ok(WasmType::I32) // String interpolation returns a string pointer
             },
             _ => {
-                return Err(CompilerError::codegen_error(
-                    &format!("Unsupported expression: {:?}", expr),
+                Err(CompilerError::codegen_error(
+                    format!("Unsupported expression: {expr:?}"),
                     Some("This expression type is not yet implemented".to_string()),
                     None
-                ));
+                ))
             }
         }
     }
@@ -1112,7 +1103,7 @@ impl InstructionGenerator {
             "transpose" => "matrix_transpose",
             "inverse" => "matrix_inverse",
             _ => return Err(CompilerError::codegen_error(
-                &format!("Unknown matrix operation: {op}"),
+                format!("Unknown matrix operation: {op}"),
                 Some("Use valid matrix operations".to_string()),
                 None
             ))
@@ -1124,7 +1115,7 @@ impl InstructionGenerator {
             Ok(WasmType::I32) // Matrix operations return a pointer to the result matrix
         } else {
             Err(CompilerError::codegen_error(
-                &format!("Matrix operation function not found: {function_name}"),
+                format!("Matrix operation function not found: {function_name}"),
                 Some("Ensure the matrix operations are registered".to_string()),
                 None
             ))
@@ -1327,19 +1318,19 @@ impl InstructionGenerator {
             },
             WasmType::V128 => {
                 // SIMD not supported in list elements for now
-                return Err(CompilerError::codegen_error(
+                Err(CompilerError::codegen_error(
                     "V128 types not supported in list elements",
                     Some("Use basic types (i32, f64, etc.) for list elements".to_string()),
                     None
-                ));
+                ))
             },
             WasmType::Unit => {
                 // Unit type doesn't make sense for list elements
-                return Err(CompilerError::codegen_error(
+                Err(CompilerError::codegen_error(
                     "Unit type not supported in list elements",
                     Some("Use concrete types for list elements".to_string()),
                     None
-                ));
+                ))
             }
         }
     }

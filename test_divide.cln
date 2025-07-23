@@ -1,3 +1,0 @@
-start() 
-    number result = divide(10.0, 2.0)
-    print(result)

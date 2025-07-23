@@ -1,4 +1,0 @@
-
-start()
-	integer x = 42
-	string s = to_string(x)

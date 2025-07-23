@@ -1,0 +1,4 @@
+// Very simple print test
+
+start()
+    print 42

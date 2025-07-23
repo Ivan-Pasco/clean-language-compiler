@@ -48,7 +48,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                         "void" => Ok(Type::Void),
                         "any" => Ok(Type::Any),
                         _ => Err(CompilerError::parse_error(
-                            format!("Unknown core type: {}", type_str),
+                            format!("Unknown core type: {type_str}"),
                             None,
                             Some("Valid core types are: boolean, integer, number, string, void, any".to_string())
                         ))
@@ -74,8 +74,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                     };
                     
                     let size_str = &size_spec[1..].trim();
-                    let (bits, unsigned) = if size_str.ends_with('u') {
-                        let bits_str = &size_str[..size_str.len()-1];
+                    let (bits, unsigned) = if let Some(bits_str) = size_str.strip_suffix('u') {
                         (bits_str.parse::<u8>().unwrap_or(32), true)
                     } else {
                         (size_str.parse::<u8>().unwrap_or(32), false)

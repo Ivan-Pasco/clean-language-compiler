@@ -109,12 +109,7 @@ mod integration_tests {
     #[test]
     fn test_function_integration() {
         let source = r#"functions:
-	integer add()
-		description "Adds two numbers"
-		input
-			integer a
-			integer b
-		
+	integer add(integer a, integer b)
 		return a + b
 
 start()

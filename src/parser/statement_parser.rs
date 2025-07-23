@@ -107,33 +107,24 @@ fn parse_if_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLocation
     let mut else_branch = None;
 
     for part in parts {
-        match part.as_rule() {
-            Rule::indented_block => {
-                if then_branch.is_empty() {
-                    // This is the then branch
-                    for stmt_pair in part.into_inner() {
-                        match stmt_pair.as_rule() {
-                            Rule::statement => {
-                                then_branch.push(parse_statement(stmt_pair)?);
-                            },
-                            _ => {}
-                        }
+        if part.as_rule() == Rule::indented_block {
+            if then_branch.is_empty() {
+                // This is the then branch
+                for stmt_pair in part.into_inner() {
+                    if stmt_pair.as_rule() == Rule::statement {
+                        then_branch.push(parse_statement(stmt_pair)?);
                     }
-                } else {
-                    // This is the else branch
-                    let mut else_stmts = Vec::new();
-                    for stmt_pair in part.into_inner() {
-                        match stmt_pair.as_rule() {
-                            Rule::statement => {
-                                else_stmts.push(parse_statement(stmt_pair)?);
-                            },
-                            _ => {}
-                        }
-                    }
-                    else_branch = Some(else_stmts);
                 }
-            },
-            _ => {}
+            } else {
+                // This is the else branch
+                let mut else_stmts = Vec::new();
+                for stmt_pair in part.into_inner() {
+                    if stmt_pair.as_rule() == Rule::statement {
+                        else_stmts.push(parse_statement(stmt_pair)?);
+                    }
+                }
+                else_branch = Some(else_stmts);
+            }
         }
     }
 
@@ -304,7 +295,7 @@ fn parse_type_apply_block_statement(pair: Pair<Rule>, ast_location: crate::ast::
                 "string" => crate::ast::Type::String,
                 "void" => crate::ast::Type::Void,
                 _ => return Err(CompilerError::parse_error(
-                    format!("Unknown core type: {}", type_str),
+                    format!("Unknown core type: {type_str}"),
                     Some(ast_location),
                     Some("Valid core types are: integer, number, boolean, string, void".to_string())
                 ))

@@ -55,7 +55,9 @@ pub struct CodeGenerator {
     variable_map: HashMap<String, LocalVarInfo>,
     memory_utils: MemoryUtils,
     function_count: u32,
-    current_locals: Vec<LocalVarInfo>,
+    current_function_params: Vec<LocalVarInfo>,  // Parameters (indices 0, 1, 2...)
+    current_function_locals: Vec<LocalVarInfo>,  // Actual locals (indices param_count+0, param_count+1...)
+    current_function_param_count: u32, // Track parameter count for proper local indexing
     function_map: HashMap<String, u32>,
     function_names: Vec<String>,
     file_import_indices: HashMap<String, u32>,
@@ -115,7 +117,9 @@ impl CodeGenerator {
             variable_map: HashMap::new(),
             memory_utils: MemoryUtils::new(1024), // Start at 1KB instead of 64KB
             function_count: 0,
-            current_locals: Vec::new(),
+            current_function_params: Vec::new(),
+            current_function_locals: Vec::new(),
+            current_function_param_count: 0,
             function_map: HashMap::new(),
             function_names: Vec::new(),
             file_import_indices: HashMap::new(),
@@ -172,10 +176,11 @@ impl CodeGenerator {
     pub fn setup_for_testing(&mut self) -> Result<(), CompilerError> {
         // Register imports FIRST (they get indices 0-13) - just like in generate()
         self.register_print_imports()?;
-        // TEMPORARILY DISABLED for debugging stack validation issues
+        // File and HTTP imports temporarily disabled for debugging stack validation issues
         // self.register_file_imports()?;
         // self.register_http_imports()?;
-        // self.register_type_conversion_imports()?;
+        // Enable type conversion imports - CRITICAL for runtime functionality
+        self.register_type_conversion_imports()?;
         
         // Set up memory section
         self.memory_section.memory(wasm_encoder::MemoryType {
@@ -224,8 +229,7 @@ impl CodeGenerator {
         self.register_http_imports()?;
 
         // 1.4. Register type conversion imports - CRITICAL for runtime functionality
-        // TEMPORARILY DISABLED for debugging stack validation issues
-        // self.register_type_conversion_imports()?;
+        self.register_type_conversion_imports()?;
 
         // ------------------------------------------------------------------
         // 2. Register standard library functions AFTER imports (they get indices 14+)
@@ -542,33 +546,35 @@ impl CodeGenerator {
     pub fn generate_function(&mut self, function: &AstFunction) -> Result<(), CompilerError> {
         // DEBUG: Print function name and index for stack validation debugging
         
-        // Reset locals for this function
-        self.current_locals.clear();
+        // Reset function state
+        self.current_function_params.clear();
+        self.current_function_locals.clear();
         self.variable_map.clear();
         self.variable_types.clear();
+        self.current_function_param_count = function.parameters.len() as u32;
         
-        // Add parameters as locals
-        for param in &function.parameters {
-            let local_info = LocalVarInfo {
-                index: self.current_locals.len() as u32,
+        // Add parameters with WebAssembly-compliant indexing (0, 1, 2...)
+        for (param_index, param) in function.parameters.iter().enumerate() {
+            let param_info = LocalVarInfo {
+                index: param_index as u32, // Parameters use indices 0, 1, 2...
                 type_: WasmType::from(&param.type_).into(),
             };
-            self.current_locals.push(local_info.clone());
-            self.variable_map.insert(param.name.clone(), local_info);
+            self.current_function_params.push(param_info.clone());
+            self.variable_map.insert(param.name.clone(), param_info);
             
             // Track parameter types for automatic toString() conversion
             self.variable_types.insert(param.name.clone(), param.type_.clone());
         }
         
-        // If we're in a class context, add class fields as locals
+        // If we're in a class context, add class fields as locals (indices param_count+N)
         if let Some(class_name) = &self.current_class_context {
             if let Some(class) = self.class_table.get(class_name).cloned() {
                 for field in &class.fields {
                     let local_info = LocalVarInfo {
-                        index: self.current_locals.len() as u32,
+                        index: self.current_function_param_count + self.current_function_locals.len() as u32,
                         type_: WasmType::from(&field.type_).into(),
                     };
-                    self.current_locals.push(local_info.clone());
+                    self.current_function_locals.push(local_info.clone());
                     self.variable_map.insert(field.name.clone(), local_info);
                     
                     // Track field types
@@ -665,9 +671,10 @@ impl CodeGenerator {
             }
         }
 
-        // Create function with locals and instructions
-        let locals = self.current_locals.iter()
-            .skip(function.parameters.len()) // Skip parameters, they're not locals
+        // Create function with only actual local variables (WebAssembly spec compliant)
+        // Note: current_function_locals contains LocalVarInfo with absolute indices,
+        // but Function::new() only needs the types since WASM handles indexing automatically
+        let locals = self.current_function_locals.iter()
             .map(|local| (1u32, local.type_))
             .collect::<Vec<_>>();
 
@@ -830,7 +837,7 @@ impl CodeGenerator {
             
             if !self.types_compatible(&init_type, &target_type) {
                 return Err(CompilerError::type_error(
-                    format!("Initializer type {:?} does not match specified type {:?} for variable '{}'", init_type, target_type, name),
+                    format!("Initializer type {init_type:?} does not match specified type {target_type:?} for variable '{name}'"),
                     None, location.clone()
                 ));
             }
@@ -844,11 +851,11 @@ impl CodeGenerator {
             (specified_type, None)
         };
 
+        let local_index = self.add_local_variable(var_type);
         let local_info = LocalVarInfo {
-            index: self.current_locals.len() as u32,
+            index: local_index,
             type_: var_type.into(),
         };
-        self.current_locals.push(local_info.clone()); 
         self.variable_map.insert(name.to_string(), local_info.clone());
         
         // Track the original Clean Language type for automatic toString() conversion
@@ -863,7 +870,7 @@ impl CodeGenerator {
                 WasmType::I64 => instructions.push(Instruction::I64Const(0)),
                 WasmType::F32 => instructions.push(Instruction::F32Const(0.0)),
                 WasmType::F64 => instructions.push(Instruction::F64Const(0.0)),
-                _ => return Err(CompilerError::codegen_error(format!("Cannot determine default value for type {:?}", var_type), None, location.clone()))
+                _ => return Err(CompilerError::codegen_error(format!("Cannot determine default value for type {var_type:?}"), None, location.clone()))
             }
             instructions.push(Instruction::LocalSet(local_info.index));
         }
@@ -894,18 +901,14 @@ impl CodeGenerator {
             if let Some((field_type, _field_offset)) = field_info {
                 let value_type = self.generate_expression(value, instructions)?;
                 
-                let local_index = self.current_locals.len() as u32;
                 let wasm_type = self.ast_type_to_wasm_type(&field_type)?;
+                let local_index = self.add_local_variable(wasm_type);
                 
                 // Add type conversion if needed
                 if value_type != wasm_type {
                     self.generate_conversion(value_type, wasm_type, instructions)?;
                 }
                 
-                self.current_locals.push(LocalVarInfo {
-                    index: local_index,
-                    type_: wasm_type.into(),
-                });
                 self.variable_map.insert(target.to_string(), LocalVarInfo {
                     index: local_index,
                     type_: wasm_type.into(),
@@ -915,7 +918,7 @@ impl CodeGenerator {
             } else {
                 if self.class_field_map.contains_key(class_context) {
                     return Err(CompilerError::codegen_error(
-                        format!("Field '{}' not found in class '{}'", target, class_context),
+                        format!("Field '{target}' not found in class '{class_context}'"),
                         None,
                         location.clone()
                     ));
@@ -1070,7 +1073,7 @@ impl CodeGenerator {
                 if func_name == "print" || func_name == "printl" || func_name == "println" {
                     if args.len() != 1 {
                         return Err(CompilerError::detailed_type_error(
-                            &format!("Print function '{}' called with wrong number of arguments", func_name),
+                            &format!("Print function '{func_name}' called with wrong number of arguments"),
                             1,
                             args.len(),
                             None,
@@ -1087,7 +1090,7 @@ impl CodeGenerator {
                 if func_name == "http_get" || func_name == "http_delete" {
                     if args.len() != 1 {
                         return Err(CompilerError::detailed_type_error(
-                            &format!("HTTP function '{}' called with wrong number of arguments", func_name),
+                            &format!("HTTP function '{func_name}' called with wrong number of arguments"),
                             1,
                             args.len(),
                             None,
@@ -1102,7 +1105,7 @@ impl CodeGenerator {
                 if func_name == "http_post" || func_name == "http_put" || func_name == "http_patch" {
                     if args.len() != 2 {
                         return Err(CompilerError::detailed_type_error(
-                            &format!("HTTP function '{}' called with wrong number of arguments", func_name),
+                            &format!("HTTP function '{func_name}' called with wrong number of arguments"),
                             2,
                             args.len(),
                             None,
@@ -1119,7 +1122,7 @@ impl CodeGenerator {
                 if func_name == "file_read" {
                     if args.len() != 1 {
                         return Err(CompilerError::detailed_type_error(
-                            &format!("File function '{}' called with wrong number of arguments", func_name),
+                            &format!("File function '{func_name}' called with wrong number of arguments"),
                             1,
                             args.len(),
                             None,
@@ -1133,7 +1136,7 @@ impl CodeGenerator {
                 if func_name == "file_write" || func_name == "file_append" {
                     if args.len() != 2 {
                         return Err(CompilerError::detailed_type_error(
-                            &format!("File function '{}' called with wrong number of arguments", func_name),
+                            &format!("File function '{func_name}' called with wrong number of arguments"),
                             2,
                             args.len(),
                             None,
@@ -1147,7 +1150,7 @@ impl CodeGenerator {
                 if func_name == "file_exists" || func_name == "file_delete" {
                     if args.len() != 1 {
                         return Err(CompilerError::detailed_type_error(
-                            &format!("File function '{}' called with wrong number of arguments", func_name),
+                            &format!("File function '{func_name}' called with wrong number of arguments"),
                             1,
                             args.len(),
                             None,
@@ -1446,7 +1449,7 @@ impl CodeGenerator {
                 if let Expression::Variable(module_name) = object.as_ref() {
                     match module_name.as_str() {
                         "http" | "math" | "array" | "string" | "file" => {
-                            let function_name = format!("{}.{}", module_name, method);
+                            let function_name = format!("{module_name}.{method}");
                             
                             // Generate arguments
                             for arg in arguments {
@@ -1946,7 +1949,7 @@ impl CodeGenerator {
                             let possible_class_names = vec!["Rectangle", "Circle", "Point"]; // TODO: Get actual type from semantic analysis
                             
                             for class_name in &possible_class_names {
-                                let class_method_name = format!("{}_{}", class_name, method);
+                                let class_method_name = format!("{class_name}_{method}");
                                 if let Some(method_index) = self.get_function_index(&class_method_name) {
                                     instructions.push(Instruction::Call(method_index));
                                     return Ok(WasmType::I32); // TODO: Get actual return type
@@ -2113,7 +2116,7 @@ impl CodeGenerator {
                 }
                 
                 // Create function name from class and method
-                let function_name = format!("{}_{}", class_name, method);
+                let function_name = format!("{class_name}_{method}");
                 
                 // Find the function index
                 if let Some(method_index) = self.get_function_index(&function_name) {
@@ -2122,7 +2125,7 @@ impl CodeGenerator {
                     self.get_function_return_type(method_index)
                 } else {
                     Err(CompilerError::codegen_error(
-                        &format!("Static method '{}' in class '{}' not found", method, class_name), 
+                        &format!("Static method '{method}' in class '{class_name}' not found"), 
                         Some("Make sure the method is defined in the class".to_string()), 
                         None
                     ))
@@ -2236,13 +2239,12 @@ impl CodeGenerator {
                 // Step 5: Queue the expression for async execution (FIXED - no immediate execution!)
                 // Instead of executing immediately, we queue the task for the host-side async runtime
                 let task_id = self.function_count;
-                let future_task_name = format!("future_task_{}", task_id);
+                let future_task_name = format!("future_task_{task_id}");
                 let _future_task_ptr = self.add_string_to_pool(&future_task_name);
                 let _future_task_len = future_task_name.len() as i32;
                 
                 // Create future task metadata
-                let future_metadata = format!("{{\"id\":{},\"name\":\"{}\",\"type\":\"future\",\"priority\":\"normal\"}}", 
-                                             task_id, future_task_name);
+                let future_metadata = format!("{{\"id\":{task_id},\"name\":\"{future_task_name}\",\"type\":\"future\",\"priority\":\"normal\"}}");
                 let future_metadata_ptr = self.add_string_to_pool(&future_metadata);
                 let future_metadata_len = future_metadata.len() as i32;
                 
@@ -2843,7 +2845,7 @@ impl CodeGenerator {
         // self.register_simple_string_concat()?;
         
         // 5. Register matrix operations
-        // self.register_matrix_operations()?;
+        self.register_matrix_operations()?;
         
         // 6. Register numeric operations
         self.register_numeric_operations()?;
@@ -2854,6 +2856,9 @@ impl CodeGenerator {
         // 8. Register type conversion operations
         self.register_type_conversion_operations()?;
         
+        // 8.5. Register file operations
+        self.register_file_operations()?;
+        
         // 9. Register basic array_get fallback
         self.register_basic_array_get_fallback()?;
         
@@ -2861,24 +2866,19 @@ impl CodeGenerator {
         self.pre_allocate_conversion_strings()?;
         
         // 9. Register console input operations
-        // TEMPORARILY DISABLED to isolate WASM runtime issues
-        // self.register_console_operations()?;
+        self.register_console_operations()?;
         
         // 10. Register HTTP operations
-        // TEMPORARILY DISABLED to isolate WASM runtime issues
-        // self.register_http_operations()?;
+        self.register_http_operations()?;
         
         // 11. Register math operations
-        // TEMPORARILY DISABLED to isolate WASM runtime issues
-        // self.register_math_operations()?;
+        self.register_math_operations()?;
         
         // 12. Register string class operations
-        // TEMPORARILY DISABLED to isolate WASM runtime issues
-        // self.register_string_class_operations()?;
+        self.register_string_class_operations()?;
         
         // 13. Register list class operations
-        // TEMPORARILY DISABLED to isolate WASM runtime issues
-        // self.register_list_class_operations()?;
+        self.register_list_class_operations()?;
         
         Ok(())
     }
@@ -2891,6 +2891,18 @@ impl CodeGenerator {
         // Create a MatrixOperations instance and register its functions
         let matrix_ops = MatrixOperations::new();
         matrix_ops.register_functions(self)?;
+        
+        Ok(())
+    }
+
+    /// Register file operation functions using WASM instructions from FileClass
+    /// Only registers specification-compliant functions: file.read, file.write, file.append, file.exists, file.delete
+    fn register_file_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::file_class::FileClass;
+        
+        // Create a FileClass instance and register its functions
+        let file_class = FileClass::new();
+        file_class.register_functions(self)?;
         
         Ok(())
     }
@@ -3306,6 +3318,60 @@ impl CodeGenerator {
         Ok(())
     }
     
+    /// Register console operation functions using ConsoleOperations class
+    fn register_console_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::console_ops::ConsoleOperations;
+        
+        // Create a ConsoleOperations instance and register its functions
+        let console_ops = ConsoleOperations::new(65536); // Use same heap start as other operations
+        console_ops.register_functions(self)?;
+        
+        Ok(())
+    }
+    
+    /// Register HTTP operation functions using HttpClass
+    fn register_http_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::http_class::HttpClass;
+        
+        // Create an HttpClass instance and register its functions
+        let http_class = HttpClass::new();
+        http_class.register_functions(self)?;
+        
+        Ok(())
+    }
+    
+    /// Register math operation functions using MathClass
+    fn register_math_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::math_class::MathClass;
+        
+        // Create a MathClass instance and register its functions
+        let math_class = MathClass::new();
+        math_class.register_functions(self)?;
+        
+        Ok(())
+    }
+    
+    /// Register string class operation functions using StringClass
+    fn register_string_class_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::string_class::StringClass;
+        
+        // Create a StringClass instance and register its functions
+        let string_class = StringClass::new();
+        string_class.register_functions(self)?;
+        
+        Ok(())
+    }
+    
+    /// Register list class operation functions using ListClass
+    fn register_list_class_operations(&mut self) -> Result<(), CompilerError> {
+        use crate::stdlib::list_class::ListClass;
+        
+        // Create a ListClass instance and register its functions
+        let list_class = ListClass::new();
+        list_class.register_functions(self)?;
+        
+        Ok(())
+    }
 
     fn register_basic_array_get_fallback(&mut self) -> Result<(), CompilerError> {
         // Register a basic array_get fallback function
@@ -3867,7 +3933,7 @@ impl CodeGenerator {
         // Create a Function - parameters are automatically available as locals 0, 1, 2, ...
         // For complex functions, we need additional local variables beyond parameters
         // Determine how many locals are needed based on the highest LocalGet index in instructions
-        let _max_local_index = instructions.iter()
+        let max_local_index = instructions.iter()
             .filter_map(|inst| match inst {
                 Instruction::LocalGet(idx) | Instruction::LocalSet(idx) | Instruction::LocalTee(idx) => Some(*idx),
                 _ => None
@@ -3875,21 +3941,25 @@ impl CodeGenerator {
             .max()
             .unwrap_or(0);
         
-        // For simple stdlib functions, we typically don't need extra locals beyond parameters
-        // The basic arithmetic functions only use LocalGet(0) and LocalGet(1) which are the parameters
-        let locals_needed: Vec<(u32, wasm_encoder::ValType)> = vec![];
+        // Calculate how many locals we need beyond the parameters
+        let param_count = params.len() as u32;
+        let locals_needed: Vec<(u32, wasm_encoder::ValType)> = if max_local_index >= param_count {
+            // We need additional locals beyond parameters
+            let additional_locals = max_local_index - param_count + 1;
+            (0..additional_locals).map(|_| (1u32, wasm_encoder::ValType::I32)).collect()
+        } else {
+            // No additional locals needed beyond parameters
+            vec![]
+        };
         
         let mut func = Function::new(locals_needed);
         for inst in instructions {
             func.instruction(inst);
         }
         
-        // For stdlib functions, we need to handle End instructions properly
-        // Most stdlib functions already include End instructions, but some might not
-        let has_end = matches!(instructions.last(), Some(Instruction::End));
-        if !has_end {
-            func.instruction(&Instruction::End);
-        }
+        // ALWAYS add End instruction for ALL stdlib functions
+        // This ensures proper WASM validation regardless of what stdlib functions return
+        func.instruction(&Instruction::End);
         
         // Add the function to the code section
         self.code_section.function(&func);
@@ -4956,8 +5026,13 @@ impl CodeGenerator {
 
     // Missing methods that are referenced in the code
     pub fn add_local(&mut self, wasm_type: WasmType) -> u32 {
-        let local_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
+        self.add_local_variable(wasm_type)
+    }
+
+    // Helper method to add a new local variable with correct WASM indexing
+    fn add_local_variable(&mut self, wasm_type: WasmType) -> u32 {
+        let local_index = self.current_function_param_count + self.current_function_locals.len() as u32;
+        self.current_function_locals.push(LocalVarInfo {
             index: local_index,
             type_: wasm_type.into(),
         });
@@ -5736,24 +5811,12 @@ impl CodeGenerator {
         
         self.generate_expression(collection, instructions)?;
         
-        let array_ptr_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: array_ptr_index,
-            type_: ValType::I32.into(),
-        });
+        let array_ptr_index = self.add_local_variable(WasmType::I32);
         instructions.push(Instruction::LocalSet(array_ptr_index));
         
-        let counter_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: counter_index,
-            type_: ValType::I32.into(),
-        });
+        let counter_index = self.add_local_variable(WasmType::I32);
         
-        let iterator_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: iterator_index,
-            type_: element_val_type.into(),
-        });
+        let iterator_index = self.add_local_variable(element_val_type.into());
         
         self.variable_map.insert(iterator.clone(), LocalVarInfo {
             index: iterator_index,
@@ -5768,11 +5831,7 @@ impl CodeGenerator {
             memory_index: 0,
         }));
         
-        let length_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: length_index,
-            type_: ValType::I32.into(),
-        });
+        let length_index = self.add_local_variable(WasmType::I32);
         instructions.push(Instruction::LocalSet(length_index));
         
         instructions.push(Instruction::I32Const(0));
@@ -5874,13 +5933,9 @@ impl CodeGenerator {
         for assignment in assignments {
             if let Some(init_expr) = &assignment.initializer {
                 self.generate_expression(init_expr, instructions)?;
-                let local_index = self.current_locals.len() as u32;
                 let wasm_type = self.ast_type_to_wasm_type(type_)?;
+                let local_index = self.add_local_variable(wasm_type);
                 
-                self.current_locals.push(LocalVarInfo {
-                    index: local_index,
-                    type_: wasm_type.into(),
-                });
                 self.variable_map.insert(assignment.name.clone(), LocalVarInfo {
                     index: local_index,
                     type_: wasm_type.into(),
@@ -5937,15 +5992,11 @@ impl CodeGenerator {
 
     fn generate_constant_apply_block_statement(&mut self, constants: &[ast::ConstantAssignment], instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
         for constant in constants {
-            let local_index = self.current_locals.len() as u32;
             let wasm_type = self.ast_type_to_wasm_type(&constant.type_)?;
             
             self.generate_expression(&constant.value, instructions)?;
             
-            self.current_locals.push(LocalVarInfo {
-                index: local_index,
-                type_: wasm_type.into(),
-            });
+            let local_index = self.add_local_variable(wasm_type);
             self.variable_map.insert(constant.name.clone(), LocalVarInfo {
                 index: local_index,
                 type_: wasm_type.into(),
@@ -6008,23 +6059,11 @@ impl CodeGenerator {
     }
 
     fn generate_range_iterate_statement(&mut self, iterator: &String, start: &Expression, end: &Expression, step: Option<&Expression>, body: &[Statement], instructions: &mut Vec<Instruction>) -> Result<(), CompilerError> {
-        let counter_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: counter_index,
-            type_: ValType::I32.into(),
-        });
+        let counter_index = self.add_local_variable(WasmType::I32);
         
-        let end_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: end_index,
-            type_: ValType::I32.into(),
-        });
+        let end_index = self.add_local_variable(WasmType::I32);
         
-        let step_index = self.current_locals.len() as u32;
-        self.current_locals.push(LocalVarInfo {
-            index: step_index,
-            type_: ValType::I32.into(),
-        });
+        let step_index = self.add_local_variable(WasmType::I32);
         
         self.variable_map.insert(iterator.clone(), LocalVarInfo {
             index: counter_index,
@@ -6108,15 +6147,14 @@ impl CodeGenerator {
         let future_type = self.generate_expression(&start_expr, instructions)?;
         
         // Create a local variable to store the future handle
-        let local_info = LocalVarInfo {
-            index: self.current_locals.len() as u32,
-            type_: future_type.into(),
-        };
-        instructions.push(Instruction::LocalSet(local_info.index));
+        let local_index = self.add_local_variable(future_type);
+        instructions.push(Instruction::LocalSet(local_index));
         
         // Register the variable so it can be accessed later
-        self.variable_map.insert(variable.clone(), local_info.clone());
-        self.current_locals.push(local_info);
+        self.variable_map.insert(variable.clone(), LocalVarInfo {
+            index: local_index,
+            type_: future_type.into(),
+        });
         
         Ok(())
     }
