@@ -18,12 +18,8 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
         Rule::generic_type => parse_generic_type(inner),
         Rule::type_parameter => {
             let type_name = inner.as_str().to_string();
-            // Handle "any" as a special type parameter
-            if type_name == "any" {
-                Ok(Type::TypeParameter(type_name))
-            } else {
-                Ok(Type::TypeParameter(type_name))
-            }
+            // Handle all type parameters uniformly
+            Ok(Type::TypeParameter(type_name))
         },
         Rule::identifier => parse_basic_type(inner),
         Rule::matrix_type => parse_matrix_type(inner),
@@ -112,7 +108,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
                 "void" => Ok(Type::Void),
                 "any" => Ok(Type::Any),
                 _ => Err(CompilerError::parse_error(
-                    format!("Unknown core type: {}", type_str),
+                    format!("Unknown core type: {type_str}"),
                     None,
                     Some("Valid core types are: boolean, integer, number, string, void, any".to_string())
                 ))
@@ -142,7 +138,7 @@ pub fn parse_type(pair: Pair<Rule>) -> Result<Type, CompilerError> {
             // Parse size specifier like ":8" or ":8u"
             let size_str = &size_spec[1..].trim(); // Remove the ':' and trim whitespace
             let (bits, unsigned) = if size_str.ends_with('u') {
-                let bits_str = &size_str[..size_str.len()-1];
+                let bits_str = size_str.strip_suffix('u').unwrap();
                 (bits_str.parse::<u8>().unwrap_or(32), true)
             } else {
                 (size_str.parse::<u8>().unwrap_or(32), false)

@@ -543,15 +543,6 @@ impl StringOperations {
             self.generate_string_trim()
         )?;
 
-        // Register string_trim_end_impl for compatibility with codegen
-        register_stdlib_function(
-            codegen,
-            "string_trim_end_impl",
-            &[WasmType::I32], // string
-            Some(WasmType::I32), // trimmed string
-            vec![Instruction::LocalGet(0)] // SIMPLIFIED STUB
-        )?;
-
         // Register string_to_lower_case_impl for compatibility with codegen
         register_stdlib_function(
             codegen,

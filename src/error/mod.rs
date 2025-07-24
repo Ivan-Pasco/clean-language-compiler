@@ -354,7 +354,7 @@ impl From<&str> for ErrorContext {
 impl fmt::Display for ErrorContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let formatted: String = self.clone().into();
-        write!(f, "{}", formatted)
+        write!(f, "{formatted}")
     }
 }
 
@@ -692,13 +692,13 @@ impl CompilerError {
         );
         
         if let Some(available) = available_memory {
-            full_message.push_str(&format!("\nAvailable memory: {} bytes", available));
+            full_message.push_str(&format!("\nAvailable memory: {available} bytes"));
         }
         
-        let help = Some(format!(
+        let help = Some(
             "Consider reducing the size of data structures or optimizing memory usage. \
-            Large allocations may require increasing the memory limit."
-        ));
+            Large allocations may require increasing the memory limit.".to_string()
+        );
         
         CompilerError::Memory {
             context: Box::new(ErrorContext::new(full_message, help, ErrorType::Memory, location)
@@ -835,7 +835,7 @@ impl fmt::Display for CompilerError {
         }
 
         if let Some(help) = &context.help {
-            write!(f, "\n  Help: {}", help)?;
+            write!(f, "\n  Help: {help}")?;
         }
 
         Ok(())
@@ -847,7 +847,7 @@ impl Error for CompilerError {}
 impl From<wasmtime::MemoryAccessError> for CompilerError {
     fn from(error: wasmtime::MemoryAccessError) -> Self {
         CompilerError::memory_error(
-            format!("Memory access error: {}", error),
+            format!("Memory access error: {error}"),
             Some("Check memory bounds and access patterns".to_string()),
             None,
         )
@@ -938,12 +938,12 @@ impl fmt::Display for CompilerWarning {
         
         if let Some(help) = &self.help {
             writeln!(f)?;
-            write!(f, "  = help: {}", help)?;
+            write!(f, "  = help: {help}")?;
         }
         
         if let Some(suggestion) = &self.suggestion {
             writeln!(f)?;
-            write!(f, "  = suggestion: {}", suggestion)?;
+            write!(f, "  = suggestion: {suggestion}")?;
         }
         
         Ok(())
@@ -973,7 +973,7 @@ impl ErrorUtils {
             let is_error_line = line_num == location.line;
             
             if is_error_line {
-                snippet.push_str(&format!(" --> {}: {}\n", line_num, line_content));
+                snippet.push_str(&format!(" --> {line_num}: {line_content}\n"));
                 
                 // Add pointer to the specific column
                 let pointer_line = format!("     {}{}", 
@@ -982,7 +982,7 @@ impl ErrorUtils {
                 );
                 snippet.push_str(&format!("{pointer_line}\n"));
             } else {
-                snippet.push_str(&format!("     {}: {}\n", line_num, line_content));
+                snippet.push_str(&format!("     {line_num}: {line_content}\n"));
             }
         }
         
@@ -1121,7 +1121,7 @@ impl ErrorUtils {
             
             if line_idx == error_line_idx {
                 // This is the error line - add highlighting
-                snippet.push_str(&format!("{:4} | {}\n", line_num, line_content));
+                snippet.push_str(&format!("{line_num:4} | {line_content}\n"));
                 
                 // Add error pointer
                 let pointer_offset = location.column.saturating_sub(1);
@@ -1144,7 +1144,7 @@ impl ErrorUtils {
                 snippet.push('\n');
             } else {
                 // Context line
-                snippet.push_str(&format!("{:4} | {}\n", line_num, line_content));
+                snippet.push_str(&format!("{line_num:4} | {line_content}\n"));
             }
         }
         
@@ -1166,7 +1166,7 @@ impl ErrorUtils {
 
                 if !positives.is_empty() {
                     let expected: Vec<String> = positives.iter()
-                        .map(|rule| ErrorUtils::rule_to_friendly_name(rule))
+                        .map(ErrorUtils::rule_to_friendly_name)
                         .collect();
                     
                     message = if expected.len() == 1 {
@@ -1181,7 +1181,7 @@ impl ErrorUtils {
 
                 if !negatives.is_empty() {
                     let unexpected: Vec<String> = negatives.iter()
-                        .map(|rule| ErrorUtils::rule_to_friendly_name(rule))
+                        .map(ErrorUtils::rule_to_friendly_name)
                         .collect();
                     
                     if !message.is_empty() {
@@ -1228,7 +1228,7 @@ impl ErrorUtils {
             Rule::NEWLINE => "newline".to_string(),
             Rule::INDENT => "indentation".to_string(),
             Rule::EOI => "end of input".to_string(),
-            _ => format!("{:?}", rule).to_lowercase(),
+            _ => format!("{rule:?}").to_lowercase(),
         }
     }
 

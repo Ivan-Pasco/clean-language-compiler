@@ -143,18 +143,12 @@ fn parse_iterate_statement(pair: Pair<Rule>, ast_location: crate::ast::SourceLoc
     
     let mut body = Vec::new();
     for part in parts {
-        match part.as_rule() {
-            Rule::indented_block => {
-                for stmt_pair in part.into_inner() {
-                    match stmt_pair.as_rule() {
-                        Rule::statement => {
-                            body.push(parse_statement(stmt_pair)?);
-                        },
-                        _ => {}
-            }
+        if part.as_rule() == Rule::indented_block {
+            for stmt_pair in part.into_inner() {
+                if stmt_pair.as_rule() == Rule::statement {
+                    body.push(parse_statement(stmt_pair)?);
                 }
-            },
-            _ => {}
+            }
         }
     }
 

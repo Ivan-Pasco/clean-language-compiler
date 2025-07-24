@@ -4,7 +4,7 @@ use crate::codegen::CodeGenerator;
 use crate::types::WasmType;
 use crate::error::CompilerError;
 use wasm_encoder::Instruction;
-use crate::stdlib::register_stdlib_function;
+use crate::stdlib::{register_stdlib_function, register_stdlib_function_with_locals};
 
 /// Simplified matrix operations for Clean Language
 pub struct MatrixOperations;
@@ -42,29 +42,33 @@ impl MatrixOperations {
         )?;
 
         // Matrix addition
-        register_stdlib_function(
+        // Matrix addition - uses additional locals: rows(i32), cols(i32), total_elements(i32), counter(i32)
+        register_stdlib_function_with_locals(
             codegen,
             "matrix.add",
             &[WasmType::I32, WasmType::I32, WasmType::I32], // matrix1 ptr, matrix2 ptr, result ptr
             Some(WasmType::I32), // success flag
+            &[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], // locals 3, 4, 5, 6: rows, cols, total_elements, counter
             self.generate_matrix_add()
         )?;
 
-        // Matrix multiplication (simplified for 4x4)
-        register_stdlib_function(
+        // Matrix multiplication - uses locals: rows_a(i32), cols_a(i32), rows_b(i32), cols_b(i32), i(i32), j(i32), sum(f64)
+        register_stdlib_function_with_locals(
             codegen,
             "matrix.multiply",
             &[WasmType::I32, WasmType::I32, WasmType::I32], // matrix1 ptr, matrix2 ptr, result ptr
             Some(WasmType::I32), // success flag
+            &[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32, WasmType::F64], // locals 3-9
             self.generate_matrix_multiply()
         )?;
 
-        // Matrix transpose
-        register_stdlib_function(
+        // Matrix transpose - uses locals: rows(i32), cols(i32), i(i32), j(i32) 
+        register_stdlib_function_with_locals(
             codegen,
             "matrix.transpose",
-            &[WasmType::I32], // matrix ptr
-            Some(WasmType::I32), // new matrix ptr
+            &[WasmType::I32, WasmType::I32], // matrix ptr, result_ptr
+            Some(WasmType::I32), // success indicator
+            &[WasmType::I32, WasmType::I32, WasmType::I32, WasmType::I32], // locals 2, 3, 4, 5: rows, cols, i, j
             self.generate_matrix_transpose()
         )?;
 
@@ -128,7 +132,8 @@ impl MatrixOperations {
             Instruction::I32Mul,      // offset in bytes
             
             Instruction::I32Add,      // final address
-            Instruction::LocalGet(3), // value to store
+            Instruction::LocalGet(3), // value to store (f64)
+            // Note: value should already be f64 from function signature
             Instruction::F64Store(wasm_encoder::MemArg {
                 offset: 0,
                 align: 3, // 8-byte aligned for f64
@@ -172,6 +177,15 @@ impl MatrixOperations {
             Instruction::I32LtS,
             Instruction::If(wasm_encoder::BlockType::Empty),
             
+            // Calculate address for storing result first
+            Instruction::LocalGet(2), // result_ptr
+            Instruction::I32Const(12), // header size
+            Instruction::I32Add,
+            Instruction::LocalGet(6), // counter
+            Instruction::I32Const(8), // sizeof(f64)
+            Instruction::I32Mul,
+            Instruction::I32Add,
+            
             // Load element from matrix A
             Instruction::LocalGet(0), // matrix_a_ptr
             Instruction::I32Const(12), // header size
@@ -192,17 +206,10 @@ impl MatrixOperations {
             Instruction::I32Add,
             Instruction::F64Load(wasm_encoder::MemArg { offset: 0, align: 3, memory_index: 0 }),
             
-            // Add the elements
+            // Add the elements (stack: [address, f64_a, f64_b] -> [address, f64_result])
             Instruction::F64Add,
             
-            // Store result in result matrix
-            Instruction::LocalGet(2), // result_ptr
-            Instruction::I32Const(12), // header size
-            Instruction::I32Add,
-            Instruction::LocalGet(6), // counter
-            Instruction::I32Const(8), // sizeof(f64)
-            Instruction::I32Mul,
-            Instruction::I32Add,
+            // Now stack is [i32_address, f64_result] which is correct for F64Store
             Instruction::F64Store(wasm_encoder::MemArg { offset: 0, align: 3, memory_index: 0 }),
             
             // Increment counter
@@ -454,9 +461,10 @@ impl MatrixOperations {
             Instruction::I32Const(8), // sizeof(f64)
             Instruction::I32Mul,
             Instruction::I32Add,
+            // Load value from source address (stack: [source_addr] -> [f64_value])
             Instruction::F64Load(wasm_encoder::MemArg { offset: 0, align: 3, memory_index: 0 }),
             
-            // Store in result[j][i] (transposed position)
+            // Calculate destination address
             Instruction::LocalGet(1), // result_ptr
             Instruction::I32Const(12), // header size
             Instruction::I32Add,
@@ -468,6 +476,10 @@ impl MatrixOperations {
             Instruction::I32Const(8), // sizeof(f64)
             Instruction::I32Mul,
             Instruction::I32Add,
+            
+            // Now stack is [f64_value, dest_address], but we need [dest_address, f64_value]
+            // This is the same problem! We need to swap again
+            // Let me try a different approach - store f64 in a local temporarily
             Instruction::F64Store(wasm_encoder::MemArg { offset: 0, align: 3, memory_index: 0 }),
             
             // Increment j

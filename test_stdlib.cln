@@ -1,0 +1,4 @@
+// Test stdlib functions
+start()
+    string upper = string.toUpperCase("hello")
+    print upper

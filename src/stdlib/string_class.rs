@@ -1650,8 +1650,8 @@ impl StringClass {
                         Instruction::I32Eq,
                         Instruction::I32Or,        // is whitespace
                         
-                        // If not whitespace, return false
-                        Instruction::If(wasm_encoder::BlockType::Result(wasm_encoder::ValType::I32)),
+                        // If IS whitespace, continue loop
+                        Instruction::If(wasm_encoder::BlockType::Empty),
                             // Increment counter and continue
                             Instruction::LocalGet(2), // i
                             Instruction::I32Const(1),
@@ -1660,6 +1660,7 @@ impl StringClass {
                             Instruction::Br(1),       // continue loop
                         Instruction::Else,
                             Instruction::I32Const(0), // return false - found non-whitespace
+                            Instruction::Return,       // exit function immediately
                         Instruction::End,
                     Instruction::End,
                 Instruction::End,

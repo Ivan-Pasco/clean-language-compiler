@@ -509,7 +509,7 @@ impl MemoryUtils {
         let len = bytes.len();
         
         // Debug: Log what we're allocating
-        eprintln!("DEBUG: Allocating '{}' (len={}) at address {}", s, len, target_addr);
+        eprintln!("DEBUG: Allocating '{s}' (len={len}) at address {target_addr}");
         
         // Create data segment for the string length (4 bytes, little-endian)
         let len_bytes = (len as u32).to_le_bytes().to_vec();
@@ -519,7 +519,7 @@ impl MemoryUtils {
         self.add_data_segment(target_addr + 4, bytes);
         
         // Debug: Log the bytes being written
-        eprintln!("DEBUG: Length bytes: {:?}, Content bytes: {:?}", len_bytes, bytes);
+        eprintln!("DEBUG: Length bytes: {len_bytes:?}, Content bytes: {bytes:?}");
         
         // Add to string pool for consistency
         self.string_pool.insert(s.to_string(), target_addr as usize);
@@ -578,7 +578,7 @@ impl MemoryUtils {
                         Value::Number(f) => *f,
                         Value::Boolean(b) => if *b { 1.0 } else { 0.0 },
                         _ => return Err(CompilerError::type_error(
-                            format!("Cannot convert {:?} to number for array storage", element),
+                            format!("Cannot convert {element:?} to number for array storage"),
                             None, None
                         )),
                     };
@@ -596,7 +596,7 @@ impl MemoryUtils {
                             str_ptr as u32
                         },
                         _ => return Err(CompilerError::type_error(
-                            format!("Cannot convert {:?} to I32 for array storage", element),
+                            format!("Cannot convert {element:?} to I32 for array storage"),
                             None, None
                         )),
                     };

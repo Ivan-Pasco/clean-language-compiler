@@ -81,7 +81,7 @@ impl SemanticAnalyzer {
         
         // Add to existing overloads or create new entry
         self.function_table.entry(name.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(overload);
     }
 
@@ -754,7 +754,7 @@ impl SemanticAnalyzer {
             while let Some(class_name) = current {
                 if visited.contains(&class_name) {
                     return Err(CompilerError::type_error(
-                        &format!("Inheritance cycle detected involving class '{class_name}'"),
+                        format!("Inheritance cycle detected involving class '{class_name}'"),
                         Some("Remove circular inheritance relationships".to_string()),
                         class.location.clone()
                     ));
@@ -940,7 +940,7 @@ impl SemanticAnalyzer {
                     let expr_type = self.check_expression(expr)?;
                     if !self.types_compatible(&expr_type, &function.return_type) {
                         return Err(CompilerError::type_error(
-                            &format!("Return type mismatch: expected {:?}, got {:?}", function.return_type, expr_type),
+                            format!("Return type mismatch: expected {:?}, got {:?}", function.return_type, expr_type),
                             Some("Make sure the last expression matches the function's return type".to_string()),
                             Some(self.get_expr_location(expr))
                         ));
@@ -950,7 +950,7 @@ impl SemanticAnalyzer {
                     let expr_type = self.check_expression(expr)?;
                     if !self.types_compatible(&expr_type, &function.return_type) {
                         return Err(CompilerError::type_error(
-                            &format!("Return type mismatch: expected {:?}, got {:?}", function.return_type, expr_type),
+                            format!("Return type mismatch: expected {:?}, got {:?}", function.return_type, expr_type),
                             Some("Make sure the return expression matches the function's return type".to_string()),
                             Some(self.get_expr_location(expr))
                         ));
@@ -1112,7 +1112,7 @@ impl SemanticAnalyzer {
                         _ => {
                             // For other types, we'll allow the method call but issue a warning
                             self.warnings.push(CompilerWarning::new(
-                                &format!("Cannot verify method '{}' on type {:?}", method_name, object_type),
+                                &format!("Cannot verify method '{method_name}' on type {object_type:?}"),
                                 WarningType::TypeInference,
                                 None
                             ));
@@ -1150,7 +1150,7 @@ impl SemanticAnalyzer {
                 if let Some(var_type) = self.current_scope.lookup_variable(target) {
                     if !self.types_compatible(&var_type, &value_type) {
                         return Err(CompilerError::type_error(
-                            &format!("Cannot assign {:?} to variable of type {:?}", value_type, var_type),
+                            &format!("Cannot assign {value_type:?} to variable of type {var_type:?}"),
                             Some("Ensure the assignment value matches the variable type".to_string()),
                             location.clone()
                         ));
@@ -1159,7 +1159,7 @@ impl SemanticAnalyzer {
                 Ok(())
                 } else {
                     Err(CompilerError::type_error(
-                        &format!("Variable '{}' not found", target),
+                        &format!("Variable '{target}' not found"),
                         Some("Check if the variable name is correct and the variable is declared".to_string()),
                         location.clone()
                     ))
@@ -1185,14 +1185,14 @@ impl SemanticAnalyzer {
                         let expr_type = self.check_expression(expr)?;
                         if !self.types_compatible(&return_type_clone, &expr_type) {
                             return Err(CompilerError::type_error(
-                                &format!("Return type {:?} doesn't match expected return type {:?}", expr_type, return_type_clone),
+                                &format!("Return type {expr_type:?} doesn't match expected return type {return_type_clone:?}"),
                                 Some("Ensure the return value matches the function's return type".to_string()),
                                 location.clone()
                             ));
                         }
                     } else if *return_type != Type::Void {
                         return Err(CompilerError::type_error(
-                            &format!("Function expects return type {:?}, but no value returned", return_type),
+                            &format!("Function expects return type {return_type:?}, but no value returned"),
                             Some("Return a value of the expected type".to_string()),
                             location.clone()
                         ));
@@ -1211,7 +1211,7 @@ impl SemanticAnalyzer {
                 let condition_type = self.check_expression(condition)?;
                 if condition_type != Type::Boolean {
                     return Err(CompilerError::type_error(
-                        &format!("If condition must be boolean, found {:?}", condition_type),
+                        &format!("If condition must be boolean, found {condition_type:?}"),
                         Some("Use a boolean expression in the if condition".to_string()),
                         None
                     ));
@@ -1241,7 +1241,7 @@ impl SemanticAnalyzer {
                     Type::List(element_type) => *element_type,
                     Type::String => Type::String, // Iterating over characters
                     _ => return Err(CompilerError::type_error(
-                        &format!("Cannot iterate over type {:?}", collection_type),
+                        &format!("Cannot iterate over type {collection_type:?}"),
                         Some("Use an array, list, or string in iterate statements".to_string()),
                         None
                     ))
@@ -1278,7 +1278,7 @@ impl SemanticAnalyzer {
                     
                     if !self.types_compatible(&test_type, &expected_type) {
                         return Err(CompilerError::type_error(
-                            &format!("Test expression type {:?} doesn't match expected type {:?}", test_type, expected_type),
+                            &format!("Test expression type {test_type:?} doesn't match expected type {expected_type:?}"),
                             Some("Ensure the test expression and expected value have compatible types".to_string()),
                             test.location.clone()
                         ));
@@ -1306,7 +1306,7 @@ impl SemanticAnalyzer {
                         Err(CompilerError::enhanced_type_error(
                             "Error value must be a string, number, or convertible type".to_string(),
                             Some("String, Integer, or Number".to_string()),
-                            Some(format!("{:?}", message_type)),
+                            Some(format!("{message_type:?}")),
                             None,
                             vec![
                                 "Use a string literal like \"error message\"".to_string(),
@@ -1333,14 +1333,14 @@ impl SemanticAnalyzer {
                             if let Some(module) = import_resolution.resolved_imports.get(module_name) {
                                 if !module.exports.has_function(symbol_name) && !module.exports.has_class(symbol_name) {
                                     return Err(CompilerError::symbol_error(
-                                        format!("Symbol '{}' not found in module '{}'", symbol_name, module_name),
+                                        format!("Symbol '{symbol_name}' not found in module '{module_name}'"),
                                         symbol_name,
                                         Some(module_name)
                                     ));
                                 }
                             } else {
                                 return Err(CompilerError::import_error(
-                                    format!("Module '{}' not found", module_name),
+                                    format!("Module '{module_name}' not found"),
                                     module_name,
                                     location.clone()
                                 ));
@@ -1349,7 +1349,7 @@ impl SemanticAnalyzer {
                             // Whole module import - check if module exists
                             if !import_resolution.resolved_imports.contains_key(import_name) {
                                 return Err(CompilerError::import_error(
-                                    format!("Module '{}' not found", import_name),
+                                    format!("Module '{import_name}' not found"),
                                     import_name,
                                     location.clone()
                                 ));
@@ -1415,7 +1415,7 @@ impl SemanticAnalyzer {
                         enhanced_suggestions.push("Ensure the variable is declared before use".to_string());
                         
                         Err(CompilerError::enhanced_type_error(
-                            format!("Variable '{}' not found", name),
+                            format!("Variable '{name}' not found"),
                             Some("variable".to_string()),
                             None,
                             None,
@@ -1433,7 +1433,7 @@ impl SemanticAnalyzer {
                     enhanced_suggestions.push("Ensure the variable is declared before use".to_string());
                     
                     Err(CompilerError::enhanced_type_error(
-                        format!("Variable '{}' not found", name),
+                        format!("Variable '{name}' not found"),
                         Some("variable".to_string()),
                         None,
                         None,
@@ -1454,7 +1454,7 @@ impl SemanticAnalyzer {
                             Ok(expr_type)
                         } else {
                             Err(CompilerError::type_error(
-                                &format!("Cannot negate type {:?}", expr_type),
+                                &format!("Cannot negate type {expr_type:?}"),
                                 Some("Use numeric types for negation".to_string()),
                                 None
                     ))
@@ -1465,7 +1465,7 @@ impl SemanticAnalyzer {
                     Ok(Type::Boolean)
                 } else {
                             Err(CompilerError::type_error(
-                                &format!("Cannot apply logical NOT to type {:?}", expr_type),
+                                &format!("Cannot apply logical NOT to type {expr_type:?}"),
                                 Some("Use boolean expressions with NOT operator".to_string()),
                                 None
                             ))
@@ -1508,7 +1508,7 @@ impl SemanticAnalyzer {
                 // Check if this is a built-in class being called (should be a static method call instead)
                 if self.is_builtin_class(name) {
                     return Err(CompilerError::type_error(
-                        &format!("Built-in class '{}' cannot be called as a function", name),
+                        &format!("Built-in class '{name}' cannot be called as a function"),
                         Some("Use static method syntax like MathUtils.add(a, b) instead".to_string()),
                         None
                     ));
@@ -1529,13 +1529,13 @@ impl SemanticAnalyzer {
                                 }
                             }
                             Err(CompilerError::type_error(
-                                &format!("Property '{}' not found in class '{}'", property, class_name),
+                                &format!("Property '{property}' not found in class '{class_name}'"),
                                 Some("Check if the property name is correct".to_string()),
                                 None
                             ))
                         } else {
                             Err(CompilerError::type_error(
-                                &format!("Class '{}' not found", class_name),
+                                &format!("Class '{class_name}' not found"),
                                 Some("Check if the class name is correct".to_string()),
                                 None
                             ))
@@ -1546,14 +1546,14 @@ impl SemanticAnalyzer {
                         match property.as_str() {
                             "type" => Ok(Type::String), // Property access returns current behavior as string
                             _ => Err(CompilerError::type_error(
-                                &format!("Property '{}' not found on List type", property),
+                                &format!("Property '{property}' not found on List type"),
                                 Some("Available properties: type".to_string()),
                                 None
                             ))
                         }
                     },
                     _ => Err(CompilerError::type_error(
-                        &format!("Cannot access property '{}' on type {:?}", property, object_type),
+                        &format!("Cannot access property '{property}' on type {object_type:?}"),
                         Some("Properties can only be accessed on objects and lists".to_string()),
                         None
                     ))
@@ -1571,7 +1571,7 @@ impl SemanticAnalyzer {
                             "type" => {
                                 if value_type != Type::String {
                                     return Err(CompilerError::type_error(
-                                        &format!("List.type property expects string, found {:?}", value_type),
+                                        &format!("List.type property expects string, found {value_type:?}"),
                                         Some("Use string values like \"line\", \"pile\", or \"unique\"".to_string()),
                                         None
                                     ));
@@ -1611,7 +1611,7 @@ impl SemanticAnalyzer {
                             ))
                         } else {
                             Err(CompilerError::type_error(
-                                &format!("Class '{}' not found", class_name),
+                                &format!("Class '{class_name}' not found"),
                                 Some("Check if the class name is correct and the class is defined".to_string()),
                                 None
                             ))
@@ -1791,7 +1791,7 @@ impl SemanticAnalyzer {
                         if module_name.chars().next().unwrap_or('a').is_uppercase() {
                             return Err(CompilerError::type_error(
                                 format!("Function '{}' not found in module '{}'", method, module_name),
-                                Some(format!("Available functions can be checked in the module definition")),
+                                Some("Available functions can be checked in the module definition".to_string()),
                                 Some(location.clone())
                             ));
                         }
@@ -1822,7 +1822,7 @@ impl SemanticAnalyzer {
 
                 let current_class = self.class_table.get(current_class_name).cloned().ok_or_else(|| {
                     CompilerError::type_error(
-                        format!("Current class '{}' not found", current_class_name),
+                        format!("Current class '{current_class_name}' not found"),
                         None,
                         Some(location.clone())
                     )
@@ -1964,7 +1964,7 @@ impl SemanticAnalyzer {
                     Ok(Type::Object(class_name.clone()))
                 } else {
                     Err(CompilerError::type_error(
-                        &format!("Class '{}' not found", class_name),
+                        &format!("Class '{class_name}' not found"),
                         None,
                         None
                     ))
@@ -2056,7 +2056,7 @@ impl SemanticAnalyzer {
         
         let class = class_opt.ok_or_else(|| {
             CompilerError::type_error(
-                &format!("Class '{}' not found", class_name),
+                &format!("Class '{class_name}' not found"),
                 Some("Check if the class name is correct and the class is defined".to_string()),
                 Some(location.clone())
             )
@@ -2625,7 +2625,7 @@ impl SemanticAnalyzer {
                                 Some(location.clone())
                             ));
                         }
-                        return Ok(Type::Matrix(element_type.clone()));
+                        Ok(Type::Matrix(element_type.clone()))
                     },
                     "get" => {
                         if args.len() != 2 {
@@ -2646,7 +2646,7 @@ impl SemanticAnalyzer {
                                 ));
                             }
                         }
-                        return Ok((**element_type).clone());
+                        Ok((**element_type).clone())
                     },
                     "set" => {
                         if args.len() != 3 {
@@ -2682,7 +2682,7 @@ impl SemanticAnalyzer {
                                 Some(location.clone())
                             ));
                         }
-                        return Ok(Type::Void);
+                        Ok(Type::Void)
                     },
                     _ => {
                         return Err(CompilerError::type_error(
@@ -2707,7 +2707,7 @@ impl SemanticAnalyzer {
                 // Look up the class in the class table and clone the needed data
                 let class = self.class_table.get(class_name).cloned().ok_or_else(|| {
                     CompilerError::type_error(
-                        &format!("Class '{}' not found", class_name),
+                        &format!("Class '{class_name}' not found"),
                         Some("Check if the class name is correct and the class is defined".to_string()),
                         Some(location.clone())
                     )

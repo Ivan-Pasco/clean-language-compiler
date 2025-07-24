@@ -679,12 +679,15 @@ impl CodeGenerator {
             .collect::<Vec<_>>();
 
         let mut func = Function::new(locals);
-        // DEBUG: Print instructions for stack validation debugging
+        
+        // Add all instructions - they should already be properly structured
         for instruction in &instructions {
             func.instruction(instruction);
         }
         
-        // Always add End instruction for user-defined functions
+        // Always add END instruction to close the function body
+        // Control flow structures (Block, Loop, If) have their own END instructions
+        // but the function body itself always needs a final END
         func.instruction(&Instruction::End);
 
         // Add to code section
@@ -2526,7 +2529,7 @@ impl CodeGenerator {
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) },
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) },
                     _ => Err(CompilerError::type_error(
-                        format!("Unsupported mixed I32/F64 binary operator: {:?}", op), None, None
+                        format!("Unsupported mixed I32/F64 binary operator: {op:?}"), None, None
                     ))
                 }
             },
@@ -2545,19 +2548,18 @@ impl CodeGenerator {
                     ast::BinaryOperator::LessEqual => { instructions.push(Instruction::F64Le); Ok(WasmType::I32) },
                     ast::BinaryOperator::GreaterEqual => { instructions.push(Instruction::F64Ge); Ok(WasmType::I32) },
                     _ => Err(CompilerError::type_error(
-                        format!("Unsupported mixed F64/I32 binary operator: {:?}", op), None, None
+                        format!("Unsupported mixed F64/I32 binary operator: {op:?}"), None, None
                     ))
                 }
             },
             
             _ => {
                 Err(CompilerError::detailed_type_error(
-                    &format!("Type mismatch: Cannot apply {:?} to incompatible types", op),
+                    &format!("Type mismatch: Cannot apply {op:?} to incompatible types"),
                     left_type,
                     right_type,
                     None, 
-                    Some(format!("The operator {:?} cannot be applied to types {:?} and {:?}. Consider using type conversion.", 
-                        op, left_type, right_type))
+                    Some(format!("The operator {op:?} cannot be applied to types {left_type:?} and {right_type:?}. Consider using type conversion."))
                 ))
             }
         }
@@ -2597,7 +2599,7 @@ impl CodeGenerator {
                         Ok(WasmType::F64)
                     },
                     _ => Err(CompilerError::type_error(
-                        format!("Cannot negate type {:?}", operand_type),
+                        format!("Cannot negate type {operand_type:?}"),
                         None,
                         None
                     ))
@@ -2611,7 +2613,7 @@ impl CodeGenerator {
                         Ok(WasmType::I32)
                     },
                     _ => Err(CompilerError::type_error(
-                        format!("Cannot apply logical NOT to type {:?}", operand_type),
+                        format!("Cannot apply logical NOT to type {operand_type:?}"),
                         None,
                         None
                     ))
@@ -2687,7 +2689,7 @@ impl CodeGenerator {
             (t1, t2) if t1 == t2 => Ok(()), 
             // Unsupported conversion
             _ => Err(CompilerError::codegen_error(
-                format!("Cannot convert from {:?} to {:?}", from, to),
+                format!("Cannot convert from {from:?} to {to:?}"),
                 None, 
                 None
             )),
@@ -2750,7 +2752,7 @@ impl CodeGenerator {
                 Ok(WasmType::I32)
             }
             _ => Err(CompilerError::type_error(
-                &format!("Unsupported literal value: {:?}", value),
+                &format!("Unsupported literal value: {value:?}"),
                 Some("Use supported literal types".to_string()),
                 None
             )),
@@ -3439,7 +3441,7 @@ impl CodeGenerator {
                 } else {
                     // Variable not found in type context - this shouldn't happen for properly declared variables
                     // Default to i32 instead of unreliable name-based heuristics
-                    eprintln!("WARNING: Variable '{}' not found in type context, defaulting to i32", var_name);
+                    eprintln!("WARNING: Variable '{var_name}' not found in type context, defaulting to i32");
                     Ok(WasmType::I32)
                 }
             },
@@ -3910,6 +3912,54 @@ impl CodeGenerator {
         self.function_map.get("matrix_get").copied().unwrap_or(0)
     }
 
+    pub fn register_function_with_locals(&mut self, name: &str, params: &[WasmType], return_type: Option<WasmType>, 
+        local_types: &[WasmType], instructions: &[Instruction]) -> Result<u32, CompilerError>
+    {
+        // Get the current function index (this will be the index for the new function)
+        let function_index = self.function_count;
+        
+        // DEBUG: Print function registration info for function 75
+        if function_index == 75 {
+            println!("DEBUG: Function index 75 is '{name}'");
+        }
+        
+        // Register with instruction_generator for internal tracking
+        self.instruction_generator.register_function(name, params, return_type, instructions)?;
+        
+        // Add the function type to the type section
+        let type_index = self.add_function_type(params, return_type)?;
+        
+        // Add the function to the function section
+        self.function_section.function(type_index);
+        
+        // Create a Function with explicit local types
+        let locals_needed: Vec<(u32, wasm_encoder::ValType)> = local_types.iter()
+            .map(|wasm_type| (1u32, match wasm_type {
+                WasmType::I32 => wasm_encoder::ValType::I32,
+                WasmType::F64 => wasm_encoder::ValType::F64,
+                WasmType::I64 => wasm_encoder::ValType::I64,
+                WasmType::F32 => wasm_encoder::ValType::F32,
+                WasmType::V128 => wasm_encoder::ValType::V128,
+                WasmType::Unit => wasm_encoder::ValType::I32, // Default to I32 for Unit type
+            }))
+            .collect();
+            
+        let mut func = Function::new(locals_needed);
+        for inst in instructions {
+            func.instruction(inst);
+        }
+        
+        // Always add END instruction to close the function body
+        func.instruction(&Instruction::End);
+        
+        // Add the function body to the code section
+        self.code_section.function(&func);
+        
+        // Increment function count and return the index
+        self.function_count += 1;
+        Ok(function_index)
+    }
+
     pub fn register_function(&mut self, name: &str, params: &[WasmType], return_type: Option<WasmType>, 
         instructions: &[Instruction]) -> Result<u32, CompilerError>
     {
@@ -3946,6 +3996,7 @@ impl CodeGenerator {
         let locals_needed: Vec<(u32, wasm_encoder::ValType)> = if max_local_index >= param_count {
             // We need additional locals beyond parameters
             let additional_locals = max_local_index - param_count + 1;
+            // Default additional locals to I32, but this could be improved with type inference
             (0..additional_locals).map(|_| (1u32, wasm_encoder::ValType::I32)).collect()
         } else {
             // No additional locals needed beyond parameters
@@ -3953,12 +4004,13 @@ impl CodeGenerator {
         };
         
         let mut func = Function::new(locals_needed);
+        
+        // Add all generated instructions
         for inst in instructions {
             func.instruction(inst);
         }
         
-        // ALWAYS add End instruction for ALL stdlib functions
-        // This ensures proper WASM validation regardless of what stdlib functions return
+        // Always add END instruction to close the function body
         func.instruction(&Instruction::End);
         
         // Add the function to the code section
@@ -5976,15 +6028,9 @@ impl CodeGenerator {
             self.generate_expression(expr, instructions)?;
             
             if !method_chain.is_empty() {
-                let method_name = &method_chain[0];
-                
-                if method_name == "push" {
-                    instructions.push(Instruction::Drop);
-                    instructions.push(Instruction::Drop);
-                } else {
-                    instructions.push(Instruction::Drop);
-                    instructions.push(Instruction::Drop);
-                }
+                // Drop the two values on the stack (object and parameter)
+                instructions.push(Instruction::Drop);
+                instructions.push(Instruction::Drop);
             }
         }
         Ok(())
@@ -6515,9 +6561,12 @@ impl CodeGenerator {
         // Create function and add to code section
         let locals = vec![]; // No local variables needed
         let mut func = Function::new(locals);
+        // Add all generated instructions
         for instruction in &instructions {
             func.instruction(instruction);
         }
+        
+        // Always add END instruction to close the function body
         func.instruction(&Instruction::End);
         self.code_section.function(&func);
 
@@ -6561,9 +6610,12 @@ impl CodeGenerator {
         // Create function and add to code section
         let locals = vec![]; // No local variables needed
         let mut func = Function::new(locals);
+        // Add all generated instructions
         for instruction in &instructions {
             func.instruction(instruction);
         }
+        
+        // Always add END instruction to close the function body
         func.instruction(&Instruction::End);
         self.code_section.function(&func);
 

@@ -1,0 +1,2 @@
+start()
+    integer result = 42

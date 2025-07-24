@@ -50,9 +50,13 @@ pub struct StandardLibrary {
     math_class: MathClass,
     #[allow(dead_code)]
     string_class: StringClass,
+    #[allow(dead_code)]
     list_class: ListClass,
+    #[allow(dead_code)]
     file_class: FileClass,
+    #[allow(dead_code)]
     http_class: HttpClass,
+    #[allow(dead_code)]
     list_behavior: ListBehaviorManager,
     console_ops: ConsoleOperations,
     console_class: ConsoleClass,
@@ -82,12 +86,13 @@ impl StandardLibrary {
         self.matrix_ops.register_functions(codegen)?;
         self.type_conv.register_functions(codegen)?;
         self.math_class.register_functions(codegen)?;
-        // Re-enabling to test for specific control flow issues
-        self.string_class.register_functions(codegen)?;
-        self.list_class.register_functions(codegen)?;
-        self.file_class.register_functions(codegen)?;
-        self.http_class.register_functions(codegen)?;
-        self.list_behavior.register_functions(codegen)?;
+        // Temporarily disabling to isolate END opcode issue
+        // self.string_class.register_functions(codegen)?;
+        // Temporarily disabling to isolate END opcode issue
+        // self.list_class.register_functions(codegen)?;
+        // self.file_class.register_functions(codegen)?;
+        // self.http_class.register_functions(codegen)?;
+        // self.list_behavior.register_functions(codegen)?;
         self.console_ops.register_functions(codegen)?;
         self.console_class.register_functions(codegen)?;
         Ok(())
@@ -166,6 +171,18 @@ pub(crate) fn register_stdlib_function(
     instructions: Vec<Instruction>
 ) -> Result<u32, CompilerError> {
     codegen.register_function(name, params, return_type, &instructions)
+}
+
+/// Enhanced helper function to register stdlib functions with explicit local variable types
+pub(crate) fn register_stdlib_function_with_locals(
+    codegen: &mut CodeGenerator,
+    name: &str, 
+    params: &[WasmType], 
+    return_type: Option<WasmType>, 
+    local_types: &[WasmType], // Additional local variable types beyond parameters
+    instructions: Vec<Instruction>
+) -> Result<u32, CompilerError> {
+    codegen.register_function_with_locals(name, params, return_type, local_types, &instructions)
 }
 
 #[cfg(test)]

@@ -482,7 +482,7 @@ impl DependencyResolver {
     fn add_dependency(&mut self, name: String, spec: DependencySpec, is_dev: bool) -> Result<(), CompilerError> {
         self.dependencies
             .entry(name)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((spec, is_dev));
         Ok(())
     }

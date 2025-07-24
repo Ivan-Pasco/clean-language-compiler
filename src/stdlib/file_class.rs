@@ -192,6 +192,7 @@ impl FileClass {
         Ok(())
     }
     
+    #[allow(dead_code)]
     fn register_directory_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
         // File.listFiles(string path) -> array<string>
         register_stdlib_function(
@@ -241,6 +242,7 @@ impl FileClass {
         Ok(())
     }
     
+    #[allow(dead_code)]
     fn register_path_operations(&self, codegen: &mut CodeGenerator) -> Result<(), CompilerError> {
         // File.getFileName(string path) -> string
         register_stdlib_function(
@@ -317,11 +319,15 @@ impl FileClass {
             Instruction::LocalGet(0),
             Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // path length
             
-            // Call the file_read import function (expects 2 params: pathPtr, pathLen)
+            // Allocate memory for result string (placeholder - should be handled by host)
+            Instruction::I32Const(0), // resultPtr - let host handle allocation
+            
+            // Call the file_read import function (expects 3 params: pathPtr, pathLen, resultPtr)
             Instruction::Call(import_index),
         ])
     }
 
+    #[allow(dead_code)]
     fn generate_read_bytes(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.readBytes() is not yet supported by WebAssembly runtime");
@@ -335,6 +341,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_read_lines(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.readLines() is not yet supported by WebAssembly runtime");
@@ -375,6 +382,7 @@ impl FileClass {
         ])
     }
 
+    #[allow(dead_code)]
     fn generate_write_bytes(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.writeBytes() is not yet supported by WebAssembly runtime");
@@ -414,6 +422,7 @@ impl FileClass {
         ])
     }
 
+    #[allow(dead_code)]
     fn generate_copy(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.copy() is not yet supported by WebAssembly runtime");
@@ -425,6 +434,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_move(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.move() is not yet supported by WebAssembly runtime");
@@ -478,6 +488,7 @@ impl FileClass {
         ])
     }
 
+    #[allow(dead_code)]
     fn generate_is_file(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.isFile() is not yet supported by WebAssembly runtime");
@@ -489,6 +500,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_is_directory(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.isDirectory() is not yet supported by WebAssembly runtime");
@@ -500,6 +512,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_size(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.size() is not yet supported by WebAssembly runtime");
@@ -511,6 +524,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_last_modified(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.lastModified() is not yet supported by WebAssembly runtime");
@@ -522,6 +536,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_permissions(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.permissions() is not yet supported by WebAssembly runtime");
@@ -533,6 +548,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_list_files(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.listFiles() is not yet supported by WebAssembly runtime");
@@ -544,6 +560,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_list_directories(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.listDirectories() is not yet supported by WebAssembly runtime");
@@ -555,6 +572,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_create_directory(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.createDirectory() is not yet supported by WebAssembly runtime");
@@ -566,6 +584,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_create_directories(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.createDirectories() is not yet supported by WebAssembly runtime");
@@ -577,6 +596,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_delete_directory(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.deleteDirectory() is not yet supported by WebAssembly runtime");
@@ -588,6 +608,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_get_file_name(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.getFileName() is not yet supported by WebAssembly runtime");
@@ -599,6 +620,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_get_file_extension(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.getFileExtension() is not yet supported by WebAssembly runtime");
@@ -610,6 +632,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_get_directory(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.getDirectory() is not yet supported by WebAssembly runtime");
@@ -621,6 +644,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_get_absolute_path(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.getAbsolutePath() is not yet supported by WebAssembly runtime");
@@ -632,6 +656,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_join_path(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.joinPath() is not yet supported by WebAssembly runtime");
@@ -643,6 +668,7 @@ impl FileClass {
         ]
     }
 
+    #[allow(dead_code)]
     fn generate_normalize_path(&self) -> Vec<Instruction> {
         // Emit compile-time warning
         eprintln!("WARNING: File.normalizePath() is not yet supported by WebAssembly runtime");
