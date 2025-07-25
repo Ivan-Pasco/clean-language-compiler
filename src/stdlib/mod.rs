@@ -192,13 +192,13 @@ mod tests {
     #[test]
     fn test_stdlib_creation() {
         let _stdlib = StdLib::new();
-        assert!(true); // Basic test to ensure creation works
+        // Basic test to ensure creation works
     }
 
     #[test]
     fn test_runtime_creation() {
         let _runtime = Runtime::new();
-        assert!(true); // Basic test to ensure creation works
+        // Basic test to ensure creation works
     }
 
     #[test]

@@ -47,7 +47,15 @@ impl AsyncRuntime {
             message_receiver: Arc::new(Mutex::new(Some(receiver))),
         }
     }
-    
+}
+
+impl Default for AsyncRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AsyncRuntime {
     /// Start a background task
     pub async fn start_background_task<F, Fut>(&self, name: String, task: F) -> u32
     where
@@ -74,15 +82,12 @@ impl AsyncRuntime {
         let handle = tokio::spawn(async move {
             println!("🔄 Starting background task '{task_name}' (ID: {task_id})");
             
-            match task().await {
-                result => {
-                    println!("✅ Background task '{task_name}' completed with result: {result:?}");
-                    let _ = sender.send(AsyncMessage::TaskCompleted {
-                        id: task_id,
-                        result,
-                    });
-                }
-            }
+            let result = task().await;
+            println!("✅ Background task '{task_name}' completed with result: {result:?}");
+            let _ = sender.send(AsyncMessage::TaskCompleted {
+                id: task_id,
+                result,
+            });
         });
         
         // Store the task handle

@@ -190,7 +190,7 @@ impl PackageManager {
         
         fs::write(&path, content)
             .map_err(|e| CompilerError::io_error(
-                &format!("Failed to write package manifest: {}", e),
+                &format!("Failed to write package manifest: {e}"),
                 Some(path.as_ref().to_string_lossy().to_string()),
                 None
             ))?;
@@ -235,20 +235,19 @@ impl PackageManager {
         // Create basic project structure
         let src_dir = project_dir.as_ref().join("src");
         fs::create_dir_all(&src_dir)
-            .map_err(|e| CompilerError::io_error(&format!("Failed to create src directory: {}", e), None, None))?;
+            .map_err(|e| CompilerError::io_error(&format!("Failed to create src directory: {e}"), None, None))?;
             
         // Create main.clean file
         let main_file = src_dir.join("main.clean");
         if !main_file.exists() {
-            let main_content = format!(
-                "// {} - Clean Language Package\n\nfunction start()\n\tprint(\"Hello from {}!\")\n",
-                name, name
+                          let main_content = format!(
+                "// {name} - Clean Language Package\n\nfunction start()\n\tprint(\"Hello from {name}!\")\n"
             );
             fs::write(&main_file, main_content)
-                .map_err(|e| CompilerError::io_error(&format!("Failed to create main.clean: {}", e), None, None))?;
+                .map_err(|e| CompilerError::io_error(&format!("Failed to create main.clean: {e}"), None, None))?;
         }
         
-        println!("✅ Initialized Clean Language package: {}", name);
+        println!("✅ Initialized Clean Language package: {name}");
         Ok(manifest)
     }
     

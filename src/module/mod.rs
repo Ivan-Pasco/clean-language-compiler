@@ -363,7 +363,7 @@ mod tests {
     fn test_module_resolver_creation() {
         let resolver = ModuleResolver::new();
         assert_eq!(resolver.module_cache.len(), 0);
-        assert!(resolver.module_paths.len() > 0);
+        assert!(!resolver.module_paths.is_empty());
     }
 
     #[test]

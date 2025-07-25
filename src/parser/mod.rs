@@ -279,16 +279,16 @@ start()
 
     #[test]
     fn test_complex_error_cases() {
-        let test_cases = vec![
+                let test_cases = [
             // Invalid syntax: incomplete expression
             r#"start()
-	integer x = 5 +"#,
+    integer x = 5 +"#,
             // Invalid syntax: invalid token sequence  
             r#"start()
-	integer @ invalid"#,
+    integer @ invalid"#,
             // Invalid syntax: incomplete onError clause
             r#"start()
-	integer x = divide(10, 0) onError"#,
+    integer x = divide(10, 0) onError"#,
         ];
 
         for (i, source) in test_cases.iter().enumerate() {

@@ -67,7 +67,7 @@ jobs:
     - name: Test cln binary (Unix)
       if: matrix.os != 'windows-latest'
       run: |
-        ./build/release/cln version
+        ./target/release/cln version
         echo "Testing cln binary works on ${{ matrix.os }}"
 
     - name: Test cln binary (Windows)

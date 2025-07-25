@@ -67,7 +67,15 @@ impl FutureResolver {
             message_receiver: Arc::new(Mutex::new(Some(receiver))),
         }
     }
-    
+}
+
+impl Default for FutureResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FutureResolver {
     /// Create a new future with a unique ID
     pub fn create_future(&self, name_hint: Option<String>) -> String {
         let future_id = {

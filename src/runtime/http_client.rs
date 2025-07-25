@@ -197,12 +197,18 @@ impl HttpClient {
     }
 }
 
+impl Default for HttpClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Global HTTP client instance
 static HTTP_CLIENT: OnceLock<HttpClient> = OnceLock::new();
 
 /// Initialize the global HTTP client
 pub fn init_http_client() {
-    HTTP_CLIENT.get_or_init(|| HttpClient::new());
+    HTTP_CLIENT.get_or_init(HttpClient::new);
 }
 
 /// Get the global HTTP client
