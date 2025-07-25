@@ -1,6 +1,6 @@
 [package]
 name = "clean-language-compiler"
-version = "0.1.4"
+version = "0.1.6"
 authors = ["Ivan Pasco Lizarraga"]
 edition = "2021"
 homepage = "https://www.cleanlanguage.dev"
@@ -18,7 +18,7 @@ lazy_static = "1.5"
 # WebAssembly
 wasm-encoder = "0.35"
 wasmparser = "0.121"
-wasmtime = "16.0"
+wasmtime = "24.0"
 wat = "1.0"
 
 # Error handling
