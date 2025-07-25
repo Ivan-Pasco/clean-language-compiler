@@ -1,4 +1,0 @@
-start()
-	list<integer> numbers = [1, 2, 3]
-	iterate item in numbers
-		print(item)
