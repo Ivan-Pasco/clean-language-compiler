@@ -117,8 +117,8 @@ impl ConsoleOperations {
             Instruction::LocalGet(1), // prompt_len
             
             // Call host function input(prompt_ptr, prompt_len) -> string_ptr
-            // This calls the runtime input function
-            Instruction::Call(0), // Placeholder - will be resolved to actual import index
+            // This calls the runtime input function (import index 2)
+            Instruction::Call(2), // input is at import index 2
         ]
     }
 
@@ -130,8 +130,8 @@ impl ConsoleOperations {
             Instruction::LocalGet(1), // prompt_len
             
             // Call host function input_integer(prompt_ptr, prompt_len) -> integer
-            // This calls the runtime input_integer function with validation
-            Instruction::Call(1), // Placeholder - will be resolved to actual import index
+            // This calls the runtime input_integer function with validation (import index 3)
+            Instruction::Call(3), // input_integer is at import index 3
         ]
     }
 
@@ -142,9 +142,9 @@ impl ConsoleOperations {
             Instruction::LocalGet(0), // prompt_ptr
             Instruction::LocalGet(1), // prompt_len
             
-            // Call host function input_float(prompt_ptr, prompt_len) -> number
-            // This calls the runtime input_float function with validation
-            Instruction::Call(2), // Placeholder - will be resolved to actual import index
+            // Call host function input_number(prompt_ptr, prompt_len) -> number
+            // This calls the runtime input_number function with validation (import index 4)
+            Instruction::Call(4), // input_number is at import index 4
         ]
     }
 
@@ -156,8 +156,8 @@ impl ConsoleOperations {
             Instruction::LocalGet(1), // prompt_len
             
             // Call host function input_yesno(prompt_ptr, prompt_len) -> boolean
-            // This calls the runtime input_yesno function with validation
-            Instruction::Call(3), // Placeholder - will be resolved to actual import index
+            // This calls the runtime input_yesno function with validation (import index 5)
+            Instruction::Call(5), // input_yesno is at import index 5
         ]
     }
 
@@ -169,8 +169,8 @@ impl ConsoleOperations {
             Instruction::LocalGet(1), // prompt_len
             
             // Call host function input_yesno(prompt_ptr, prompt_len) -> boolean
-            // This calls the runtime input_yesno function with y/n validation
-            Instruction::Call(3), // Placeholder - will be resolved to actual import index
+            // This calls the runtime input_yesno function with y/n validation (import index 5)
+            Instruction::Call(5), // input_yesno is at import index 5
         ]
     }
 
@@ -184,8 +184,8 @@ impl ConsoleOperations {
             Instruction::LocalGet(3), // max
             
             // Call host function input_range(prompt_ptr, prompt_len, min, max) -> integer
-            // This calls a new runtime function for range validation
-            Instruction::Call(4), // Placeholder - will be resolved to actual import index
+            // This calls a new runtime function for range validation (import index 6)
+            Instruction::Call(6), // input_range is at import index 6
         ]
     }
 }

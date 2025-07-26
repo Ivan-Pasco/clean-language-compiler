@@ -174,6 +174,18 @@ impl InstructionGenerator {
         self.variable_map.insert(name.to_string(), local_info);
     }
 
+    /// Add a local variable and return its index
+    #[allow(dead_code)]
+    pub(crate) fn add_local(&mut self, wasm_type: WasmType) -> u32 {
+        let index = self.current_locals.len() as u32;
+        let local_info = LocalVarInfo {
+            index,
+            type_: wasm_type.into(),
+        };
+        self.current_locals.push(local_info);
+        index
+    }
+
     /// Generate instructions for a binary operation
     #[allow(dead_code)]
     pub(crate) fn generate_binary_operation(
@@ -524,10 +536,29 @@ impl InstructionGenerator {
                         // For I32, we need to convert it to a string using int_to_string
                         if let Some(int_to_string_index) = self.get_function_index("int_to_string") {
                             instructions.push(Instruction::Call(int_to_string_index));
+                            
+                            // int_to_string returns a string pointer, we need to extract pointer + length
+                            // Store the string pointer in a local for reuse
+                            let string_ptr_local = self.add_local(WasmType::I32);
+                            instructions.push(Instruction::LocalSet(string_ptr_local));
+                            
+                            // Calculate content pointer (string_ptr + 4)
+                            instructions.push(Instruction::LocalGet(string_ptr_local));
+                            instructions.push(Instruction::I32Const(4)); // Skip length field
+                            instructions.push(Instruction::I32Add);
+                            
+                            // Load string length (at offset 0 from string pointer)
+                            instructions.push(Instruction::LocalGet(string_ptr_local));
+                            instructions.push(Instruction::I32Load(MemArg {
+                                offset: 0,
+                                align: 2,
+                                memory_index: 0,
+                            }));
                         } else {
-                            // Fallback: Drop the i32 and use a placeholder string
+                            // Fallback: Drop the i32 and use a placeholder string with length
                             instructions.push(Instruction::Drop);
-                            instructions.push(Instruction::I32Const(330)); // "[int]" placeholder address
+                            instructions.push(Instruction::I32Const(334)); // "[int]" placeholder content address (skip 4-byte length)
+                            instructions.push(Instruction::I32Const(5)); // "[int]" length
                         }
                     },
                     WasmType::Unit => {

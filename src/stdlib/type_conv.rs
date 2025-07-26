@@ -124,29 +124,32 @@ impl TypeConvOperations {
             self.generate_parse_bool_function()
         )?;
 
-        register_stdlib_function(
-            codegen,
-            "bool_to_string",
-            &params_to_types(&[(WasmType::I32, "value".to_string())]),
-            Some(WasmType::I32),
-            self.generate_bool_to_string_function()
-        )?;
+        // REMOVED: bool_to_string is now imported from runtime, not generated as stdlib function
+        // register_stdlib_function(
+        //     codegen,
+        //     "bool_to_string",
+        //     &params_to_types(&[(WasmType::I32, "value".to_string())]),
+        //     Some(WasmType::I32),
+        //     self.generate_bool_to_string_function()
+        // )?;
 
-        register_stdlib_function(
-            codegen,
-            "int_to_string",
-            &params_to_types(&[(WasmType::I32, "value".to_string())]),
-            Some(WasmType::I32),
-            self.generate_int_to_string_function()
-        )?;
+        // REMOVED: int_to_string is now imported from runtime, not generated as stdlib function
+        // register_stdlib_function(
+        //     codegen,
+        //     "int_to_string",
+        //     &params_to_types(&[(WasmType::I32, "value".to_string())]),
+        //     Some(WasmType::I32),
+        //     self.generate_int_to_string_function()
+        // )?;
 
-        register_stdlib_function(
-            codegen,
-            "float_to_string",
-            &params_to_types(&[(WasmType::F64, "value".to_string())]),
-            Some(WasmType::I32),
-            self.generate_float_to_string_function()
-        )?;
+        // REMOVED: float_to_string is now imported from runtime, not generated as stdlib function
+        // register_stdlib_function(
+        //     codegen,
+        //     "float_to_string",
+        //     &params_to_types(&[(WasmType::F64, "value".to_string())]),
+        //     Some(WasmType::I32),
+        //     self.generate_float_to_string_function()
+        // )?;
         
         // Add a separate number_to_string for explicit F64 conversion
         register_stdlib_function(
@@ -372,27 +375,28 @@ impl TypeConvOperations {
         ]
     }
 
-    fn generate_bool_to_string_function(&self) -> Vec<Instruction> {
-        // SIMPLIFIED: Convert boolean to string - return fixed pointer
-        // Parameters: boolean_value (i32) 
-        // Returns: string pointer (i32)
-        
-        vec![
-            // Return the actual address where "true" was allocated
-            Instruction::I32Const(300), // Return pointer to "true" (non-overlapping)
-        ]
-    }
+    // REMOVED: These functions are no longer used since we use imported type conversion functions
+    // fn generate_bool_to_string_function(&self) -> Vec<Instruction> {
+    //     // SIMPLIFIED: Convert boolean to string - return fixed pointer
+    //     // Parameters: boolean_value (i32) 
+    //     // Returns: string pointer (i32)
+    //     
+    //     vec![
+    //         // Return the actual address where "true" was allocated
+    //         Instruction::I32Const(300), // Return pointer to "true" (non-overlapping)
+    //     ]
+    // }
 
-    fn generate_int_to_string_function(&self) -> Vec<Instruction> {
-        // SIMPLIFIED: Convert integer to string - return specific addresses for known values
-        // Parameters: integer_value (i32)
-        // Returns: string pointer (i32)
-        
-        vec![
-            // For now, just return "42" for all values to test basic functionality
-            Instruction::I32Const(320), // Return pointer to "42" (non-overlapping)
-        ]
-    }
+    // fn generate_int_to_string_function(&self) -> Vec<Instruction> {
+    //     // SIMPLIFIED: Convert integer to string - return specific addresses for known values
+    //     // Parameters: integer_value (i32)
+    //     // Returns: string pointer (i32)
+    //     
+    //     vec![
+    //         // For now, just return "42" for all values to test basic functionality
+    //         Instruction::I32Const(320), // Return pointer to "42" (non-overlapping)
+    //     ]
+    // }
 
     fn generate_float_to_string_function(&self) -> Vec<Instruction> {
         // SIMPLIFIED: Convert float to string - return fixed pointer

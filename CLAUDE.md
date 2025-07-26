@@ -8,6 +8,8 @@ This is a Rust-based compiler for Clean Language, a type-safe programming langua
 
 Language characteristics are described in the [Language Specification](./Language-Specification.md). if you find something that is not described in the specification, propose a change to the specification before implementing it. When something is added you need to update the specification.
 
+this is a full implementation, all the functions should do the complete expected work, no placeholders or fallback implementations.
+
 ## Common Commands
 
 ### Building and Testing

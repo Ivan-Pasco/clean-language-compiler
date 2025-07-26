@@ -72,20 +72,87 @@ Recent successfully completed tasks:
 
 ---
 
+---
+
+## **🔴 CRITICAL PRIORITY - NEWLY DISCOVERED ISSUES**
+
+### **PRIORITY 1: .toString() Method Implementation Missing** 🔴 **URGENT**
+**Status**: ❌ **CRITICAL FAILURE** - Core functionality broken
+**Issue**: Number/Integer .toString() method calls are not properly implemented
+**Impact**: Prevents string conversion of numeric values, breaking core functionality
+
+**Root Cause**:
+- Compilation logs show: `Function 'sum_val.toString' not found in function table`
+- Similar errors for: `diff_val.toString`, `mult_val.toString`, `div_val.toString`, `first_num.toString`, `second_num.toString`, `completedCount.toString`, `totalCount.toString`
+- Test output shows `3.143.143.143.14` instead of proper number-to-string conversion
+
+**Files Affected**:
+- `tests/clean_files/25_stdlib_functions.cln` - Multiple .toString() calls fail
+- `tests/clean_files/28_complex_example.cln` - Task completion counter broken
+- All files using numeric-to-string conversion
+
+**Evidence**:
+- Expected: `18.0` `14.0` `32.0` `8.0` for arithmetic results
+- Actual: `3.143.143.143.14` (concatenated without conversion)
+- Expected: Full task list with completion status  
+- Actual: Only "Tasks:" printed, missing all task details
+
+---
+
+### **PRIORITY 2: String Concatenation + Conversion Chain Broken** 🔴 **URGENT**
+**Status**: ❌ **CRITICAL FAILURE** - Runtime logic errors
+**Issue**: Complex expressions with string concatenation and method calls fail
+**Impact**: Prevents proper output formatting and user-facing functionality
+
+**Root Cause**:
+- Expression: `"Completed: " + completedCount.toString() + "/" + totalCount.toString()`
+- Chain breaks at first .toString() call, preventing full expression evaluation
+- Function resolution fails for method calls on variable instances
+
+**Files Affected**:
+- `tests/clean_files/28_complex_example.cln:20` - Task completion display broken
+- Any file using chained string operations with method calls
+
+---
+
+### **PRIORITY 3: Function Call Resolution for Object Methods** 🟡 **HIGH**
+**Status**: ❌ **NEEDS IMPLEMENTATION** - Missing core feature
+**Issue**: Method calls on variable instances (e.g., `variable.method()`) not properly resolved
+**Impact**: Breaks object-oriented functionality and method chaining
+
+**Root Cause Analysis Required**:
+- Need to examine `src/codegen/` method call generation
+- Check function table registration for instance methods
+- Verify semantic analysis handles method resolution on typed variables
+
+---
+
+### **PRIORITY 4: Dead Code Warning** 🟢 **LOW**
+**Status**: ⚠️ **CLEANUP NEEDED** - Code quality issue
+**Issue**: `get_semantic_type_for_expression` method never used
+**Impact**: Code maintenance and build warnings
+
+**File**: `src/codegen/mod.rs:5218`
+**Action**: Remove unused method or implement its intended functionality
+
+---
+
 ## **Development Status Summary**
 
 **✅ Working Components**:
-- Core language parsing and compilation
-- Standard library function registration (file, math, string operations)
-- Type system and semantic analysis
-- Code generation infrastructure
-- Modern Rust code patterns
+- Core language parsing and compilation ✅
+- Basic WASM generation and execution ✅
+- Standard library function registration ✅
+- Type system and semantic analysis ✅
+- Simple expressions and arithmetic ✅
 
-**❌ Critical Issue**:
-- WASM binary validation prevents runtime execution
-- All other functionality depends on resolving this core issue
+**❌ Critical Issues**:
+- Object method calls (.toString(), etc.) completely broken ❌
+- String concatenation with method calls fails ❌
+- Complex expressions not properly evaluated ❌
 
 **Success Criteria**:
-- Generated WASM passes `wasm-validate` without errors
-- WASM can be executed in runtime environments (Node.js, browsers, etc.)
-- All existing functionality continues to work after fix
+- All .toString() method calls work correctly
+- String concatenation chains execute properly  
+- Complex expressions like `"text" + var.method() + "more"` work
+- All 30 test files execute with expected output

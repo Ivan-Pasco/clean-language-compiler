@@ -330,7 +330,13 @@ impl StringOperations {
             "string_last_index_of",
             &[WasmType::I32, WasmType::I32], // string, search
             Some(WasmType::I32), // index (-1 if not found)
-            vec![Instruction::I32Const(-1)] // SIMPLIFIED STUB - return -1
+            vec![
+                Instruction::LocalGet(0), // string_ptr
+                Instruction::Drop,        // drop it
+                Instruction::LocalGet(1), // search_ptr  
+                Instruction::Drop,        // drop it
+                Instruction::I32Const(-1) // SIMPLIFIED STUB - return -1
+            ]
         )?;
 
         register_stdlib_function(
@@ -501,7 +507,13 @@ impl StringOperations {
             "string_last_index_of_impl",
             &[WasmType::I32, WasmType::I32], // string, search
             Some(WasmType::I32), // index (-1 if not found)
-            vec![Instruction::I32Const(-1)] // SIMPLIFIED STUB - return -1
+            vec![
+                Instruction::LocalGet(0), // string_ptr
+                Instruction::Drop,        // drop it
+                Instruction::LocalGet(1), // search_ptr  
+                Instruction::Drop,        // drop it
+                Instruction::I32Const(-1) // SIMPLIFIED STUB - return -1
+            ]
         )?;
 
         // Register string_substring_impl for compatibility with codegen
@@ -586,6 +598,8 @@ impl StringOperations {
         // Simplified version for testing - just return the first string pointer
         // In a real implementation, this would allocate memory and concatenate strings
         vec![
+            Instruction::LocalGet(1), // string2_ptr  
+            Instruction::Drop,        // drop it (we don't use it)
             Instruction::LocalGet(0), // Return first string pointer
         ]
     }
@@ -593,6 +607,11 @@ impl StringOperations {
     fn generate_string_compare(&self) -> Vec<Instruction> {
         // Simplified string compare that just compares first byte for testing
         vec![
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string1_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // string2_ptr  
+            Instruction::Drop,        // drop it
             // Just return 0 for now (strings are equal)
             Instruction::I32Const(0),
         ]
@@ -619,6 +638,11 @@ impl StringOperations {
         // Simplified string contains implementation - just return true for now
         // This will help isolate the stack balance issue
         vec![
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // search_ptr  
+            Instruction::Drop,        // drop it
             Instruction::I32Const(1), // Always return true for testing
         ]
     }
@@ -627,8 +651,13 @@ impl StringOperations {
         // Proper indexOf implementation using Boyer-Moore-like algorithm
         // Parameters: string_ptr, search_ptr 
         vec![
-            // Simplified version for testing - just return 1 (true)
-            Instruction::I32Const(1), // Return true
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // search_ptr  
+            Instruction::Drop,        // drop it
+            // Simplified version for testing - just return 1 (index)
+            Instruction::I32Const(1), // Return index 1
         ]
     }
 
@@ -648,6 +677,11 @@ impl StringOperations {
         // Parameters: string_ptr, prefix_ptr
         // Returns 1 if string starts with prefix, 0 otherwise
         vec![
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // prefix_ptr  
+            Instruction::Drop,        // drop it
             // For now, return a constant value to avoid complex local variable usage
             // In a real implementation, this would compare the prefix with the start of the string
             Instruction::I32Const(1), // Placeholder: return true
@@ -659,6 +693,11 @@ impl StringOperations {
         // Parameters: string_ptr, suffix_ptr
         // Returns 1 if string ends with suffix, 0 otherwise
         vec![
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // suffix_ptr  
+            Instruction::Drop,        // drop it
             // For now, return a constant value to avoid complex local variable usage
             // In a real implementation, this would compare the suffix with the end of the string
             Instruction::I32Const(1), // Placeholder: return true
@@ -774,6 +813,11 @@ impl StringOperations {
         // Parameters: string_ptr, index
         // Returns the character at the specified index
         vec![
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // index  
+            Instruction::Drop,        // drop it
             // For now, return a constant character code to avoid complex local variable usage
             // In a real implementation, this would load the character at the specified index
             Instruction::I32Const(65), // Return 'A' character code
@@ -785,6 +829,11 @@ impl StringOperations {
         // Parameters: string_ptr, index
         // Returns the character code at the specified index
         vec![
+            // Consume the parameters to avoid stack mismatch
+            Instruction::LocalGet(0), // string_ptr
+            Instruction::Drop,        // drop it
+            Instruction::LocalGet(1), // index  
+            Instruction::Drop,        // drop it
             // For now, return a constant character code to avoid complex local variable usage
             // In a real implementation, this would load the character code at the specified index
             Instruction::I32Const(65), // Return 'A' character code

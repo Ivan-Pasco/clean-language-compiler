@@ -1778,23 +1778,28 @@ impl SemanticAnalyzer {
                     }
                 }
 
-                // Check if this is a module method call (even if module not found in imports)
+                // Check if this is a module method call (but only if it's NOT a variable)
                 if let Expression::Variable(module_name) = &**object {
-                    let qualified_name = format!("{}.{}", module_name, method);
-                    println!("DEBUG: Checking for function '{}' in function table", qualified_name);
-                    if self.function_table.contains_key(&qualified_name) {
-                        println!("DEBUG: Found function '{}' in function table", qualified_name);
-                        return self.check_function_call(&qualified_name, arguments, Some(location.clone()));
-                    } else {
-                        println!("DEBUG: Function '{}' not found in function table", qualified_name);
-                        // Check if this looks like a module method call but function not found
-                        if module_name.chars().next().unwrap_or('a').is_uppercase() {
-                            return Err(CompilerError::type_error(
-                                format!("Function '{}' not found in module '{}'", method, module_name),
-                                Some("Available functions can be checked in the module definition".to_string()),
-                                Some(location.clone())
-                            ));
+                    // Only treat as module call if it's NOT defined as a variable in current scope
+                    if self.current_scope.lookup_variable(module_name).is_none() {
+                        let qualified_name = format!("{}.{}", module_name, method);
+                        println!("DEBUG: Checking for function '{}' in function table", qualified_name);
+                        if self.function_table.contains_key(&qualified_name) {
+                            println!("DEBUG: Found function '{}' in function table", qualified_name);
+                            return self.check_function_call(&qualified_name, arguments, Some(location.clone()));
+                        } else {
+                            println!("DEBUG: Function '{}' not found in function table", qualified_name);
+                            // Check if this looks like a module method call but function not found
+                            if module_name.chars().next().unwrap_or('a').is_uppercase() {
+                                return Err(CompilerError::type_error(
+                                    format!("Function '{}' not found in module '{}'", method, module_name),
+                                    Some("Available functions can be checked in the module definition".to_string()),
+                                    Some(location.clone())
+                                ));
+                            }
                         }
+                    } else {
+                        println!("DEBUG: '{}' is a variable, treating '{}' as instance method call", module_name, method);
                     }
                 }
 

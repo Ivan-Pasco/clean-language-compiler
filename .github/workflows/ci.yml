@@ -73,5 +73,5 @@ jobs:
     - name: Test cln binary (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        .\build\release\cln.exe version
+        .\target\release\cln.exe version
         echo "Testing cln binary works on ${{ matrix.os }}" 

@@ -249,7 +249,6 @@ impl HttpClass {
             ))?;
 
         Ok(vec![
-            // Stack at call: [url_string_ptr] - length-prefixed string
             // Extract string data pointer (skip 4-byte length prefix)
             Instruction::LocalGet(0), // url string pointer (parameter)
             Instruction::I32Const(4), // offset to string data (past length field)
@@ -260,6 +259,7 @@ impl HttpClass {
             Instruction::I32Load(wasm_encoder::MemArg { offset: 0, align: 2, memory_index: 0 }), // load string length from [ptr]
             
             // Call the HTTP host function with [data_ptr, length] on stack
+            // The host function must return i32 per its signature
             Instruction::Call(import_index),
         ])
     }
