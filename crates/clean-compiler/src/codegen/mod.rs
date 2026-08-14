@@ -8,3 +8,6 @@
 //! - `world_check`: pass [9], `COM012` on any host call site absent from the
 //!   target world (step 7).
 //! - `abi`: Canonical ABI lift/lower (step 6).
+
+pub mod component;
+pub mod world;

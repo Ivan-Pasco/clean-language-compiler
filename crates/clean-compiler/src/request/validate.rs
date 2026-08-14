@@ -7,13 +7,14 @@
 use clean_compiler_types::{codes, CompileRequest, Diagnostic, Level, Span};
 use sha2::{Digest, Sha256};
 
+use crate::codegen::world::ParsedWorld;
 use crate::diag::{render_cli, DiagnosticSink};
 
-/// Output of pass [1]. Later milestone steps extend this with the parsed
-/// target world (`wit_parser::Resolve`) once pass [9]'s machinery exists.
-#[derive(Debug)]
+/// Output of pass [1]: the schema- and integrity-checked request plus the
+/// parsed target world later passes validate against and embed.
 pub struct ValidatedRequest {
     pub request: CompileRequest,
+    pub world: ParsedWorld,
 }
 
 /// Deserializes the request JSON. Schema violations — unknown keys, missing
@@ -79,10 +80,14 @@ pub fn validate(request: CompileRequest, sink: &mut DiagnosticSink) -> Option<Va
         }
     }
 
-    if sink.has_errors() {
-        None
-    } else {
-        Some(ValidatedRequest { request })
+    // ADR-0033: `target_world.world` must name a world present in the WIT;
+    // unparseable WIT and a missing world are both RQD002. Parsed here so
+    // every later pass receives the world already resolved.
+    let world = crate::codegen::world::parse(&request.target_world, sink);
+
+    match world {
+        Some(world) if !sink.has_errors() => Some(ValidatedRequest { request, world }),
+        _ => None,
     }
 }
 
