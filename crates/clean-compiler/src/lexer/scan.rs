@@ -23,6 +23,7 @@ pub fn lex(path: &str, content: &str, sink: &mut DiagnosticSink) -> TokenStream 
         comments: Vec::new(),
         line_map: LineMap::new(content),
         indent: 0,
+        brackets: 0,
     };
     scanner.run(sink);
     TokenStream {
@@ -43,6 +44,8 @@ struct Scanner<'src> {
     comments: Vec<ByteSpan>,
     line_map: LineMap,
     indent: u32,
+    /// Open `(`/`[` pairs; line ends are transparent while positive.
+    brackets: u32,
 }
 
 impl<'src> Scanner<'src> {
@@ -139,15 +142,26 @@ impl<'src> Scanner<'src> {
         }
         self.indent = tabs;
 
-        // Token loop until the physical line ends.
+        // Token loop until the physical line ends. Inside an open bracket
+        // pair, line ends are transparent (EXP-02 multi-line parenthesized
+        // form): no NEWLINE is emitted and the next line's indentation is
+        // plain whitespace, so the layout stays balanced.
         while let Some(&b) = self.bytes.get(self.pos) {
             match b {
                 b'\n' => {
+                    if self.brackets > 0 {
+                        self.pos += 1;
+                        continue;
+                    }
                     self.push_char_token(TokenKind::Newline);
                     return;
                 }
                 b'\r' => {
                     if self.bytes.get(self.pos + 1) == Some(&b'\n') {
+                        if self.brackets > 0 {
+                            self.pos += 2;
+                            continue;
+                        }
                         let span = ByteSpan::new(self.pos as u32, self.pos as u32 + 2);
                         self.pos += 2;
                         self.tokens.push(Token {
@@ -623,6 +637,11 @@ impl<'src> Scanner<'src> {
                 return;
             }
         };
+        match kind {
+            LParen | LBracket => self.brackets += 1,
+            RParen | RBracket => self.brackets = self.brackets.saturating_sub(1),
+            _ => {}
+        }
         let span = ByteSpan::new(self.pos as u32, (self.pos + len) as u32);
         self.pos += len;
         self.tokens.push(Token { kind, span });

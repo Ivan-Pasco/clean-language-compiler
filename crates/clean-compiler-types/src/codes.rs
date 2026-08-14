@@ -30,6 +30,8 @@ pub const SYN005: &str = "SYN005";
 pub const SYN006: &str = "SYN006";
 /// SYN007 — `SectionOutOfOrder`: top-level sections out of FIL-01 order.
 pub const SYN007: &str = "SYN007";
+/// SYN008 — `InvalidPrintBlock`: `print:` with no expressions.
+pub const SYN008: &str = "SYN008";
 /// SYN009 — `NotATopLevelForm`: construct not permitted at the top level.
 pub const SYN009: &str = "SYN009";
 /// SYN010 — `MissingParentheses`: call written without parentheses.
