@@ -1,0 +1,52 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/clean-compiler-types",
+    "crates/clean-compiler",
+    "crates/clean-compiler-bin",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+# Matches clean-server / clean-host-core, which need 1.94 for wasmtime 47.
+rust-version = "1.94"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Ivan-Pasco/clean-language-compiler"
+
+[workspace.dependencies]
+clean-compiler-types = { path = "crates/clean-compiler-types" }
+clean-compiler = { path = "crates/clean-compiler" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+# RQD002 diagnostics name the JSON path of the offending key (Platform 10 §16);
+# serde alone reports line/column. Recorded in docs/adr/0001-reference-stack.md.
+serde_path_to_error = "0.1"
+thiserror = "2"
+indexmap = { version = "2", features = ["serde"] }
+sha2 = "0.10"
+ena = "0.14"
+
+# wasm-tools family — one workspace, pinned together (ADR-0006; family bumped
+# from ^0.220 to ^0.256, recorded in docs/adr/0001-reference-stack.md).
+wasm-encoder = "0.256"
+wasmparser = "0.256"
+wit-parser = "0.256"
+wit-component = "0.256"
+
+# Binary adapter only — the compiler library never sees TOML or argv (ADR-0006).
+clap = { version = "4", features = ["derive"] }
+toml = "0.8"
+
+# Dev/test. wasmtime is a dev-dependency until pass [6] (block handlers, M5)
+# makes it a production dependency; 47 aligns with clean-host-core
+# (docs/adr/0001-reference-stack.md).
+insta = { version = "1", features = ["json"] }
+proptest = "1"
+wasmtime = "47"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

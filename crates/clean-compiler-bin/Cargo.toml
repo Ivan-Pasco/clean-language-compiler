@@ -1,0 +1,20 @@
+[package]
+name = "clean-compiler-bin"
+description = "Process adapter for the Clean compiler: reads one request document, writes the artifact set (Platform 14 §14.2.2). Not a user-facing command (CCMP-04)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "clean-compiler"
+path = "src/main.rs"
+
+[dependencies]
+clean-compiler = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+sha2 = { workspace = true }

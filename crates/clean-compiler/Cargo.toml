@@ -1,0 +1,26 @@
+[package]
+name = "clean-compiler"
+description = "The Clean compiler pipeline behind the canonical compile() API (Platform 14)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clean-compiler-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_path_to_error = { workspace = true }
+thiserror = { workspace = true }
+indexmap = { workspace = true }
+sha2 = { workspace = true }
+wasm-encoder = { workspace = true }
+wasmparser = { workspace = true }
+wit-parser = { workspace = true }
+wit-component = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+proptest = { workspace = true }
+wasmtime = { workspace = true }

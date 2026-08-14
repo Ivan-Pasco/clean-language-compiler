@@ -1,0 +1,14 @@
+[package]
+name = "clean-compiler-types"
+description = "Spans, diagnostics, error codes, and request-document types for the Clean compiler — the stable surface external tools depend on (ADR-0006)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+indexmap = { workspace = true }
