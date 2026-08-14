@@ -31,6 +31,7 @@ pub mod mir;
 pub mod parser;
 pub mod request;
 pub mod resolver;
+pub mod source;
 pub mod typecheck;
 
 pub use clean_compiler_types as types;

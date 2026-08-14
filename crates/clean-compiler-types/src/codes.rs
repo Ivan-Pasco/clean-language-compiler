@@ -15,6 +15,26 @@ pub enum Severity {
     Runtime,
 }
 
+/// SYN001 — `InvalidToken`: character not valid in any lexical context.
+pub const SYN001: &str = "SYN001";
+/// SYN002 — `UnexpectedToken`: a token where the grammar does not allow it.
+pub const SYN002: &str = "SYN002";
+/// SYN003 — `InvalidIndentation`: spaces used for indentation, or nesting
+/// inconsistent with the enclosing block.
+pub const SYN003: &str = "SYN003";
+/// SYN004 — `UnterminatedConstruct`: string, comment, or block left open.
+pub const SYN004: &str = "SYN004";
+/// SYN005 — `MalformedConstruct`: partially correct syntax structure.
+pub const SYN005: &str = "SYN005";
+/// SYN006 — `IndentationError`: tab/space mixing or wrong level.
+pub const SYN006: &str = "SYN006";
+/// SYN007 — `SectionOutOfOrder`: top-level sections out of FIL-01 order.
+pub const SYN007: &str = "SYN007";
+/// SYN009 — `NotATopLevelForm`: construct not permitted at the top level.
+pub const SYN009: &str = "SYN009";
+/// SYN010 — `MissingParentheses`: call written without parentheses.
+pub const SYN010: &str = "SYN010";
+
 /// RQD001 — `RequestIntegrityFailure`: a `sources[].sha256` does not match
 /// the decoded content (Platform 14 §14.1.1, CMP-01).
 pub const RQD001: &str = "RQD001";
