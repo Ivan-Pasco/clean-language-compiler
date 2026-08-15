@@ -27,10 +27,20 @@ own `testing/fake-guest`; the test verifies conformance against that world
 with host.wit as a dep. The host-side gate is clean-server's Moment 3
 check at instantiation.
 
-## Check 6 — end to end against clean-server (blocked on repo access)
+## Check 6 — end to end against clean-server ✅ PASSED 2026-08-15
 
-clean-server depends by path on `../clean-host-core`, a **private** repo
-(its CI uses a read-only deploy key). Once access exists:
+Run on this machine with `clean-host-core` cloned as a sibling: the
+component built by `scripts/build-acceptance.sh ../clean-server/host.wit`
+was served by clean-server via a fixture without the fake-bridge entry
+(`dist/host.toml` — the 9a guest imports no `clean:fake-bridge/store`).
+Observed: init registered all 5 routes at startup; `GET /` → `hello world`
+with the guest-set content-type header; `GET /users/42` → `42` and
+`GET /users/` → the `default` fallback; `POST /echo` echoed the body;
+`POST /hook` → `hook received`; `GET /log` → `logged` with the structured
+record (`hello from the guest fields=route=log-demo`) in the host log;
+unknown routes → 404.
+
+Reproduce (clean-server depends by path on `../clean-host-core`):
 
 ```bash
 cd "../"    # the Clean Language folder
