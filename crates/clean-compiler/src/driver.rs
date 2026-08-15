@@ -94,7 +94,19 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
     }
 
-    // Pass [9] — World Import Check: Milestone 1 step 7.
+    // Pass [9] — World Import Check (CMP-03): abort before codegen on any
+    // call site the delivered world does not provide.
+    crate::codegen::world_check::check(
+        &hir,
+        &validated.world,
+        &validated.request.target_world.world,
+        &resolved,
+        &mut sink,
+    );
+    if sink.has_errors() {
+        return Err(CompileError::Rejected(sink.into_diagnostics()));
+    }
+
     // Pass [10] — the core half exists; component assembly is step 8. The
     // artifact set is withheld until the emitted bytes are a component
     // (CCMP-19: no other target ships).

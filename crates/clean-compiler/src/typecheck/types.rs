@@ -80,6 +80,47 @@ impl Ty {
     }
 }
 
+/// Projects a WIT type onto the M1 semantic types — the boundary reading of
+/// the LBS-02 table. Shared by the type checker (declaration projection) and
+/// the World Import Check (signature comparison), so the two can never
+/// disagree. `None` marks a WIT shape outside the M1 surface.
+pub fn project_wit(resolve: &wit_parser::Resolve, ty: &wit_parser::Type) -> Option<Ty> {
+    use wit_parser::Type as W;
+    use wit_parser::TypeDefKind;
+    Some(match ty {
+        W::Bool => Ty::Boolean,
+        W::U8 => Ty::IntegerW(IntWidth::U8),
+        W::U16 => Ty::IntegerW(IntWidth::U16),
+        W::U32 => Ty::IntegerW(IntWidth::U32),
+        W::U64 => Ty::IntegerW(IntWidth::U64),
+        W::S32 => Ty::IntegerW(IntWidth::S32),
+        W::S64 => Ty::Integer,
+        W::String => Ty::Str,
+        W::Id(id) => {
+            let def = &resolve.types[*id];
+            match &def.kind {
+                TypeDefKind::Enum(e) => Ty::Enum {
+                    wit_name: def.name.clone()?,
+                    cases: e.cases.iter().map(|c| c.name.clone()).collect(),
+                },
+                TypeDefKind::Record(r) => Ty::Record {
+                    wit_name: def.name.clone()?,
+                    fields: r
+                        .fields
+                        .iter()
+                        .map(|f| Some((f.name.clone(), project_wit(resolve, &f.ty)?)))
+                        .collect::<Option<Vec<_>>>()?,
+                },
+                TypeDefKind::List(W::U8) => Ty::Bytes,
+                TypeDefKind::List(inner) => Ty::List(Box::new(project_wit(resolve, inner)?)),
+                TypeDefKind::Option(inner) => Ty::Option(Box::new(project_wit(resolve, inner)?)),
+                _ => return None,
+            }
+        }
+        _ => return None,
+    })
+}
+
 /// camelCase → kebab-case, the LBS-02 name projection (`setInnerHTML` →
 /// `set-inner-html`).
 pub fn kebab(name: &str) -> String {

@@ -5,7 +5,7 @@
 
 use clean_compiler_types::{codes, Annotation, Level};
 use indexmap::IndexMap;
-use wit_parser::{TypeDefKind, WorldItem, WorldKey};
+use wit_parser::{WorldItem, WorldKey};
 
 use crate::codegen::world::ParsedWorld;
 use crate::diag::{build, DiagnosticSink};
@@ -224,47 +224,9 @@ impl<'a> Checker<'a> {
             }
             let iface = &resolve.interfaces[*id];
             let type_id = iface.types.get(type_name)?;
-            return self.project_wit_type(&wit_parser::Type::Id(*type_id));
+            return super::types::project_wit(resolve, &wit_parser::Type::Id(*type_id));
         }
         None
-    }
-
-    fn project_wit_type(&self, ty: &wit_parser::Type) -> Option<Ty> {
-        use wit_parser::Type as W;
-        Some(match ty {
-            W::Bool => Ty::Boolean,
-            W::U8 => Ty::IntegerW(ast::IntWidth::U8),
-            W::U16 => Ty::IntegerW(ast::IntWidth::U16),
-            W::U32 => Ty::IntegerW(ast::IntWidth::U32),
-            W::U64 => Ty::IntegerW(ast::IntWidth::U64),
-            W::S32 => Ty::IntegerW(ast::IntWidth::S32),
-            W::S64 => Ty::Integer,
-            W::String => Ty::Str,
-            W::Id(id) => {
-                let def = &self.world.resolve.types[*id];
-                match &def.kind {
-                    TypeDefKind::Enum(e) => Ty::Enum {
-                        wit_name: def.name.clone()?,
-                        cases: e.cases.iter().map(|c| c.name.clone()).collect(),
-                    },
-                    TypeDefKind::Record(r) => Ty::Record {
-                        wit_name: def.name.clone()?,
-                        fields: r
-                            .fields
-                            .iter()
-                            .map(|f| Some((f.name.clone(), self.project_wit_type(&f.ty)?)))
-                            .collect::<Option<Vec<_>>>()?,
-                    },
-                    TypeDefKind::List(W::U8) => Ty::Bytes,
-                    TypeDefKind::List(_) => return None,
-                    TypeDefKind::Option(inner) => {
-                        Ty::Option(Box::new(self.project_wit_type(inner)?))
-                    }
-                    _ => return None,
-                }
-            }
-            _ => return None,
-        })
     }
 
     // ----- function bodies ----------------------------------------------

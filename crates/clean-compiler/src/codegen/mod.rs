@@ -12,3 +12,4 @@
 pub mod component;
 pub mod core;
 pub mod world;
+pub mod world_check;
