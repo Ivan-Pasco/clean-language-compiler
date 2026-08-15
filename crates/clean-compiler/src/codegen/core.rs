@@ -59,6 +59,10 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
     let (ret_area, heap_base) = memory_map(program);
 
     let import_count = program.imports.len() as u32;
+    // The `handle` entry point needs a boundary shim: the world declares
+    // `handle: func(handler-id: u32)` (core i32) while the Clean function
+    // takes a surface `integer` (i64). The shim widens and forwards.
+    let mut handle_shim: Option<u32> = None;
     for (offset, function) in program.functions.iter().enumerate() {
         let type_index = import_count + offset as u32;
         types.ty().function(
@@ -72,19 +76,40 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
         );
         functions.function(type_index);
         if function.export {
-            exports.export(
-                &function.name,
-                ExportKind::Func,
-                import_count + offset as u32,
-            );
+            if function.name == "handle" && function.params == [Val::I64] {
+                handle_shim = Some(import_count + offset as u32);
+            } else {
+                exports.export(
+                    &function.name,
+                    ExportKind::Func,
+                    import_count + offset as u32,
+                );
+            }
         }
         code.function(&emit_function(function, import_count, ret_area));
+    }
+
+    let mut extra_functions = 0u32;
+    if let Some(target) = handle_shim {
+        let shim_type = import_count + program.functions.len() as u32 + extra_functions;
+        types
+            .ty()
+            .function(vec![ValType::I32], Vec::<ValType>::new());
+        functions.function(shim_type);
+        exports.export("handle", ExportKind::Func, shim_type);
+        let mut shim = Function::new([]);
+        shim.instruction(&Instruction::LocalGet(0));
+        shim.instruction(&Instruction::I64ExtendI32U);
+        shim.instruction(&Instruction::Call(target));
+        shim.instruction(&Instruction::End);
+        code.function(&shim);
+        extra_functions += 1;
     }
 
     // `cabi_realloc` — the Canonical ABI allocator hosts call to lift
     // values into the guest: a deterministic bump allocator over global 0.
     // Growth checks are a known gap until M6 (TESTING.md §7).
-    let realloc_type = import_count + program.functions.len() as u32;
+    let realloc_type = import_count + program.functions.len() as u32 + extra_functions;
     types.ty().function(
         vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
         vec![ValType::I32],

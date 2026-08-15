@@ -90,7 +90,7 @@ functions:
 \t\treturn
 ";
     match compile_sources(&[("app/host_bridge.cln", host_bridge), ("app/main.cln", main)]) {
-        Err(CompileError::Incomplete { .. }) => {}
+        Ok(_) | Err(CompileError::Incomplete { .. }) => {}
         other => panic!("uncalled declaration must not reject: {other:?}"),
     }
 }
@@ -110,7 +110,7 @@ functions:
 \t\tsetStatus(200)
 ";
     match compile_sources(&[("app/host_bridge.cln", host_bridge), ("app/main.cln", main)]) {
-        Err(CompileError::Incomplete { .. }) => {}
+        Ok(_) | Err(CompileError::Incomplete { .. }) => {}
         other => panic!("conforming program must pass: {other:?}"),
     }
 }

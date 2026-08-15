@@ -107,11 +107,114 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
         return Err(CompileError::Rejected(sink.into_diagnostics()));
     }
 
-    // Pass [10] — the core half exists; component assembly is step 8. The
-    // artifact set is withheld until the emitted bytes are a component
-    // (CCMP-19: no other target ships).
-    let _core = crate::codegen::core::emit_core(&mir);
-    Err(CompileError::Incomplete {
-        completed: "core-emission",
+    // Pass [10] — Codegen + Assembly: core module, then the component wrap
+    // with the synthesized guest world embedded (Platform 15 §6.1).
+    let core = crate::codegen::core::emit_core(&mir);
+    let package_version = validated.world.package_version();
+    let wasm = match crate::codegen::component::assemble(
+        core,
+        &mir,
+        &validated.request.target_world.wit,
+        &package_version,
+    ) {
+        Ok(wasm) => wasm,
+        Err(invariant) => {
+            // CMP-04: a broken internal invariant is COM013 — a compiler
+            // bug, never a user error. Template from Platform 10 §11.
+            let diagnostic = crate::diag::build(
+                clean_compiler_types::Level::Error,
+                clean_compiler_types::codes::COM013,
+                format!(
+                    "internal compiler invariant violated: {invariant} — this is a compiler bug, please report it"
+                ),
+                clean_compiler_types::Span::request_document(),
+                None,
+            );
+            return Err(CompileError::Rejected(vec![diagnostic]));
+        }
+    };
+
+    let mut manifest = build_manifest(&validated.request, &wasm);
+    // Remaining diagnostics are warnings/infos (errors returned earlier);
+    // the manifest records them too (§14.8).
+    let diagnostics = sink.into_diagnostics();
+    manifest.diagnostics = diagnostics.clone();
+    Ok(CompileArtifact {
+        wasm,
+        manifest,
+        diagnostics,
+        source_map: None,
     })
+}
+
+/// The reproducibility record (Platform 14 §14.8). Two M1 placeholders,
+/// both recorded in the milestone Discoveries: `compiler.sha256` derives
+/// from the crate version until the release pipeline stamps the binary
+/// hash, and `timings` are zero because CMP-02 requires byte-identical
+/// manifests — wall-clock timings and that rule are in tension in the spec
+/// as written.
+fn build_manifest(request: &CompileRequest, wasm: &[u8]) -> BuildManifest {
+    use sha2::{Digest, Sha256};
+    let sha_hex = |bytes: &[u8]| {
+        let mut hasher = Sha256::new();
+        hasher.update(bytes);
+        format!("{:x}", hasher.finalize())
+    };
+
+    let request_json = serde_json::to_string(request).expect("request serializes");
+    let resolved_config = serde_json::json!({
+        "build": request.build,
+        "folders": request.folders,
+        "dependencies": request.dependencies,
+        "compile_limits": request.compile_limits,
+        "telemetry": request.telemetry,
+    });
+
+    let mut timings = indexmap::IndexMap::new();
+    for pass in [
+        "lex_ms",
+        "parse_ms",
+        "resolve_ms",
+        "typecheck_ms",
+        "codegen_ms",
+    ] {
+        timings.insert(pass.to_string(), 0u64);
+    }
+
+    BuildManifest {
+        spec_version: "1".to_string(),
+        compiler: clean_compiler_types::manifest::CompilerId {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            sha256: sha_hex(env!("CARGO_PKG_VERSION").as_bytes()),
+        },
+        request_sha256: sha_hex(request_json.as_bytes()),
+        inputs: clean_compiler_types::manifest::Inputs {
+            sources: request
+                .sources
+                .iter()
+                .map(|s| clean_compiler_types::manifest::SourceHash {
+                    path: s.path.clone(),
+                    sha256: s.sha256.clone(),
+                })
+                .collect(),
+            library_manifests: request
+                .library_manifests
+                .iter()
+                .map(|l| clean_compiler_types::manifest::LibraryHash {
+                    name: l.name.clone(),
+                    version: l.version.clone(),
+                    wit_sha256: sha_hex(l.wit.as_bytes()),
+                    compiletime_wasm_sha256: l.compiletime_wasm_sha256.clone(),
+                })
+                .collect(),
+        },
+        resolved_config,
+        overrides: request.overrides.clone(),
+        outputs: clean_compiler_types::manifest::Outputs {
+            wasm_sha256: sha_hex(wasm),
+            source_map_sha256: None,
+        },
+        diagnostics: Vec::new(),
+        timings,
+    }
 }

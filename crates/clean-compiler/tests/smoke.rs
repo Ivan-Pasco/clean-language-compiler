@@ -1,26 +1,21 @@
-//! Milestone 1 step 1 check: the workspace builds and the canonical entry
-//! point exists with the §14.2.1 signature. Deeper behaviour is proven by
-//! the per-step suites (`request_validation.rs`, …).
+//! The canonical entry point end to end: a minimal valid request compiles
+//! to a Component Model component with its manifest and empty diagnostics.
 
-use clean_compiler::{compile, CompileError};
+use clean_compiler::compile;
 
 mod common;
 
 #[test]
-fn compile_symbol_exists_and_pipeline_reports_its_own_prefix() {
+fn minimal_request_compiles_to_a_component_with_manifest() {
     let request = common::minimal_valid_request();
-    match compile(request) {
-        // The pipeline prefix implemented so far ran clean; everything after
-        // it is still unbuilt. This arm shrinks as milestone steps land.
-        Err(CompileError::Incomplete { completed }) => {
-            assert_eq!(completed, "core-emission");
-        }
-        Err(CompileError::Rejected(diagnostics)) => {
-            panic!("minimal valid request was rejected: {diagnostics:#?}");
-        }
-        Err(CompileError::Unsupported(constructs)) => {
-            panic!("minimal fixture uses no unsupported constructs: {constructs:#?}");
-        }
-        Ok(_) => panic!("pipeline claims completeness it does not have yet"),
-    }
+    let artifact = compile(request).expect("minimal request compiles");
+    assert_eq!(
+        &artifact.wasm[..8],
+        &[0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00],
+        "output is a component, not a core module"
+    );
+    assert!(artifact.diagnostics.is_empty());
+    assert_eq!(artifact.manifest.spec_version, "1");
+    assert_eq!(artifact.manifest.inputs.sources.len(), 1);
+    assert!(!artifact.manifest.outputs.wasm_sha256.is_empty());
 }

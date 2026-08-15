@@ -349,7 +349,7 @@ functions:
         .instantiate(&mut store, &module)
         .expect("instantiates");
     let handle = instance
-        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .get_typed_func::<i32, ()>(&mut store, "handle")
         .expect("handle export");
     handle.call(&mut store, 1).expect("handle runs");
     assert_eq!(store.data().log.as_slice(), ["42".to_string()]);
@@ -366,7 +366,7 @@ functions:
         .instantiate(&mut store, &module)
         .expect("instantiates");
     let handle = instance
-        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .get_typed_func::<i32, ()>(&mut store, "handle")
         .expect("handle export");
     handle.call(&mut store, 1).expect("handle runs");
     assert_eq!(store.data().log.as_slice(), ["no id".to_string()]);
@@ -447,7 +447,7 @@ functions:
         .instantiate(&mut store, &module)
         .expect("instantiates");
     instance
-        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .get_typed_func::<i32, ()>(&mut store, "handle")
         .expect("handle export")
         .call(&mut store, 4)
         .expect("handle runs");
@@ -523,7 +523,7 @@ functions:
         .instantiate(&mut store, &module)
         .expect("instantiates");
     instance
-        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .get_typed_func::<i32, ()>(&mut store, "handle")
         .expect("handle export")
         .call(&mut store, 6)
         .expect("handle runs");

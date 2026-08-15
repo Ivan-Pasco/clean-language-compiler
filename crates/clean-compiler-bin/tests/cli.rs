@@ -44,12 +44,23 @@ fn invalid_request_exits_1_with_ndjson_diagnostics_and_no_component() {
 }
 
 #[test]
-fn valid_request_reports_incomplete_pipeline_with_exit_3() {
-    let out = tempdir("incomplete");
+fn valid_request_writes_the_artifact_set_and_exits_0() {
+    let out = tempdir("success");
     let request = valid_request_json();
     let output = run(&request, &out);
-    assert_eq!(output.status.code(), Some(3));
-    assert!(!out.join("component.wasm").exists());
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let wasm = std::fs::read(out.join("component.wasm")).expect("component written");
+    assert_eq!(
+        &wasm[..8],
+        &[0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00]
+    );
+    assert!(out.join("build-manifest.json").exists());
+    assert!(out.join("diagnostics.json").exists());
 }
 
 fn valid_request_json() -> String {

@@ -43,6 +43,8 @@ pub struct MirImport {
     /// Interface-qualified module name, e.g. `clean:host/routing@0.1.0`
     /// (Platform 15 P2: one naming scheme, no flat namespace).
     pub module: String,
+    /// Bare kebab-case interface name (`routing`), for guest-world synthesis.
+    pub interface: String,
     /// Kebab-case function name within the interface.
     pub name: String,
     pub params: Vec<Val>,
@@ -168,21 +170,73 @@ pub fn lower(
     world_version: &str,
     sink: &mut DiagnosticSink,
 ) -> MirProgram {
-    let imports = program
-        .host_imports
+    // Emit only imports that are actually called: an unused declaration
+    // must not appear in the component's import list (the world check is
+    // call-site-scoped, and hosts refuse imports they do not provide).
+    let mut used: Vec<usize> = Vec::new();
+    for function in &program.functions {
+        for stmt in &function.body {
+            collect_used_imports(stmt, &mut used);
+        }
+    }
+    used.sort_unstable();
+    used.dedup();
+    let remap: std::collections::BTreeMap<usize, usize> = used
         .iter()
-        .map(|import| lower_import(import, world_version, resolved, sink))
+        .enumerate()
+        .map(|(new, &old)| (old, new))
+        .collect();
+
+    let imports = used
+        .iter()
+        .map(|&index| lower_import(&program.host_imports[index], world_version, resolved, sink))
         .collect();
     let mut data = DataPool::default();
     let functions = program
         .functions
         .iter()
-        .map(|f| lower_function(f, program, resolved, &mut data, sink))
+        .map(|f| lower_function(f, program, resolved, &remap, &mut data, sink))
         .collect();
     MirProgram {
         imports,
         functions,
         data: data.blob,
+    }
+}
+
+fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
+    fn expr(e: &HExpr, used: &mut Vec<usize>) {
+        match &e.kind {
+            HExprKind::CallHost { import, args } => {
+                used.push(*import);
+                args.iter().for_each(|a| expr(a, used));
+            }
+            HExprKind::CallFn { args, .. } => args.iter().for_each(|a| expr(a, used)),
+            HExprKind::MakeRecord(items) | HExprKind::MakeList(items) => {
+                items.iter().for_each(|i| expr(i, used))
+            }
+            HExprKind::Binary { lhs, rhs, .. } => {
+                expr(lhs, used);
+                expr(rhs, used);
+            }
+            HExprKind::Unary { operand, .. } => expr(operand, used),
+            _ => {}
+        }
+    }
+    match stmt {
+        HStmt::Set { value, .. } => expr(value, used),
+        HStmt::Return { value } => {
+            if let Some(value) = value {
+                expr(value, used);
+            }
+        }
+        HStmt::Expr(e) => expr(e, used),
+        HStmt::If { cond, then, els } => {
+            expr(cond, used);
+            then.iter()
+                .chain(els)
+                .for_each(|s| collect_used_imports(s, used));
+        }
     }
 }
 
@@ -240,6 +294,7 @@ fn lower_import(
     };
     MirImport {
         module: format!("clean:host/{}@{}", import.interface, world_version),
+        interface: import.interface.clone(),
         name: import.wit_name.clone(),
         params,
         results,
@@ -270,6 +325,7 @@ fn lower_function(
     function: &HFunction,
     program: &HirProgram,
     resolved: &ResolvedAst,
+    remap: &std::collections::BTreeMap<usize, usize>,
     data: &mut DataPool,
     sink: &mut DiagnosticSink,
 ) -> MirFunction {
@@ -304,6 +360,7 @@ fn lower_function(
         data,
         next_slot: next,
         scratch: Vec::new(),
+        remap,
     };
     let mut body = Vec::new();
     for stmt in &function.body {
@@ -333,6 +390,8 @@ struct FnLowerer<'a> {
     next_slot: u32,
     /// Scratch locals appended after the declared locals.
     scratch: Vec<Val>,
+    /// Original host-import index → pruned MIR import index.
+    remap: &'a std::collections::BTreeMap<usize, usize>,
 }
 
 impl<'a> FnLowerer<'a> {
@@ -500,7 +559,7 @@ impl<'a> FnLowerer<'a> {
                 if needs_retptr {
                     out.push(Inst::RetAreaPtr);
                 }
-                out.push(Inst::CallImport(*import as u32));
+                out.push(Inst::CallImport(self.remap[import] as u32));
                 if needs_retptr {
                     // Lift the canonical in-memory result back onto the
                     // stack in flattened slot order.

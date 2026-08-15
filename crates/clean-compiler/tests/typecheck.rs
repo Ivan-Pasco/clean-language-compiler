@@ -54,11 +54,10 @@ fn rejected(sources: &[(&str, &str)]) -> Vec<clean_compiler_types::Diagnostic> {
 /// (`Unsupported`, e.g. strings before step 6) are not rejections.
 fn typechecks(sources: &[(&str, &str)]) {
     match compile(request_for(sources)) {
-        Err(CompileError::Incomplete { .. }) | Err(CompileError::Unsupported(_)) => {}
+        Ok(_) | Err(CompileError::Incomplete { .. }) | Err(CompileError::Unsupported(_)) => {}
         Err(CompileError::Rejected(diagnostics)) => {
             panic!("program was rejected: {diagnostics:#?}")
         }
-        other => panic!("unexpected result: {other:?}"),
     }
 }
 

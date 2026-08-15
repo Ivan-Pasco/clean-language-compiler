@@ -139,10 +139,10 @@ fn dispatch_runs_under_wasmtime_and_reaches_the_host_stub() {
         .instantiate(&mut store, &module)
         .expect("instantiates");
     let handle = instance
-        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .get_typed_func::<i32, ()>(&mut store, "handle")
         .expect("handle export");
 
-    for (handler_id, expected_status) in [(0, 200), (6, 200), (7, 201), (3, 404)] {
+    for (handler_id, expected_status) in [(0i32, 200), (6, 200), (7, 201), (3, 404)] {
         handle.call(&mut store, handler_id).expect("handle runs");
         assert_eq!(
             store.data().last().copied(),
