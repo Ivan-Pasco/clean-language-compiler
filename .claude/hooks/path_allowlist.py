@@ -25,6 +25,13 @@ def main() -> int:
     if not file_path:
         return 0
     parts = pathlib.PurePath(file_path).parts
+    # CT-H-06: a session MAY write task briefs under foundation/work/ —
+    # that is where execution learnings (Discoveries) are recorded. Only
+    # governance, specs, and ADRs are off-limits from here.
+    if "clean-language-foundation" in parts:
+        index = parts.index("clean-language-foundation")
+        if len(parts) > index + 1 and parts[index + 1] == "work":
+            return 0
     for sibling in BLOCKED_SIBLINGS:
         if sibling in parts:
             sys.stderr.write(
