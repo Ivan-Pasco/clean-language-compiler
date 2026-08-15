@@ -203,6 +203,8 @@ pub enum BinOp {
     GtEq,
     And,
     Or,
+    /// EXP-03 none-coalescing fallback (`value default fallback`), level 11.
+    Default,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

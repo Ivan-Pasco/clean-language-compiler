@@ -9,11 +9,21 @@
 
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, DataSection, ExportKind, ExportSection, Function,
-    FunctionSection, ImportSection, Instruction, MemorySection, MemoryType, Module, TypeSection,
-    ValType,
+    FunctionSection, GlobalSection, GlobalType, ImportSection, Instruction, MemArg, MemorySection,
+    MemoryType, Module, TypeSection, ValType,
 };
 
 use crate::mir::{CmpOp, I64Op, Inst, MirFunction, MirProgram, Val, DATA_OFFSET};
+
+/// Memory map after the static data blob: a fixed 64-byte return area for
+/// Canonical ABI retptr results, then the bump-allocator heap base, both
+/// 8-aligned.
+fn memory_map(program: &MirProgram) -> (u32, u32) {
+    let data_end = DATA_OFFSET + program.data.len() as u32;
+    let ret_area = (data_end + 7) & !7;
+    let heap_base = ret_area + 64;
+    (ret_area, heap_base)
+}
 
 fn val(v: Val) -> ValType {
     match v {
@@ -46,6 +56,8 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
         );
     }
 
+    let (ret_area, heap_base) = memory_map(program);
+
     let import_count = program.imports.len() as u32;
     for (offset, function) in program.functions.iter().enumerate() {
         let type_index = import_count + offset as u32;
@@ -66,8 +78,30 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
                 import_count + offset as u32,
             );
         }
-        code.function(&emit_function(function, import_count));
+        code.function(&emit_function(function, import_count, ret_area));
     }
+
+    // `cabi_realloc` — the Canonical ABI allocator hosts call to lift
+    // values into the guest: a deterministic bump allocator over global 0.
+    // Growth checks are a known gap until M6 (TESTING.md §7).
+    let realloc_type = import_count + program.functions.len() as u32;
+    types.ty().function(
+        vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
+        vec![ValType::I32],
+    );
+    functions.function(realloc_type);
+    exports.export("cabi_realloc", ExportKind::Func, realloc_type);
+    code.function(&emit_realloc());
+
+    let mut globals = GlobalSection::new();
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(heap_base as i32),
+    );
 
     memories.memory(MemoryType {
         minimum: 1,
@@ -83,6 +117,7 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
     module.section(&imports);
     module.section(&functions);
     module.section(&memories);
+    module.section(&globals);
     module.section(&exports);
     module.section(&code);
     if !program.data.is_empty() {
@@ -97,7 +132,35 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
     module.finish()
 }
 
-fn emit_function(function: &MirFunction, import_count: u32) -> Function {
+/// `cabi_realloc(old_ptr, old_size, align, new_size) -> ptr`: aligned bump
+/// allocation from global 0; the old block is never reclaimed (arena reset
+/// discipline arrives with the memory model in M6).
+fn emit_realloc() -> Function {
+    use Instruction as I;
+    let mut f = Function::new([(1, ValType::I32)]);
+    // aligned = (heap + align - 1) & !(align - 1)
+    f.instruction(&I::GlobalGet(0));
+    f.instruction(&I::LocalGet(2));
+    f.instruction(&I::I32Add);
+    f.instruction(&I::I32Const(1));
+    f.instruction(&I::I32Sub);
+    f.instruction(&I::LocalGet(2));
+    f.instruction(&I::I32Const(1));
+    f.instruction(&I::I32Sub);
+    f.instruction(&I::I32Const(-1));
+    f.instruction(&I::I32Xor);
+    f.instruction(&I::I32And);
+    f.instruction(&I::LocalTee(4));
+    // heap = aligned + new_size
+    f.instruction(&I::LocalGet(3));
+    f.instruction(&I::I32Add);
+    f.instruction(&I::GlobalSet(0));
+    f.instruction(&I::LocalGet(4));
+    f.instruction(&I::End);
+    f
+}
+
+fn emit_function(function: &MirFunction, import_count: u32, ret_area: u32) -> Function {
     // Locals after params, run-length encoded in order.
     let mut runs: Vec<(u32, ValType)> = Vec::new();
     for local in function.locals.iter().copied().map(val) {
@@ -108,13 +171,13 @@ fn emit_function(function: &MirFunction, import_count: u32) -> Function {
     }
     let mut f = Function::new(runs);
     for inst in &function.body {
-        emit_inst(inst, import_count, &mut f);
+        emit_inst(inst, import_count, ret_area, &mut f);
     }
     f.instruction(&Instruction::End);
     f
 }
 
-fn emit_inst(inst: &Inst, import_count: u32, f: &mut Function) {
+fn emit_inst(inst: &Inst, import_count: u32, ret_area: u32, f: &mut Function) {
     use Instruction as I;
     match inst {
         Inst::I32Const(v) => f.instruction(&I::I32Const(*v)),
@@ -149,6 +212,17 @@ fn emit_inst(inst: &Inst, import_count: u32, f: &mut Function) {
         Inst::I32Eqz => f.instruction(&I::I32Eqz),
         Inst::I32WrapI64 => f.instruction(&I::I32WrapI64),
         Inst::I64ExtendI32U => f.instruction(&I::I64ExtendI32U),
+        Inst::RetAreaPtr => f.instruction(&I::I32Const(ret_area as i32)),
+        Inst::I32Load(offset) => f.instruction(&I::I32Load(MemArg {
+            offset: *offset as u64,
+            align: 2,
+            memory_index: 0,
+        })),
+        Inst::I32Load8U(offset) => f.instruction(&I::I32Load8U(MemArg {
+            offset: *offset as u64,
+            align: 0,
+            memory_index: 0,
+        })),
         Inst::If { result, then, els } => {
             let block_type = match result {
                 Some(v) => BlockType::Result(val(*v)),
@@ -156,12 +230,12 @@ fn emit_inst(inst: &Inst, import_count: u32, f: &mut Function) {
             };
             f.instruction(&I::If(block_type));
             for inst in then {
-                emit_inst(inst, import_count, f);
+                emit_inst(inst, import_count, ret_area, f);
             }
             if !els.is_empty() {
                 f.instruction(&I::Else);
                 for inst in els {
-                    emit_inst(inst, import_count, f);
+                    emit_inst(inst, import_count, ret_area, f);
                 }
             }
             f.instruction(&I::End)

@@ -241,3 +241,215 @@ functions:
 
     assert_eq!(store.data().as_slice(), ["hello world".to_string()]);
 }
+
+#[test]
+fn roundtrip_option_string_return_with_default() {
+    // /users/:id shape: get-param returns option<string> via retptr; the
+    // guest unwraps with `default` and forwards to set-body.
+    let host_bridge = "\
+host interface request version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function getParam(name: string) returns string?
+\t\tdescription \"One path parameter by name.\"
+
+host interface response version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function setBody(body: bytes)
+\t\tdescription \"Set the response body.\"
+";
+    let main = "\
+functions:
+\tvoid handle(integer handlerId)
+\t\tstring id = getParam(\"id\") default \"no id\"
+\t\tsetBody(id)
+";
+    let wasm = compile_to_core(&[("app/host_bridge.cln", host_bridge), ("app/main.cln", main)]);
+    wasmparser::validate(&wasm).expect("core module validates");
+
+    // Host state: (param value to return, call log).
+    struct Host {
+        param: Option<&'static str>,
+        log: CallLog,
+    }
+    let engine = wasmtime::Engine::default();
+    let module = wasmtime::Module::new(&engine, &wasm).expect("module loads");
+    let mut linker: wasmtime::Linker<Host> = wasmtime::Linker::new(&engine);
+    linker
+        .func_wrap(
+            "clean:host/request@0.1.0",
+            "get-param",
+            |mut caller: wasmtime::Caller<'_, Host>, _n_ptr: i32, _n_len: i32, retptr: i32| {
+                let memory = caller
+                    .get_export("memory")
+                    .and_then(|e| e.into_memory())
+                    .expect("guest exports memory");
+                let realloc = caller
+                    .get_export("cabi_realloc")
+                    .and_then(|e| e.into_func())
+                    .expect("guest exports cabi_realloc")
+                    .typed::<(i32, i32, i32, i32), i32>(&caller)
+                    .expect("realloc signature");
+                match caller.data().param {
+                    Some(value) => {
+                        // Canonical lift into the guest: allocate, copy,
+                        // write [disc=1, ptr, len] into the return area.
+                        let ptr = realloc
+                            .call(&mut caller, (0, 0, 1, value.len() as i32))
+                            .expect("realloc runs");
+                        memory
+                            .write(&mut caller, ptr as usize, value.as_bytes())
+                            .expect("write param value");
+                        let mut area = [0u8; 12];
+                        area[0] = 1;
+                        area[4..8].copy_from_slice(&ptr.to_le_bytes());
+                        area[8..12].copy_from_slice(&(value.len() as i32).to_le_bytes());
+                        memory
+                            .write(&mut caller, retptr as usize, &area)
+                            .expect("write return area");
+                    }
+                    None => {
+                        memory
+                            .write(&mut caller, retptr as usize, &[0u8; 12])
+                            .expect("write none");
+                    }
+                }
+            },
+        )
+        .expect("get-param stub links");
+    linker
+        .func_wrap(
+            "clean:host/response@0.1.0",
+            "set-body",
+            |mut caller: wasmtime::Caller<'_, Host>, ptr: i32, len: i32| {
+                let memory = caller
+                    .get_export("memory")
+                    .and_then(|e| e.into_memory())
+                    .expect("guest exports memory");
+                let mut buf = vec![0u8; len as usize];
+                memory
+                    .read(&caller, ptr as usize, &mut buf)
+                    .expect("read body");
+                let body = String::from_utf8(buf).expect("utf8");
+                caller.data_mut().log.push(body);
+            },
+        )
+        .expect("set-body stub links");
+
+    // Case 1: the parameter exists.
+    let mut store = wasmtime::Store::new(
+        &engine,
+        Host {
+            param: Some("42"),
+            log: Vec::new(),
+        },
+    );
+    let instance = linker
+        .instantiate(&mut store, &module)
+        .expect("instantiates");
+    let handle = instance
+        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .expect("handle export");
+    handle.call(&mut store, 1).expect("handle runs");
+    assert_eq!(store.data().log.as_slice(), ["42".to_string()]);
+
+    // Case 2: no parameter — the `default` fallback flows to set-body.
+    let mut store = wasmtime::Store::new(
+        &engine,
+        Host {
+            param: None,
+            log: Vec::new(),
+        },
+    );
+    let instance = linker
+        .instantiate(&mut store, &module)
+        .expect("instantiates");
+    let handle = instance
+        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .expect("handle export");
+    handle.call(&mut store, 1).expect("handle runs");
+    assert_eq!(store.data().log.as_slice(), ["no id".to_string()]);
+}
+
+#[test]
+fn roundtrip_bytes_return_echoed_back() {
+    // /echo shape: get-body returns list<u8> via retptr; the guest passes
+    // it straight to set-body.
+    let host_bridge = "\
+host interface request version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function getBody() returns bytes
+\t\tdescription \"The request body.\"
+
+host interface response version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function setBody(body: bytes)
+\t\tdescription \"Set the response body.\"
+";
+    let main = "\
+functions:
+\tvoid handle(integer handlerId)
+\t\tbytes body = getBody()
+\t\tsetBody(body)
+";
+    let wasm = compile_to_core(&[("app/host_bridge.cln", host_bridge), ("app/main.cln", main)]);
+
+    let engine = wasmtime::Engine::default();
+    let module = wasmtime::Module::new(&engine, &wasm).expect("module loads");
+    let mut linker: wasmtime::Linker<CallLog> = wasmtime::Linker::new(&engine);
+    linker
+        .func_wrap(
+            "clean:host/request@0.1.0",
+            "get-body",
+            |mut caller: wasmtime::Caller<'_, CallLog>, retptr: i32| {
+                let memory = caller
+                    .get_export("memory")
+                    .and_then(|e| e.into_memory())
+                    .expect("guest exports memory");
+                let realloc = caller
+                    .get_export("cabi_realloc")
+                    .and_then(|e| e.into_func())
+                    .expect("guest exports cabi_realloc")
+                    .typed::<(i32, i32, i32, i32), i32>(&caller)
+                    .expect("realloc signature");
+                let payload = b"echo me";
+                let ptr = realloc
+                    .call(&mut caller, (0, 0, 1, payload.len() as i32))
+                    .expect("realloc runs");
+                memory
+                    .write(&mut caller, ptr as usize, payload)
+                    .expect("write body");
+                let mut area = [0u8; 8];
+                area[0..4].copy_from_slice(&ptr.to_le_bytes());
+                area[4..8].copy_from_slice(&(payload.len() as i32).to_le_bytes());
+                memory
+                    .write(&mut caller, retptr as usize, &area)
+                    .expect("write return area");
+            },
+        )
+        .expect("get-body stub links");
+    linker
+        .func_wrap(
+            "clean:host/response@0.1.0",
+            "set-body",
+            |mut caller: wasmtime::Caller<'_, CallLog>, ptr: i32, len: i32| {
+                let body = read_string(&mut caller, ptr, len);
+                caller.data_mut().push(body);
+            },
+        )
+        .expect("set-body stub links");
+
+    let mut store = wasmtime::Store::new(&engine, Vec::new());
+    let instance = linker
+        .instantiate(&mut store, &module)
+        .expect("instantiates");
+    instance
+        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .expect("handle export")
+        .call(&mut store, 4)
+        .expect("handle runs");
+    assert_eq!(store.data().as_slice(), ["echo me".to_string()]);
+}

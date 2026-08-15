@@ -49,6 +49,27 @@ pub struct MirImport {
     pub results: Vec<Val>,
 }
 
+/// How a host result wider than one core value comes back: through a
+/// caller-provided return area (Canonical ABI retptr form). The layouts are
+/// the canonical in-memory representations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RetLift {
+    /// `string` / `list<u8>`: ptr at +0, len at +4.
+    PtrLen,
+    /// `option<string>`: discriminant byte at +0, ptr at +4, len at +8.
+    OptionPtrLen,
+}
+
+/// The retptr classification for a host-function return type, shared by
+/// import lowering and call-site lowering so the two can never disagree.
+pub fn ret_lift(ty: &Ty) -> Option<RetLift> {
+    match ty {
+        Ty::Str | Ty::Bytes => Some(RetLift::PtrLen),
+        Ty::Option(inner) if matches!(**inner, Ty::Str | Ty::Bytes) => Some(RetLift::OptionPtrLen),
+        _ => None,
+    }
+}
+
 pub struct MirFunction {
     pub name: String,
     pub params: Vec<Val>,
@@ -75,6 +96,13 @@ pub enum Inst {
     I32Eqz,
     I32WrapI64,
     I64ExtendI32U,
+    /// Pushes the address of the fixed return area (resolved at emission,
+    /// after the static data size is final).
+    RetAreaPtr,
+    /// i32 load at constant offset from the popped address.
+    I32Load(u32),
+    /// Zero-extending byte load at constant offset from the popped address.
+    I32Load8U(u32),
     /// Structured conditional; `result` is the value it leaves on the stack.
     If {
         result: Option<Val>,
@@ -196,13 +224,19 @@ fn lower_import(
         }
     }
     let results = match val_types(&import.ret) {
-        // Flattened results wider than one core value take the retptr form
-        // of the Canonical ABI — step 6b.
         Some(vals) if vals.len() <= 1 => vals,
-        _ => {
-            note_type_gap(&import.ret, import, resolved, sink);
-            vec![]
-        }
+        // Wider results take the Canonical ABI retptr form: a trailing i32
+        // pointer parameter, no core results.
+        _ => match ret_lift(&import.ret) {
+            Some(_) => {
+                params.push(Val::I32);
+                vec![]
+            }
+            None => {
+                note_type_gap(&import.ret, import, resolved, sink);
+                vec![]
+            }
+        },
     };
     MirImport {
         module: format!("clean:host/{}@{}", import.interface, world_version),
@@ -268,11 +302,14 @@ fn lower_function(
         slot_widths,
         file: function.file,
         data,
+        next_slot: next,
+        scratch: Vec::new(),
     };
     let mut body = Vec::new();
     for stmt in &function.body {
         lowerer.stmt(stmt, &mut body, sink);
     }
+    locals.extend(lowerer.scratch);
     MirFunction {
         name: function.name.clone(),
         params,
@@ -292,9 +329,21 @@ struct FnLowerer<'a> {
     slot_widths: Vec<u32>,
     file: usize,
     data: &'a mut DataPool,
+    /// Next free wasm slot (scratch allocations continue the local space).
+    next_slot: u32,
+    /// Scratch locals appended after the declared locals.
+    scratch: Vec<Val>,
 }
 
 impl<'a> FnLowerer<'a> {
+    /// Reserves consecutive scratch slots and returns the base slot index.
+    fn alloc_scratch(&mut self, vals: &[Val]) -> u32 {
+        let base = self.next_slot;
+        self.next_slot += vals.len() as u32;
+        self.scratch.extend_from_slice(vals);
+        base
+    }
+
     fn note(
         &self,
         sink: &mut DiagnosticSink,
@@ -400,7 +449,33 @@ impl<'a> FnLowerer<'a> {
                     self.expr(arg, out, sink);
                     self.boundary_convert(&arg.ty, param_ty, out);
                 }
+                let ret = &self.program.host_imports[*import].ret;
+                let needs_retptr = val_types(ret).map(|v| v.len() > 1).unwrap_or(false);
+                if needs_retptr {
+                    out.push(Inst::RetAreaPtr);
+                }
                 out.push(Inst::CallImport(*import as u32));
+                if needs_retptr {
+                    // Lift the canonical in-memory result back onto the
+                    // stack in flattened slot order.
+                    match ret_lift(ret) {
+                        Some(RetLift::PtrLen) => {
+                            out.push(Inst::RetAreaPtr);
+                            out.push(Inst::I32Load(0));
+                            out.push(Inst::RetAreaPtr);
+                            out.push(Inst::I32Load(4));
+                        }
+                        Some(RetLift::OptionPtrLen) => {
+                            out.push(Inst::RetAreaPtr);
+                            out.push(Inst::I32Load8U(0));
+                            out.push(Inst::RetAreaPtr);
+                            out.push(Inst::I32Load(4));
+                            out.push(Inst::RetAreaPtr);
+                            out.push(Inst::I32Load(8));
+                        }
+                        None => self.note(sink, "this host result type", expr.span),
+                    }
+                }
             }
             HExprKind::CallFn { func, args } => {
                 for arg in args {
@@ -445,6 +520,34 @@ impl<'a> FnLowerer<'a> {
     ) {
         use BinOp::*;
         match op {
+            Default => {
+                // `opt default fb`: stack after lhs is [disc, payload…].
+                // Park the payload in scratch, branch on the discriminant,
+                // and refill the scratch from the fallback when none.
+                let payload_ty = match &lhs.ty {
+                    Ty::Option(inner) => (**inner).clone(),
+                    _ => rhs.ty.clone(),
+                };
+                let payload_vals = val_types(&payload_ty).unwrap_or_default();
+                let base = self.alloc_scratch(&payload_vals);
+                self.expr(lhs, out, sink);
+                for offset in (0..payload_vals.len() as u32).rev() {
+                    out.push(Inst::LocalSet(base + offset));
+                }
+                let mut els = Vec::new();
+                self.expr(rhs, &mut els, sink);
+                for offset in (0..payload_vals.len() as u32).rev() {
+                    els.push(Inst::LocalSet(base + offset));
+                }
+                out.push(Inst::If {
+                    result: None,
+                    then: Vec::new(),
+                    els,
+                });
+                for offset in 0..payload_vals.len() as u32 {
+                    out.push(Inst::LocalGet(base + offset));
+                }
+            }
             And | Or => {
                 // Short-circuit: `a and b` ⇒ if a { b } else { false };
                 // `a or b` ⇒ if a { true } else { b }.

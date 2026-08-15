@@ -869,6 +869,24 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
     ) -> TExpr {
         use ast::BinOp::*;
         let (lhs, rhs, ty) = match op {
+            Default => {
+                // EXP-03: `optional default fallback` yields the unwrapped
+                // type; the fallback must match the payload.
+                let l = self.check_expr(lhs, None, sink);
+                let inner = match &l.ty {
+                    Ty::Option(inner) => (**inner).clone(),
+                    Ty::Error => Ty::Error,
+                    other => {
+                        self.invalid_op(sink, "default", other, span);
+                        Ty::Error
+                    }
+                };
+                let r = self.check_expr(rhs, Some(&inner), sink);
+                if !assignable(&r.ty, &inner) {
+                    self.invalid_op(sink, "default", &r.ty, span);
+                }
+                (l, r, inner)
+            }
             Add | Sub | Mul | Div | Rem => {
                 let l = self.check_expr(lhs, Some(&Ty::Integer), sink);
                 let r = self.check_expr(rhs, Some(&Ty::Integer), sink);

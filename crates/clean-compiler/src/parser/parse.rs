@@ -854,7 +854,19 @@ impl<'a> Parser<'a> {
     // ----- expressions (EXP-01 ladder) ----------------------------------
 
     fn expression(&mut self, sink: &mut DiagnosticSink) -> Expr {
-        self.or_expr(sink)
+        self.default_expr(sink)
+    }
+
+    /// Level 11: `default` — none-coalescing, left-associative (EXP-03).
+    /// `onError` (level 13) sits above this and is outside the M1 surface.
+    fn default_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
+        let mut lhs = self.or_expr(sink);
+        while self.at_kw(Kw::Default) {
+            self.bump();
+            let rhs = self.or_expr(sink);
+            lhs = binary(BinOp::Default, lhs, rhs);
+        }
+        lhs
     }
 
     fn or_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
