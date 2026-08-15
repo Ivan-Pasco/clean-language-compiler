@@ -1,0 +1,7 @@
+error[SEM002]: I cannot find a variable named `missing` in scope
+ --> tests/cln/diagnostics/SEM002.cln:3:15
+  |
+3 | 		integer x = missing
+  | 		            ^^^^^^^ no variable with this name exists here
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM002

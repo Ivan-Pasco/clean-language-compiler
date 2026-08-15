@@ -1,0 +1,7 @@
+error[SEM019]: I cannot find a function named `missing`
+ --> tests/cln/diagnostics/SEM019.cln:3:3
+  |
+3 | 		missing()
+  | 		^^^^^^^ no function with this name is in scope
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM019

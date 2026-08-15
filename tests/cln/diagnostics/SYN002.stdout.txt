@@ -1,0 +1,7 @@
+error[SYN002]: expected an expression, found RParen
+ --> tests/cln/diagnostics/SYN002.cln:3:10
+  |
+3 | 		return )
+  | 		       ^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN002

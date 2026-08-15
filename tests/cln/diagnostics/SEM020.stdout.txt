@@ -1,0 +1,15 @@
+error[SEM020]: I cannot find a class named `Widget`
+ --> tests/cln/diagnostics/SEM020.cln:3:3
+  |
+3 | 		Widget w = Widget(1)
+  | 		^^^^^^ no class with this name is in scope
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM020
+
+error[SEM019]: I cannot find a function named `Widget`
+ --> tests/cln/diagnostics/SEM020.cln:3:14
+  |
+3 | 		Widget w = Widget(1)
+  | 		           ^^^^^^ no function with this name is in scope
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM019

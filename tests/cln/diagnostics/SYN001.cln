@@ -1,0 +1,3 @@
+functions:
+	void init()
+		integer a = 1 § 2

@@ -1,0 +1,7 @@
+error[SCOPE002]: variable `x` cannot be redeclared in the same scope
+ --> tests/cln/diagnostics/SCOPE002.cln:4:3
+  |
+4 | 		integer x = 2
+  | 		^^^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SCOPE002

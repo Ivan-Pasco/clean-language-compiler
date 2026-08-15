@@ -1,0 +1,5 @@
+functions:
+	integer add(integer a, integer b)
+		return a + b
+	void init()
+		integer x = add(1)

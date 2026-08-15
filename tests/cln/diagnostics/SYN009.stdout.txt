@@ -1,0 +1,7 @@
+error[SYN009]: 'integer' cannot appear at the top level of a file
+ --> tests/cln/diagnostics/SYN009.cln:1:1
+  |
+1 | integer x = 5
+  | ^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN009

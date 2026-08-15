@@ -1,0 +1,23 @@
+error[SYN006]: indentation jumps from level 0 to level 3; blocks nest one tab at a time
+ --> tests/cln/diagnostics/SYN006.cln:2:1
+  |
+2 | 			void init()
+  | ^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN006
+
+error[SYN002]: expected a type
+ --> tests/cln/diagnostics/SYN006.cln:2:1
+  |
+2 | 			void init()
+  | ^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN002
+
+error[SYN002]: expected function name
+ --> tests/cln/diagnostics/SYN006.cln:2:1
+  |
+2 | 			void init()
+  | ^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN002

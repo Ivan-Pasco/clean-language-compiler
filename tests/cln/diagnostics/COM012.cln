@@ -1,0 +1,15 @@
+// Brief acceptance check 3: this program declares and calls a host
+// function the `server` world does not provide. Compiling it against
+// clean-server's host.wit must fail with COM012 and produce no wasm.
+
+host interface dom version "0.1.0":
+	requires host worlds ["browser"]
+
+	host function setInnerHTML(selector: string, html: string)
+		description "Replace inner HTML of the first matching element."
+
+functions:
+	void init()
+		setInnerHTML("#app", "hello")
+	void handle(integer handlerId)
+		return

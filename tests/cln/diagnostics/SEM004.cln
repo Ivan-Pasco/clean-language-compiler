@@ -1,0 +1,3 @@
+functions:
+	void init()
+		boolean b = true + false

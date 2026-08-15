@@ -1,0 +1,7 @@
+error[SYN004]: string literal is not closed before the end of the line
+ --> tests/cln/diagnostics/SYN004.cln:3:14
+  |
+3 | 		string s = "never closed
+  | 		           ^^^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN004

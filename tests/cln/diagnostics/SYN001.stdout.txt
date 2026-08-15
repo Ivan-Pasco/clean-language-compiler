@@ -1,0 +1,15 @@
+error[SYN001]: character '§' is not valid in any lexical context
+ --> tests/cln/diagnostics/SYN001.cln:3:17
+  |
+3 | 		integer a = 1 § 2
+  | 		              ^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN001
+
+error[SYN002]: expected end of line
+ --> tests/cln/diagnostics/SYN001.cln:3:19
+  |
+3 | 		integer a = 1 § 2
+  | 		                ^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN002

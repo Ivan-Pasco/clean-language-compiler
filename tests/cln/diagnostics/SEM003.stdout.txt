@@ -1,0 +1,7 @@
+error[SEM003]: `add` is declared more than once
+ --> tests/cln/diagnostics/SEM003.cln:4:2
+  |
+4 | 	integer add(integer x, integer y)
+  | 	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ redefinition
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM003

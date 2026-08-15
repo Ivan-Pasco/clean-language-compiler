@@ -1,0 +1,7 @@
+error[FUNC003]: `x` is not a function and cannot be called
+ --> tests/cln/diagnostics/FUNC003.cln:4:15
+  |
+4 | 		integer y = x()
+  | 		            ^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC003

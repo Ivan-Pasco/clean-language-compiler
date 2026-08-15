@@ -1,0 +1,7 @@
+error[COM012]: your program uses 'clean:host/dom#set-inner-html' but you compiled for 'server', which does not provide it
+  --> tests/cln/diagnostics/COM012.cln:13:3
+   |
+13 | 		setInnerHTML("#app", "hello")
+   | 		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not in the target world
+   |
+   = docs: https://errors.cleanlanguage.dev/E/COM012

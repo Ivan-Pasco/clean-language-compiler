@@ -1,0 +1,7 @@
+error[SEM026]: literal 9223372036854775808 does not fit integer (range -9223372036854775808 to 9223372036854775807)
+ --> tests/cln/diagnostics/SEM026.cln:3:15
+  |
+3 | 		integer x = 9223372036854775808
+  | 		            ^^^^^^^^^^^^^^^^^^^ out of range for integer
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM026

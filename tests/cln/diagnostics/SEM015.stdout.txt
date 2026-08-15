@@ -1,0 +1,8 @@
+error[SEM015]: return type mismatch in `f`
+ --> tests/cln/diagnostics/SEM015.cln:3:10
+  |
+3 | 		return true
+  | 		       ^^^^ this expression has type `boolean`
+  |
+  = note: function declares return type `integer`
+  = docs: https://errors.cleanlanguage.dev/E/SEM015

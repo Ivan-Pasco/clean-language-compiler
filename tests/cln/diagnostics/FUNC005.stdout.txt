@@ -1,0 +1,7 @@
+warning[FUNC005]: empty return in `f`, which declares return type `integer`
+ --> tests/cln/diagnostics/FUNC005.cln:3:3
+  |
+3 | 		return
+  | 		^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC005

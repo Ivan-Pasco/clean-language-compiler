@@ -1,0 +1,3 @@
+functions:
+	void init()
+		Widget w = Widget(1)

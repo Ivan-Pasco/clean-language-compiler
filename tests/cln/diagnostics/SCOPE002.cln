@@ -1,0 +1,4 @@
+functions:
+	void init()
+		integer x = 1
+		integer x = 2

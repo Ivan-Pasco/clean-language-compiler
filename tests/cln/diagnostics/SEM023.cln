@@ -1,0 +1,4 @@
+functions:
+	void init()
+		if 1
+			return

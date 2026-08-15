@@ -1,0 +1,7 @@
+error[SYN005]: host function 'register' is missing its mandatory description
+ --> tests/cln/diagnostics/SYN005.cln:4:2
+  |
+4 | 	host function register(path: string)
+  | 	^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN005

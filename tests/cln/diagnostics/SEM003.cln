@@ -1,0 +1,5 @@
+functions:
+	integer add(integer a, integer b)
+		return a + b
+	integer add(integer x, integer y)
+		return x + y

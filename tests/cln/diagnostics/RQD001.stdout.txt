@@ -1,0 +1,3 @@
+error[RQD001]: request integrity failure: 'tests/cln/diagnostics/RQD001.cln' declares sha256 0000000000000000000000000000000000000000000000000000000000000000, content hashes to 077cfe92b407e709d935f131f8b9cd43add901e0dced48651f117ec51396eb59
+ --> <request>:1:1
+  = docs: https://errors.cleanlanguage.dev/E/RQD001

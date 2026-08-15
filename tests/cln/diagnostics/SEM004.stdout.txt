@@ -1,0 +1,25 @@
+error[SEM001]: type mismatch in assignment
+ --> tests/cln/diagnostics/SEM004.cln:3:3
+  |
+3 | 		boolean b = true + false
+  | 		^^^^^^^^^^^^^^^^^^^^^^^^- this expression has type `integer`
+  | 		|
+  | 		`b` is declared with type `boolean`
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM001
+
+error[SEM004]: arithmetic is not defined for type `boolean`
+ --> tests/cln/diagnostics/SEM004.cln:3:15
+  |
+3 | 		boolean b = true + false
+  | 		            ^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM004
+
+error[SEM004]: arithmetic is not defined for type `boolean`
+ --> tests/cln/diagnostics/SEM004.cln:3:22
+  |
+3 | 		boolean b = true + false
+  | 		                   ^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM004

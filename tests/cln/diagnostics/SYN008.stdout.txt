@@ -1,0 +1,11 @@
+error[SYN008]: print: block must contain at least one expression
+ --> tests/cln/diagnostics/SYN008.cln:3:3
+  |
+3 | 		print:
+  | 		^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN008
+
+error[SYN002]: expected indented print body
+ --> tests/cln/diagnostics/SYN008.cln:5:1
+  = docs: https://errors.cleanlanguage.dev/E/SYN002

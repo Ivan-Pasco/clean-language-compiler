@@ -1,0 +1,5 @@
+functions:
+	integer double(integer n)
+		return n
+	void init()
+		integer x = double(true)

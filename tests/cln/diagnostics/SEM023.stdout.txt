@@ -1,0 +1,7 @@
+error[SEM023]: Condition must be a boolean expression, found integer
+ --> tests/cln/diagnostics/SEM023.cln:3:6
+  |
+3 | 		if 1
+  | 		   ^ expected boolean
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM023
