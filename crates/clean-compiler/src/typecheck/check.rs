@@ -732,7 +732,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     sig.ret.clone(),
                 )
             };
-            let args = self.check_args(name, &params, args, span, sink);
+            let args = self.check_args(name, &params, args, span, false, sink);
             return TExpr {
                 ty: ret,
                 span,
@@ -751,7 +751,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 let import = &self.outer.host_imports[index];
                 (import.params.clone(), import.ret.clone())
             };
-            let args = self.check_args(name, &params, args, span, sink);
+            let args = self.check_args(name, &params, args, span, true, sink);
             return TExpr {
                 ty: ret,
                 span,
@@ -784,7 +784,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 }
             }
             let params: Vec<Ty> = fields.iter().map(|(_, t)| t.clone()).collect();
-            let args = self.check_args(name, &params, args, span, sink);
+            let args = self.check_args(name, &params, args, span, false, sink);
             return TExpr {
                 ty: record,
                 span,
@@ -809,6 +809,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         params: &[Ty],
         args: &[ast::Expr],
         call_span: ByteSpan,
+        host_boundary: bool,
         sink: &mut DiagnosticSink,
     ) -> Vec<TExpr> {
         if args.len() != params.len() {
@@ -830,7 +831,13 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 let expected = params.get(i);
                 let value = self.check_expr(arg, expected, sink);
                 if let Some(param_ty) = expected {
-                    if !assignable(&value.ty, param_ty) {
+                    // ADR-0002: at the host boundary a `string` value is
+                    // accepted where `bytes` is declared — both project to
+                    // the identical (ptr, len) UTF-8 representation. The
+                    // surface-language conversion story is M6 (§14.14.2).
+                    let boundary_identity =
+                        host_boundary && value.ty == Ty::Str && *param_ty == Ty::Bytes;
+                    if !boundary_identity && !assignable(&value.ty, param_ty) {
                         // SEM016 — headline template from Platform 10 §3.
                         let mut d = build(
                             Level::Error,

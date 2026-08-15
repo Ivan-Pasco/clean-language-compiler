@@ -8,11 +8,12 @@
 //! is itself in declaration order — no maps are iterated (§14.5).
 
 use wasm_encoder::{
-    BlockType, CodeSection, ExportKind, ExportSection, Function, FunctionSection, ImportSection,
-    Instruction, MemorySection, MemoryType, Module, TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, DataSection, ExportKind, ExportSection, Function,
+    FunctionSection, ImportSection, Instruction, MemorySection, MemoryType, Module, TypeSection,
+    ValType,
 };
 
-use crate::mir::{CmpOp, I64Op, Inst, MirFunction, MirProgram, Val};
+use crate::mir::{CmpOp, I64Op, Inst, MirFunction, MirProgram, Val, DATA_OFFSET};
 
 fn val(v: Val) -> ValType {
     match v {
@@ -84,6 +85,15 @@ pub fn emit_core(program: &MirProgram) -> Vec<u8> {
     module.section(&memories);
     module.section(&exports);
     module.section(&code);
+    if !program.data.is_empty() {
+        let mut data = DataSection::new();
+        data.active(
+            0,
+            &ConstExpr::i32_const(DATA_OFFSET as i32),
+            program.data.iter().copied(),
+        );
+        module.section(&data);
+    }
     module.finish()
 }
 

@@ -25,9 +25,17 @@ pub enum Val {
     I64,
 }
 
+/// Linear-memory layout (KNOWLEDGE.md trap #1 from the retired compiler:
+/// the heap pointer is placed *after* static data, never before).
+pub const DATA_OFFSET: u32 = 8;
+
 pub struct MirProgram {
     pub imports: Vec<MirImport>,
     pub functions: Vec<MirFunction>,
+    /// Static data blob, placed at `DATA_OFFSET` in linear memory: interned
+    /// string literals and compile-time-constant aggregates, deduplicated
+    /// in first-use order (deterministic, §14.5).
+    pub data: Vec<u8>,
 }
 
 /// A host import with its core-level signature already flattened.
@@ -96,14 +104,29 @@ pub enum CmpOp {
     GeS,
 }
 
-/// Flattened core-type shape of a semantic type. `None` marks a type whose
-/// lowering is not implemented yet (step 6 surface).
+/// Flattened core-type shape of a semantic type, per the Canonical ABI
+/// flattening: `string`/`bytes` are `(ptr, len)`, records concatenate their
+/// fields, options prepend an `i32` discriminant. `None` marks a type with
+/// no lowering (only `Error`, which never survives a clean typecheck).
 pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
     Some(match ty {
         Ty::Void => vec![],
         Ty::Integer | Ty::IntegerW(IntWidth::U64) => vec![Val::I64],
         Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => vec![Val::I32],
-        Ty::Str | Ty::Bytes | Ty::Record { .. } | Ty::Option(_) | Ty::Error => return None,
+        Ty::Str | Ty::Bytes => vec![Val::I32, Val::I32],
+        Ty::Record { fields, .. } => {
+            let mut out = Vec::new();
+            for (_, field_ty) in fields {
+                out.extend(val_types(field_ty)?);
+            }
+            out
+        }
+        Ty::Option(inner) => {
+            let mut out = vec![Val::I32];
+            out.extend(val_types(inner)?);
+            out
+        }
+        Ty::Error => return None,
     })
 }
 
@@ -122,12 +145,41 @@ pub fn lower(
         .iter()
         .map(|import| lower_import(import, world_version, resolved, sink))
         .collect();
+    let mut data = DataPool::default();
     let functions = program
         .functions
         .iter()
-        .map(|f| lower_function(f, program, resolved, sink))
+        .map(|f| lower_function(f, program, resolved, &mut data, sink))
         .collect();
-    MirProgram { imports, functions }
+    MirProgram {
+        imports,
+        functions,
+        data: data.blob,
+    }
+}
+
+/// Interns static byte runs into one deduplicated blob. Offsets are final
+/// linear-memory addresses (blob starts at `DATA_OFFSET`).
+#[derive(Default)]
+struct DataPool {
+    blob: Vec<u8>,
+    seen: std::collections::BTreeMap<Vec<u8>, u32>,
+}
+
+impl DataPool {
+    fn intern(&mut self, bytes: &[u8]) -> u32 {
+        if let Some(&offset) = self.seen.get(bytes) {
+            return offset;
+        }
+        let offset = DATA_OFFSET + self.blob.len() as u32;
+        self.blob.extend_from_slice(bytes);
+        // Keep every run 4-aligned so aggregate layouts stay canonical.
+        while !self.blob.len().is_multiple_of(4) {
+            self.blob.push(0);
+        }
+        self.seen.insert(bytes.to_vec(), offset);
+        offset
+    }
 }
 
 fn lower_import(
@@ -144,8 +196,10 @@ fn lower_import(
         }
     }
     let results = match val_types(&import.ret) {
-        Some(vals) => vals,
-        None => {
+        // Flattened results wider than one core value take the retptr form
+        // of the Canonical ABI — step 6b.
+        Some(vals) if vals.len() <= 1 => vals,
+        _ => {
             note_type_gap(&import.ret, import, resolved, sink);
             vec![]
         }
@@ -182,24 +236,26 @@ fn lower_function(
     function: &HFunction,
     program: &HirProgram,
     resolved: &ResolvedAst,
+    data: &mut DataPool,
     sink: &mut DiagnosticSink,
 ) -> MirFunction {
-    // LocalId → wasm slot. Scalars occupy one slot in M1; a type whose
-    // lowering does not exist yet still consumes a placeholder slot so the
-    // mapping stays total while the gap is reported.
+    // LocalId → first wasm slot; flattened types occupy consecutive slots.
     let mut slots = Vec::new();
+    let mut slot_widths = Vec::new();
     let mut params = Vec::new();
     let mut locals = Vec::new();
     let mut next: u32 = 0;
     for ty in &function.params {
         slots.push(next);
         let vals = val_types(ty).unwrap_or_else(|| vec![Val::I32]);
+        slot_widths.push(vals.len() as u32);
         next += vals.len() as u32;
         params.extend(vals);
     }
     for ty in &function.locals {
         slots.push(next);
         let vals = val_types(ty).unwrap_or_else(|| vec![Val::I32]);
+        slot_widths.push(vals.len() as u32);
         next += vals.len() as u32;
         locals.extend(vals);
     }
@@ -209,7 +265,9 @@ fn lower_function(
         program,
         resolved,
         slots,
+        slot_widths,
         file: function.file,
+        data,
     };
     let mut body = Vec::new();
     for stmt in &function.body {
@@ -230,7 +288,10 @@ struct FnLowerer<'a> {
     resolved: &'a ResolvedAst,
     /// LocalId → first wasm local slot.
     slots: Vec<u32>,
+    /// LocalId → number of consecutive slots the value occupies.
+    slot_widths: Vec<u32>,
     file: usize,
+    data: &'a mut DataPool,
 }
 
 impl<'a> FnLowerer<'a> {
@@ -247,7 +308,12 @@ impl<'a> FnLowerer<'a> {
         match stmt {
             HStmt::Set { local, value } => {
                 self.expr(value, out, sink);
-                out.push(Inst::LocalSet(self.slots[*local]));
+                // Flattened values sit on the stack in slot order; stores
+                // pop in reverse.
+                let base = self.slots[*local];
+                for offset in (0..self.slot_widths[*local]).rev() {
+                    out.push(Inst::LocalSet(base + offset));
+                }
             }
             HStmt::Return { value } => {
                 if let Some(value) = value {
@@ -294,11 +360,39 @@ impl<'a> FnLowerer<'a> {
             }
             HExprKind::Bool(v) => out.push(Inst::I32Const(*v as i32)),
             HExprKind::EnumCase(i) => out.push(Inst::I32Const(*i as i32)),
-            HExprKind::Local(id) => out.push(Inst::LocalGet(self.slots[*id])),
-            HExprKind::Str(_) => self.note(sink, "string values in compiled code", expr.span),
-            HExprKind::NoneLit => self.note(sink, "optional values in compiled code", expr.span),
-            HExprKind::MakeRecord(_) => {
-                self.note(sink, "record values in compiled code", expr.span)
+            HExprKind::Local(id) => {
+                let base = self.slots[*id];
+                for offset in 0..self.slot_widths[*id] {
+                    out.push(Inst::LocalGet(base + offset));
+                }
+            }
+            HExprKind::Str(value) => {
+                let offset = self.data.intern(value.as_bytes());
+                out.push(Inst::I32Const(offset as i32));
+                out.push(Inst::I32Const(value.len() as i32));
+            }
+            HExprKind::NoneLit => {
+                // Discriminant 0 plus zeroed payload slots.
+                let width = val_types(&expr.ty).map(|v| v.len()).unwrap_or(1);
+                let payload = val_types(match &expr.ty {
+                    Ty::Option(inner) => inner,
+                    _ => &Ty::Boolean,
+                })
+                .unwrap_or_default();
+                debug_assert_eq!(width, payload.len() + 1);
+                out.push(Inst::I32Const(0));
+                for slot in payload {
+                    out.push(match slot {
+                        Val::I32 => Inst::I32Const(0),
+                        Val::I64 => Inst::I64Const(0),
+                    });
+                }
+            }
+            HExprKind::MakeRecord(fields) => {
+                // Canonical flattening: fields in declaration order.
+                for field in fields {
+                    self.expr(field, out, sink);
+                }
             }
             HExprKind::CallHost { import, args } => {
                 let param_tys = self.program.host_imports[*import].params.clone();
