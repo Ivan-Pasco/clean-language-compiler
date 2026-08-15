@@ -1,0 +1,32 @@
+host interface routing version "0.1.0":
+	requires host worlds ["server"]
+
+	host function register(m: method, path: string, handlerId: integer:u32, opts: options)
+		description "Register one route."
+
+host interface request version "0.1.0":
+	requires host worlds ["server"]
+
+	host function getParam(name: string) returns string?
+		description "One path parameter by name."
+
+	host function getBody() returns bytes
+		description "The request body."
+
+host interface response version "0.1.0":
+	requires host worlds ["server"]
+
+	host function setStatus(status: integer:u16)
+		description "Set the status code."
+
+	host function addHeader(name: string, value: string)
+		description "Append a response header."
+
+	host function setBody(body: bytes)
+		description "Set the response body."
+
+host interface log version "0.1.0":
+	requires host worlds ["server"]
+
+	host function emit(l: level, message: string, fields: list<Field>)
+		description "Emit a structured record."

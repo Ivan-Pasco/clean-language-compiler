@@ -1,0 +1,6 @@
+class Options
+	boolean csrf
+
+class Field
+	string key
+	string value

@@ -1,0 +1,30 @@
+functions:
+	void init()
+		register("get", "/", 0, Options(true))
+		register("get", "/users/:id", 1, Options(true))
+		register("post", "/echo", 4, Options(true))
+		register("post", "/hook", 7, Options(false))
+		register("get", "/log", 6, Options(true))
+
+	void handle(integer handlerId)
+		if handlerId == 0
+			setStatus(200)
+			addHeader("content-type", "text/plain; charset=utf-8")
+			setBody("hello world")
+		else if handlerId == 1
+			string id = getParam("id") default "no id"
+			setStatus(200)
+			setBody(id)
+		else if handlerId == 4
+			bytes body = getBody()
+			setStatus(200)
+			setBody(body)
+		else if handlerId == 7
+			setStatus(200)
+			setBody("hook received")
+		else if handlerId == 6
+			emit("info", "hello from the guest", [Field("route", "log-demo")])
+			setStatus(200)
+			setBody("logged")
+		else
+			setStatus(404)
