@@ -42,3 +42,12 @@ jobs:
 
       - name: test
         run: cargo test --workspace
+
+      # M2 1:1 gate — código ⇔ regla ⇔ snapshot. Redundant with the full
+      # suite above, but named so a gate breach is legible in the log. The
+      # registry_spec leg self-skips here (the private spec checkout is not
+      # cloned in CI) and runs against ../clean-language-foundation locally.
+      - name: diagnostics 1:1 gate
+        run: |
+          cargo test -p clean-compiler-types --test registry --test registry_spec -- --nocapture
+          cargo test -p clean-compiler --test emitted_codes --test diagnostics_fixtures -- --nocapture
