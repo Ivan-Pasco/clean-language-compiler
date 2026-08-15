@@ -141,7 +141,7 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
         Ty::Void => vec![],
         Ty::Integer | Ty::IntegerW(IntWidth::U64) => vec![Val::I64],
         Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => vec![Val::I32],
-        Ty::Str | Ty::Bytes => vec![Val::I32, Val::I32],
+        Ty::Str | Ty::Bytes | Ty::List(_) => vec![Val::I32, Val::I32],
         Ty::Record { fields, .. } => {
             let mut out = Vec::new();
             for (_, field_ty) in fields {
@@ -336,6 +336,35 @@ struct FnLowerer<'a> {
 }
 
 impl<'a> FnLowerer<'a> {
+    /// Serializes a list of compile-time-constant elements into the
+    /// canonical contiguous layout. Supported constant shapes in M1:
+    /// strings and records whose fields are themselves constant.
+    fn serialize_const_list(&mut self, items: &[HExpr]) -> Option<Vec<u8>> {
+        let mut blob = Vec::new();
+        for item in items {
+            self.serialize_const(item, &mut blob)?;
+        }
+        Some(blob)
+    }
+
+    fn serialize_const(&mut self, expr: &HExpr, blob: &mut Vec<u8>) -> Option<()> {
+        match &expr.kind {
+            HExprKind::Str(value) => {
+                let ptr = self.data.intern(value.as_bytes());
+                blob.extend_from_slice(&ptr.to_le_bytes());
+                blob.extend_from_slice(&(value.len() as u32).to_le_bytes());
+                Some(())
+            }
+            HExprKind::MakeRecord(fields) => {
+                for field in fields {
+                    self.serialize_const(field, blob)?;
+                }
+                Some(())
+            }
+            _ => None,
+        }
+    }
+
     /// Reserves consecutive scratch slots and returns the base slot index.
     fn alloc_scratch(&mut self, vals: &[Val]) -> u32 {
         let base = self.next_slot;
@@ -441,6 +470,23 @@ impl<'a> FnLowerer<'a> {
                 // Canonical flattening: fields in declaration order.
                 for field in fields {
                     self.expr(field, out, sink);
+                }
+            }
+            HExprKind::MakeList(items) => {
+                // Compile-time-constant lists serialize to static data in
+                // the canonical element layout; runtime list construction
+                // needs the allocator story of M6.
+                match self.serialize_const_list(items) {
+                    Some(blob) => {
+                        let ptr = if blob.is_empty() {
+                            DATA_OFFSET
+                        } else {
+                            self.data.intern(&blob)
+                        };
+                        out.push(Inst::I32Const(ptr as i32));
+                        out.push(Inst::I32Const(items.len() as i32));
+                    }
+                    None => self.note(sink, "runtime-constructed list values", expr.span),
                 }
             }
             HExprKind::CallHost { import, args } => {

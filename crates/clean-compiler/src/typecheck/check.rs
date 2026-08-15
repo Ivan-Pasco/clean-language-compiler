@@ -151,10 +151,12 @@ impl<'a> Checker<'a> {
                     Ty::Error
                 }
             },
+            ast::BaseType::List(element) => {
+                Ty::List(Box::new(self.project_surface_type(element, file, sink)))
+            }
             ast::BaseType::Number
             | ast::BaseType::Datetime
             | ast::BaseType::Any
-            | ast::BaseType::List(_)
             | ast::BaseType::Pairs(_, _) => {
                 sink.note_unsupported(
                     "type outside the Milestone 1 surface",
@@ -610,10 +612,44 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 sink.note_unsupported("number literals", self.diag_span(span));
                 error_expr(span)
             }
-            ast::Expr::List { .. } => {
-                sink.note_unsupported("list literals", self.diag_span(span));
-                error_expr(span)
-            }
+            ast::Expr::List { items, .. } => match expected {
+                Some(Ty::List(element)) => {
+                    let element = (**element).clone();
+                    let items = items
+                        .iter()
+                        .map(|item| {
+                            let value = self.check_expr(item, Some(&element), sink);
+                            if !assignable(&value.ty, &element) {
+                                let mut d = build(
+                                    Level::Error,
+                                    codes::SEM001,
+                                    "type mismatch in assignment".to_string(),
+                                    self.diag_span(item.span()),
+                                    Some(format!(
+                                        "list elements here have type `{}`",
+                                        element.display()
+                                    )),
+                                );
+                                d.rendered = crate::diag::render_cli(&d);
+                                sink.push(d);
+                            }
+                            value
+                        })
+                        .collect();
+                    TExpr {
+                        ty: Ty::List(Box::new(element)),
+                        span,
+                        kind: TExprKind::MakeList(items),
+                    }
+                }
+                _ => {
+                    sink.note_unsupported(
+                        "list literals outside a list-typed context",
+                        self.diag_span(span),
+                    );
+                    error_expr(span)
+                }
+            },
             ast::Expr::Ident { name, .. } => match self.lookup(name) {
                 Some(local) => TExpr {
                     ty: self.locals[local].ty.clone(),
@@ -1001,6 +1037,7 @@ fn assignable(from: &Ty, to: &Ty) -> bool {
                     .zip(fb)
                     .all(|((na, ta), (nb, tb))| na == nb && assignable(ta, tb))
         }
+        (Ty::List(a), Ty::List(b)) => assignable(a, b),
         _ => false,
     }
 }

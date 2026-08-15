@@ -85,6 +85,8 @@ pub enum TExprKind {
     EnumCase(u32),
     /// Record construction; field values in WIT declaration order.
     MakeRecord(Vec<TExpr>),
+    /// List literal; element values in source order.
+    MakeList(Vec<TExpr>),
     Local(LocalId),
     /// Call to a declared host function (index into `host_imports`).
     CallHost {

@@ -453,3 +453,83 @@ functions:
         .expect("handle runs");
     assert_eq!(store.data().as_slice(), ["echo me".to_string()]);
 }
+
+#[test]
+fn roundtrip_constant_list_of_records() {
+    // /log shape: emit(level, message, fields) with a constant list of
+    // field records, serialized to static data in canonical layout.
+    let host_bridge = "\
+host interface log version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function emit(l: level, message: string, fields: list<Field>)
+\t\tdescription \"Emit a structured record.\"
+";
+    let field_class = "class Field\n\tstring key\n\tstring value\n";
+    let main = "\
+functions:
+\tvoid handle(integer handlerId)
+\t\temit(\"info\", \"hello from the guest\", [Field(\"route\", \"log-demo\")])
+";
+    let wasm = compile_to_core(&[
+        ("app/host_bridge.cln", host_bridge),
+        ("app/field.cln", field_class),
+        ("app/main.cln", main),
+    ]);
+    wasmparser::validate(&wasm).expect("core module validates");
+
+    let engine = wasmtime::Engine::default();
+    let module = wasmtime::Module::new(&engine, &wasm).expect("module loads");
+    let mut linker: wasmtime::Linker<CallLog> = wasmtime::Linker::new(&engine);
+    linker
+        .func_wrap(
+            "clean:host/log@0.1.0",
+            "emit",
+            |mut caller: wasmtime::Caller<'_, CallLog>,
+             level: i32,
+             msg_ptr: i32,
+             msg_len: i32,
+             fields_ptr: i32,
+             fields_len: i32| {
+                let message = read_string(&mut caller, msg_ptr, msg_len);
+                let memory = caller
+                    .get_export("memory")
+                    .and_then(|e| e.into_memory())
+                    .expect("guest exports memory");
+                // Canonical list<record{string,string}>: 16-byte stride.
+                let mut fields = Vec::new();
+                for i in 0..fields_len {
+                    let mut element = [0u8; 16];
+                    memory
+                        .read(&caller, (fields_ptr + i * 16) as usize, &mut element)
+                        .expect("element in bounds");
+                    let k_ptr = i32::from_le_bytes(element[0..4].try_into().unwrap());
+                    let k_len = i32::from_le_bytes(element[4..8].try_into().unwrap());
+                    let v_ptr = i32::from_le_bytes(element[8..12].try_into().unwrap());
+                    let v_len = i32::from_le_bytes(element[12..16].try_into().unwrap());
+                    let key = read_string(&mut caller, k_ptr, k_len);
+                    let value = read_string(&mut caller, v_ptr, v_len);
+                    fields.push(format!("{key}={value}"));
+                }
+                caller
+                    .data_mut()
+                    .push(format!("emit[{level}] {message} ({})", fields.join(",")));
+            },
+        )
+        .expect("emit stub links");
+
+    let mut store = wasmtime::Store::new(&engine, Vec::new());
+    let instance = linker
+        .instantiate(&mut store, &module)
+        .expect("instantiates");
+    instance
+        .get_typed_func::<i64, ()>(&mut store, "handle")
+        .expect("handle export")
+        .call(&mut store, 6)
+        .expect("handle runs");
+    assert_eq!(
+        store.data().as_slice(),
+        // level enum: trace,debug,info,warn,error → info = 2.
+        ["emit[2] hello from the guest (route=log-demo)".to_string()]
+    );
+}

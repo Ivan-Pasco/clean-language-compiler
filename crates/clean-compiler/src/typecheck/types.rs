@@ -29,6 +29,8 @@ pub enum Ty {
         wit_name: String,
         fields: Vec<(String, Ty)>,
     },
+    /// `list<T>` for element types other than `u8` (which is `Bytes`).
+    List(Box<Ty>),
     /// A type error already reported; absorbs further checks silently.
     Error,
 }
@@ -72,6 +74,7 @@ impl Ty {
             Ty::Option(inner) => format!("{}?", inner.display()),
             Ty::Enum { wit_name, .. } => wit_name.clone(),
             Ty::Record { wit_name, .. } => wit_name.clone(),
+            Ty::List(inner) => format!("list<{}>", inner.display()),
             Ty::Error => "<error>".to_string(),
         }
     }

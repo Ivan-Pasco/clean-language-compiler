@@ -57,6 +57,7 @@ pub enum HExprKind {
     NoneLit,
     EnumCase(u32),
     MakeRecord(Vec<HExpr>),
+    MakeList(Vec<HExpr>),
     Local(usize),
     CallHost {
         import: usize,
@@ -154,6 +155,9 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
         tir::TExprKind::EnumCase(i) => HExprKind::EnumCase(i),
         tir::TExprKind::MakeRecord(fields) => {
             HExprKind::MakeRecord(fields.into_iter().map(lower_expr).collect())
+        }
+        tir::TExprKind::MakeList(items) => {
+            HExprKind::MakeList(items.into_iter().map(lower_expr).collect())
         }
         tir::TExprKind::Local(id) => HExprKind::Local(id),
         tir::TExprKind::CallHost { import, args } => HExprKind::CallHost {
