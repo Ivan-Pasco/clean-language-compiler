@@ -17,7 +17,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// The smallest request the schema accepts: one source file, the vendored
 /// clean-server contract as the target world, defaults everywhere else.
 pub fn minimal_valid_request() -> CompileRequest {
-    let content = "functions:\n\tinit()\n";
+    let content = "functions:\n\tvoid init()\n\t\treturn\n";
     serde_json::from_value(serde_json::json!({
         "spec_version": "1",
         "project": { "name": "fixture", "version": "0.0.1" },

@@ -55,6 +55,12 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(CompileError::Rejected(diagnostics)) => finish_rejected(&args.out, diagnostics),
+        Err(err @ CompileError::Unsupported(_)) => {
+            // Pre-v1 state: valid program, construct outside the milestone
+            // surface. Same non-rejection exit as an incomplete pipeline.
+            eprintln!("clean-compiler: {err}");
+            ExitCode::from(3)
+        }
         Err(err @ CompileError::Incomplete { .. }) => {
             // Pre-v1 state: the request was valid but the pipeline cannot yet
             // produce a component. Distinct exit code so callers never

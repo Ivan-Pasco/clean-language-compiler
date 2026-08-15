@@ -13,10 +13,13 @@ fn compile_symbol_exists_and_pipeline_reports_its_own_prefix() {
         // The pipeline prefix implemented so far ran clean; everything after
         // it is still unbuilt. This arm shrinks as milestone steps land.
         Err(CompileError::Incomplete { completed }) => {
-            assert_eq!(completed, "request-validation");
+            assert_eq!(completed, "typecheck");
         }
         Err(CompileError::Rejected(diagnostics)) => {
             panic!("minimal valid request was rejected: {diagnostics:#?}");
+        }
+        Err(CompileError::Unsupported(constructs)) => {
+            panic!("minimal fixture uses no unsupported constructs: {constructs:#?}");
         }
         Ok(_) => panic!("pipeline claims completeness it does not have yet"),
     }

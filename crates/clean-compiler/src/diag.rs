@@ -4,11 +4,22 @@
 
 use clean_compiler_types::{Diagnostic, Level};
 
+/// A language construct the current build recognises but cannot compile yet.
+/// Pre-v1 only: each entry names a milestone gap, not a user error and not a
+/// registered diagnostic — the driver turns them into
+/// `CompileError::Unsupported` so they can never be mistaken for either.
+#[derive(Debug, Clone)]
+pub struct Unsupported {
+    pub construct: &'static str,
+    pub span: clean_compiler_types::Span,
+}
+
 /// Append-only diagnostic accumulator. The driver drains it once, after the
 /// last pass that ran; passes receive `&mut DiagnosticSink` and only push.
 #[derive(Debug, Default)]
 pub struct DiagnosticSink {
     diagnostics: Vec<Diagnostic>,
+    unsupported: Vec<Unsupported>,
 }
 
 impl DiagnosticSink {
@@ -32,6 +43,15 @@ impl DiagnosticSink {
         self.diagnostics
     }
 
+    /// Records a construct outside the current milestone surface.
+    pub fn note_unsupported(&mut self, construct: &'static str, span: clean_compiler_types::Span) {
+        self.unsupported.push(Unsupported { construct, span });
+    }
+
+    pub fn unsupported(&self) -> &[Unsupported] {
+        &self.unsupported
+    }
+
     pub fn len(&self) -> usize {
         self.diagnostics.len()
     }
@@ -39,6 +59,33 @@ impl DiagnosticSink {
     pub fn is_empty(&self) -> bool {
         self.diagnostics.is_empty()
     }
+}
+
+/// Assembles a diagnostic with its `doc_url` and `rendered` text filled in.
+/// Passes use this so the Platform 13 invariants (registered code, rendered
+/// present) hold by construction.
+pub fn build(
+    level: Level,
+    code: &str,
+    message: String,
+    primary_span: clean_compiler_types::Span,
+    primary_label: Option<String>,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic {
+        level,
+        code: code.to_string(),
+        message,
+        primary_span,
+        primary_label,
+        secondary: Vec::new(),
+        notes: Vec::new(),
+        helps: Vec::new(),
+        suggestions: Vec::new(),
+        doc_url: Diagnostic::doc_url_for(code),
+        rendered: String::new(),
+    };
+    diagnostic.rendered = render_cli(&diagnostic);
+    diagnostic
 }
 
 /// Renders the CLI text for a diagnostic (Platform 13 §4.2). The full

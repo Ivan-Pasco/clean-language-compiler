@@ -37,6 +37,35 @@ pub const SYN009: &str = "SYN009";
 /// SYN010 — `MissingParentheses`: call written without parentheses.
 pub const SYN010: &str = "SYN010";
 
+/// SEM001 — `AssignTypeMismatch`.
+pub const SEM001: &str = "SEM001";
+/// SEM002 — `UndefinedVariable`.
+pub const SEM002: &str = "SEM002";
+/// SEM003 — `SymbolRedefinition`.
+pub const SEM003: &str = "SEM003";
+/// SEM004 — `InvalidOperationForType`.
+pub const SEM004: &str = "SEM004";
+/// SEM015 — `ReturnTypeMismatch`.
+pub const SEM015: &str = "SEM015";
+/// SEM016 — `ArgumentTypeMismatch`.
+pub const SEM016: &str = "SEM016";
+/// SEM019 — `UndefinedFunction`.
+pub const SEM019: &str = "SEM019";
+/// SEM020 — `UndefinedClass`.
+pub const SEM020: &str = "SEM020";
+/// SEM023 — `NonBooleanCondition`.
+pub const SEM023: &str = "SEM023";
+/// SEM026 — `LiteralOutOfRange`.
+pub const SEM026: &str = "SEM026";
+/// SCOPE002 — `VariableCannotBeRedeclaredInSameScope` (resolver-phase form).
+pub const SCOPE002: &str = "SCOPE002";
+/// FUNC002 — `ArgumentCountMustMatchParameterCount`.
+pub const FUNC002: &str = "FUNC002";
+/// FUNC003 — `CannotCallNonFunctionType`.
+pub const FUNC003: &str = "FUNC003";
+/// FUNC005 — `EmptyReturnInNonVoidFunction` (Warning).
+pub const FUNC005: &str = "FUNC005";
+
 /// RQD001 — `RequestIntegrityFailure`: a `sources[].sha256` does not match
 /// the decoded content (Platform 14 §14.1.1, CMP-01).
 pub const RQD001: &str = "RQD001";

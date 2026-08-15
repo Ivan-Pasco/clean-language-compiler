@@ -54,7 +54,7 @@ fn valid_request_reports_incomplete_pipeline_with_exit_3() {
 
 fn valid_request_json() -> String {
     let host_wit = include_str!("../../../tests/fixtures/wit/host.wit");
-    let content = "functions:\n\tinit()\n";
+    let content = "functions:\n\tvoid init()\n\t\treturn\n";
     serde_json::json!({
         "spec_version": "1",
         "project": { "name": "fixture", "version": "0.0.1" },
