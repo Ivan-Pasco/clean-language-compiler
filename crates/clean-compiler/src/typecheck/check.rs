@@ -295,6 +295,7 @@ impl<'a> Checker<'a> {
                 locals,
                 body,
                 span: f.span,
+                file,
             });
         }
         out

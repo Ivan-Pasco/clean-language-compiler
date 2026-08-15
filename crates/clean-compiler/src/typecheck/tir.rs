@@ -34,6 +34,8 @@ pub struct TFunction {
     pub locals: Vec<Local>,
     pub body: Vec<TStmt>,
     pub span: ByteSpan,
+    /// Which parsed file the declaration lives in (for span conversion).
+    pub file: usize,
 }
 
 #[derive(Debug, Clone)]

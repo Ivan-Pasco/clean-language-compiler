@@ -10,4 +10,5 @@
 //! - `abi`: Canonical ABI lift/lower (step 6).
 
 pub mod component;
+pub mod core;
 pub mod world;

@@ -76,10 +76,30 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
     }
-    let _typed = typed;
 
-    // Passes [6..10] land step by step through Milestone 1.
+    // Pass [6] — Block Handler Expansion: a typed pass-through until M5;
+    // M1 programs declare no library blocks.
+
+    // Pass [7] — HIR Lowering.
+    let hir = crate::hir::lower(typed);
+
+    // Pass [8] — MIR Lowering (no optimization in M1).
+    let mir = crate::mir::lower(
+        &hir,
+        &resolved,
+        &validated.world.package_version(),
+        &mut sink,
+    );
+    if !sink.unsupported().is_empty() {
+        return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
+    }
+
+    // Pass [9] — World Import Check: Milestone 1 step 7.
+    // Pass [10] — the core half exists; component assembly is step 8. The
+    // artifact set is withheld until the emitted bytes are a component
+    // (CCMP-19: no other target ships).
+    let _core = crate::codegen::core::emit_core(&mir);
     Err(CompileError::Incomplete {
-        completed: "typecheck",
+        completed: "core-emission",
     })
 }

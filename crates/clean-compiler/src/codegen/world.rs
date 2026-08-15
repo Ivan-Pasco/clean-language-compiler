@@ -47,6 +47,22 @@ impl ParsedWorld {
             .collect()
     }
 
+    /// The version of the WIT package the world lives in (`clean:host@0.1.0`
+    /// → `0.1.0`) — the version half of every interface-qualified import
+    /// name. Distinct from `target_world.version`, which is the host's
+    /// release version.
+    pub fn package_version(&self) -> String {
+        let package = self.resolve.worlds[self.world]
+            .package
+            .expect("a selected world always has a package");
+        self.resolve.packages[package]
+            .name
+            .version
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "0.0.0".to_string())
+    }
+
     fn key_name(&self, key: &WorldKey) -> String {
         match key {
             WorldKey::Name(name) => name.clone(),

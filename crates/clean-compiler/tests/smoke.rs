@@ -13,7 +13,7 @@ fn compile_symbol_exists_and_pipeline_reports_its_own_prefix() {
         // The pipeline prefix implemented so far ran clean; everything after
         // it is still unbuilt. This arm shrinks as milestone steps land.
         Err(CompileError::Incomplete { completed }) => {
-            assert_eq!(completed, "typecheck");
+            assert_eq!(completed, "core-emission");
         }
         Err(CompileError::Rejected(diagnostics)) => {
             panic!("minimal valid request was rejected: {diagnostics:#?}");
