@@ -26,6 +26,11 @@ struct Args {
     /// written anywhere else).
     #[arg(long)]
     out: PathBuf,
+    /// Diagnostics-only build (Platform 14 §14.14.4, the operation behind
+    /// `cln check`): run passes 1–9 and write `diagnostics.json` only —
+    /// never `component.wasm`. Exit 0 when no diagnostic is an error.
+    #[arg(long)]
+    check: bool,
 }
 
 fn main() -> ExitCode {
@@ -50,6 +55,31 @@ fn main() -> ExitCode {
         return finish_rejected(&args.out, diagnostics);
     }
     let request = request.expect("intake produced no request yet raised no error");
+
+    if args.check {
+        return match clean_compiler::check(request) {
+            Ok(diagnostics) => {
+                if let Err(err) = write_diagnostics(&args.out, &diagnostics) {
+                    eprintln!("clean-compiler: cannot write diagnostics: {err}");
+                    return ExitCode::from(2);
+                }
+                let failed = diagnostics
+                    .iter()
+                    .any(|d| d.level == clean_compiler::types::Level::Error);
+                if failed {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
+            }
+            // Pre-v1 channels (Unsupported/Incomplete): same non-rejection
+            // exit as the build path uses.
+            Err(err) => {
+                eprintln!("clean-compiler: {err}");
+                ExitCode::from(3)
+            }
+        };
+    }
 
     match compile(request) {
         Ok(artifact) => {

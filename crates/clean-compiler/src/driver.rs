@@ -37,19 +37,29 @@ pub enum CompileError {
     Incomplete { completed: &'static str },
 }
 
-/// The canonical entry point (Platform 14 §14.2.1). Every other surface —
-/// process adapter, JSON-RPC/MCP — wraps this function.
-pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError> {
-    let mut sink = DiagnosticSink::new();
+/// What passes [1]–[9] hand to pass [10]: the validated request (world,
+/// sources, config) and the MIR the code generator lowers.
+struct FrontArtifacts {
+    validated: crate::request::ValidatedRequest,
+    mir: crate::mir::MirProgram,
+}
 
-    // Pass [1] — Request Validation (→ ValidatedRequest).
-    let validated = crate::request::validate(request, &mut sink);
+/// Runs passes [1] through [9] — everything except codegen — appending to
+/// `sink`. `Ok((cache, None))` means a pass raised errors and the pipeline
+/// stopped after it completed (the sink holds the diagnostics); `Ok((cache,
+/// Some(front)))` means the program is ready for pass [10]. Shared verbatim
+/// by [`compile`] and [`check`], so the fast path can never diverge from
+/// the build (Platform 14 §14.14.4).
+#[allow(clippy::type_complexity)]
+fn front(
+    request: CompileRequest,
+    sink: &mut DiagnosticSink,
+) -> Result<(crate::diag::SourceCache, Option<FrontArtifacts>), CompileError> {
+    // Pass [1] — Request Validation (→ ValidatedRequest). Request-level
+    // diagnostics quote no source (Platform 10 §16).
+    let validated = crate::request::validate(request, sink);
     if sink.has_errors() {
-        // Request-level diagnostics quote no source (Platform 10 §16).
-        return Err(CompileError::Rejected(crate::diag::finalize(
-            sink.into_diagnostics(),
-            &crate::diag::SourceCache::empty(),
-        )));
+        return Ok((crate::diag::SourceCache::empty(), None));
     }
     let validated = validated.expect("pass [1] returned no value yet raised no error");
     // Every later drain renders against the request's sources (§4.2).
@@ -60,33 +70,24 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
     // file reports before the pipeline decides to stop.
     let mut files = Vec::new();
     for source in &validated.request.sources {
-        let stream = crate::lexer::lex(&source.path, &source.content, &mut sink);
-        let ast = crate::parser::parse(&stream, &mut sink);
+        let stream = crate::lexer::lex(&source.path, &source.content, sink);
+        let ast = crate::parser::parse(&stream, sink);
         files.push(crate::resolver::ParsedFile { ast, stream });
     }
     if sink.has_errors() {
-        return Err(CompileError::Rejected(crate::diag::finalize(
-            sink.into_diagnostics(),
-            &cache,
-        )));
+        return Ok((cache, None));
     }
 
     // Pass [4] — Resolve (single compilation unit in M1).
-    let resolved = crate::resolver::resolve(files, &mut sink);
+    let resolved = crate::resolver::resolve(files, sink);
     if sink.has_errors() {
-        return Err(CompileError::Rejected(crate::diag::finalize(
-            sink.into_diagnostics(),
-            &cache,
-        )));
+        return Ok((cache, None));
     }
 
     // Pass [5] — Type Check, against the world-typed boundary (ADR-0002).
-    let typed = crate::typecheck::check(&resolved, &validated.world, &mut sink);
+    let typed = crate::typecheck::check(&resolved, &validated.world, sink);
     if sink.has_errors() {
-        return Err(CompileError::Rejected(crate::diag::finalize(
-            sink.into_diagnostics(),
-            &cache,
-        )));
+        return Ok((cache, None));
     }
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
@@ -99,12 +100,7 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
     let hir = crate::hir::lower(typed);
 
     // Pass [8] — MIR Lowering (no optimization in M1).
-    let mir = crate::mir::lower(
-        &hir,
-        &resolved,
-        &validated.world.package_version(),
-        &mut sink,
-    );
+    let mir = crate::mir::lower(&hir, &resolved, &validated.world.package_version(), sink);
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
     }
@@ -116,14 +112,26 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
         &validated.world,
         &validated.request.target_world.world,
         &resolved,
-        &mut sink,
+        sink,
     );
     if sink.has_errors() {
+        return Ok((cache, None));
+    }
+
+    Ok((cache, Some(FrontArtifacts { validated, mir })))
+}
+
+/// The canonical entry point (Platform 14 §14.2.1). Every other surface —
+/// process adapter, JSON-RPC/MCP — wraps this function.
+pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError> {
+    let mut sink = DiagnosticSink::new();
+    let (cache, artifacts) = front(request, &mut sink)?;
+    let Some(FrontArtifacts { validated, mir }) = artifacts else {
         return Err(CompileError::Rejected(crate::diag::finalize(
             sink.into_diagnostics(),
             &cache,
         )));
-    }
+    };
 
     // Pass [10] — Codegen + Assembly: core module, then the component wrap
     // with the synthesized guest world embedded (Platform 15 §6.1).
@@ -166,6 +174,18 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
         diagnostics,
         source_map: None,
     })
+}
+
+/// The diagnostics-only build (Platform 14 §14.14.4, behind `cln check`):
+/// passes [1] through [9] — including the World Import Check, so a check
+/// request carries `target_world` exactly as a build request does — and no
+/// codegen. Returns every finalized diagnostic the run produced, errors
+/// included; the caller fails the operation iff any is `level = error`.
+/// `Err` is only the pre-v1 `Unsupported` channel.
+pub fn check(request: CompileRequest) -> Result<Vec<Diagnostic>, CompileError> {
+    let mut sink = DiagnosticSink::new();
+    let (cache, _artifacts) = front(request, &mut sink)?;
+    Ok(crate::diag::finalize(sink.into_diagnostics(), &cache))
 }
 
 /// The reproducibility record (Platform 14 §14.8). Two M1 placeholders,
