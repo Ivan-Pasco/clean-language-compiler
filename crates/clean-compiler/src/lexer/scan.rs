@@ -667,7 +667,7 @@ impl<'src> Scanner<'src> {
             doc_url: Diagnostic::doc_url_for(code),
             rendered: String::new(),
         };
-        diagnostic.rendered = render_cli(&diagnostic);
+        diagnostic.rendered = render_cli(&diagnostic, &crate::diag::SourceCache::empty());
         sink.push(diagnostic);
     }
 }

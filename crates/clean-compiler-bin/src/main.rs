@@ -42,7 +42,12 @@ fn main() -> ExitCode {
     let mut intake = DiagnosticSink::new();
     let request = clean_compiler::request::from_json(&json, &mut intake);
     if intake.has_errors() {
-        return finish_rejected(&args.out, intake.into_diagnostics());
+        // Intake failures precede any source, so they render unquoted.
+        let diagnostics = clean_compiler::diag::finalize(
+            intake.into_diagnostics(),
+            &clean_compiler::diag::SourceCache::empty(),
+        );
+        return finish_rejected(&args.out, diagnostics);
     }
     let request = request.expect("intake produced no request yet raised no error");
 

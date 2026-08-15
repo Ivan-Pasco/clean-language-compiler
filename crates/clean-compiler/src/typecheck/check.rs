@@ -336,7 +336,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                             span: self.diag_span(expr.span()),
                             label: format!("this expression has type `{}`", value.ty.display()),
                         });
-                        d.rendered = crate::diag::render_cli(&d);
+                        d.rendered =
+                            crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                         sink.push(d);
                     }
                     value
@@ -385,7 +386,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                             span: self.diag_span(value.span),
                             label: format!("this expression has type `{}`", value.ty.display()),
                         });
-                        d.rendered = crate::diag::render_cli(&d);
+                        d.rendered =
+                            crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                         sink.push(d);
                     }
                     Some(TStmt::Assign { local, value })
@@ -411,7 +413,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                                 "function declares return type `{}`",
                                 self.ret.display()
                             ));
-                            d.rendered = crate::diag::render_cli(&d);
+                            d.rendered =
+                                crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                             sink.push(d);
                         }
                         Some(v)
@@ -558,7 +561,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                                 self.diag_span(span),
                                 Some(format!("expected one of: {}", cases.join(", "))),
                             );
-                            d.rendered = crate::diag::render_cli(&d);
+                            d.rendered =
+                                crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                             sink.push(d);
                             error_expr(span)
                         }
@@ -592,7 +596,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                                         element.display()
                                     )),
                                 );
-                                d.rendered = crate::diag::render_cli(&d);
+                                d.rendered =
+                                    crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                                 sink.push(d);
                             }
                             value
@@ -777,7 +782,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         self.diag_span(span),
                         Some("field names and types must match the WIT record".to_string()),
                     );
-                    d.rendered = crate::diag::render_cli(&d);
+                    d.rendered = crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                     sink.push(d);
                 }
             }
@@ -848,7 +853,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                             "the parameter is declared with type `{}`",
                             param_ty.display()
                         ));
-                        d.rendered = crate::diag::render_cli(&d);
+                        d.rendered =
+                            crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
                         sink.push(d);
                     }
                 }

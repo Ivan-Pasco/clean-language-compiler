@@ -45,9 +45,15 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
     // Pass [1] — Request Validation (→ ValidatedRequest).
     let validated = crate::request::validate(request, &mut sink);
     if sink.has_errors() {
-        return Err(CompileError::Rejected(sink.into_diagnostics()));
+        // Request-level diagnostics quote no source (Platform 10 §16).
+        return Err(CompileError::Rejected(crate::diag::finalize(
+            sink.into_diagnostics(),
+            &crate::diag::SourceCache::empty(),
+        )));
     }
     let validated = validated.expect("pass [1] returned no value yet raised no error");
+    // Every later drain renders against the request's sources (§4.2).
+    let cache = crate::diag::SourceCache::from_sources(&validated.request.sources);
 
     // Passes [2]+[3] — Lex and Parse, per file, in `sources[]` order
     // (deterministic reduction, §14.5). Both are error-recovering; every
@@ -59,19 +65,28 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
         files.push(crate::resolver::ParsedFile { ast, stream });
     }
     if sink.has_errors() {
-        return Err(CompileError::Rejected(sink.into_diagnostics()));
+        return Err(CompileError::Rejected(crate::diag::finalize(
+            sink.into_diagnostics(),
+            &cache,
+        )));
     }
 
     // Pass [4] — Resolve (single compilation unit in M1).
     let resolved = crate::resolver::resolve(files, &mut sink);
     if sink.has_errors() {
-        return Err(CompileError::Rejected(sink.into_diagnostics()));
+        return Err(CompileError::Rejected(crate::diag::finalize(
+            sink.into_diagnostics(),
+            &cache,
+        )));
     }
 
     // Pass [5] — Type Check, against the world-typed boundary (ADR-0002).
     let typed = crate::typecheck::check(&resolved, &validated.world, &mut sink);
     if sink.has_errors() {
-        return Err(CompileError::Rejected(sink.into_diagnostics()));
+        return Err(CompileError::Rejected(crate::diag::finalize(
+            sink.into_diagnostics(),
+            &cache,
+        )));
     }
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
@@ -104,7 +119,10 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
         &mut sink,
     );
     if sink.has_errors() {
-        return Err(CompileError::Rejected(sink.into_diagnostics()));
+        return Err(CompileError::Rejected(crate::diag::finalize(
+            sink.into_diagnostics(),
+            &cache,
+        )));
     }
 
     // Pass [10] — Codegen + Assembly: core module, then the component wrap
@@ -130,14 +148,17 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
                 clean_compiler_types::Span::request_document(),
                 None,
             );
-            return Err(CompileError::Rejected(vec![diagnostic]));
+            return Err(CompileError::Rejected(crate::diag::finalize(
+                vec![diagnostic],
+                &cache,
+            )));
         }
     };
 
     let mut manifest = build_manifest(&validated.request, &wasm);
     // Remaining diagnostics are warnings/infos (errors returned earlier);
     // the manifest records them too (§14.8).
-    let diagnostics = sink.into_diagnostics();
+    let diagnostics = crate::diag::finalize(sink.into_diagnostics(), &cache);
     manifest.diagnostics = diagnostics.clone();
     Ok(CompileArtifact {
         wasm,
