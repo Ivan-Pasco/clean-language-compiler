@@ -1,0 +1,6 @@
+start:
+	init()
+
+functions:
+	void init()
+		return

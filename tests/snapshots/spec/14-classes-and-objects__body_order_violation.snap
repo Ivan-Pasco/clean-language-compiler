@@ -1,0 +1,77 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Class(
+        ClassDecl {
+            name: "Bad",
+            parent: None,
+            capabilities: [],
+            fields: [
+                Field {
+                    ty: TypeExpr {
+                        base: Integer(
+                            None,
+                        ),
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 34,
+                            end: 41,
+                        },
+                    },
+                    name: "x",
+                    init: None,
+                    public: false,
+                    span: ByteSpan {
+                        start: 34,
+                        end: 43,
+                    },
+                },
+            ],
+            always: None,
+            constructors: [
+                Constructor {
+                    params: [],
+                    body: [
+                        Assign {
+                            target: Ident {
+                                name: "x",
+                                span: ByteSpan {
+                                    start: 27,
+                                    end: 28,
+                                },
+                            },
+                            value: Int {
+                                value: 0,
+                                span: ByteSpan {
+                                    start: 31,
+                                    end: 32,
+                                },
+                            },
+                            on_error: None,
+                            span: ByteSpan {
+                                start: 27,
+                                end: 33,
+                            },
+                        },
+                    ],
+                    span: ByteSpan {
+                        start: 11,
+                        end: 34,
+                    },
+                },
+            ],
+            functions: [],
+            span: ByteSpan {
+                start: 0,
+                end: 44,
+            },
+        },
+    ),
+]
+DIAGNOSTICS: 1
+  SYN005 spec/14-classes-and-objects/body_order_violation.cln:4:2 fields appear first in a class body, before always:, constructors, and functions:

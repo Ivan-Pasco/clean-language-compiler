@@ -1,0 +1,225 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Tests(
+        [
+            Named {
+                description: "adds small numbers",
+                assertion: Binary {
+                    op: Eq,
+                    lhs: Call {
+                        callee: Ident {
+                            name: "add",
+                            span: ByteSpan {
+                                start: 30,
+                                end: 33,
+                            },
+                        },
+                        args: [
+                            Int {
+                                value: 1,
+                                span: ByteSpan {
+                                    start: 34,
+                                    end: 35,
+                                },
+                            },
+                            Int {
+                                value: 2,
+                                span: ByteSpan {
+                                    start: 37,
+                                    end: 38,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 30,
+                            end: 39,
+                        },
+                    },
+                    rhs: Int {
+                        value: 3,
+                        span: ByteSpan {
+                            start: 43,
+                            end: 44,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 30,
+                        end: 44,
+                    },
+                },
+                span: ByteSpan {
+                    start: 8,
+                    end: 45,
+                },
+            },
+            Anonymous {
+                assertion: Binary {
+                    op: Eq,
+                    lhs: Call {
+                        callee: Ident {
+                            name: "add",
+                            span: ByteSpan {
+                                start: 46,
+                                end: 49,
+                            },
+                        },
+                        args: [
+                            Int {
+                                value: 0,
+                                span: ByteSpan {
+                                    start: 50,
+                                    end: 51,
+                                },
+                            },
+                            Int {
+                                value: 0,
+                                span: ByteSpan {
+                                    start: 53,
+                                    end: 54,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 46,
+                            end: 55,
+                        },
+                    },
+                    rhs: Int {
+                        value: 0,
+                        span: ByteSpan {
+                            start: 59,
+                            end: 60,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 46,
+                        end: 60,
+                    },
+                },
+                span: ByteSpan {
+                    start: 46,
+                    end: 61,
+                },
+            },
+            Block {
+                description: "stateful scenario",
+                body: [
+                    VarDecl {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 84,
+                                end: 91,
+                            },
+                        },
+                        name: "total",
+                        init: Some(
+                            Call {
+                                callee: Ident {
+                                    name: "add",
+                                    span: ByteSpan {
+                                        start: 100,
+                                        end: 103,
+                                    },
+                                },
+                                args: [
+                                    Int {
+                                        value: 2,
+                                        span: ByteSpan {
+                                            start: 104,
+                                            end: 105,
+                                        },
+                                    },
+                                    Int {
+                                        value: 3,
+                                        span: ByteSpan {
+                                            start: 107,
+                                            end: 108,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 100,
+                                    end: 109,
+                                },
+                            },
+                        ),
+                        on_error: None,
+                        span: ByteSpan {
+                            start: 84,
+                            end: 110,
+                        },
+                    },
+                    Assert {
+                        expr: Binary {
+                            op: Eq,
+                            lhs: Ident {
+                                name: "total",
+                                span: ByteSpan {
+                                    start: 119,
+                                    end: 124,
+                                },
+                            },
+                            rhs: Int {
+                                value: 5,
+                                span: ByteSpan {
+                                    start: 128,
+                                    end: 129,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 119,
+                                end: 129,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 112,
+                            end: 130,
+                        },
+                    },
+                    Assert {
+                        expr: Binary {
+                            op: NEq,
+                            lhs: Ident {
+                                name: "total",
+                                span: ByteSpan {
+                                    start: 139,
+                                    end: 144,
+                                },
+                            },
+                            rhs: Int {
+                                value: 0,
+                                span: ByteSpan {
+                                    start: 148,
+                                    end: 149,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 139,
+                                end: 149,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 132,
+                            end: 150,
+                        },
+                    },
+                ],
+                span: ByteSpan {
+                    start: 62,
+                    end: 150,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

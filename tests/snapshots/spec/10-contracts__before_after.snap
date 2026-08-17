@@ -1,0 +1,160 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 12,
+                        end: 19,
+                    },
+                },
+                name: "withdraw",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 29,
+                                end: 36,
+                            },
+                        },
+                        name: "amount",
+                        default: None,
+                        span: ByteSpan {
+                            start: 29,
+                            end: 43,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: Some(
+                        ContractBlock {
+                            exprs: [
+                                Binary {
+                                    op: Gt,
+                                    lhs: Ident {
+                                        name: "amount",
+                                        span: ByteSpan {
+                                            start: 58,
+                                            end: 64,
+                                        },
+                                    },
+                                    rhs: Int {
+                                        value: 0,
+                                        span: ByteSpan {
+                                            start: 67,
+                                            end: 68,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 58,
+                                        end: 68,
+                                    },
+                                },
+                                Binary {
+                                    op: LtEq,
+                                    lhs: Ident {
+                                        name: "amount",
+                                        span: ByteSpan {
+                                            start: 72,
+                                            end: 78,
+                                        },
+                                    },
+                                    rhs: Ident {
+                                        name: "balance",
+                                        span: ByteSpan {
+                                            start: 82,
+                                            end: 89,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 72,
+                                        end: 89,
+                                    },
+                                },
+                            ],
+                            span: ByteSpan {
+                                start: 47,
+                                end: 92,
+                            },
+                        },
+                    ),
+                    after: Some(
+                        ContractBlock {
+                            exprs: [
+                                Binary {
+                                    op: GtEq,
+                                    lhs: ResultRef {
+                                        span: ByteSpan {
+                                            start: 102,
+                                            end: 108,
+                                        },
+                                    },
+                                    rhs: Int {
+                                        value: 0,
+                                        span: ByteSpan {
+                                            start: 112,
+                                            end: 113,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 102,
+                                        end: 113,
+                                    },
+                                },
+                            ],
+                            span: ByteSpan {
+                                start: 92,
+                                end: 116,
+                            },
+                        },
+                    ),
+                    statements: [
+                        Return {
+                            value: Some(
+                                Ident {
+                                    name: "amount",
+                                    span: ByteSpan {
+                                        start: 123,
+                                        end: 129,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 116,
+                                end: 130,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 12,
+                    end: 130,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

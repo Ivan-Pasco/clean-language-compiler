@@ -1,0 +1,17 @@
+state:
+	integer counter = 0
+		guard counter >= 0 else "counter cannot go negative"
+	string mode = "idle"
+
+	computed:
+		integer doubled
+			return counter * 2
+
+	rules:
+		counter <= 1000
+
+watch counter:
+	log("changed")
+
+watch (counter, mode):
+	log("pair changed")

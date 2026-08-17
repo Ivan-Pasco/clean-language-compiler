@@ -1,4 +1,4 @@
-error[SYN009]: 'integer' cannot appear at the top level of a file
+error[SYN009]: 'variable declaration' cannot appear at the top level of a file
  --> tests/cln/diagnostics/SYN009.cln:1:1
   |
 1 | integer x = 5

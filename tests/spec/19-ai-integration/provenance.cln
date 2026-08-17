@@ -1,0 +1,9 @@
+source:
+	spec: "specs/users.md"
+	version: "0.3.0"
+
+functions:
+	void process()
+		intent "Validate and store the payload"
+		spec "specs/process.md"
+		return

@@ -1,0 +1,284 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 12,
+                        end: 19,
+                    },
+                },
+                name: "add",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 24,
+                                end: 31,
+                            },
+                        },
+                        name: "a",
+                        default: None,
+                        span: ByteSpan {
+                            start: 24,
+                            end: 33,
+                        },
+                    },
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 35,
+                                end: 42,
+                            },
+                        },
+                        name: "b",
+                        default: Some(
+                            Int {
+                                value: 10,
+                                span: ByteSpan {
+                                    start: 47,
+                                    end: 49,
+                                },
+                            },
+                        ),
+                        span: ByteSpan {
+                            start: 35,
+                            end: 49,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: Some(
+                        "Adds two integers.",
+                    ),
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Binary {
+                                    op: Add,
+                                    lhs: Ident {
+                                        name: "a",
+                                        span: ByteSpan {
+                                            start: 95,
+                                            end: 96,
+                                        },
+                                    },
+                                    rhs: Ident {
+                                        name: "b",
+                                        span: ByteSpan {
+                                            start: 99,
+                                            end: 100,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 95,
+                                        end: 100,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 88,
+                                end: 101,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 12,
+                    end: 102,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 102,
+                        end: 106,
+                    },
+                },
+                name: "sync",
+                params: [],
+                background: true,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 127,
+                                end: 134,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 102,
+                    end: 135,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 135,
+                        end: 142,
+                    },
+                },
+                name: "scaled",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [
+                        Param {
+                            ty: TypeExpr {
+                                base: Integer(
+                                    None,
+                                ),
+                                optional: false,
+                                extra_optionals: [],
+                                behaviors: [],
+                                span: ByteSpan {
+                                    start: 163,
+                                    end: 170,
+                                },
+                            },
+                            name: "factor",
+                            default: Some(
+                                Int {
+                                    value: 2,
+                                    span: ByteSpan {
+                                        start: 180,
+                                        end: 181,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 163,
+                                end: 181,
+                            },
+                        },
+                    ],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Ident {
+                                    name: "factor",
+                                    span: ByteSpan {
+                                        start: 191,
+                                        end: 197,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 184,
+                                end: 198,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 135,
+                    end: 199,
+                },
+            },
+        ],
+    ),
+    ConstantFunction(
+        ConstantFunction {
+            name: "golden",
+            params: [],
+            ret: Some(
+                TypeExpr {
+                    base: Number,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 234,
+                        end: 240,
+                    },
+                },
+            ),
+            body: FunctionBody {
+                description: None,
+                input: [],
+                intents: [],
+                specs: [],
+                before: None,
+                after: None,
+                statements: [
+                    Return {
+                        value: Some(
+                            Number {
+                                text: "1.618",
+                                span: ByteSpan {
+                                    start: 249,
+                                    end: 254,
+                                },
+                            },
+                        ),
+                        span: ByteSpan {
+                            start: 242,
+                            end: 255,
+                        },
+                    },
+                ],
+            },
+            span: ByteSpan {
+                start: 199,
+                end: 255,
+            },
+        },
+    ),
+]
+DIAGNOSTICS: 0

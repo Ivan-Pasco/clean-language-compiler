@@ -14,10 +14,6 @@ error[SYN002]: expected indented functions body
   |
   = docs: https://errors.cleanlanguage.dev/E/SYN002
 
-error[SYN009]: 'void' cannot appear at the top level of a file
- --> tests/cln/diagnostics/SYN003.cln:2:5
-  |
-2 |     void init()
-  |     ^^^^
-  |
-  = docs: https://errors.cleanlanguage.dev/E/SYN009
+error[SYN002]: expected indented block
+ --> tests/cln/diagnostics/SYN003.cln:3:1
+  = docs: https://errors.cleanlanguage.dev/E/SYN002

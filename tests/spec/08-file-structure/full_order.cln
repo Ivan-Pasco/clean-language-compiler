@@ -1,0 +1,29 @@
+import:
+	math
+	data.models as dm
+
+import "lib/util.cln"
+
+source:
+	spec: "specs/api.md"
+	version: "1.2.0"
+
+constant:
+	integer maxUsers = 100
+	string appName = "demo"
+
+state:
+	integer counter = 0
+
+class User
+	string name
+
+functions:
+	void init()
+		return
+
+tests:
+	add(1, 2) == 3
+
+start:
+	init()

@@ -1,0 +1,71 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            Expr {
+                expr: Call {
+                    callee: Ident {
+                        name: "init",
+                        span: ByteSpan {
+                            start: 8,
+                            end: 12,
+                        },
+                    },
+                    args: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 14,
+                    },
+                },
+                on_error: None,
+            },
+        ],
+    ),
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 28,
+                        end: 32,
+                    },
+                },
+                name: "init",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 42,
+                                end: 49,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 28,
+                    end: 49,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 1
+  SYN007 spec/08-file-structure/out_of_order.cln:4:1 the 'functions:' section cannot appear after 'start:'; FIL-01 fixes the top-level section order

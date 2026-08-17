@@ -82,8 +82,8 @@ functions:
     assert_eq!(f.name, "handle");
     assert!(matches!(f.ret.base, BaseType::Void));
     assert_eq!(f.params.len(), 1);
-    let Stmt::If { else_ifs, els, .. } = &f.body[0] else {
-        panic!("expected if, got {:?}", f.body[0]);
+    let Stmt::If { else_ifs, els, .. } = &f.body.statements[0] else {
+        panic!("expected if, got {:?}", f.body.statements[0]);
     };
     assert_eq!(else_ifs.len(), 1);
     assert!(els.is_some());
@@ -99,7 +99,7 @@ fn precedence_ladder_shapes_arithmetic() {
     };
     let Stmt::Return {
         value: Some(expr), ..
-    } = &functions[0].body[0]
+    } = &functions[0].body.statements[0]
     else {
         panic!()
     };
@@ -194,7 +194,7 @@ fn multiline_parenthesized_expression_crosses_lines() {
         panic!()
     };
     assert!(matches!(
-        &functions[0].body[0],
+        &functions[0].body.statements[0],
         Stmt::Return { value: Some(_), .. }
     ));
 }

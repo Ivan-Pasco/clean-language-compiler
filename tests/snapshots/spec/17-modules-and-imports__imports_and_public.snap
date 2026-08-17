@@ -1,0 +1,210 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Imports(
+        [
+            ImportEntry {
+                path: [
+                    "math",
+                ],
+                alias: None,
+                span: ByteSpan {
+                    start: 9,
+                    end: 13,
+                },
+            },
+            ImportEntry {
+                path: [
+                    "math",
+                    "sqrt",
+                ],
+                alias: None,
+                span: ByteSpan {
+                    start: 15,
+                    end: 24,
+                },
+            },
+            ImportEntry {
+                path: [
+                    "utils",
+                ],
+                alias: Some(
+                    "u",
+                ),
+                span: ByteSpan {
+                    start: 26,
+                    end: 36,
+                },
+            },
+            ImportEntry {
+                path: [
+                    "json",
+                    "decode",
+                ],
+                alias: Some(
+                    "jd",
+                ),
+                span: ByteSpan {
+                    start: 38,
+                    end: 55,
+                },
+            },
+        ],
+    ),
+    Class(
+        ClassDecl {
+            name: "Config",
+            parent: None,
+            capabilities: [],
+            fields: [
+                Field {
+                    ty: TypeExpr {
+                        base: String_,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 81,
+                            end: 87,
+                        },
+                    },
+                    name: "name",
+                    init: None,
+                    public: true,
+                    span: ByteSpan {
+                        start: 81,
+                        end: 92,
+                    },
+                },
+                Field {
+                    ty: TypeExpr {
+                        base: String_,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 94,
+                            end: 100,
+                        },
+                    },
+                    name: "secret",
+                    init: None,
+                    public: false,
+                    span: ByteSpan {
+                        start: 94,
+                        end: 107,
+                    },
+                },
+            ],
+            always: None,
+            constructors: [],
+            functions: [],
+            span: ByteSpan {
+                start: 57,
+                end: 109,
+            },
+        },
+    ),
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 131,
+                        end: 138,
+                    },
+                },
+                name: "visible",
+                params: [],
+                background: false,
+                public: true,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Int {
+                                    value: 1,
+                                    span: ByteSpan {
+                                        start: 159,
+                                        end: 160,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 152,
+                                end: 161,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 131,
+                    end: 162,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 162,
+                        end: 169,
+                    },
+                },
+                name: "hidden",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Int {
+                                    value: 2,
+                                    span: ByteSpan {
+                                        start: 188,
+                                        end: 189,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 181,
+                                end: 190,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 162,
+                    end: 190,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

@@ -87,11 +87,87 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                         .insert(class.name.clone(), (file_index, item_index));
                 }
                 ast::Item::Start(_) => {}
+                // Parsed forms whose semantics land in later milestones
+                // (M4 imports/state, M5 block handlers, M6 stdlib). Each is
+                // reported through the pre-v1 Unsupported channel — never
+                // silently dropped, never an invented code.
+                ast::Item::Function(f) => {
+                    unsupported(
+                        sink,
+                        &file.stream,
+                        "top-level function declarations",
+                        f.span,
+                    );
+                }
+                ast::Item::Imports(entries) => {
+                    if let Some(first) = entries.first() {
+                        unsupported(sink, &file.stream, "import declarations", first.span);
+                    }
+                }
+                ast::Item::FileImport { span, .. } => {
+                    unsupported(sink, &file.stream, "import declarations", *span);
+                }
+                ast::Item::Source(section) => {
+                    unsupported(
+                        sink,
+                        &file.stream,
+                        "source: provenance blocks",
+                        section.span,
+                    );
+                }
+                ast::Item::Constants(constants) => {
+                    if let Some(first) = constants.first() {
+                        unsupported(sink, &file.stream, "constant: sections", first.span);
+                    }
+                }
+                ast::Item::State(section) => {
+                    unsupported(sink, &file.stream, "state: blocks", section.span);
+                }
+                ast::Item::ConstantFunction(f) => {
+                    unsupported(sink, &file.stream, "constant functions", f.span);
+                }
+                ast::Item::CompiletimeFunction(f) => {
+                    unsupported(sink, &file.stream, "compiletime functions", f.span);
+                }
+                ast::Item::HandlesBlock(h) => {
+                    unsupported(sink, &file.stream, "handles block registrations", h.span);
+                }
+                ast::Item::Capability(capability) => {
+                    unsupported(
+                        sink,
+                        &file.stream,
+                        "capability declarations",
+                        capability.span,
+                    );
+                }
+                ast::Item::Watch(watch) => {
+                    unsupported(sink, &file.stream, "watch blocks", watch.span);
+                }
+                ast::Item::Tests(tests) => {
+                    if let Some(first) = tests.first() {
+                        let span = match first {
+                            ast::TestDecl::Named { span, .. }
+                            | ast::TestDecl::Anonymous { span, .. }
+                            | ast::TestDecl::Block { span, .. } => *span,
+                        };
+                        unsupported(sink, &file.stream, "tests: sections", span);
+                    }
+                }
             }
         }
     }
 
     ResolvedAst { files, decls }
+}
+
+/// Pre-v1 reporting for parsed-but-not-yet-compilable constructs.
+fn unsupported(
+    sink: &mut DiagnosticSink,
+    stream: &TokenStream,
+    construct: &'static str,
+    span: ByteSpan,
+) {
+    sink.note_unsupported(construct, stream.diag_span(span));
 }
 
 impl ResolvedAst {

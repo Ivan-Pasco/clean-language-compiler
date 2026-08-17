@@ -1,0 +1,4 @@
+class Bad
+	constructor()
+		x = 0
+	integer x

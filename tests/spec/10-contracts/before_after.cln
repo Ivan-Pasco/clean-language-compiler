@@ -1,0 +1,8 @@
+functions:
+	integer withdraw(integer amount)
+		before:
+			amount > 0
+			amount <= balance
+		after:
+			result >= 0
+		return amount

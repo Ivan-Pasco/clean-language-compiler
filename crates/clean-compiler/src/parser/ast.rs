@@ -11,14 +11,196 @@ pub struct SourceFile {
 
 #[derive(Debug)]
 pub enum Item {
+    /// `import:` block (17 §1) — module-name entries.
+    Imports(Vec<ImportEntry>),
+    /// Standalone `import "path"` (17 §3).
+    FileImport { path: String, span: ByteSpan },
+    /// `source:` provenance block (19 §4 / AIM-03).
+    Source(SourceSection),
+    /// `constant:` section (08 §2) — TypedDeclaration items.
+    Constants(Vec<ConstantDecl>),
+    /// `state:` block (20 §1).
+    State(StateSection),
     /// LBS-02 `host interface` block.
     HostInterface(HostInterface),
     /// `functions:` block (08-file-structure `FunctionsBlock`).
     Functions(Vec<Function>),
-    /// `class` declaration — fields only in M1 (record projection, ADR-0002).
+    /// Bare top-level `FunctionDeclaration` (08 §2 TopLevelCallable).
+    Function(Function),
+    /// `constant function` (09 §4).
+    ConstantFunction(ConstantFunction),
+    /// `compiletime function` (21 §1).
+    CompiletimeFunction(CompiletimeFunction),
+    /// `handles block "<name>" with <handler>` (21 §1).
+    HandlesBlock(HandlesBlock),
+    /// `class` declaration (14 §1).
     Class(ClassDecl),
+    /// `can Name:` capability declaration (14 §4).
+    Capability(CapabilityDecl),
+    /// `watch <target>:` observer (20 §5).
+    Watch(WatchBlock),
+    /// `tests:` section (11 §1).
+    Tests(Vec<TestDecl>),
     /// `start:` section.
     Start(Block),
+}
+
+/// One entry in an `import:` block (17 §2): dotted module path with an
+/// optional alias. `math.sqrt as s` keeps the whole path; resolution is
+/// the framework's job (MOD-03).
+#[derive(Debug)]
+pub struct ImportEntry {
+    pub path: Vec<String>,
+    pub alias: Option<String>,
+    pub span: ByteSpan,
+}
+
+/// `source:` block fields (AIM-03): exactly `spec` and `version`, both
+/// strings. The grammar admits repeats; the checker enforces one-of-each.
+#[derive(Debug)]
+pub struct SourceSection {
+    pub fields: Vec<SourceField>,
+    pub span: ByteSpan,
+}
+
+#[derive(Debug)]
+pub struct SourceField {
+    /// `spec` or `version` — the closed field set (DOC-18).
+    pub key: String,
+    pub value: String,
+    pub span: ByteSpan,
+}
+
+/// One item of the `constant:` section — a TypedDeclaration.
+#[derive(Debug)]
+pub struct ConstantDecl {
+    pub ty: TypeExpr,
+    pub name: String,
+    pub init: Option<Expr>,
+    pub span: ByteSpan,
+}
+
+/// `state:` block body (20 §1): declarations, computed:, rules: — freely
+/// interleaved per the chapter's resolved ordering decision.
+#[derive(Debug)]
+pub struct StateSection {
+    pub members: Vec<StateMember>,
+    pub span: ByteSpan,
+}
+
+#[derive(Debug)]
+pub enum StateMember {
+    Var(StateVar),
+    Computed(Vec<ComputedDecl>),
+    Rules(Vec<Expr>),
+}
+
+/// A state variable (SMG-01) — initialiser required — with its guard
+/// clauses (SMG-02) in written order.
+#[derive(Debug)]
+pub struct StateVar {
+    pub ty: TypeExpr,
+    pub name: String,
+    pub init: Expr,
+    pub guards: Vec<GuardClause>,
+    pub span: ByteSpan,
+}
+
+/// `guard <expr> else "<message>"` (SMG-02).
+#[derive(Debug)]
+pub struct GuardClause {
+    pub cond: Expr,
+    pub message: String,
+    pub span: ByteSpan,
+}
+
+/// One `computed:` entry (SMG-05): typed name with an indented body.
+#[derive(Debug)]
+pub struct ComputedDecl {
+    pub ty: TypeExpr,
+    pub name: String,
+    pub body: Block,
+    pub span: ByteSpan,
+}
+
+/// `watch <target>:` (20 §5) — one identifier or a parenthesized list.
+#[derive(Debug)]
+pub struct WatchBlock {
+    pub targets: Vec<(String, ByteSpan)>,
+    pub body: Block,
+    pub span: ByteSpan,
+}
+
+/// One `tests:` entry (11 §1–§3).
+#[derive(Debug)]
+pub enum TestDecl {
+    /// `"description": expression`
+    Named {
+        description: String,
+        assertion: Expr,
+        span: ByteSpan,
+    },
+    /// `expression`
+    Anonymous { assertion: Expr, span: ByteSpan },
+    /// `"description"` + indented body with at least one `assert`.
+    Block {
+        description: String,
+        body: Block,
+        span: ByteSpan,
+    },
+}
+
+/// `constant function name(params) [returns T]` + body (09 §4).
+#[derive(Debug)]
+pub struct ConstantFunction {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub ret: Option<TypeExpr>,
+    pub body: FunctionBody,
+    pub span: ByteSpan,
+}
+
+/// `compiletime function name(params) returns T` + body (21 §1 / BLK-01).
+#[derive(Debug)]
+pub struct CompiletimeFunction {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub ret: Option<TypeExpr>,
+    pub body: FunctionBody,
+    pub span: ByteSpan,
+}
+
+/// `handles block "<name>" with <handler>` (21 §1).
+#[derive(Debug)]
+pub struct HandlesBlock {
+    pub block_name: String,
+    pub handler: String,
+    pub span: ByteSpan,
+}
+
+/// `can Name:` — a named contract of arrow-return signatures (14 §4).
+#[derive(Debug)]
+pub struct CapabilityDecl {
+    pub name: String,
+    pub signatures: Vec<CapabilitySig>,
+    pub span: ByteSpan,
+}
+
+/// `name(params) -> ReturnType` (09 §5 / FNC-03). No body (CLS-03).
+#[derive(Debug)]
+pub struct CapabilitySig {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub ret: TypeExpr,
+    pub span: ByteSpan,
+}
+
+/// A `before:` / `after:` / `always:` contract block (10 §1): one boolean
+/// expression per line.
+#[derive(Debug)]
+pub struct ContractBlock {
+    pub exprs: Vec<Expr>,
+    pub span: ByteSpan,
 }
 
 #[derive(Debug)]
@@ -54,8 +236,32 @@ pub struct Function {
     pub ret: TypeExpr,
     pub name: String,
     pub params: Vec<Param>,
-    pub body: Block,
+    /// ASY-02 `background` modifier — postfix, after the parameter list.
+    pub background: bool,
+    /// True when declared inside a `public:` wrapper (MOD-02).
+    pub public: bool,
+    pub body: FunctionBody,
     pub span: ByteSpan,
+}
+
+/// A function body (09 §2 + 19 §3 + 10 §2): optional metadata prelude,
+/// then the statement sequence. The parser is permissive about prelude
+/// ordering; the checker owns the placement rules.
+#[derive(Debug, Default)]
+pub struct FunctionBody {
+    pub description: Option<String>,
+    /// `input` block parameters — equivalent to ParameterList entries
+    /// (FNC-04).
+    pub input: Vec<Param>,
+    /// `intent "…"` lines (AIM-02).
+    pub intents: Vec<(String, ByteSpan)>,
+    /// `spec "…"` lines (AIM-01).
+    pub specs: Vec<(String, ByteSpan)>,
+    /// `before:` precondition block (CTR-01).
+    pub before: Option<ContractBlock>,
+    /// `after:` postcondition block (CTR-02).
+    pub after: Option<ContractBlock>,
+    pub statements: Block,
 }
 
 #[derive(Debug)]
@@ -69,7 +275,16 @@ pub struct Param {
 #[derive(Debug)]
 pub struct ClassDecl {
     pub name: String,
+    /// `is Parent` (CLS-02, single inheritance).
+    pub parent: Option<(String, ByteSpan)>,
+    /// `can C1, C2, …` claim clause (CLS-03).
+    pub capabilities: Vec<(String, ByteSpan)>,
     pub fields: Vec<Field>,
+    /// `always:` invariant block (CTR-03) — at most one.
+    pub always: Option<ContractBlock>,
+    pub constructors: Vec<Constructor>,
+    /// `functions:` block members.
+    pub functions: Vec<Function>,
     pub span: ByteSpan,
 }
 
@@ -77,6 +292,17 @@ pub struct ClassDecl {
 pub struct Field {
     pub ty: TypeExpr,
     pub name: String,
+    pub init: Option<Expr>,
+    /// True when declared inside a `public:` wrapper (MOD-02).
+    pub public: bool,
+    pub span: ByteSpan,
+}
+
+/// `constructor(params)` + body (14 §3). Overloading allowed.
+#[derive(Debug)]
+pub struct Constructor {
+    pub params: Vec<Param>,
+    pub body: Block,
     pub span: ByteSpan,
 }
 
@@ -143,6 +369,9 @@ pub enum Stmt {
     Continue { span: ByteSpan },
     /// `print:` block (STM prose; SYN008 checked at parse).
     Print { items: Vec<Expr>, span: ByteSpan },
+    /// `assert <expr>` (11 §3) — block-test bodies; the checker owns the
+    /// placement rule.
+    Assert { expr: Expr, span: ByteSpan },
 }
 
 /// One segment of a string literal (06-expressions §3): literal text or a

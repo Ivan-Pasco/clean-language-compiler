@@ -63,8 +63,28 @@ impl<'a> Checker<'a> {
     fn project_classes(&mut self, sink: &mut DiagnosticSink) {
         for coords in self.resolved.decls.classes.values() {
             let (class, file) = self.resolved.class(*coords);
+            // The LBS-02 record projection covers plain field bags; richer
+            // class features are later milestones.
+            if class.parent.is_some() || !class.capabilities.is_empty() {
+                sink.note_unsupported(
+                    "class inheritance and capability claims",
+                    self.span(file, class.span),
+                );
+            }
+            if class.always.is_some() {
+                sink.note_unsupported("always: invariants", self.span(file, class.span));
+            }
+            if !class.constructors.is_empty() || !class.functions.is_empty() {
+                sink.note_unsupported(
+                    "class constructors and methods",
+                    self.span(file, class.span),
+                );
+            }
             let mut fields = Vec::new();
             for field in &class.fields {
+                if field.init.is_some() {
+                    sink.note_unsupported("field initialisers", self.span(file, field.span));
+                }
                 let ty = self.project_surface_type(&field.ty, file, sink);
                 fields.push((kebab(&field.name), ty));
             }
@@ -107,9 +127,12 @@ impl<'a> Checker<'a> {
     fn collect_function_signatures(&mut self, sink: &mut DiagnosticSink) {
         for coords in self.resolved.decls.functions.values() {
             let (f, file) = self.resolved.function(*coords);
+            // FNC-04: input-block parameters are equivalent to
+            // ParameterList entries — they extend the signature.
             let params = f
                 .params
                 .iter()
+                .chain(&f.body.input)
                 .map(|p| Local {
                     name: p.name.clone(),
                     ty: self.project_surface_type(&p.ty, file, sink),
@@ -249,6 +272,12 @@ impl<'a> Checker<'a> {
                 .enumerate()
                 .map(|(i, p)| (p.name.clone(), i))
                 .collect();
+            if f.background {
+                sink.note_unsupported("background functions", self.span(file, f.span));
+            }
+            if f.body.before.is_some() || f.body.after.is_some() {
+                sink.note_unsupported("contract blocks", self.span(file, f.span));
+            }
             let mut body_checker = BodyChecker {
                 outer: self,
                 file,
@@ -257,7 +286,7 @@ impl<'a> Checker<'a> {
                 ret: sig.ret.clone(),
                 fn_name: sig.name.clone(),
             };
-            let body = body_checker.check_block(&f.body, sink);
+            let body = body_checker.check_block(&f.body.statements, sink);
             let locals = body_checker.locals;
             out.push(TFunction {
                 name: sig.name.clone(),
@@ -478,6 +507,10 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             ast::Stmt::Continue { span } => {
                 sink.note_unsupported("continue", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::Assert { span, .. } => {
+                sink.note_unsupported("assert statements", self.diag_span(*span));
                 None
             }
             ast::Stmt::If {

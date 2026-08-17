@@ -1,0 +1,289 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    State(
+        StateSection {
+            members: [
+                Var(
+                    StateVar {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 8,
+                                end: 15,
+                            },
+                        },
+                        name: "counter",
+                        init: Int {
+                            value: 0,
+                            span: ByteSpan {
+                                start: 26,
+                                end: 27,
+                            },
+                        },
+                        guards: [
+                            GuardClause {
+                                cond: Binary {
+                                    op: GtEq,
+                                    lhs: Ident {
+                                        name: "counter",
+                                        span: ByteSpan {
+                                            start: 36,
+                                            end: 43,
+                                        },
+                                    },
+                                    rhs: Int {
+                                        value: 0,
+                                        span: ByteSpan {
+                                            start: 47,
+                                            end: 48,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 36,
+                                        end: 48,
+                                    },
+                                },
+                                message: "counter cannot go negative",
+                                span: ByteSpan {
+                                    start: 30,
+                                    end: 82,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 8,
+                            end: 84,
+                        },
+                    },
+                ),
+                Var(
+                    StateVar {
+                        ty: TypeExpr {
+                            base: String_,
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 84,
+                                end: 90,
+                            },
+                        },
+                        name: "mode",
+                        init: Str {
+                            segments: [
+                                Text(
+                                    "idle",
+                                ),
+                            ],
+                            span: ByteSpan {
+                                start: 98,
+                                end: 104,
+                            },
+                        },
+                        guards: [],
+                        span: ByteSpan {
+                            start: 84,
+                            end: 105,
+                        },
+                    },
+                ),
+                Computed(
+                    [
+                        ComputedDecl {
+                            ty: TypeExpr {
+                                base: Integer(
+                                    None,
+                                ),
+                                optional: false,
+                                extra_optionals: [],
+                                behaviors: [],
+                                span: ByteSpan {
+                                    start: 119,
+                                    end: 126,
+                                },
+                            },
+                            name: "doubled",
+                            body: [
+                                Return {
+                                    value: Some(
+                                        Binary {
+                                            op: Mul,
+                                            lhs: Ident {
+                                                name: "counter",
+                                                span: ByteSpan {
+                                                    start: 145,
+                                                    end: 152,
+                                                },
+                                            },
+                                            rhs: Int {
+                                                value: 2,
+                                                span: ByteSpan {
+                                                    start: 155,
+                                                    end: 156,
+                                                },
+                                            },
+                                            span: ByteSpan {
+                                                start: 145,
+                                                end: 156,
+                                            },
+                                        },
+                                    ),
+                                    span: ByteSpan {
+                                        start: 138,
+                                        end: 157,
+                                    },
+                                },
+                            ],
+                            span: ByteSpan {
+                                start: 119,
+                                end: 159,
+                            },
+                        },
+                    ],
+                ),
+                Rules(
+                    [
+                        Binary {
+                            op: LtEq,
+                            lhs: Ident {
+                                name: "counter",
+                                span: ByteSpan {
+                                    start: 168,
+                                    end: 175,
+                                },
+                            },
+                            rhs: Int {
+                                value: 1000,
+                                span: ByteSpan {
+                                    start: 179,
+                                    end: 183,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 168,
+                                end: 183,
+                            },
+                        },
+                    ],
+                ),
+            ],
+            span: ByteSpan {
+                start: 0,
+                end: 185,
+            },
+        },
+    ),
+    Watch(
+        WatchBlock {
+            targets: [
+                (
+                    "counter",
+                    ByteSpan {
+                        start: 191,
+                        end: 198,
+                    },
+                ),
+            ],
+            body: [
+                Expr {
+                    expr: Call {
+                        callee: Ident {
+                            name: "log",
+                            span: ByteSpan {
+                                start: 201,
+                                end: 204,
+                            },
+                        },
+                        args: [
+                            Str {
+                                segments: [
+                                    Text(
+                                        "changed",
+                                    ),
+                                ],
+                                span: ByteSpan {
+                                    start: 205,
+                                    end: 214,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 201,
+                            end: 215,
+                        },
+                    },
+                    on_error: None,
+                },
+            ],
+            span: ByteSpan {
+                start: 185,
+                end: 217,
+            },
+        },
+    ),
+    Watch(
+        WatchBlock {
+            targets: [
+                (
+                    "counter",
+                    ByteSpan {
+                        start: 224,
+                        end: 231,
+                    },
+                ),
+                (
+                    "mode",
+                    ByteSpan {
+                        start: 233,
+                        end: 237,
+                    },
+                ),
+            ],
+            body: [
+                Expr {
+                    expr: Call {
+                        callee: Ident {
+                            name: "log",
+                            span: ByteSpan {
+                                start: 241,
+                                end: 244,
+                            },
+                        },
+                        args: [
+                            Str {
+                                segments: [
+                                    Text(
+                                        "pair changed",
+                                    ),
+                                ],
+                                span: ByteSpan {
+                                    start: 245,
+                                    end: 259,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 241,
+                            end: 260,
+                        },
+                    },
+                    on_error: None,
+                },
+            ],
+            span: ByteSpan {
+                start: 217,
+                end: 261,
+            },
+        },
+    ),
+]
+DIAGNOSTICS: 0

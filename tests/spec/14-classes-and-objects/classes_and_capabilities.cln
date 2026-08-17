@@ -1,0 +1,23 @@
+class Point
+	integer x
+	integer y = 0
+
+	always:
+		x >= 0
+
+	constructor(integer startX)
+		x = startX
+
+	constructor()
+		x = 0
+
+	functions:
+		integer sum()
+			return x + y
+
+class Point3 is Point can Draw, Serialize
+	integer z
+
+can Draw:
+	draw(Canvas target) -> void
+	area() -> number

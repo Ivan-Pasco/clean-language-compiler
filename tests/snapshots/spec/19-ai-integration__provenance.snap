@@ -1,0 +1,91 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Source(
+        SourceSection {
+            fields: [
+                SourceField {
+                    key: "spec",
+                    value: "specs/users.md",
+                    span: ByteSpan {
+                        start: 9,
+                        end: 31,
+                    },
+                },
+                SourceField {
+                    key: "version",
+                    value: "0.3.0",
+                    span: ByteSpan {
+                        start: 33,
+                        end: 49,
+                    },
+                },
+            ],
+            span: ByteSpan {
+                start: 0,
+                end: 51,
+            },
+        },
+    ),
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 63,
+                        end: 67,
+                    },
+                },
+                name: "process",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [
+                        (
+                            "Validate and store the payload",
+                            ByteSpan {
+                                start: 80,
+                                end: 119,
+                            },
+                        ),
+                    ],
+                    specs: [
+                        (
+                            "specs/process.md",
+                            ByteSpan {
+                                start: 122,
+                                end: 145,
+                            },
+                        ),
+                    ],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 148,
+                                end: 155,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 63,
+                    end: 155,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

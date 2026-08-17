@@ -1,0 +1,13 @@
+functions:
+	integer add(integer a, integer b = 10)
+		description "Adds two integers."
+		return a + b
+	void sync() background
+		return
+	integer scaled()
+		input
+			integer factor = 2
+		return factor
+
+constant function golden() returns number
+	return 1.618

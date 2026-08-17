@@ -1,0 +1,319 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Imports(
+        [
+            ImportEntry {
+                path: [
+                    "math",
+                ],
+                alias: None,
+                span: ByteSpan {
+                    start: 9,
+                    end: 13,
+                },
+            },
+            ImportEntry {
+                path: [
+                    "data",
+                    "models",
+                ],
+                alias: Some(
+                    "dm",
+                ),
+                span: ByteSpan {
+                    start: 15,
+                    end: 32,
+                },
+            },
+        ],
+    ),
+    FileImport {
+        path: "lib/util.cln",
+        span: ByteSpan {
+            start: 34,
+            end: 55,
+        },
+    },
+    Source(
+        SourceSection {
+            fields: [
+                SourceField {
+                    key: "spec",
+                    value: "specs/api.md",
+                    span: ByteSpan {
+                        start: 66,
+                        end: 86,
+                    },
+                },
+                SourceField {
+                    key: "version",
+                    value: "1.2.0",
+                    span: ByteSpan {
+                        start: 88,
+                        end: 104,
+                    },
+                },
+            ],
+            span: ByteSpan {
+                start: 57,
+                end: 106,
+            },
+        },
+    ),
+    Constants(
+        [
+            ConstantDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 117,
+                        end: 124,
+                    },
+                },
+                name: "maxUsers",
+                init: Some(
+                    Int {
+                        value: 100,
+                        span: ByteSpan {
+                            start: 136,
+                            end: 139,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 117,
+                    end: 139,
+                },
+            },
+            ConstantDecl {
+                ty: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 141,
+                        end: 147,
+                    },
+                },
+                name: "appName",
+                init: Some(
+                    Str {
+                        segments: [
+                            Text(
+                                "demo",
+                            ),
+                        ],
+                        span: ByteSpan {
+                            start: 158,
+                            end: 164,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 141,
+                    end: 164,
+                },
+            },
+        ],
+    ),
+    State(
+        StateSection {
+            members: [
+                Var(
+                    StateVar {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 174,
+                                end: 181,
+                            },
+                        },
+                        name: "counter",
+                        init: Int {
+                            value: 0,
+                            span: ByteSpan {
+                                start: 192,
+                                end: 193,
+                            },
+                        },
+                        guards: [],
+                        span: ByteSpan {
+                            start: 174,
+                            end: 194,
+                        },
+                    },
+                ),
+            ],
+            span: ByteSpan {
+                start: 166,
+                end: 195,
+            },
+        },
+    ),
+    Class(
+        ClassDecl {
+            name: "User",
+            parent: None,
+            capabilities: [],
+            fields: [
+                Field {
+                    ty: TypeExpr {
+                        base: String_,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 207,
+                            end: 213,
+                        },
+                    },
+                    name: "name",
+                    init: None,
+                    public: false,
+                    span: ByteSpan {
+                        start: 207,
+                        end: 218,
+                    },
+                },
+            ],
+            always: None,
+            constructors: [],
+            functions: [],
+            span: ByteSpan {
+                start: 195,
+                end: 220,
+            },
+        },
+    ),
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 232,
+                        end: 236,
+                    },
+                },
+                name: "init",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 246,
+                                end: 253,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 232,
+                    end: 254,
+                },
+            },
+        ],
+    ),
+    Tests(
+        [
+            Anonymous {
+                assertion: Binary {
+                    op: Eq,
+                    lhs: Call {
+                        callee: Ident {
+                            name: "add",
+                            span: ByteSpan {
+                                start: 262,
+                                end: 265,
+                            },
+                        },
+                        args: [
+                            Int {
+                                value: 1,
+                                span: ByteSpan {
+                                    start: 266,
+                                    end: 267,
+                                },
+                            },
+                            Int {
+                                value: 2,
+                                span: ByteSpan {
+                                    start: 269,
+                                    end: 270,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 262,
+                            end: 271,
+                        },
+                    },
+                    rhs: Int {
+                        value: 3,
+                        span: ByteSpan {
+                            start: 275,
+                            end: 276,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 262,
+                        end: 276,
+                    },
+                },
+                span: ByteSpan {
+                    start: 262,
+                    end: 277,
+                },
+            },
+        ],
+    ),
+    Start(
+        [
+            Expr {
+                expr: Call {
+                    callee: Ident {
+                        name: "init",
+                        span: ByteSpan {
+                            start: 286,
+                            end: 290,
+                        },
+                    },
+                    args: [],
+                    span: ByteSpan {
+                        start: 286,
+                        end: 292,
+                    },
+                },
+                on_error: None,
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

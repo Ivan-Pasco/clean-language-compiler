@@ -1,0 +1,17 @@
+import:
+	math
+	math.sqrt
+	utils as u
+	json.decode as jd
+
+class Config
+	public:
+		string name
+	string secret
+
+functions:
+	public:
+		integer visible()
+			return 1
+	integer hidden()
+		return 2

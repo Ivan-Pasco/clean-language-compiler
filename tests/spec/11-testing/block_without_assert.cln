@@ -1,0 +1,3 @@
+tests:
+	"forgot the assert"
+		integer total = add(2, 3)
