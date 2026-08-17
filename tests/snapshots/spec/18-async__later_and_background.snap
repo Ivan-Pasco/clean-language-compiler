@@ -219,6 +219,10 @@ AST:
                                 },
                             },
                             name: "value",
+                            name_span: ByteSpan {
+                                start: 211,
+                                end: 216,
+                            },
                             init: Some(
                                 Ident {
                                     name: "answer",

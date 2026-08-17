@@ -18,6 +18,10 @@ AST:
                     },
                 },
                 name: "m",
+                name_span: ByteSpan {
+                    start: 15,
+                    end: 16,
+                },
                 init: Some(
                     Str {
                         segments: [

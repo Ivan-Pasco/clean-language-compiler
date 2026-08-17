@@ -1,10 +1,10 @@
 error[SEM001]: type mismatch in assignment
- --> tests/cln/diagnostics/SEM004.cln:3:3
+ --> tests/cln/diagnostics/SEM004.cln:3:11
   |
 3 | 		boolean b = true + false
-  | 		^^^^^^^^^^^^^^^^^^^^^^^^- this expression has type `integer`
-  | 		|
-  | 		`b` is declared with type `boolean`
+  | 		        ^   ------------ this expression has type `integer`
+  | 		        |
+  | 		        `b` is declared with type `boolean`
   |
   = docs: https://errors.cleanlanguage.dev/E/SEM001
 

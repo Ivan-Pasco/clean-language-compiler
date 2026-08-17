@@ -20,6 +20,10 @@ AST:
                     },
                 },
                 name: "count",
+                name_span: ByteSpan {
+                    start: 16,
+                    end: 21,
+                },
                 init: Some(
                     Int {
                         value: 0,

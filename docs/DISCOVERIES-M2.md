@@ -8,8 +8,11 @@ them over.
 **Status (2026-08-15):** items 1, 2 and 4 landed in foundation as errata
 (`46ad2f6`, `a05f7dd`, `0353ec6` — the compiler realigned to the LIB017
 template and the §1.1 recount in the same day's commit); items 3, 5 and 6
-became decision briefs in `foundation/work/` (`c4f2a3f`). Item 7 is this
-repo's own M3/M4 backlog and involves no spec change.
+became decision briefs in `foundation/work/` (`c4f2a3f`). Item 7 was this
+repo's own M3/M4 backlog and involved no spec change — **closed in M3
+stage 9** (2026-08-17): SEM001's primary span moved to the variable name
+with the RHS as secondary, matching the spec's worked example; the DIA-06
+snapshots (SEM001, SEM004) were regenerated in the same commit.
 
 1. **LIB017's message template carries example values, not placeholders.**
    Platform 10 §10.7 writes the template as `"Folder scope 'app/ui' maps to

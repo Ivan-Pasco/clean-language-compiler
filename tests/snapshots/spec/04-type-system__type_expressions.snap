@@ -20,6 +20,10 @@ AST:
                     },
                 },
                 name: "maybe",
+                name_span: ByteSpan {
+                    start: 17,
+                    end: 22,
+                },
                 init: Some(
                     NoneLit {
                         span: ByteSpan {
@@ -59,6 +63,10 @@ AST:
                     },
                 },
                 name: "xs",
+                name_span: ByteSpan {
+                    start: 45,
+                    end: 47,
+                },
                 init: Some(
                     List {
                         items: [
@@ -129,6 +137,10 @@ AST:
                     },
                 },
                 name: "queue",
+                name_span: ByteSpan {
+                    start: 80,
+                    end: 85,
+                },
                 init: Some(
                     List {
                         items: [
@@ -190,6 +202,10 @@ AST:
                     },
                 },
                 name: "bag",
+                name_span: ByteSpan {
+                    start: 118,
+                    end: 121,
+                },
                 init: Some(
                     List {
                         items: [],
@@ -230,6 +246,10 @@ AST:
                     },
                 },
                 name: "grid",
+                name_span: ByteSpan {
+                    start: 144,
+                    end: 148,
+                },
                 init: Some(
                     List {
                         items: [
@@ -325,6 +345,10 @@ AST:
                     },
                 },
                 name: "ages",
+                name_span: ByteSpan {
+                    start: 192,
+                    end: 196,
+                },
                 init: None,
                 on_error: None,
                 span: ByteSpan {
@@ -346,6 +370,10 @@ AST:
                     },
                 },
                 name: "owner",
+                name_span: ByteSpan {
+                    start: 203,
+                    end: 208,
+                },
                 init: None,
                 on_error: None,
                 span: ByteSpan {

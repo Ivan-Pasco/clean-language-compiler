@@ -25,6 +25,10 @@ AST:
                     },
                 },
                 name: "doubled",
+                name_span: ByteSpan {
+                    start: 18,
+                    end: 25,
+                },
                 init: Some(
                     Int {
                         value: 1,

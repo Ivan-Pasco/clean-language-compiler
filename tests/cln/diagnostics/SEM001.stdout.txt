@@ -1,9 +1,9 @@
 error[SEM001]: type mismatch in assignment
- --> tests/cln/diagnostics/SEM001.cln:3:3
+ --> tests/cln/diagnostics/SEM001.cln:3:11
   |
 3 | 		integer x = true
-  | 		^^^^^^^^^^^^^^^^- this expression has type `boolean`
-  | 		|
-  | 		`x` is declared with type `integer`
+  | 		        ^   ---- this expression has type `boolean`
+  | 		        |
+  | 		        `x` is declared with type `integer`
   |
   = docs: https://errors.cleanlanguage.dev/E/SEM001

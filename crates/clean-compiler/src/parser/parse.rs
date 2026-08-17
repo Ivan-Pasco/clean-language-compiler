@@ -1946,7 +1946,7 @@ impl<'a> Parser<'a> {
             }
             _ if self.starts_type_first_declaration() => {
                 let ty = self.type_expr(TypePos::DeclLhs, sink);
-                let Some((name, _)) = self.ident("variable name", sink) else {
+                let Some((name, name_span)) = self.ident("variable name", sink) else {
                     self.sync_line();
                     return None;
                 };
@@ -1971,6 +1971,7 @@ impl<'a> Parser<'a> {
                 Some(Stmt::VarDecl {
                     ty,
                     name,
+                    name_span,
                     init,
                     on_error,
                     span: start.merge(self.prev_span()),

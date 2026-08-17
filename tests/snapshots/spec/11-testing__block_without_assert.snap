@@ -23,6 +23,10 @@ AST:
                             },
                         },
                         name: "total",
+                        name_span: ByteSpan {
+                            start: 38,
+                            end: 43,
+                        },
                         init: Some(
                             Call {
                                 callee: Ident {

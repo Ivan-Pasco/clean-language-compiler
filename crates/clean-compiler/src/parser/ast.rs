@@ -379,6 +379,7 @@ pub enum Stmt {
     VarDecl {
         ty: TypeExpr,
         name: String,
+        name_span: ByteSpan,
         init: Option<Expr>,
         on_error: Option<Block>,
         span: ByteSpan,

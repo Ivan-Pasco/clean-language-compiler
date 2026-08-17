@@ -48,6 +48,10 @@ AST:
                     },
                 },
                 name: "v",
+                name_span: ByteSpan {
+                    start: 43,
+                    end: 44,
+                },
                 init: Some(
                     OnError {
                         value: Call {
@@ -95,6 +99,10 @@ AST:
                     },
                 },
                 name: "content",
+                name_span: ByteSpan {
+                    start: 73,
+                    end: 80,
+                },
                 init: Some(
                     Call {
                         callee: Ident {

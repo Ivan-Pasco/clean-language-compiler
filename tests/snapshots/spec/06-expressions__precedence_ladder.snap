@@ -20,6 +20,10 @@ AST:
                     },
                 },
                 name: "a",
+                name_span: ByteSpan {
+                    start: 16,
+                    end: 17,
+                },
                 init: Some(
                     Binary {
                         op: Sub,
@@ -119,6 +123,10 @@ AST:
                     },
                 },
                 name: "p",
+                name_span: ByteSpan {
+                    start: 51,
+                    end: 52,
+                },
                 init: Some(
                     Binary {
                         op: Pow,
@@ -174,6 +182,10 @@ AST:
                     },
                 },
                 name: "c",
+                name_span: ByteSpan {
+                    start: 74,
+                    end: 75,
+                },
                 init: Some(
                     Binary {
                         op: Or,
@@ -264,6 +276,10 @@ AST:
                     },
                 },
                 name: "e",
+                name_span: ByteSpan {
+                    start: 116,
+                    end: 117,
+                },
                 init: Some(
                     Binary {
                         op: Or,
@@ -333,6 +349,10 @@ AST:
                     },
                 },
                 name: "i",
+                name_span: ByteSpan {
+                    start: 146,
+                    end: 147,
+                },
                 init: Some(
                     Binary {
                         op: Is,
@@ -374,6 +394,10 @@ AST:
                     },
                 },
                 name: "n",
+                name_span: ByteSpan {
+                    start: 166,
+                    end: 167,
+                },
                 init: Some(
                     Binary {
                         op: NotIs,
@@ -417,6 +441,10 @@ AST:
                     },
                 },
                 name: "d",
+                name_span: ByteSpan {
+                    start: 187,
+                    end: 188,
+                },
                 init: Some(
                     Binary {
                         op: Default,
@@ -460,6 +488,10 @@ AST:
                     },
                 },
                 name: "f",
+                name_span: ByteSpan {
+                    start: 216,
+                    end: 217,
+                },
                 init: Some(
                     OnError {
                         value: Call {

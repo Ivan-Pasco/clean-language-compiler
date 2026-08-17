@@ -122,6 +122,10 @@ AST:
                             },
                         },
                         name: "total",
+                        name_span: ByteSpan {
+                            start: 92,
+                            end: 97,
+                        },
                         init: Some(
                             Call {
                                 callee: Ident {

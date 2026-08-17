@@ -20,6 +20,10 @@ AST:
                     },
                 },
                 name: "a",
+                name_span: ByteSpan {
+                    start: 16,
+                    end: 17,
+                },
                 init: Some(
                     Int {
                         value: 42,
@@ -49,6 +53,10 @@ AST:
                     },
                 },
                 name: "h",
+                name_span: ByteSpan {
+                    start: 32,
+                    end: 33,
+                },
                 init: Some(
                     Int {
                         value: 255,
@@ -78,6 +86,10 @@ AST:
                     },
                 },
                 name: "b",
+                name_span: ByteSpan {
+                    start: 50,
+                    end: 51,
+                },
                 init: Some(
                     Int {
                         value: 5,
@@ -107,6 +119,10 @@ AST:
                     },
                 },
                 name: "o",
+                name_span: ByteSpan {
+                    start: 69,
+                    end: 70,
+                },
                 init: Some(
                     Int {
                         value: 15,
@@ -134,6 +150,10 @@ AST:
                     },
                 },
                 name: "n",
+                name_span: ByteSpan {
+                    start: 86,
+                    end: 87,
+                },
                 init: Some(
                     Number {
                         text: "3.5",
@@ -161,6 +181,10 @@ AST:
                     },
                 },
                 name: "x",
+                name_span: ByteSpan {
+                    start: 102,
+                    end: 103,
+                },
                 init: Some(
                     Number {
                         text: "1e10",
@@ -188,6 +212,10 @@ AST:
                     },
                 },
                 name: "tiny",
+                name_span: ByteSpan {
+                    start: 119,
+                    end: 123,
+                },
                 init: Some(
                     Number {
                         text: ".25",
@@ -215,6 +243,10 @@ AST:
                     },
                 },
                 name: "s",
+                name_span: ByteSpan {
+                    start: 138,
+                    end: 139,
+                },
                 init: Some(
                     Str {
                         segments: [
@@ -246,6 +278,10 @@ AST:
                     },
                 },
                 name: "t",
+                name_span: ByteSpan {
+                    start: 171,
+                    end: 172,
+                },
                 init: Some(
                     Bool {
                         value: true,
@@ -273,6 +309,10 @@ AST:
                     },
                 },
                 name: "f",
+                name_span: ByteSpan {
+                    start: 189,
+                    end: 190,
+                },
                 init: Some(
                     Bool {
                         value: false,

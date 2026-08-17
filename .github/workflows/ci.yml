@@ -51,3 +51,11 @@ jobs:
         run: |
           cargo test -p clean-compiler-types --test registry --test registry_spec -- --nocapture
           cargo test -p clean-compiler --test emitted_codes --test diagnostics_fixtures -- --nocapture
+
+      # M3 snapshot-drift gate — the per-chapter spec suite and the smoke
+      # corpus classification must match their committed snapshots (insta
+      # fails on any drift; regeneration is a deliberate local act).
+      - name: spec snapshot-drift gate
+        env:
+          INSTA_UPDATE: "no"
+        run: cargo test -p clean-compiler --test spec_suite --test corpus_smoke -- --nocapture

@@ -341,6 +341,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             ast::Stmt::VarDecl {
                 ty,
                 name,
+                name_span,
                 init,
                 on_error,
                 span,
@@ -361,12 +362,15 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 let init = init.as_ref().map(|expr| {
                     let value = self.check_expr(expr, Some(&declared), sink);
                     if !assignable(&value.ty, &declared) {
-                        // SEM001 — exact wording from Platform 10 §3.
+                        // SEM001 — exact wording from Platform 10 §3. The
+                        // primary span is the variable NAME, the RHS a
+                        // secondary, per the spec's worked example
+                        // (DISCOVERIES-M2 item 7).
                         let mut d = build(
                             Level::Error,
                             codes::SEM001,
                             "type mismatch in assignment".to_string(),
-                            self.diag_span(*span),
+                            self.diag_span(*name_span),
                             Some(format!(
                                 "`{name}` is declared with type `{}`",
                                 declared.display()

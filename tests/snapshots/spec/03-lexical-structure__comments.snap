@@ -20,6 +20,10 @@ AST:
                     },
                 },
                 name: "a",
+                name_span: ByteSpan {
+                    start: 65,
+                    end: 66,
+                },
                 init: Some(
                     Int {
                         value: 1,
