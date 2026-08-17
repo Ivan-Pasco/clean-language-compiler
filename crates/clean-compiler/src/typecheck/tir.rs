@@ -199,6 +199,22 @@ pub enum TExprKind {
     },
     /// The proposed new value inside a guard clause (SMG-02).
     GuardValue,
+    /// `error(message)` — the ERH-01 failure signal (statement position
+    /// only); never yields a value.
+    Raise(Box<TExpr>),
+    /// `expr onError fallback` (ERH-02, suffix form).
+    OnError {
+        value: Box<TExpr>,
+        fallback: Box<TExpr>,
+    },
+    /// The `error` binding inside an onError handler (ERH-04).
+    ErrorBinding,
+    /// Field access on a plain record value (the `Error` record's
+    /// `.message`/`.code`, world records).
+    GetRecordField {
+        recv: Box<TExpr>,
+        field: usize,
+    },
     /// Instance method call, statically dispatched: the receiver's class
     /// is known (`class` owns the method — possibly an ancestor of the
     /// receiver's class, CLS-02).

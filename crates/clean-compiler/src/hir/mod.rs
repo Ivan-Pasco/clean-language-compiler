@@ -139,6 +139,16 @@ pub enum HExprKind {
         name: String,
     },
     GuardValue,
+    Raise(Box<HExpr>),
+    OnError {
+        value: Box<HExpr>,
+        fallback: Box<HExpr>,
+    },
+    ErrorBinding,
+    GetRecordField {
+        recv: Box<HExpr>,
+        field: usize,
+    },
     CallMethod {
         class: usize,
         method: usize,
@@ -338,6 +348,16 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
         tir::TExprKind::This => HExprKind::This,
         tir::TExprKind::GetState { module, name } => HExprKind::GetState { module, name },
         tir::TExprKind::GuardValue => HExprKind::GuardValue,
+        tir::TExprKind::Raise(operand) => HExprKind::Raise(Box::new(lower_expr(*operand))),
+        tir::TExprKind::OnError { value, fallback } => HExprKind::OnError {
+            value: Box::new(lower_expr(*value)),
+            fallback: Box::new(lower_expr(*fallback)),
+        },
+        tir::TExprKind::ErrorBinding => HExprKind::ErrorBinding,
+        tir::TExprKind::GetRecordField { recv, field } => HExprKind::GetRecordField {
+            recv: Box::new(lower_expr(*recv)),
+            field,
+        },
         tir::TExprKind::CallMethod {
             class,
             method,

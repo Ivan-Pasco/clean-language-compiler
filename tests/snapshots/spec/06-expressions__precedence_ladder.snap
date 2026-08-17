@@ -563,6 +563,6 @@ AST:
         ],
     ),
 ]
-DIAGNOSTICS: 0
-UNSUPPORTED: 1
-  `onError` fallback @ spec/06-expressions/precedence_ladder.cln:10:14
+DIAGNOSTICS: 1
+  SEM019 spec/06-expressions/precedence_ladder.cln:10:14 I cannot find a function named `risky`
+UNSUPPORTED: 0

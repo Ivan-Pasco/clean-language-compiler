@@ -825,6 +825,8 @@ impl<'a> Checker<'a> {
                 in_tests: false,
                 computed_state: None,
                 depth_reported: false,
+                allow_signal: false,
+                error_binding: false,
             };
             let defaults: Vec<Option<TExpr>> = f
                 .params
@@ -867,6 +869,8 @@ impl<'a> Checker<'a> {
             in_tests: false,
             computed_state: None,
             depth_reported: false,
+            allow_signal: false,
+            error_binding: false,
         }
     }
 
@@ -1187,6 +1191,8 @@ impl<'a> Checker<'a> {
                 in_tests: false,
                 computed_state: None,
                 depth_reported: false,
+                allow_signal: false,
+                error_binding: false,
             };
             let before = f
                 .body
@@ -1274,6 +1280,8 @@ impl<'a> Checker<'a> {
                     in_tests: false,
                     computed_state: None,
                     depth_reported: false,
+                    allow_signal: false,
+                    error_binding: false,
                 };
                 let before = m
                     .body
@@ -1336,6 +1344,8 @@ impl<'a> Checker<'a> {
                     in_tests: false,
                     computed_state: None,
                     depth_reported: false,
+                    allow_signal: false,
+                    error_binding: false,
                 };
                 let body = body_checker.check_block(&ctor.body, sink);
                 let mut function = TFunction {
@@ -1370,6 +1380,8 @@ impl<'a> Checker<'a> {
                     in_tests: false,
                     computed_state: None,
                     depth_reported: false,
+                    allow_signal: false,
+                    error_binding: false,
                 };
                 body_checker.in_contract = Some(ContractKind::Before);
                 for expr in &always.exprs {
@@ -1419,6 +1431,8 @@ impl<'a> Checker<'a> {
                 in_tests: false,
                 computed_state: None,
                 depth_reported: false,
+                allow_signal: false,
+                error_binding: false,
             };
             let body = body_checker.check_block(block, sink);
             let mut function = TFunction {
@@ -1609,7 +1623,15 @@ fn finalize_expr(infcx: &mut InferCtx, class_records: &[Ty], expr: &mut TExpr) {
         | TExprKind::This
         | TExprKind::GetState { .. }
         | TExprKind::GuardValue
+        | TExprKind::ErrorBinding
         | TExprKind::Error => {}
+        TExprKind::Raise(operand) | TExprKind::GetRecordField { recv: operand, .. } => {
+            finalize_expr(infcx, class_records, operand)
+        }
+        TExprKind::OnError { value, fallback } => {
+            finalize_expr(infcx, class_records, value);
+            finalize_expr(infcx, class_records, fallback);
+        }
     }
 }
 
@@ -1649,6 +1671,24 @@ struct BodyChecker<'c, 'a> {
     computed_state: Option<String>,
     /// SCOPE003 reported once per body.
     depth_reported: bool,
+    /// Statement position directly under a `Stmt::Expr` — the one place
+    /// ERH-01 admits the `error(...)` signal.
+    allow_signal: bool,
+    /// Inside an `onError` handler: the `error` binding is in scope
+    /// (ERH-04).
+    error_binding: bool,
+}
+
+/// The built-in `Error` record (ERH-04): `.message` string, `.code`
+/// string? (`none` for the program's own `error(...)`).
+fn error_record() -> Ty {
+    Ty::Record {
+        wit_name: "Error".to_string(),
+        fields: vec![
+            ("message".to_string(), Ty::Str),
+            ("code".to_string(), Ty::Option(Box::new(Ty::Str))),
+        ],
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2101,9 +2141,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 on_error,
                 span,
             } => {
-                if on_error.is_some() {
-                    sink.note_unsupported("`onError:` block handlers", self.diag_span(*span));
-                }
+                self.check_on_error_block(on_error, sink);
                 let declared = self.project_type(ty, sink);
                 if self.scopes.last().unwrap().contains_key(name) {
                     sink.push(build(
@@ -2135,9 +2173,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 on_error,
                 span,
             } => {
-                if on_error.is_some() {
-                    sink.note_unsupported("`onError:` block handlers", self.diag_span(*span));
-                }
+                self.check_on_error_block(on_error, sink);
                 match target {
                     ast::Expr::Ident {
                         name,
@@ -2266,10 +2302,10 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 Some(TStmt::Return { value, span: *span })
             }
             ast::Stmt::Expr { expr, on_error } => {
-                if on_error.is_some() {
-                    sink.note_unsupported("`onError:` block handlers", self.diag_span(expr.span()));
-                }
-                Some(TStmt::Expr(self.check_expr(expr, None, sink)))
+                self.check_on_error_block(on_error, sink);
+                self.allow_signal = true;
+                let value = self.check_expr(expr, None, sink);
+                Some(TStmt::Expr(value))
             }
             ast::Stmt::If {
                 cond,
@@ -2388,6 +2424,20 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         }
     }
 
+    /// ERH-02 block form: the handler body checks with the `error`
+    /// binding in scope; its lowering is a later milestone.
+    fn check_on_error_block(&mut self, on_error: &Option<ast::Block>, sink: &mut DiagnosticSink) {
+        if let Some(handler) = on_error {
+            let saved = self.error_binding;
+            self.error_binding = true;
+            self.check_block(handler, sink);
+            self.error_binding = saved;
+            if let Some(first) = handler.first() {
+                sink.note_unsupported("onError handler lowering", self.diag_span(stmt_span(first)));
+            }
+        }
+    }
+
     /// SEM025 — ControlFlowOutsideLoop (template from Platform 10 §3).
     fn control_flow_outside_loop(
         &mut self,
@@ -2490,9 +2540,69 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         sink: &mut DiagnosticSink,
     ) -> TExpr {
         let span = expr.span();
+        let signal_ok = std::mem::take(&mut self.allow_signal);
         let expected_resolved = expected.map(|t| self.infcx.resolve(t));
         let expected = expected_resolved.as_ref();
         match expr {
+            // ERH-01: `error(message)` is a signal, not a value — legal
+            // only directly in statement position.
+            ast::Expr::Call { callee, args, .. }
+                if matches!(callee.as_ref(), ast::Expr::ErrorRef { .. }) =>
+            {
+                if args.len() != 1 {
+                    sink.push(build(
+                        Level::Error,
+                        codes::FUNC002,
+                        format!("`error` expects 1 argument(s), got {}", args.len()),
+                        self.diag_span(span),
+                        None,
+                    ));
+                }
+                let message = match args.first() {
+                    Some(arg) => {
+                        let value = self.check_expr(arg, Some(&Ty::Str), sink);
+                        match self.coerce(value, &Ty::Str) {
+                            Ok(value) => value,
+                            Err(value) => {
+                                let mut d = build(
+                                    Level::Error,
+                                    codes::SEM016,
+                                    "argument `1` of `error` has the wrong type".to_string(),
+                                    self.diag_span(arg.span()),
+                                    Some(format!(
+                                        "this argument has type `{}`",
+                                        self.infcx.resolve(&value.ty).display()
+                                    )),
+                                );
+                                d.notes
+                                    .push("`error` takes one `string` argument".to_string());
+                                self.push_rich(sink, d);
+                                error_expr(arg.span())
+                            }
+                        }
+                    }
+                    None => error_expr(span),
+                };
+                if !signal_ok {
+                    // SEM004 (stub rule; local wording): value position.
+                    sink.push(build(
+                        Level::Error,
+                        codes::SEM004,
+                        "`error(...)` is a signal, not a value".to_string(),
+                        self.diag_span(span),
+                        Some(
+                            "a failure interrupts the expression — it cannot be assigned"
+                                .to_string(),
+                        ),
+                    ));
+                    return error_expr(span);
+                }
+                TExpr {
+                    ty: Ty::Void,
+                    span,
+                    kind: TExprKind::Raise(Box::new(message)),
+                }
+            }
             ast::Expr::Int { value, .. } => {
                 self.integer_literal(*value as i128, expected, span, sink)
             }
@@ -2686,9 +2796,27 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 name,
                 span: member_span,
             } => self.check_member(receiver, name, *member_span, span, sink),
-            ast::Expr::OnError { .. } => {
-                sink.note_unsupported("`onError` fallback", self.diag_span(span));
-                error_expr(span)
+            ast::Expr::OnError {
+                value, fallback, ..
+            } => {
+                let value = self.check_expr(value, expected, sink);
+                let saved = self.error_binding;
+                self.error_binding = true;
+                let fb = self.check_expr(fallback, Some(&value.ty.clone()), sink);
+                self.error_binding = saved;
+                // ERH-02 leaves the result typing open (DISCOVERIES-M4
+                // item 15): the fallback coerces to the guarded
+                // expression's type.
+                let ty = value.ty.clone();
+                let fb = self.coerce_assign(fb, &ty, "onError", fallback.span(), sink);
+                TExpr {
+                    ty,
+                    span,
+                    kind: TExprKind::OnError {
+                        value: Box::new(value),
+                        fallback: Box::new(fb),
+                    },
+                }
             }
             ast::Expr::This { .. } => match self.this_class {
                 Some(class) => TExpr {
@@ -2717,8 +2845,24 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 error_expr(span)
             }
             ast::Expr::ErrorRef { .. } => {
-                sink.note_unsupported("`error` values", self.diag_span(span));
-                error_expr(span)
+                if self.error_binding {
+                    TExpr {
+                        ty: error_record(),
+                        span,
+                        kind: TExprKind::ErrorBinding,
+                    }
+                } else {
+                    // ERH-04: `error` is a binding only inside a handler;
+                    // elsewhere the name simply is not in scope.
+                    sink.push(build(
+                        Level::Error,
+                        codes::SEM002,
+                        "I cannot find a variable named `error` in scope".to_string(),
+                        self.diag_span(span),
+                        Some("`error` is bound only inside an `onError` handler".to_string()),
+                    ));
+                    error_expr(span)
+                }
             }
             ast::Expr::ResultRef { .. } => {
                 // CTR-02: `result` is the return value, in scope only
@@ -3730,10 +3874,23 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 sink.note_unsupported("member access on `any` values", self.diag_span(span));
                 error_expr(span)
             }
+            Ty::Record { fields, .. } => {
+                let Some(index) = fields.iter().position(|(n, _)| n == name) else {
+                    return self.undefined_method(&recv.ty, name, member_span, span, sink);
+                };
+                let ty = fields[index].1.clone();
+                TExpr {
+                    ty,
+                    span,
+                    kind: TExprKind::GetRecordField {
+                        recv: Box::new(recv),
+                        field: index,
+                    },
+                }
+            }
             Ty::Error => error_expr(span),
             _ => {
-                // Chapter-15 property surface (`.length`, `error.message`,
-                // …) is M4 stage 4 / M6.
+                // The chapter-15 property surface (`.length`, …) is M6.
                 sink.note_unsupported("standard-library methods", self.diag_span(span));
                 error_expr(span)
             }
@@ -4372,6 +4529,10 @@ fn purity_children(expr: &TExpr) -> Vec<&TExpr> {
         | TExprKind::Convert(operand)
         | TExprKind::GetField { recv: operand, .. } => vec![operand],
         TExprKind::Index { recv, index, .. } => vec![recv, index],
+        TExprKind::Raise(operand) | TExprKind::GetRecordField { recv: operand, .. } => {
+            vec![operand]
+        }
+        TExprKind::OnError { value, fallback } => vec![value, fallback],
         TExprKind::StrInterp(segs) => segs
             .iter()
             .filter_map(|seg| match seg {

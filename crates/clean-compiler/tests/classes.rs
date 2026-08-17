@@ -109,3 +109,23 @@ fn namespace_call_reaches_public_functions_of_the_module() {
         ),
     ]);
 }
+
+#[test]
+fn error_signal_and_handler_typing() {
+    // ERH-01/02/04: the signal is statement-only; the fallback coerces
+    // to the guarded type; `error.code` is `string?`.
+    typechecks(&[(
+        "app/main.cln",
+        "functions:\n\tinteger risky()\n\t\terror(\"boom\")\n\t\treturn 1\n\nstart:\n\tinteger v = risky() onError 0\n\tstring why = risky().toString() onError error.message\n\tstring code = risky().toString() onError error.code default \"none\"\n",
+    )]);
+}
+
+#[test]
+fn error_in_value_position_is_sem004() {
+    let diagnostics = diagnostics(&[("app/main.cln", "start:\n\tinteger x = error(\"boom\")\n")]);
+    assert_eq!(diagnostics[0].code, "SEM004");
+    assert_eq!(
+        diagnostics[0].message,
+        "`error(...)` is a signal, not a value"
+    );
+}

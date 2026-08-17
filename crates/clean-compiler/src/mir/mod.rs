@@ -699,6 +699,12 @@ impl<'a> FnLowerer<'a> {
             HExprKind::GetState { .. } | HExprKind::GuardValue => {
                 self.note(sink, "state access in compiled code", expr.span)
             }
+            HExprKind::Raise(_) | HExprKind::OnError { .. } | HExprKind::ErrorBinding => {
+                self.note(sink, "error handling in compiled code", expr.span)
+            }
+            HExprKind::GetRecordField { .. } => {
+                self.note(sink, "record field access in compiled code", expr.span)
+            }
             HExprKind::CallMethod { .. }
             | HExprKind::CallDyn { .. }
             | HExprKind::CallCtor { .. }
