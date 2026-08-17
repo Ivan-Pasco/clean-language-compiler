@@ -34,7 +34,7 @@ Design list, seeded from the retired compiler's `KNOWLEDGE.md`; each becomes a r
 
 ## 4. Boundary contracts
 
-Reads: request document (Platform 14 §14.1.1, hash-verified). Writes: Component Model component + manifest + NDJSON diagnostics. Hard gates once their surfaces exist: any `Diagnostic` schema change re-snapshots every diagnostic fixture; any WIT-affecting change re-runs `wasm-tools component targets` against the vendored `host.wit`; every new error code lands with its rule and a snapshot that produces it (CI-enforced from M2).
+Reads: request document (Platform 14 §14.1.1, hash-verified). Writes: Component Model component + manifest + NDJSON diagnostics. Hard gates once their surfaces exist: any `Diagnostic` schema change re-snapshots every diagnostic fixture; any WIT-affecting change re-runs `wasm-tools component targets` against the vendored `host.wit` (bytes pinned by `vendored_wit.rs` — refreshing the copy means updating its recorded sha256 in the same commit); every new error code lands with its rule and a snapshot that produces it (CI-enforced from M2).
 
 ## 5. Fingerprint discipline
 
@@ -48,5 +48,5 @@ Not yet configured (foundation rollout F5: codegen reviewer + spec reviewer are 
 
 - No dashboard/fingerprint pipeline (F1 pending) — tracked by the interim GitHub-issue discipline above.
 - L3/L5/L7/L8 not yet active — entry points listed in §2 with their milestones.
-- Coverage floors (ADR-0027 Tier 1: 80% line / 75% branch / 60% mutation, MC/DC in codegen, typecheck, marshalling, memory) measured from M4, blocking from M9.
+- Coverage floors (ADR-0027 Tier 1: 80% line / 75% branch / 60% mutation, MC/DC in codegen, typecheck, marshalling, memory): line/branch measured since M4 (CI `coverage` job, `cargo llvm-cov`); mutation, MC/DC and the blocking floors remain M9.
 - Acceptance against a running clean-server requires the private `clean-host-core` checkout (see `docs/acceptance.md` when it lands).
