@@ -1,0 +1,7 @@
+error[IMPORT001]: import cycle detected: a → b → a
+ --> b.cln:2:2
+  |
+2 | 	a
+  | 	^ this import closes the cycle
+  |
+  = docs: https://errors.cleanlanguage.dev/E/IMPORT001

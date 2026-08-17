@@ -87,3 +87,53 @@ source is unstated.
 **Local adoption:** the checker types `step` as `integer` wherever it
 appears and preserves it in the TIR; semantics for non-range sources stay
 open until foundation rules.
+
+## 6. MOD-01's worked examples contradict MOD-02
+
+Every multi-file example in `17-modules-and-imports.md` §MOD-01 (and the
+§Example project: `utils.cln` / `mathHelpers.cln`) imports a module and
+calls functions that are **not** inside a `public:` wrapper — under MOD-02
+("private by default") every one of those calls is an IMPORT003/SEM019.
+The compiler enforces MOD-02 as minted; the chapter's examples need
+`public:` wrappers (erratum).
+
+## 7. How a class is exported is unspecified
+
+MOD-02 says "functions and classes are module-local unless declared
+inside a `public:` block", and the grammar's `PublicDeclaration` union
+admits `ClassOrCapabilityDeclaration` — but `public:` "is NOT a top-level
+section itself" and classes only appear at the top level, so there is no
+legal position that exports a class. The chapter prose also shows a
+top-level `public:` wrapping a `functions:` block, which the grammar
+forbids; per DOC-15 the parser follows the grammar.
+
+**Local adoption:** classes are exported by default (visible wherever the
+module is imported); `public:` wrappers govern functions (inside
+`functions:`) and fields (inside a class body) exactly as the grammar
+places them. Needs a foundation brief pinning the class-export surface.
+
+## 8. Module-name → file mapping is framework territory the compiler must approximate
+
+MOD-03: the framework resolves names to files before the compiler runs,
+and the compiler "follows import statements across `sources[]`" — but a
+request carries no name→file mapping, so the compiler must re-derive it.
+
+**Local adoption (purely textual, deterministic):** a dotted name maps to
+`<dots-as-slashes>.cln` and resolves in order — relative to the importing
+file's directory, then from the request root, then by unique `…/name.cln`
+suffix anywhere in `sources[]`; an ambiguous suffix resolves to nothing
+(IMPORT002). The request schema should eventually carry the framework's
+resolution (new field) or bless this derivation.
+
+## 9. Boundary and scope adoptions
+
+- **Host interfaces are request-global** (no import needed, no `public:`):
+  they describe the world boundary (ADR-0002), which is a request-level
+  property, not a module-level one.
+- **Imports are non-transitive** for name visibility (chained file imports
+  still link everything into the artifact, ch. 17 §Chained Imports).
+- **Shadowing:** a locally declared name wins over an imported one; two
+  imports bringing the same name keep the first, in entry order. No code
+  exists for import-name collisions; needs foundation wording.
+- **SEM003 is module-scoped** for functions/classes (two modules may each
+  declare a private `helper`); host-function names still clash globally.

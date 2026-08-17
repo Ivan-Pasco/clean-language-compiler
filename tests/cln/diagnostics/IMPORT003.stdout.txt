@@ -1,0 +1,7 @@
+error[IMPORT003]: module `lib` has no public symbol named `hidden`
+ --> main.cln:2:2
+  |
+2 | 	lib.hidden
+  | 	^^^^^^^^^^ not exported by this module
+  |
+  = docs: https://errors.cleanlanguage.dev/E/IMPORT003

@@ -1,0 +1,6 @@
+import:
+	lib.hidden
+
+functions:
+	void init()
+		return

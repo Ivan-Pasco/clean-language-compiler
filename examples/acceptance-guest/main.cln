@@ -1,3 +1,6 @@
+import:
+	classes
+
 functions:
 	void init()
 		register("get", "/", 0, Options(true))

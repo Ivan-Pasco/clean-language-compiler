@@ -9,6 +9,9 @@ use clean_compiler::compile;
 mod common;
 
 const HOST_BRIDGE: &str = "\
+import:
+\tclasses
+
 host interface routing version \"0.1.0\":
 \trequires host worlds [\"server\"]
 
@@ -54,6 +57,9 @@ class Field
 
 /// The 9a routes of the acceptance guest (SSE/WS/counter are 9b, M6).
 const MAIN: &str = "\
+import:
+\tclasses
+
 functions:
 \tvoid init()
 \t\tregister(\"get\", \"/\", 0, Options(true))

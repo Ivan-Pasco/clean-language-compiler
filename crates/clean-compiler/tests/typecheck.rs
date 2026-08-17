@@ -64,6 +64,9 @@ fn typechecks(sources: &[(&str, &str)]) {
 #[test]
 fn acceptance_shape_typechecks_across_files() {
     let main = "\
+import:
+\toptions
+
 functions:
 \tvoid init()
 \t\tregister(\"get\", \"/\", 0, Options(true))
@@ -83,6 +86,9 @@ functions:
 #[test]
 fn unknown_enum_case_is_sem016_listing_cases() {
     let main = "\
+import:
+\toptions
+
 functions:
 \tvoid init()
 \t\tregister(\"fetch\", \"/\", 0, Options(true))
@@ -107,6 +113,9 @@ functions:
 #[test]
 fn enum_case_requires_a_literal_not_a_variable() {
     let main = "\
+import:
+\toptions
+
 functions:
 \tvoid init()
 \t\tstring m = \"get\"
@@ -239,10 +248,11 @@ functions:
 }
 
 #[test]
-fn top_level_redefinition_is_sem003_across_files() {
-    let a = "functions:\n\tvoid f()\n\t\treturn\n";
-    let b = "functions:\n\tvoid f()\n\t\treturn\n";
-    let diagnostics = rejected(&[("app/a.cln", a), ("app/b.cln", b)]);
+fn top_level_redefinition_is_sem003_within_a_module() {
+    // SEM003 is module-scoped since the M4 module graph: the same name in
+    // two different modules is legal (each file is a module, chapter 17).
+    let main = "functions:\n\tvoid f()\n\t\treturn\n\tvoid f()\n\t\treturn\n";
+    let diagnostics = rejected(&[("app/main.cln", main)]);
     assert_eq!(diagnostics[0].code, codes::SEM003);
 }
 

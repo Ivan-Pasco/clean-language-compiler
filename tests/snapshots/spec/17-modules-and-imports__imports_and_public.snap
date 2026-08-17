@@ -207,6 +207,9 @@ AST:
         ],
     ),
 ]
-DIAGNOSTICS: 0
-UNSUPPORTED: 1
-  import declarations @ spec/17-modules-and-imports/imports_and_public.cln:2:2
+DIAGNOSTICS: 1
+  IMPORT002 spec/17-modules-and-imports/imports_and_public.cln:4:2 I cannot find the module `utils` in this build
+UNSUPPORTED: 3
+  standard-library imports @ spec/17-modules-and-imports/imports_and_public.cln:2:2
+  standard-library imports @ spec/17-modules-and-imports/imports_and_public.cln:3:2
+  standard-library imports @ spec/17-modules-and-imports/imports_and_public.cln:5:2

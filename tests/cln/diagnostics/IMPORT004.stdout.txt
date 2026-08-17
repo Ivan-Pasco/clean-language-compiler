@@ -1,0 +1,7 @@
+error[IMPORT004]: `lib` is imported more than once
+ --> main.cln:3:2
+  |
+3 | 	lib
+  | 	^^^ duplicate import item
+  |
+  = docs: https://errors.cleanlanguage.dev/E/IMPORT004

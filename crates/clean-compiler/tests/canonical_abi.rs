@@ -88,6 +88,9 @@ host interface routing version \"0.1.0\":
 ";
     let options_class = "class Options\n\tboolean csrf\n";
     let main = "\
+import:
+\toptions
+
 functions:
 \tvoid init()
 \t\tregister(\"get\", \"/\", 0, Options(true))
@@ -459,6 +462,9 @@ fn roundtrip_constant_list_of_records() {
     // /log shape: emit(level, message, fields) with a constant list of
     // field records, serialized to static data in canonical layout.
     let host_bridge = "\
+import:
+\tfield
+
 host interface log version \"0.1.0\":
 \trequires host worlds [\"server\"]
 
@@ -467,6 +473,9 @@ host interface log version \"0.1.0\":
 ";
     let field_class = "class Field\n\tstring key\n\tstring value\n";
     let main = "\
+import:
+\tfield
+
 functions:
 \tvoid handle(integer handlerId)
 \t\temit(\"info\", \"hello from the guest\", [Field(\"route\", \"log-demo\")])

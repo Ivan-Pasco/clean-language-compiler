@@ -316,11 +316,12 @@ AST:
         ],
     ),
 ]
-DIAGNOSTICS: 0
-UNSUPPORTED: 6
-  import declarations @ spec/08-file-structure/full_order.cln:2:2
-  import declarations @ spec/08-file-structure/full_order.cln:5:1
+DIAGNOSTICS: 2
+  IMPORT002 spec/08-file-structure/full_order.cln:3:2 I cannot find the module `data.models` in this build
+  IMPORT002 spec/08-file-structure/full_order.cln:5:1 I cannot find the module `lib/util.cln` in this build
+UNSUPPORTED: 5
   source: provenance blocks @ spec/08-file-structure/full_order.cln:7:1
   constant: sections @ spec/08-file-structure/full_order.cln:12:2
   state: blocks @ spec/08-file-structure/full_order.cln:15:1
   tests: sections @ spec/08-file-structure/full_order.cln:26:2
+  standard-library imports @ spec/08-file-structure/full_order.cln:2:2

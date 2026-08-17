@@ -1,3 +1,6 @@
+import:
+	classes
+
 host interface routing version "0.1.0":
 	requires host worlds ["server"]
 

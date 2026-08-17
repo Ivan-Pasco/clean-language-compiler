@@ -1,0 +1,6 @@
+import:
+	missing
+
+functions:
+	void init()
+		return

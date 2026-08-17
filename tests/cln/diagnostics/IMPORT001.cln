@@ -1,0 +1,6 @@
+import:
+	b
+
+functions:
+	void init()
+		return

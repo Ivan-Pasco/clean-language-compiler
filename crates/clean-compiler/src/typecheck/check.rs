@@ -34,7 +34,7 @@ pub fn check(
     let mut checker = Checker {
         resolved,
         world,
-        class_records: IndexMap::new(),
+        class_records: Vec::new(),
         host_imports: Vec::new(),
         function_sigs: Vec::new(),
     };
@@ -57,8 +57,9 @@ struct FunctionSig {
 struct Checker<'a> {
     resolved: &'a ResolvedAst,
     world: &'a ParsedWorld,
-    /// Class name → projected record type (LBS-02 class↔record).
-    class_records: IndexMap<String, Ty>,
+    /// Projected record types (LBS-02 class↔record), parallel to
+    /// `decls.classes`; name lookups go through the module scopes.
+    class_records: Vec<Ty>,
     host_imports: Vec<HostImport>,
     function_sigs: Vec<FunctionSig>,
 }
@@ -79,9 +80,18 @@ impl<'a> Checker<'a> {
 
     // ----- projections -------------------------------------------------
 
+    /// Looks a class name up through `file`'s module scope, yielding its
+    /// projection only if it was already projected (declaration order —
+    /// forward references stay SEM020, matching M1).
+    fn class_record(&self, file: usize, name: &str) -> Option<&Ty> {
+        let index = *self.resolved.decls.modules[file].classes.get(name)?;
+        self.class_records.get(index)
+    }
+
     fn project_classes(&mut self, sink: &mut DiagnosticSink) {
-        for coords in self.resolved.decls.classes.values() {
-            let (class, file) = self.resolved.class(*coords);
+        for i in 0..self.resolved.decls.classes.len() {
+            let coords = self.resolved.decls.classes[i].coords;
+            let (class, file) = self.resolved.class(coords);
             // The LBS-02 record projection covers plain field bags; richer
             // class features land in the M4 class stage.
             if class.parent.is_some() || !class.capabilities.is_empty() {
@@ -107,13 +117,10 @@ impl<'a> Checker<'a> {
                 let ty = self.project_type(&field.ty, TyPos::Surface, file, sink);
                 fields.push((kebab(&field.name), ty));
             }
-            self.class_records.insert(
-                class.name.clone(),
-                Ty::Record {
-                    wit_name: kebab(&class.name),
-                    fields,
-                },
-            );
+            self.class_records.push(Ty::Record {
+                wit_name: kebab(&class.name),
+                fields,
+            });
         }
     }
 
@@ -144,8 +151,9 @@ impl<'a> Checker<'a> {
     }
 
     fn collect_function_signatures(&mut self, sink: &mut DiagnosticSink) {
-        for coords in self.resolved.decls.functions.values() {
-            let (f, file) = self.resolved.function(*coords);
+        for i in 0..self.resolved.decls.functions.len() {
+            let coords = self.resolved.decls.functions[i].coords;
+            let (f, file) = self.resolved.function(coords);
             // FNC-04: input-block parameters are equivalent to
             // ParameterList entries — they extend the signature.
             let params = f
@@ -221,7 +229,7 @@ impl<'a> Checker<'a> {
             ast::BaseType::Datetime => Ty::Datetime,
             ast::BaseType::Any => Ty::Any,
             ast::BaseType::Void => Ty::Void,
-            ast::BaseType::Named(name) => match self.class_records.get(name) {
+            ast::BaseType::Named(name) => match self.class_record(file, name) {
                 Some(record) => record.clone(),
                 None => {
                     sink.push(build(
@@ -329,7 +337,7 @@ impl<'a> Checker<'a> {
         sink: &mut DiagnosticSink,
     ) -> Ty {
         if let ast::BaseType::Named(name) = &ty.base {
-            if !self.class_records.contains_key(name) {
+            if self.class_record(file, name).is_none() {
                 let projected = self.project_world_type(interface, name);
                 return match projected {
                     Some(base) if ty.optional => Ty::Option(Box::new(base)),
@@ -380,8 +388,9 @@ impl<'a> Checker<'a> {
 
     fn check_functions(&mut self, sink: &mut DiagnosticSink) -> Vec<TFunction> {
         let mut out = Vec::new();
-        for (index, coords) in self.resolved.decls.functions.values().enumerate() {
-            let (f, file) = self.resolved.function(*coords);
+        for index in 0..self.resolved.decls.functions.len() {
+            let coords = self.resolved.decls.functions[index].coords;
+            let (f, file) = self.resolved.function(coords);
             let sig = &self.function_sigs[index];
             let scope: IndexMap<String, LocalId> = sig
                 .params
@@ -612,6 +621,11 @@ struct BodyChecker<'c, 'a> {
 impl<'c, 'a> BodyChecker<'c, 'a> {
     fn diag_span(&self, span: ByteSpan) -> clean_compiler_types::Span {
         self.outer.span(self.file, span)
+    }
+
+    /// The visibility scope of the module this body lives in.
+    fn module_scope(&self) -> &crate::resolver::ModuleScope {
+        &self.outer.resolved.decls.modules[self.file]
     }
 
     fn lookup(&self, name: &str) -> Option<LocalId> {
@@ -1148,7 +1162,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     kind: TExprKind::Local(local),
                 },
                 None => {
-                    let is_callable = self.outer.resolved.decls.functions.contains_key(name)
+                    let is_callable = self.module_scope().functions.contains_key(name)
                         || self
                             .outer
                             .host_imports
@@ -1654,8 +1668,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             return error_expr(span);
         }
 
-        // User function?
-        if let Some(index) = self.outer.resolved.decls.functions.get_index_of(name) {
+        // User function? (Visible through this module's scope, MOD-01/02.)
+        if let Some(index) = self.module_scope().functions.get(name).copied() {
             let (params, ret): (Vec<Ty>, Ty) = {
                 let sig = &self.outer.function_sigs[index];
                 (
@@ -1694,7 +1708,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         }
 
         // Class constructor? (`Options(false)` — ADR-0002 §3.)
-        if let Some(record) = self.outer.class_records.get(name).cloned() {
+        if let Some(record) = self.outer.class_record(self.file, name).cloned() {
             let Ty::Record { fields, .. } = &record else {
                 unreachable!("class projections are records")
             };

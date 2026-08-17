@@ -1,0 +1,7 @@
+error[IMPORT002]: I cannot find the module `missing` in this build
+ --> tests/cln/diagnostics/IMPORT002.cln:2:2
+  |
+2 | 	missing
+  | 	^^^^^^^ no source in the compilation request provides this module
+  |
+  = docs: https://errors.cleanlanguage.dev/E/IMPORT002
