@@ -48,5 +48,5 @@ Not yet configured (foundation rollout F5: codegen reviewer + spec reviewer are 
 
 - No dashboard/fingerprint pipeline (F1 pending) — tracked by the interim GitHub-issue discipline above.
 - L3/L5/L7/L8 not yet active — entry points listed in §2 with their milestones.
-- Coverage floors (ADR-0027 Tier 1: 80% line / 75% branch / 60% mutation, MC/DC in codegen, typecheck, marshalling, memory): line/branch measured since M4 (CI `coverage` job, `cargo llvm-cov`); mutation, MC/DC and the blocking floors remain M9.
+- Coverage floors (ADR-0027 Tier 1: 80% line / 75% branch / 60% mutation, MC/DC in codegen, typecheck, marshalling, memory): line measured since M4 (CI `coverage` job, `cargo llvm-cov`); branch needs nightly and joins M9's nightly job with mutation, MC/DC and the blocking floors.
 - Acceptance against a running clean-server requires the private `clean-host-core` checkout (see `docs/acceptance.md` when it lands).

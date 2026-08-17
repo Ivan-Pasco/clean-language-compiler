@@ -53,8 +53,10 @@ jobs:
           cargo test -p clean-compiler --test emitted_codes --test diagnostics_fixtures -- --nocapture
 
   # ADR-0027 coverage floors: measured from M4, blocking from M9. Until M9
-  # this job only prints the line/branch summary — no threshold, so it fails
-  # only if the suite itself fails (which the test job already gates).
+  # this job only prints the line summary — no threshold, so it fails only
+  # if the suite itself fails (which the test job already gates). Branch
+  # coverage needs nightly (`-Z coverage-options=branch`) and joins the M9
+  # nightly job alongside mutation scoring.
   coverage:
     name: coverage (measured, non-blocking until M9)
     runs-on: ubuntu-latest
@@ -74,8 +76,8 @@ jobs:
         with:
           tool: cargo-llvm-cov,wasm-tools
 
-      - name: measure line/branch coverage
-        run: cargo llvm-cov --workspace --branch --summary-only
+      - name: measure line coverage
+        run: cargo llvm-cov --workspace --summary-only
 
       # M3 snapshot-drift gate — the per-chapter spec suite and the smoke
       # corpus classification must match their committed snapshots (insta
