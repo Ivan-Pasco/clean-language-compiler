@@ -67,3 +67,16 @@ shape down.
 The token list in §8 has no `Caret`/`^` entry, yet `06-expressions.ebnf.md`
 level 4 uses `"^"` for exponentiation. The lexer recognises `^`; §8 needs
 the missing row.
+
+## 6. The §10.4 fatal-path `info` diagnostic has no registered code
+
+Platform 13 §10.4 requires that after a fatal diagnostic the compiler
+"emits one final `info` diagnostic explaining that further checking was
+skipped". DIA-01 requires every diagnostic to carry a registered code, and
+Platform 09 registers no code for this notice — so the fatal path as
+specified cannot be implemented without inventing a code. M3's parser
+treats every syntax error as recoverable (13 §10.1's parse-fatal case,
+"syntax error in the first three lines that prevents identifying the file
+as Clean source", is also heuristically under-specified); the fatal path
+needs a registered code and a testable trigger condition before the
+compiler can honour it.
