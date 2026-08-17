@@ -720,13 +720,33 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     kind: TExprKind::Local(local),
                 },
                 None => {
-                    sink.push(build(
-                        Level::Error,
-                        codes::SEM002,
-                        format!("I cannot find a variable named `{name}` in scope"),
-                        self.diag_span(span),
-                        Some("no variable with this name exists here".to_string()),
-                    ));
+                    let is_callable = self.outer.resolved.decls.functions.contains_key(name)
+                        || self
+                            .outer
+                            .host_imports
+                            .iter()
+                            .any(|h| h.clean_name == *name);
+                    if is_callable {
+                        // SYN010 — a standalone name resolving to a callable
+                        // without an argument list; template verbatim from
+                        // Platform 10 §2 (FNC-05: every call carries
+                        // parentheses).
+                        sink.push(build(
+                            Level::Error,
+                            codes::SYN010,
+                            format!("Call to '{name}' is missing parentheses"),
+                            self.diag_span(span),
+                            Some("every call carries parentheses".to_string()),
+                        ));
+                    } else {
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM002,
+                            format!("I cannot find a variable named `{name}` in scope"),
+                            self.diag_span(span),
+                            Some("no variable with this name exists here".to_string()),
+                        ));
+                    }
                     error_expr(span)
                 }
             },

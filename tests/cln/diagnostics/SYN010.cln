@@ -1,0 +1,5 @@
+functions:
+	integer answer()
+		return 42
+	void init()
+		integer x = answer

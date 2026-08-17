@@ -1,0 +1,7 @@
+error[SYN007]: the 'functions:' section cannot appear after 'start:'; FIL-01 fixes the top-level section order
+ --> tests/cln/diagnostics/SYN007.cln:4:1
+  |
+4 | functions:
+  | ^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN007

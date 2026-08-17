@@ -1,0 +1,7 @@
+error[SYN010]: Call to 'answer' is missing parentheses
+ --> tests/cln/diagnostics/SYN010.cln:5:15
+  |
+5 | 		integer x = answer
+  | 		            ^^^^^^ every call carries parentheses
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN010

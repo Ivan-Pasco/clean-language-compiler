@@ -859,18 +859,40 @@ impl<'a> Parser<'a> {
                 TokenKind::Keyword(Kw::Intent) => {
                     let start = self.span();
                     self.bump();
-                    if let Some(text) = self.string_literal("intent description string", sink) {
-                        body.intents.push((text, start.merge(self.prev_span())));
+                    if matches!(self.peek(), TokenKind::Str { .. }) {
+                        if let Some(text) = self.string_literal("intent description string", sink) {
+                            body.intents.push((text, start.merge(self.prev_span())));
+                        }
+                        self.expect(&TokenKind::Newline, "end of line", sink);
+                    } else {
+                        // SYN101 — template verbatim from Platform 10 §2.
+                        self.error_at(
+                            sink,
+                            codes::SYN101,
+                            "Expected string literal after 'intent'".to_string(),
+                            self.span(),
+                        );
+                        self.sync_line();
                     }
-                    self.expect(&TokenKind::Newline, "end of line", sink);
                 }
                 TokenKind::Keyword(Kw::Spec) => {
                     let start = self.span();
                     self.bump();
-                    if let Some(text) = self.string_literal("spec path string", sink) {
-                        body.specs.push((text, start.merge(self.prev_span())));
+                    if matches!(self.peek(), TokenKind::Str { .. }) {
+                        if let Some(text) = self.string_literal("spec path string", sink) {
+                            body.specs.push((text, start.merge(self.prev_span())));
+                        }
+                        self.expect(&TokenKind::Newline, "end of line", sink);
+                    } else {
+                        // SYN100 — template verbatim from Platform 10 §2.
+                        self.error_at(
+                            sink,
+                            codes::SYN100,
+                            "Expected string literal after 'spec'".to_string(),
+                            self.span(),
+                        );
+                        self.sync_line();
                     }
-                    self.expect(&TokenKind::Newline, "end of line", sink);
                 }
                 TokenKind::Keyword(Kw::Before) if matches!(self.peek2(), TokenKind::Colon) => {
                     body.before = self.contract_block(sink);

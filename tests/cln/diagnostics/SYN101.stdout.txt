@@ -1,0 +1,7 @@
+error[SYN101]: Expected string literal after 'intent'
+ --> tests/cln/diagnostics/SYN101.cln:3:9
+  |
+3 | 		intent
+  | 		      ^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN101

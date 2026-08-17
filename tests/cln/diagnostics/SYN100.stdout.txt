@@ -1,0 +1,7 @@
+error[SYN100]: Expected string literal after 'spec'
+ --> tests/cln/diagnostics/SYN100.cln:3:7
+  |
+3 | 		spec
+  | 		    ^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SYN100

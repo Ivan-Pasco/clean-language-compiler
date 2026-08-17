@@ -1,0 +1,4 @@
+functions:
+	void process()
+		intent
+		return
