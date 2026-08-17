@@ -613,7 +613,7 @@ impl Expr {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum BinOp {
     Add,
     Sub,
@@ -637,7 +637,7 @@ pub enum BinOp {
     Default,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum UnOp {
     Not,
     Neg,
@@ -692,7 +692,7 @@ pub enum BaseType {
     Named(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum IntWidth {
     S32,
     U8,

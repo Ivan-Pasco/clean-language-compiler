@@ -35,4 +35,4 @@ pub mod source;
 pub mod typecheck;
 
 pub use clean_compiler_types as types;
-pub use driver::{check, compile, CompileArtifact, CompileError};
+pub use driver::{check, compile, emit_hir, CompileArtifact, CompileError};

@@ -188,6 +188,47 @@ pub fn check(request: CompileRequest) -> Result<Vec<Diagnostic>, CompileError> {
     Ok(crate::diag::finalize(sink.into_diagnostics(), &cache))
 }
 
+/// `--emit=hir-json` (M4, the AI-review precondition): passes [1]–[7]
+/// only, serializing the HIR. Runs past the pass-[8] unsupported frontier
+/// on purpose — the HIR exists for the full typed surface even where core
+/// lowering has not landed. `Ok` carries the JSON and every diagnostic
+/// (the caller fails iff any is `level = error`, mirroring `check`).
+pub fn emit_hir(request: CompileRequest) -> Result<(String, Vec<Diagnostic>), CompileError> {
+    let mut sink = DiagnosticSink::new();
+    let validated = crate::request::validate(request, &mut sink);
+    let (json, cache) = 'front: {
+        let Some(validated) = validated else {
+            break 'front (None, crate::diag::SourceCache::empty());
+        };
+        let cache = crate::diag::SourceCache::from_sources(&validated.request.sources);
+        if sink.has_errors() {
+            break 'front (None, cache);
+        }
+        let mut files = Vec::new();
+        for source in &validated.request.sources {
+            let stream = crate::lexer::lex(&source.path, &source.content, &mut sink);
+            let ast = crate::parser::parse(&stream, &mut sink);
+            files.push(crate::resolver::ParsedFile { ast, stream });
+        }
+        if sink.has_errors() {
+            break 'front (None, cache);
+        }
+        let resolved = crate::resolver::resolve(files, &mut sink);
+        if sink.has_errors() {
+            break 'front (None, cache);
+        }
+        let typed = crate::typecheck::check(&resolved, &validated.world, &mut sink);
+        if sink.has_errors() {
+            break 'front (None, cache);
+        }
+        let hir = crate::hir::lower(typed);
+        let json = serde_json::to_string_pretty(&hir).expect("HIR serializes");
+        (Some(json), cache)
+    };
+    let diagnostics = crate::diag::finalize(sink.into_diagnostics(), &cache);
+    Ok((json.unwrap_or_default(), diagnostics))
+}
+
 /// The reproducibility record (Platform 14 §14.8). Two M1 placeholders,
 /// both recorded in the milestone Discoveries: `compiler.sha256` derives
 /// from the crate version until the release pipeline stamps the binary

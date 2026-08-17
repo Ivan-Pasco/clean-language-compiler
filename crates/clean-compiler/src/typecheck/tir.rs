@@ -17,6 +17,7 @@ pub struct TypedProgram {
     pub functions: Vec<TFunction>,
 }
 
+#[derive(serde::Serialize)]
 pub struct HostImport {
     /// Kebab-case interface name as declared (`routing`).
     pub interface: String,
@@ -265,7 +266,7 @@ pub enum TInterpSeg {
 }
 
 /// The receiver classification of a bracket access (IDX001–IDX005).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum IndexKind {
     /// `list<T>[integer]` → `T`.
     List,

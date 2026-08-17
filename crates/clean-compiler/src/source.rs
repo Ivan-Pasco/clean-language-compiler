@@ -2,9 +2,10 @@
 //! line/character positions diagnostics carry (Platform 13 §2).
 
 use clean_compiler_types::{Position, Span};
+use serde::Serialize;
 
 /// Half-open byte range into one source file's content.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ByteSpan {
     pub start: u32,
     pub end: u32,

@@ -5,14 +5,16 @@
 //! that leaves pass [5] has been resolved (`InferCtx::finalize`), so later
 //! passes never see one.
 
+use serde::Serialize;
+
 use crate::parser::ast::IntWidth;
 
 /// An inference variable key (`ena` union-find). Only `infer::InferCtx`
 /// creates and resolves these.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct TyVid(pub u32);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum Ty {
     /// Surface `integer` — s64 (TYP-01).
     Integer,
@@ -77,13 +79,13 @@ pub enum Ty {
 
 /// The TYP-05 behavior axes: one removal discipline (`.line` FIFO or
 /// `.pile` LIFO) and independent `.unique` membership.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
 pub struct ListBehavior {
     pub removal: Option<Removal>,
     pub unique: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Removal {
     Line,
     Pile,

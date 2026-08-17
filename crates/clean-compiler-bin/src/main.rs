@@ -31,6 +31,11 @@ struct Args {
     /// never `component.wasm`. Exit 0 when no diagnostic is an error.
     #[arg(long)]
     check: bool,
+    /// Intermediate-representation emission (M4, the AI-review surface).
+    /// The only value is `hir-json`: run passes 1–7 and write `hir.json`
+    /// plus `diagnostics.json` — never `component.wasm`.
+    #[arg(long)]
+    emit: Option<String>,
 }
 
 fn main() -> ExitCode {
@@ -55,6 +60,36 @@ fn main() -> ExitCode {
         return finish_rejected(&args.out, diagnostics);
     }
     let request = request.expect("intake produced no request yet raised no error");
+
+    if let Some(emit) = &args.emit {
+        if emit != "hir-json" {
+            eprintln!("clean-compiler: unknown --emit target `{emit}` (expected `hir-json`)");
+            return ExitCode::from(2);
+        }
+        return match clean_compiler::emit_hir(request) {
+            Ok((json, diagnostics)) => {
+                if let Err(err) = write_diagnostics(&args.out, &diagnostics) {
+                    eprintln!("clean-compiler: cannot write diagnostics: {err}");
+                    return ExitCode::from(2);
+                }
+                let failed = diagnostics
+                    .iter()
+                    .any(|d| d.level == clean_compiler::types::Level::Error);
+                if failed {
+                    return ExitCode::FAILURE;
+                }
+                if let Err(err) = std::fs::write(args.out.join("hir.json"), json) {
+                    eprintln!("clean-compiler: cannot write hir.json: {err}");
+                    return ExitCode::from(2);
+                }
+                ExitCode::SUCCESS
+            }
+            Err(err) => {
+                eprintln!("clean-compiler: {err}");
+                ExitCode::from(3)
+            }
+        };
+    }
 
     if args.check {
         return match clean_compiler::check(request) {

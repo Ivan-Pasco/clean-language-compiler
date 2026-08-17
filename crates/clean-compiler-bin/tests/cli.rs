@@ -99,3 +99,42 @@ fn tempdir(tag: &str) -> std::path::PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
+
+fn run_emit(request_json: &str, out: &std::path::Path) -> std::process::Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_clean-compiler"))
+        .args(["--out", out.to_str().unwrap(), "--emit", "hir-json"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("binary spawns");
+    use std::io::Write;
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(request_json.as_bytes())
+        .unwrap();
+    child.wait_with_output().expect("binary runs")
+}
+
+#[test]
+fn emit_hir_json_writes_hir_and_diagnostics() {
+    let out = tempdir("emit-hir");
+    let request = valid_request_json();
+    let output = run_emit(&request, &out);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let hir = std::fs::read_to_string(out.join("hir.json")).expect("hir.json written");
+    let value: serde_json::Value = serde_json::from_str(&hir).expect("hir.json is JSON");
+    assert!(value["functions"].is_array(), "HIR carries functions");
+    assert!(out.join("diagnostics.json").exists());
+    assert!(
+        !out.join("component.wasm").exists(),
+        "emit never writes a component"
+    );
+}

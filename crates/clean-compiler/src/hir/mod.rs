@@ -14,11 +14,13 @@ use crate::source::ByteSpan;
 use crate::typecheck::tir;
 use crate::typecheck::types::Ty;
 
+#[derive(serde::Serialize)]
 pub struct HirProgram {
     pub host_imports: Vec<tir::HostImport>,
     pub functions: Vec<HFunction>,
 }
 
+#[derive(serde::Serialize)]
 pub struct HFunction {
     pub name: String,
     pub params: Vec<Ty>,
@@ -38,6 +40,7 @@ pub struct HFunction {
 // `Break` and a `Set { value: HExpr }` is inherent to the tree shape and
 // not worth boxing every expression for.
 #[allow(clippy::large_enum_variant)]
+#[derive(serde::Serialize)]
 pub enum HStmt {
     Set {
         local: usize,
@@ -78,6 +81,7 @@ pub enum HStmt {
     },
 }
 
+#[derive(serde::Serialize)]
 pub enum HIterSource {
     List(HExpr),
     Chars(HExpr),
@@ -85,12 +89,14 @@ pub enum HIterSource {
     Range { from: HExpr, to: HExpr },
 }
 
+#[derive(serde::Serialize)]
 pub struct HExpr {
     pub ty: Ty,
     pub span: ByteSpan,
     pub kind: HExprKind,
 }
 
+#[derive(serde::Serialize)]
 pub enum HExprKind {
     Int(i128),
     Num(f64),
@@ -179,6 +185,7 @@ pub enum HExprKind {
     Convert(Box<HExpr>),
 }
 
+#[derive(serde::Serialize)]
 pub enum HInterpSeg {
     Text(String),
     Expr(HExpr),
