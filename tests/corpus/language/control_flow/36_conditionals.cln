@@ -1,0 +1,105 @@
+start:
+
+	print("Clean Language Conditional Expressions Test")
+	print("==========================================")
+	testIntegerConditionals()
+	print("")
+	testNumberConditionals()
+	print("")
+	testLogicalOperations()
+	print("")
+	testComplexConditionals()
+	print("")
+	print("All conditional tests completed!")
+// Spec Section: 4.4 - Comparison Operators
+// Spec Section: 4.5 - Logical Operators
+// Spec Section: 5.1 - If/Else Statements
+// Tests: Conditional expressions using operators and if/else
+
+functions:
+
+	void testIntegerConditionals()
+
+		print("=== Testing Integer Conditionals ===")
+		integer a = 10
+		integer b = 5
+
+		// Test basic conditional using operators
+		integer result = 0
+		if a > b
+			result = a
+		else
+			result = b
+		print("Max of 10 and 5: " + result.toString())
+
+		// Test with equality
+		integer equal = 0
+		if a == a
+			equal = 100
+		else
+			equal = 200
+		print("Equal test (should be 100): " + equal.toString())
+
+		// Test less than
+		integer min = 0
+		if b < a
+			min = b
+		else
+			min = a
+		print("Min of 10 and 5: " + min.toString())
+
+	void testNumberConditionals()
+
+		print("=== Testing Number Conditionals ===")
+		number x = 3.14
+		number y = 2.71
+
+		// Test number conditional
+		number maxNum = 0.0
+		if x > y
+			maxNum = x
+		else
+			maxNum = y
+		print("Max of 3.14 and 2.71: " + maxNum.toString())
+
+		// Test number equality
+		number equalNum = 0.0
+		if x == x
+			equalNum = 100.0
+		else
+			equalNum = 200.0
+		print("Equal test (should be 100.0): " + equalNum.toString())
+
+	void testLogicalOperations()
+
+		print("=== Testing Logical Operations ===")
+		integer a = 10
+		integer b = 5
+		integer c = 15
+
+		// Test logical AND using operators
+		boolean andResult = (a > b) and (a < c)
+		print("10 > 5 AND 10 < 15: " + andResult.toString())
+
+		// Test logical OR using operators
+		boolean orResult = (a == b) or (a > b)
+		print("10 == 5 OR 10 > 5: " + orResult.toString())
+
+		// Test logical NOT using operator
+		boolean negResult = not (a == b)
+		print("NOT (10 == 5): " + negResult.toString())
+
+	void testComplexConditionals()
+
+		print("=== Testing Complex Conditionals ===")
+		integer score = 85
+
+		// Test nested conditionals using if/else
+		string grade = "F"
+		if score >= 90
+			grade = "A"
+		else if score >= 80
+			grade = "B"
+		else if score >= 70
+			grade = "C"
+		print("Score " + score.toString() + " gets grade: " + grade)

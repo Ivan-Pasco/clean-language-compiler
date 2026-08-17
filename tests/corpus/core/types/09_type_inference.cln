@@ -1,0 +1,20 @@
+// Spec Section: 2.1 - Core Types (integer, number, string, boolean)
+// Spec Section: 2.6 - Type Annotations
+// Spec Section: 4.3 - Arithmetic Operators
+// Tests: Type inference with mixed arithmetic
+
+start:
+	integer x = 42
+	number y = 3.14
+	string name = "Clean"
+	boolean flag = true
+
+	integer sum = x + 10
+	number mixed = x + y
+
+	print(x)
+	print(y)
+	print(name)
+	print(flag)
+	print(sum)
+	print(mixed)

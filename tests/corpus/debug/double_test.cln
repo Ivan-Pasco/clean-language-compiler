@@ -1,0 +1,11 @@
+start:
+	string result1 = first()
+	string result2 = second()
+	print(result1 + " " + result2)
+functions:
+	string first()
+		return "hello"
+
+	string second()
+		return "world"
+

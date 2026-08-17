@@ -1,0 +1,15 @@
+start:
+		// Simple interpolation
+		string name = "World"
+		string greeting = "Hello, {name}!"
+		print(greeting) +
+
+		// Multiple expressions
+		integer x = 10
+		integer y = 20
+		string result = "The sum of {x} and {y} is {x + y}"
+		print(result) +
+// Spec Section: 2.1.4 - String Type
+// Spec Section: 4.1 - String Concatenation
+// Tests: String interpolation with {expression} syntax
+functions:

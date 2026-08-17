@@ -1,0 +1,29 @@
+// Spec Section: 5.1 - If/Else Statements
+// Spec Section: 5.1.1 - If Syntax
+// Spec Section: 5.1.2 - Else Syntax
+// Tests: If/else statements with nested conditions
+
+start:
+	integer x = 10
+	integer y = 5
+
+	string result = ""
+
+	if x > y
+		result = "x is greater than y"
+	else
+		if x < y
+			result = "x is less than y"
+		else
+			result = "x equals y"
+
+	print(result)
+
+
+	if x > 0
+		if y > 0
+			print("Both positive")
+		else
+			print("x positive, y not positive")
+	else
+		print("x not positive")

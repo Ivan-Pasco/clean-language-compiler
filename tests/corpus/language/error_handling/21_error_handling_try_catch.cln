@@ -1,0 +1,17 @@
+start:
+	number result = divide(10.0, 2.0) onError 0.0
+	print("Result: ")
+	print(result)
+
+	number badResult = divide(10.0, 0.0) onError -1.0
+	print("Bad result (should be -1): ")
+	print(badResult)// Spec Section: 9.1 - Error Handling (error keyword)
+// Spec Section: 9.2 - onError Handler
+// Tests: error() function and onError fallback handling
+
+functions:
+	number divide(number a, number b)
+		if b == 0.0
+			error("Division by zero")
+		return a / b
+

@@ -1,0 +1,111 @@
+start:
+	print("Clean Language List Behavior Test")
+	print("==================================")
+	testQueueBehavior()
+	print("")
+	testStackBehavior()
+	print("")
+	testUniqueBehavior()
+	print("")
+	testCombinedBehaviors()
+	print("")
+	testUtilityMethods()
+	print("")
+	print("All list behavior tests completed!")// Spec Section: 2.4 - Composite Types (list<any>)
+// Spec Section: 2.5 - List Properties (Behavior Modifiers)
+// Tests: List behavior modifiers - "line" (FIFO), "pile" (LIFO), "unique", "line-unique"
+
+functions:
+	void testQueueBehavior()
+		print("=== Testing Queue (FIFO) Behavior ===")
+		list<string> taskQueue
+		taskQueue.type = "line"
+
+		taskQueue.add("Task 1")
+		taskQueue.add("Task 2")
+		taskQueue.add("Task 3")
+
+		integer queueSize = taskQueue.length()
+		string sizeText = queueSize.toString()
+		print("Queue size: " + sizeText)
+
+		string first = list.remove(taskQueue, 0)  // Queue removes from front (FIFO)
+		print("Removed: " + first)
+
+		string second = list.remove(taskQueue, 0)  // Next item moves to front
+		print("Removed: " + second)
+
+		string next = taskQueue.peek()
+		print("Next (peek): " + next)
+		print("Queue size after peek: " + taskQueue.length().toString())
+
+	void testStackBehavior()
+		print("=== Testing Stack (LIFO) Behavior ===")
+		list<string> undoStack
+		undoStack.type = "pile"
+
+		undoStack.add("Operation 1")
+		undoStack.add("Operation 2")
+		undoStack.add("Operation 3")
+
+		print("Stack size: " + undoStack.length().toString())
+
+		integer lastIndex = undoStack.length() - 1
+		string last = list.remove(undoStack, lastIndex)  // Stack removes from end (LIFO)
+		print("Undone: " + last)
+
+		integer newLastIndex = undoStack.length() - 1
+		string secondLast = list.remove(undoStack, newLastIndex)
+		print("Undone: " + secondLast)
+
+		string top = undoStack.peek()
+		print("Top (peek): " + top)
+
+	void testUniqueBehavior()
+		print("=== Testing Unique (Set) Behavior ===")
+		list<integer> uniqueNumbers
+		uniqueNumbers.type = "unique"
+
+		uniqueNumbers.add(5)
+		uniqueNumbers.add(10)
+		uniqueNumbers.add(5)
+		uniqueNumbers.add(15)
+		uniqueNumbers.add(10)
+
+		print("Unique numbers count: " + uniqueNumbers.length().toString())
+
+		boolean hasFive = uniqueNumbers.contains(5)
+		boolean hasTen = uniqueNumbers.contains(10)
+		boolean hasTwenty = uniqueNumbers.contains(20)
+
+		print("Contains 5: " + hasFive.toString())
+		print("Contains 10: " + hasTen.toString())
+		print("Contains 20: " + hasTwenty.toString())
+
+	void testCombinedBehaviors()
+		print("=== Testing Combined Behaviors ===")
+
+		list<string> uniqueQueue
+		uniqueQueue.type = "line-unique"
+
+		uniqueQueue.add("First")
+		uniqueQueue.add("Second")
+		uniqueQueue.add("First")
+		uniqueQueue.add("Third")
+
+		print("Unique queue size: " + uniqueQueue.length().toString())
+		string removed = list.remove(uniqueQueue, 0)  // Queue behavior, remove from front
+		print("Removed from unique queue: " + removed)
+
+	void testUtilityMethods()
+		print("=== Testing Utility Methods ===")
+		list<integer> numbers
+
+		boolean empty = numbers.isEmpty()
+		print("Empty list isEmpty: " + empty.toString())
+
+		numbers.add(42)
+		boolean notEmpty = numbers.isNotEmpty()
+		print("Non-empty list isNotEmpty: " + notEmpty.toString())
+
+

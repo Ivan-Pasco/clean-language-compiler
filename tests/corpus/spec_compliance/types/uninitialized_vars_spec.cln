@@ -1,0 +1,47 @@
+// Test: spec_compliance/types/uninitialized_vars_spec
+// Grammar: variable_type, identifier
+// Semantic: SCOPE001 — variable must be declared before use; uninitialized vars have zero/empty default
+// Expected output: (see inline comments per test)
+
+start:
+	// Test 1: Uninitialized integer
+	integer count
+	count = 10
+	print("Uninitialized then assigned integer: " + count.toString())
+
+	// Test 2: Uninitialized string
+	string message
+	message = "Hello World"
+	print("Uninitialized then assigned string: " + message)
+
+	// Test 3: Uninitialized number
+	number temperature
+	temperature = 98.6
+	print("Uninitialized then assigned number: " + temperature.toString())
+
+	// Test 4: Uninitialized boolean
+	boolean flag
+	flag = true
+	print("Uninitialized then assigned boolean: " + flag.toString())
+
+	// Test 5: Multiple uninitialized declarations
+	integer a
+	integer b
+	integer c
+	a = 1
+	b = 2
+	c = 3
+	integer sum = a + b + c
+	print("Sum of a + b + c: " + sum.toString())
+
+	// Test 6: Assign computed value to uninitialized var
+	integer result
+	result = 5 * 10 + 3
+	print("Computed assignment: " + result.toString())
+
+	// Test 7: Uninitialized list
+	list<integer> numbers
+	numbers = [1, 2, 3, 4, 5]
+	print("Uninitialized list size: " + numbers.length().toString())
+
+	print("Uninitialized variables tests completed")

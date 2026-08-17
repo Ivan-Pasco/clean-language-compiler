@@ -1,0 +1,23 @@
+start:
+	testChainedMethodCalls()functions:
+	void testChainedMethodCalls()
+		print("=== Testing Chained Method Calls ===") +
+
+		// Test basic method chaining
+		number x = 16.0
+		string result1 = math.sqrt(x).toString()
+		print("math.sqrt(16.0) +.toString() = " + result1)
+
+		// Test chaining with negative arguments
+		string result2 = math.abs(-x).toString()
+		print("math.abs(-16.0) +.toString() = " + result2)
+
+		// Test chaining with expressions in arguments
+		string result3 = math.max(x, 10.0).toString()
+		print("math.max(16.0, 10.0) +.toString() = " + result3)
+
+		// Test multiple levels of chaining
+		number y = 25.0
+		string result4 = math.min(math.sqrt(y), x).toString()
+		print("math.min(math.sqrt(25.0) +, 16.0).toString() = " + result4)
+

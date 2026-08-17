@@ -1,0 +1,27 @@
+// Test: docs/banking
+// Purpose: fixture for doc-code sync tests — provides real symbols to validate against
+
+start:
+	BankAccount acc = BankAccount("Alice", 1000.0)
+	deposit(acc, 250.0)
+	number b = getBalance(acc)
+	print(b)
+
+class BankAccount
+	string owner
+	public:
+		number balance
+
+	constructor(string initialOwner, number initialBalance)
+		owner = initialOwner
+		balance = initialBalance
+
+functions:
+	void deposit(BankAccount account, number amount)
+		account.balance = account.balance + amount
+
+	number getBalance(BankAccount account)
+		return account.balance
+
+	void withdraw(BankAccount account, number amount)
+		account.balance = account.balance - amount

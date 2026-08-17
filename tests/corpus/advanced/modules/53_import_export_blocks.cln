@@ -1,0 +1,42 @@
+// Simple QA Test for Import/Export Block Syntax
+// Tests basic public: block syntax inside functions: for module management.
+// Visibility model (2026-06-25): module functions are PRIVATE by default;
+// a `public:` sub-section inside `functions:` exposes the listed functions
+// to importing modules (SEM005).
+// Note: Builtin namespaces (math, string, list) are always available.
+
+start:
+
+	// Test using public functions
+	integer sum = calculateSum(10, 20)
+	print("Sum result: ")
+	print(sum.toString())
+
+	string formatted = formatText("test")
+	print("Formatted text: ")
+	print(formatted)
+
+	// Private functions are still callable from within this same file
+	// (SEM005 only blocks them from importing modules):
+	helperFunction()
+	print(internalProcessor("test"))
+
+	print("Import/export block syntax test completed successfully!")
+
+functions:
+
+	// Private helpers (default — no annotation needed). Callable inside
+	// this file. NOT callable from importing modules.
+	void helperFunction()
+		print("This is a helper function")
+
+	string internalProcessor(string data)
+		return "Processed: " + data
+
+	public:
+		// Public API exported to other modules.
+		integer calculateSum(integer a, integer b)
+			return a + b
+
+		string formatText(string input)
+			return input

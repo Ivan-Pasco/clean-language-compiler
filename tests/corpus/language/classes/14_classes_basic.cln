@@ -1,0 +1,34 @@
+start:
+	Person person = Person("Alice", 25)
+	print(person.getName())
+	print(person.getAge())
+	print(person.toString())
+
+	person.setAge(26)
+	print("After birthday: " + person.toString())// Spec Section: 10.1 - Class Definition
+// Spec Section: 10.4 - Implicit Context
+// Spec Section: 10.5 - Object Usage
+// Tests: Basic class with fields, constructor, and methods
+
+class Person
+	string name
+	integer age
+
+	constructor(string personName, integer personAge)
+		name = personName
+		age = personAge
+
+	functions:
+		public:
+			string getName()
+				return name
+
+			integer getAge()
+				return age
+
+			void setAge(integer newAge)
+				age = newAge
+
+			string toString()
+				return name + " is " + age.toString() + " years old"
+

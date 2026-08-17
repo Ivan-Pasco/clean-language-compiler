@@ -1,0 +1,45 @@
+start:
+	testParseNull()
+	testParseTrue()
+	testParseFalse()
+	testTryParse()
+	testStringify()
+	testPrettyStringify()
+	print("All JSON tests completed") +
+// Test: JSON module basic operations
+// Tests json namespace functions for parsing and stringifying JSON
+// BOOK: json-module
+
+functions:
+	// Test json.textToData - parse JSON null
+	void testParseNull()
+		integer data = json.textToData("null")
+		print("Parsed null from JSON") +
+
+	// Test json.textToData with boolean true
+	void testParseTrue()
+		integer data = json.textToData("true")
+		print("Parsed true from JSON") +
+
+	// Test json.textToData with boolean false
+	void testParseFalse()
+		integer data = json.textToData("false")
+		print("Parsed false from JSON") +
+
+	// Test json.tryTextToData - parse JSON with error handling
+	void testTryParse()
+		integer data = json.tryTextToData("true")
+		print("tryTextToData completed") +
+
+	// Test json.dataToText - convert data to JSON text
+	void testStringify()
+		integer data = json.textToData("null")
+		string jsonText = json.dataToText(data)
+		print("Stringified to JSON") +
+
+	// Test json.prettyDataToText - convert data to formatted JSON
+	void testPrettyStringify()
+		integer data = json.textToData("true")
+		string prettyJson = json.prettyDataToText(data)
+		print("Pretty JSON created") +
+

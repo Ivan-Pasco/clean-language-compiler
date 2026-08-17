@@ -1,0 +1,20 @@
+// Test Description: Method calls as statements and property access
+// Category: functions
+// Grammar: method_call, property_access
+// Semantic: FUNC001 — method must be defined before use; FUNC002 — argument count must match
+// Dependencies: none
+// Expected: PASS
+
+start:
+	// Method calls as statements
+	list<integer> numbers = [1, 2, 3]
+	numbers.add(42)
+	numbers.add(99)
+
+	// Property access (method call)
+	string text = "hello"
+	integer length = text.length()
+
+	print("Method calls test successful!")
+	print("List size: " + numbers.length().toString())
+	print("String length: " + length.toString())

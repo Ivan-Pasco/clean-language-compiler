@@ -1,0 +1,56 @@
+// Test: bugfixes/ssr_concat_conditional_helper_no_oom
+// Grammar: while_statement, if_statement, variable_declaration, assignment, binary_expression
+// Semantic: COM001 (tracking: CMP-SSR-MALLOC-OOM-PAGE-RENDER-CACHE-INEFFECTIVE,
+//                  CMP-SSR-MALLOC-OOM-CONDITIONAL-HELPER)
+//
+// Guards a per-iteration HTML-section build pattern in which the outer
+// accumulator (`acc = acc + ...`) is interleaved with three conditional
+// helper locals declared inside the loop body (`string headHtml = ""`,
+// then `if head != "" headHtml = "<h2>" + head + "</h2>"`).
+//
+// The combined shape OOM'd the bump allocator on real SSR pages
+// (Web Site Clean /syntax, /tutorials). The 0.30.368 chained-RHS
+// matcher rewrites the outer `acc = acc + e1 + e2 + ... + eN` into a
+// doubling-capacity StringBuilder, but the surrounding conditional
+// helpers (`headHtml = "<h2>" + head + "</h2>"` etc.) continued to
+// allocate via plain `string.concat` and stranded in the bump heap.
+// Across N iterations the leak grows as ~ 50 bytes × N and trips the
+// 128 MB bump cap on /tutorials at ~30 iterations.
+//
+// 0.30.373/0.30.374 tried to fix the helper leak by emitting a
+// `string_builder_reclaim` call at the end of the body. That regressed
+// to CMP-SSR-RECLAIM-FREES-LIVE-POINTER because the end-of-body
+// placement corrupts cross-iter live pointers (e.g. `head = json.get(...)`
+// at the bottom of a `while head != ""` loop). The reclaim emission
+// was reverted; the chained-RHS rewrite remains and still resolves the
+// dominant CMP-SSR-MALLOC-OOM-PAGE-RENDER case (turning the
+// accumulator from O(n²) into O(n) heap). The conditional-helper leak
+// is bounded per render (a few KB on /tutorials) and the json.get
+// parse-tree cache from 0.30.369 keeps it from dominating heap
+// pressure.
+//
+// This test just guards correctness: 5000 iters of the conditional-helper
+// shape compile and run to completion with the expected length.
+//
+// Expected output:
+//   265000
+
+start:
+	string acc = ""
+	integer i = 0
+	while i < 5000
+		string head = "H"
+		string body = "B"
+		string foot = "F"
+		string headHtml = ""
+		if head != ""
+			headHtml = "<h2>" + head + "</h2>"
+		string bodyHtml = ""
+		if body != ""
+			bodyHtml = "<p>" + body + "</p>"
+		string footHtml = ""
+		if foot != ""
+			footHtml = "<small>" + foot + "</small>"
+		acc = acc + "<section>" + headHtml + bodyHtml + footHtml + "</section>"
+		i = i + 1
+	printl(acc.length().toString())

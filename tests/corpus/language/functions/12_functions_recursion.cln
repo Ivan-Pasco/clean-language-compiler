@@ -1,0 +1,13 @@
+start:
+	integer fact5 = factorial(5)
+	print(fact5)// Spec Section: 6.3 - Function Declaration
+// Spec Section: 6.5 - Return Types
+// Tests: Recursive function calls (factorial example)
+
+functions:
+	integer factorial(integer n)
+		if n <= 1
+			return 1
+		else
+			return n * factorial(n - 1)
+

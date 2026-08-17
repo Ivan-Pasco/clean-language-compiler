@@ -1,0 +1,37 @@
+// Test: language/classes/91_inline_private_visibility (future duplicate)
+// Grammar: public_class_fields_section, public_class_methods_section (foundation/spec/grammar.ebnf §6.4a, §6.4b)
+// Semantic: SEM005 — private members are only accessible within the owning class.
+// Visibility model (2026-06-25): class members are PRIVATE by default;
+// a `public:` sub-section exposes the members inside it to outside callers.
+// Expected output:
+//   Account created
+//   Balance: 100.0
+//   After deposit: 150.0
+
+start:
+	Account acc = Account("Alice", 100.0)
+	print("Account created")
+	print("Balance: " + acc.getBalance().toString())
+	acc.deposit(50.0)
+	print("After deposit: " + acc.getBalance().toString())
+
+class Account
+	string owner               // private by default
+	number balance = 0.0       // private by default
+
+	constructor(string ownerParam, number startBalance)
+		owner = ownerParam
+		balance = startBalance
+
+	functions:
+		public:
+			void deposit(number amount)
+				if checkAmount(amount)
+					balance = balance + amount
+
+			number getBalance()
+				return balance
+
+		// Private helper — only callable from inside Account.
+		boolean checkAmount(number amount)
+			return amount > 0

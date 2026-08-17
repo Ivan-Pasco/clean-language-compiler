@@ -1,0 +1,11 @@
+// Spec Section: 4.5 - Logical Operators
+// Grammar: logical_op, expression
+// Semantic: SEM001 — logical operator requires boolean operands and yields boolean
+// Tests: Logical AND operator
+
+start:
+	boolean x = true
+	boolean y = false
+
+	boolean result1 = x and y
+	print(result1)

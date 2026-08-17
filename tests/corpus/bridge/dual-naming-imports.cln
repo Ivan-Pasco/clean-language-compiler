@@ -1,0 +1,10 @@
+// Test: bridge/dual-naming-imports
+// Grammar: program → plugins_block start_block functions_block
+// Expected: WASM import section contains only _db_query (canonical), NOT db.query
+
+plugins:
+	frame.data
+
+start:
+	string result = db.query("SELECT 1", "")
+	print(result)

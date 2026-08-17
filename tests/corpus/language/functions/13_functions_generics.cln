@@ -1,0 +1,51 @@
+start:
+	// Test identity functions with different types
+	integer num = identityInteger(42)
+	string text = identityString("Hello")
+
+	print("Identity results:")
+	print(num)
+	print(text)
+
+	// Test other functions
+	integer doubled = double(21)
+	string combined = combineStrings("Hello", " World")
+	boolean positive = isPositive(10)
+	boolean negative = isPositive(-5)
+
+	print("Function results:")
+	print(doubled)
+	print(combined)
+	print(positive)
+	print(negative)
+
+	// Test with lists (but not as function parameters)
+	list<integer> numbers = [1, 2, 3, 4, 5]
+	list<string> names = ["Alice", "Bob", "Charlie"]
+
+	print("Lists:")
+	iterate num in numbers
+		print(num)
+	iterate name in names
+		print(name)// Spec Section: 6.3 - Function Declaration
+// Spec Section: 6.4 - Parameters
+// Spec Section: 6.5 - Return Types
+// Spec Section: 2.4 - Composite Types (list<T>)
+// Tests: Typed functions demonstrating different type handling
+
+functions:
+	string identityString(string value)
+		return value
+
+	integer identityInteger(integer value)
+		return value
+
+	integer double(integer value)
+		return value * 2
+
+	string combineStrings(string a, string b)
+		return a + b
+
+	boolean isPositive(integer value)
+		return value > 0
+

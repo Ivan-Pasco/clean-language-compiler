@@ -1,0 +1,28 @@
+start:
+	Animal animal = Animal("Fluffy", 5)
+
+	print("Class definitions test successful!")
+	print("Animal: " + animal.getName() + ", Age: " + animal.getAge().toString())// Spec Section: 10.1 - Class Definition
+// Spec Section: 10.2 - Constructor
+// Spec Section: 10.4 - Implicit Context
+// Tests: Basic class definition with fields, constructor, and methods
+// Category: oop
+// Dependencies: none
+// Expected: PASS
+
+class Animal
+	string name
+	integer age
+
+	constructor(string name, integer age)
+		name = name
+		age = age
+
+	functions:
+		public:
+			string getName()
+				return name
+
+			integer getAge()
+				return age
+

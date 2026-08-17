@@ -1,0 +1,17 @@
+start:
+	Vehicle car = Vehicle("Toyota")
+	testFunction(car)
+class Vehicle
+	string make
+
+	constructor(string vehicleMake)
+		make = vehicleMake
+
+	functions:
+		public:
+			string getInfo()
+				return make
+
+functions:
+	void testFunction(Vehicle vehicle)
+		print(vehicle.getInfo())

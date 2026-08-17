@@ -1,0 +1,13 @@
+// Spec Section: 2.1 - Core Types (integer, number, string)
+// Grammar: core_type, variable_type
+// Semantic: SEM001 — variable initializer must match declared type
+// Tests: Basic type declarations and print output
+
+start:
+	integer x = 42
+	number y = 3.14
+	string text = "123"
+
+	print(x)
+	print(y)
+	print(text)

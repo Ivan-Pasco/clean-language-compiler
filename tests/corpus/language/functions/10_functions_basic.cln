@@ -1,0 +1,22 @@
+start:
+	integer result = add(5, 3)
+	string greeting = greet("World")
+	boolean even = isEven(4)
+
+	print(result)
+	print(greeting)
+	print(even)// Spec Section: 6.2 - Functions Block
+// Spec Section: 6.3 - Function Declaration
+// Spec Section: 6.5 - Return Types
+// Tests: Basic function declarations with different return types
+
+functions:
+	integer add(integer a, integer b)
+		return a + b
+
+	string greet(string name)
+		return "Hello, " + name + "!"
+
+	boolean isEven(integer n)
+		return n % 2 == 0
+

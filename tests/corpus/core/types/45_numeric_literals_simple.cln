@@ -1,0 +1,8 @@
+start:
+	test()// Test extended numeric literals - simple version
+
+functions:
+	void test()
+		integer hex = 0xFF
+		integer bin = 0b1010
+

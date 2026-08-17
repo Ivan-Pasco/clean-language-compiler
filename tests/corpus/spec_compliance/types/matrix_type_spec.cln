@@ -1,0 +1,19 @@
+// Test: spec_compliance/types/matrix_type_spec
+// Grammar: matrix_type, matrix_literal, matrix_row
+// Semantic: SEM001 — matrix element type must match declared type parameter
+// Expected output: (see inline comments per test)
+
+start:
+	// Test 1: Integer matrix
+	matrix<integer> intMatrix = [[1, 2], [3, 4]]
+	print("Integer matrix: created")
+
+	// Test 2: Number matrix
+	matrix<number> numMatrix = [[1.5, 2.5], [3.5, 4.5]]
+	print("Number matrix: created")
+
+	// Test 3: Matrix access
+	integer elem = intMatrix[0][0]
+	print("Matrix element access: " + elem.toString())
+
+	print("Matrix type test completed")

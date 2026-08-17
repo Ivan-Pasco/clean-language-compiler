@@ -1,0 +1,9 @@
+// Spec Section: 5.2 - Print Statements
+// Spec Section: 6.1 - Start Function
+// Tests: Basic print statement and program entry point
+// Category: core
+// Dependencies: none
+// Expected: PASS
+
+start:
+	print("Hello, World!")
