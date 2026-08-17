@@ -6,12 +6,31 @@ foundation session — never patched silently from this repo).
 
 ## Status
 
-- [ ] None taken to foundation yet — items below are pending a foundation
-  session.
+All six items were taken to foundation on 2026-08-17 from a foundation
+session; **foundation-side commit pending** (hashes to be recorded here
+once it lands):
+
+- [x] Item 1 — erratum in `21-block-handlers.md`: example corrected to
+  `expandDataBlock(BlockAST ast)` in both real occurrences (§21.1 and
+  §21.5 — this file originally miscited the second as §21.6; the
+  foundation changelog records the discrepancy).
+- [x] Item 5 — erratum in `03-lexical-structure.ebnf.md` §8: `Caret = "^"`
+  row added, pointing at EXP-01 level 4.
+- [x] Item 2 — brief `work/2026-08-17-block-ast-statement-classification.md`.
+- [x] Item 3 — brief `work/2026-08-17-block-attribute-recognition.md`.
+- [x] Item 4 — brief `work/2026-08-17-library-block-header-grammar.md`.
+- [x] Item 6 — brief `work/2026-08-17-fatal-path-info-code.md`.
+
+Side finding from that session, foundation-owned: `check-docs-compliance.py`
+reports 859 pre-existing warn-only hard failures across the tree, which
+contradicts the recorded "repo at zero since 2026-08-01" — likely the
+checker hardened later; to be investigated from a foundation session.
 
 ## 1. Chapter 21's canonical handler example is unparseable under its own rules
 
-`21-block-handlers.md` §21.1 and §21.6 both show:
+`21-block-handlers.md` §21.1 and §21.5 both show (this file first cited
+the second occurrence as §21.6; the real home is §21.5, Span
+Preservation):
 
 ```clean
 compiletime function expandDataBlock(block BlockAST) returns IR
