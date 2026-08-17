@@ -1,3 +1,6 @@
+class User
+	string name
+
 start:
 	integer? maybe = none
 	list<integer> xs = [1, 2, 3]

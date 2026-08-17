@@ -1,0 +1,7 @@
+error[IDX003]: `pairs<integer, string>` is indexed with `integer`, found `string`
+ --> tests/cln/diagnostics/IDX003.cln:4:16
+  |
+4 | 		string s = p["clave"]
+  | 		             ^^^^^^^ wrong key type for this pairs
+  |
+  = docs: https://errors.cleanlanguage.dev/E/IDX003

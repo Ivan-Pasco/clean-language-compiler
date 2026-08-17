@@ -69,3 +69,4 @@ AST:
 ]
 DIAGNOSTICS: 1
   SYN007 spec/08-file-structure/out_of_order.cln:4:1 the 'functions:' section cannot appear after 'start:'; FIL-01 fixes the top-level section order
+UNSUPPORTED: 0

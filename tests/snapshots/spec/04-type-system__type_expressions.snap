@@ -4,6 +4,41 @@ expression: rendered
 ---
 AST:
 [
+    Class(
+        ClassDecl {
+            name: "User",
+            parent: None,
+            capabilities: [],
+            fields: [
+                Field {
+                    ty: TypeExpr {
+                        base: String_,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 12,
+                            end: 18,
+                        },
+                    },
+                    name: "name",
+                    init: None,
+                    public: false,
+                    span: ByteSpan {
+                        start: 12,
+                        end: 23,
+                    },
+                },
+            ],
+            always: None,
+            constructors: [],
+            functions: [],
+            span: ByteSpan {
+                start: 0,
+                end: 25,
+            },
+        },
+    ),
     Start(
         [
             VarDecl {
@@ -15,27 +50,27 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 8,
-                        end: 16,
+                        start: 33,
+                        end: 41,
                     },
                 },
                 name: "maybe",
                 name_span: ByteSpan {
-                    start: 17,
-                    end: 22,
+                    start: 42,
+                    end: 47,
                 },
                 init: Some(
                     NoneLit {
                         span: ByteSpan {
-                            start: 25,
-                            end: 29,
+                            start: 50,
+                            end: 54,
                         },
                     },
                 ),
                 on_error: None,
                 span: ByteSpan {
-                    start: 8,
-                    end: 30,
+                    start: 33,
+                    end: 55,
                 },
             },
             VarDecl {
@@ -49,8 +84,8 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 36,
-                                end: 43,
+                                start: 61,
+                                end: 68,
                             },
                         },
                     ),
@@ -58,14 +93,14 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 31,
-                        end: 44,
+                        start: 56,
+                        end: 69,
                     },
                 },
                 name: "xs",
                 name_span: ByteSpan {
-                    start: 45,
-                    end: 47,
+                    start: 70,
+                    end: 72,
                 },
                 init: Some(
                     List {
@@ -73,35 +108,35 @@ AST:
                             Int {
                                 value: 1,
                                 span: ByteSpan {
-                                    start: 51,
-                                    end: 52,
+                                    start: 76,
+                                    end: 77,
                                 },
                             },
                             Int {
                                 value: 2,
                                 span: ByteSpan {
-                                    start: 54,
-                                    end: 55,
+                                    start: 79,
+                                    end: 80,
                                 },
                             },
                             Int {
                                 value: 3,
                                 span: ByteSpan {
-                                    start: 57,
-                                    end: 58,
+                                    start: 82,
+                                    end: 83,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 50,
-                            end: 59,
+                            start: 75,
+                            end: 84,
                         },
                     },
                 ),
                 on_error: None,
                 span: ByteSpan {
-                    start: 31,
-                    end: 60,
+                    start: 56,
+                    end: 85,
                 },
             },
             VarDecl {
@@ -115,8 +150,8 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 66,
-                                end: 73,
+                                start: 91,
+                                end: 98,
                             },
                         },
                     ),
@@ -126,20 +161,20 @@ AST:
                         Behavior {
                             name: Line,
                             span: ByteSpan {
-                                start: 74,
-                                end: 79,
+                                start: 99,
+                                end: 104,
                             },
                         },
                     ],
                     span: ByteSpan {
-                        start: 61,
-                        end: 79,
+                        start: 86,
+                        end: 104,
                     },
                 },
                 name: "queue",
                 name_span: ByteSpan {
-                    start: 80,
-                    end: 85,
+                    start: 105,
+                    end: 110,
                 },
                 init: Some(
                     List {
@@ -147,21 +182,21 @@ AST:
                             Int {
                                 value: 1,
                                 span: ByteSpan {
-                                    start: 89,
-                                    end: 90,
+                                    start: 114,
+                                    end: 115,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 88,
-                            end: 91,
+                            start: 113,
+                            end: 116,
                         },
                     },
                 ),
                 on_error: None,
                 span: ByteSpan {
-                    start: 61,
-                    end: 92,
+                    start: 86,
+                    end: 117,
                 },
             },
             VarDecl {
@@ -173,8 +208,8 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 98,
-                                end: 104,
+                                start: 123,
+                                end: 129,
                             },
                         },
                     ),
@@ -184,41 +219,41 @@ AST:
                         Behavior {
                             name: Unique,
                             span: ByteSpan {
-                                start: 105,
-                                end: 112,
+                                start: 130,
+                                end: 137,
                             },
                         },
                         Behavior {
                             name: Pile,
                             span: ByteSpan {
-                                start: 112,
-                                end: 117,
+                                start: 137,
+                                end: 142,
                             },
                         },
                     ],
                     span: ByteSpan {
-                        start: 93,
-                        end: 117,
+                        start: 118,
+                        end: 142,
                     },
                 },
                 name: "bag",
                 name_span: ByteSpan {
-                    start: 118,
-                    end: 121,
+                    start: 143,
+                    end: 146,
                 },
                 init: Some(
                     List {
                         items: [],
                         span: ByteSpan {
-                            start: 124,
-                            end: 126,
+                            start: 149,
+                            end: 151,
                         },
                     },
                 ),
                 on_error: None,
                 span: ByteSpan {
-                    start: 93,
-                    end: 127,
+                    start: 118,
+                    end: 152,
                 },
             },
             VarDecl {
@@ -232,8 +267,8 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 135,
-                                end: 142,
+                                start: 160,
+                                end: 167,
                             },
                         },
                     ),
@@ -241,14 +276,14 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 128,
-                        end: 143,
+                        start: 153,
+                        end: 168,
                     },
                 },
                 name: "grid",
                 name_span: ByteSpan {
-                    start: 144,
-                    end: 148,
+                    start: 169,
+                    end: 173,
                 },
                 init: Some(
                     List {
@@ -258,21 +293,21 @@ AST:
                                     Int {
                                         value: 1,
                                         span: ByteSpan {
-                                            start: 153,
-                                            end: 154,
+                                            start: 178,
+                                            end: 179,
                                         },
                                     },
                                     Int {
                                         value: 2,
                                         span: ByteSpan {
-                                            start: 156,
-                                            end: 157,
+                                            start: 181,
+                                            end: 182,
                                         },
                                     },
                                 ],
                                 span: ByteSpan {
-                                    start: 152,
-                                    end: 158,
+                                    start: 177,
+                                    end: 183,
                                 },
                             },
                             List {
@@ -280,34 +315,34 @@ AST:
                                     Int {
                                         value: 3,
                                         span: ByteSpan {
-                                            start: 161,
-                                            end: 162,
+                                            start: 186,
+                                            end: 187,
                                         },
                                     },
                                     Int {
                                         value: 4,
                                         span: ByteSpan {
-                                            start: 164,
-                                            end: 165,
+                                            start: 189,
+                                            end: 190,
                                         },
                                     },
                                 ],
                                 span: ByteSpan {
-                                    start: 160,
-                                    end: 166,
+                                    start: 185,
+                                    end: 191,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 151,
-                            end: 167,
+                            start: 176,
+                            end: 192,
                         },
                     },
                 ),
                 on_error: None,
                 span: ByteSpan {
-                    start: 128,
-                    end: 168,
+                    start: 153,
+                    end: 193,
                 },
             },
             VarDecl {
@@ -319,8 +354,8 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 175,
-                                end: 181,
+                                start: 200,
+                                end: 206,
                             },
                         },
                         TypeExpr {
@@ -331,8 +366,8 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 183,
-                                end: 190,
+                                start: 208,
+                                end: 215,
                             },
                         },
                     ),
@@ -340,20 +375,20 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 169,
-                        end: 191,
+                        start: 194,
+                        end: 216,
                     },
                 },
                 name: "ages",
                 name_span: ByteSpan {
-                    start: 192,
-                    end: 196,
+                    start: 217,
+                    end: 221,
                 },
                 init: None,
                 on_error: None,
                 span: ByteSpan {
-                    start: 169,
-                    end: 197,
+                    start: 194,
+                    end: 222,
                 },
             },
             VarDecl {
@@ -365,23 +400,24 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 198,
-                        end: 202,
+                        start: 223,
+                        end: 227,
                     },
                 },
                 name: "owner",
                 name_span: ByteSpan {
-                    start: 203,
-                    end: 208,
+                    start: 228,
+                    end: 233,
                 },
                 init: None,
                 on_error: None,
                 span: ByteSpan {
-                    start: 198,
-                    end: 209,
+                    start: 223,
+                    end: 234,
                 },
             },
         ],
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 0

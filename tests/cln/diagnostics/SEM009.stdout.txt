@@ -1,0 +1,7 @@
+error[SEM009]: the optional marker `?` cannot be repeated
+ --> tests/cln/diagnostics/SEM009.cln:3:11
+  |
+3 | 		integer?? x = none
+  | 		        ^ absence does not stack
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM009

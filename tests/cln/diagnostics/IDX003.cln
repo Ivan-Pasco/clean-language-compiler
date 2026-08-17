@@ -1,0 +1,4 @@
+functions:
+	void init()
+		pairs<integer, string> p
+		string s = p["clave"]

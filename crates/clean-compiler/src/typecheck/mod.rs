@@ -1,8 +1,9 @@
-//! Pass [5] — Type Check (Platform 14 §14.4.2), Milestone 1 slice: direct
-//! checking with the world-typed boundary projections of ADR-0002.
-//! Bidirectional inference with `ena` union-find arrives in M4.
+//! Pass [5] — Type Check (Platform 14 §14.4.2): bidirectional checking
+//! with an `ena` inference context (M4) over the chapter-04 type surface,
+//! plus the world-typed boundary projections of ADR-0002.
 
 mod check;
+pub mod infer;
 pub mod tir;
 pub mod types;
 

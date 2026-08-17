@@ -1,0 +1,4 @@
+functions:
+	void init()
+		list<integer> xs = [1, 2]
+		integer x = xs["a"]

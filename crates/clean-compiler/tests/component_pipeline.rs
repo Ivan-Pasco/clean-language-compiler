@@ -230,3 +230,22 @@ fn which_wasm_tools() -> Option<std::path::PathBuf> {
         .map(|p| p.join("wasm-tools"))
         .find(|p| p.is_file())
 }
+
+/// Regression (M4, §14.7): assigning a plain value to an optional local
+/// takes the TYP-03 wrap — MIR emits the discriminant then the payload, so
+/// the operand stack balances against the local's flattened width. The M1
+/// checker accepted `string? x = "hi"` without materialising the wrap,
+/// which would have emitted a 2-value payload into a 3-slot local.
+#[test]
+fn optional_local_from_plain_value_compiles_and_validates() {
+    let content = "functions:\n\tvoid init()\n\t\tstring? x = \"hi\"\n\t\treturn\n";
+    let mut request = common::minimal_valid_request();
+    request.sources[0].content = content.to_string();
+    request.sources[0].sha256 = common::sha256_hex(content.as_bytes());
+    let artifact = compile(request).expect("optional local compiles");
+    assert!(artifact.diagnostics.is_empty());
+    let mut validator = wasmparser::Validator::new();
+    validator
+        .validate_all(&artifact.wasm)
+        .expect("component with an optional local passes validation");
+}

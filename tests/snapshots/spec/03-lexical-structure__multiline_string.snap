@@ -47,3 +47,4 @@ AST:
 DIAGNOSTICS: 2
   SYN002 spec/03-lexical-structure/multiline_string.cln:6:2 expected end of line
   SYN002 spec/03-lexical-structure/multiline_string.cln:6:10 keyword cannot be used as variable name
+UNSUPPORTED: 0

@@ -287,3 +287,7 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 3
+  state: blocks @ spec/20-state-management/state_and_watch.cln:1:1
+  watch blocks @ spec/20-state-management/state_and_watch.cln:13:1
+  watch blocks @ spec/20-state-management/state_and_watch.cln:16:1

@@ -1,0 +1,4 @@
+functions:
+	void init()
+		string s = "hola"
+		string c = s[0]

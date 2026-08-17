@@ -1,9 +1,11 @@
 //! Pass [7] — HIR Lowering (Platform 14 §14.4.2): erases sugar and
-//! canonicalizes control flow. The Milestone 1 surface has little sugar to
-//! erase — the visible work is folding `else if` chains into right-nested
-//! `if`/`else` (FLW-01's own definition of the chain) and dropping names in
-//! favour of local slots. String-interpolation desugar to concatenation
-//! arrives with strings support in later milestones.
+//! canonicalizes control flow. The visible work is folding `else if`
+//! chains into right-nested `if`/`else` (FLW-01's own definition of the
+//! chain) and dropping names in favour of local slots. Typed constructs
+//! that codegen cannot lower yet (loops, `number` arithmetic, string
+//! interpolation, …) travel through HIR unchanged; pass [8] reports them
+//! through the pre-v1 unsupported channel — the M4 frontier lives there,
+//! not in the type checker.
 //!
 //! HIR is the last IR where source spans are the primary addressing (kept
 //! on every expression for the passes that still diagnose).
@@ -28,6 +30,10 @@ pub struct HFunction {
     pub file: usize,
 }
 
+// Statements are built once and traversed; the size spread between a bare
+// `Break` and a `Set { value: HExpr }` is inherent to the tree shape and
+// not worth boxing every expression for.
+#[allow(clippy::large_enum_variant)]
 pub enum HStmt {
     Set {
         local: usize,
@@ -42,6 +48,37 @@ pub enum HStmt {
         then: Vec<HStmt>,
         els: Vec<HStmt>,
     },
+    While {
+        cond: HExpr,
+        body: Vec<HStmt>,
+    },
+    Iterate {
+        binder: usize,
+        source: HIterSource,
+        step: Option<HExpr>,
+        body: Vec<HStmt>,
+    },
+    Break {
+        span: ByteSpan,
+    },
+    Continue {
+        span: ByteSpan,
+    },
+    Print {
+        items: Vec<HExpr>,
+        span: ByteSpan,
+    },
+    Assert {
+        cond: HExpr,
+        span: ByteSpan,
+    },
+}
+
+pub enum HIterSource {
+    List(HExpr),
+    Chars(HExpr),
+    Rows(HExpr),
+    Range { from: HExpr, to: HExpr },
 }
 
 pub struct HExpr {
@@ -52,12 +89,15 @@ pub struct HExpr {
 
 pub enum HExprKind {
     Int(i128),
+    Num(f64),
     Bool(bool),
     Str(String),
+    StrInterp(Vec<HInterpSeg>),
     NoneLit,
     EnumCase(u32),
     MakeRecord(Vec<HExpr>),
     MakeList(Vec<HExpr>),
+    MakeMatrix(Vec<HExpr>),
     Local(usize),
     CallHost {
         import: usize,
@@ -76,6 +116,23 @@ pub enum HExprKind {
         op: crate::parser::ast::UnOp,
         operand: Box<HExpr>,
     },
+    Index {
+        recv: Box<HExpr>,
+        index: Box<HExpr>,
+        kind: tir::IndexKind,
+    },
+    NonNone(Box<HExpr>),
+    IsNone {
+        operand: Box<HExpr>,
+        negated: bool,
+    },
+    IntToNumber(Box<HExpr>),
+    WrapSome(Box<HExpr>),
+}
+
+pub enum HInterpSeg {
+    Text(String),
+    Expr(HExpr),
 }
 
 pub fn lower(program: tir::TypedProgram) -> HirProgram {
@@ -143,14 +200,56 @@ fn lower_stmt(stmt: tir::TStmt) -> Option<HStmt> {
                 els,
             })
         }
+        tir::TStmt::While { cond, body } => Some(HStmt::While {
+            cond: lower_expr(cond),
+            body: lower_block(body),
+        }),
+        tir::TStmt::Iterate {
+            binder,
+            source,
+            step,
+            body,
+        } => Some(HStmt::Iterate {
+            binder,
+            source: match source {
+                tir::TIterSource::List(e) => HIterSource::List(lower_expr(e)),
+                tir::TIterSource::Chars(e) => HIterSource::Chars(lower_expr(e)),
+                tir::TIterSource::Rows(e) => HIterSource::Rows(lower_expr(e)),
+                tir::TIterSource::Range { from, to } => HIterSource::Range {
+                    from: lower_expr(from),
+                    to: lower_expr(to),
+                },
+            },
+            step: step.map(lower_expr),
+            body: lower_block(body),
+        }),
+        tir::TStmt::Break { span } => Some(HStmt::Break { span }),
+        tir::TStmt::Continue { span } => Some(HStmt::Continue { span }),
+        tir::TStmt::Print { items, span } => Some(HStmt::Print {
+            items: items.into_iter().map(lower_expr).collect(),
+            span,
+        }),
+        tir::TStmt::Assert { cond, span } => Some(HStmt::Assert {
+            cond: lower_expr(cond),
+            span,
+        }),
     }
 }
 
 fn lower_expr(expr: tir::TExpr) -> HExpr {
     let kind = match expr.kind {
         tir::TExprKind::Int(v) => HExprKind::Int(v),
+        tir::TExprKind::Num(v) => HExprKind::Num(v),
         tir::TExprKind::Bool(v) => HExprKind::Bool(v),
         tir::TExprKind::Str(v) => HExprKind::Str(v),
+        tir::TExprKind::StrInterp(segs) => HExprKind::StrInterp(
+            segs.into_iter()
+                .map(|seg| match seg {
+                    tir::TInterpSeg::Text(t) => HInterpSeg::Text(t),
+                    tir::TInterpSeg::Expr(e) => HInterpSeg::Expr(lower_expr(e)),
+                })
+                .collect(),
+        ),
         tir::TExprKind::NoneLit => HExprKind::NoneLit,
         tir::TExprKind::EnumCase(i) => HExprKind::EnumCase(i),
         tir::TExprKind::MakeRecord(fields) => {
@@ -158,6 +257,9 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
         }
         tir::TExprKind::MakeList(items) => {
             HExprKind::MakeList(items.into_iter().map(lower_expr).collect())
+        }
+        tir::TExprKind::MakeMatrix(rows) => {
+            HExprKind::MakeMatrix(rows.into_iter().map(lower_expr).collect())
         }
         tir::TExprKind::Local(id) => HExprKind::Local(id),
         tir::TExprKind::CallHost { import, args } => HExprKind::CallHost {
@@ -177,6 +279,20 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
             op,
             operand: Box::new(lower_expr(*operand)),
         },
+        tir::TExprKind::Index { recv, index, kind } => HExprKind::Index {
+            recv: Box::new(lower_expr(*recv)),
+            index: Box::new(lower_expr(*index)),
+            kind,
+        },
+        tir::TExprKind::NonNone(operand) => HExprKind::NonNone(Box::new(lower_expr(*operand))),
+        tir::TExprKind::IsNone { operand, negated } => HExprKind::IsNone {
+            operand: Box::new(lower_expr(*operand)),
+            negated,
+        },
+        tir::TExprKind::IntToNumber(operand) => {
+            HExprKind::IntToNumber(Box::new(lower_expr(*operand)))
+        }
+        tir::TExprKind::WrapSome(operand) => HExprKind::WrapSome(Box::new(lower_expr(*operand))),
         tir::TExprKind::Error => {
             unreachable!("error expressions never survive a clean typecheck")
         }

@@ -75,3 +75,5 @@ AST:
 ]
 DIAGNOSTICS: 1
   SYN005 spec/14-classes-and-objects/body_order_violation.cln:4:2 fields appear first in a class body, before always:, constructors, and functions:
+UNSUPPORTED: 1
+  class constructors and methods @ spec/14-classes-and-objects/body_order_violation.cln:1:1

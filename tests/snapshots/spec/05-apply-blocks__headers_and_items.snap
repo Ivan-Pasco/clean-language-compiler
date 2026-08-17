@@ -239,3 +239,8 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 4
+  apply-blocks @ spec/05-apply-blocks/headers_and_items.cln:2:2
+  apply-blocks @ spec/05-apply-blocks/headers_and_items.cln:5:2
+  apply-blocks @ spec/05-apply-blocks/headers_and_items.cln:7:2
+  apply-blocks @ spec/05-apply-blocks/headers_and_items.cln:10:2

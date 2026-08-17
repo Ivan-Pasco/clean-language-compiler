@@ -89,3 +89,5 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 1
+  source: provenance blocks @ spec/19-ai-integration/provenance.cln:1:1

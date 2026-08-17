@@ -1,0 +1,4 @@
+functions:
+	void init()
+		list<integer>? xs = none
+		integer x = xs[0]

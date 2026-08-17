@@ -282,3 +282,6 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 2
+  constant functions @ spec/09-functions/declaration_forms.cln:12:1
+  background functions @ spec/09-functions/declaration_forms.cln:5:2

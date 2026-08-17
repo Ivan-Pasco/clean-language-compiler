@@ -1,0 +1,8 @@
+error[IDX004]: type `string` does not support bracket access
+ --> tests/cln/diagnostics/IDX004.cln:4:14
+  |
+4 | 		string c = s[0]
+  | 		           ^ cannot index a value of type `string`
+  |
+  = help: string has no bracket access — use `.charAt(n)`
+  = docs: https://errors.cleanlanguage.dev/E/IDX004

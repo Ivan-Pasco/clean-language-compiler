@@ -41,6 +41,8 @@ pub struct Declarations {
     pub functions: IndexMap<String, (usize, usize, usize)>,
     /// Class name → (file, item).
     pub classes: IndexMap<String, (usize, usize)>,
+    /// `start:` blocks, in `sources[]` order: `(file, item)` (FNC-01).
+    pub starts: Vec<(usize, usize)>,
 }
 
 pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst {
@@ -86,7 +88,9 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                         .classes
                         .insert(class.name.clone(), (file_index, item_index));
                 }
-                ast::Item::Start(_) => {}
+                ast::Item::Start(_) => {
+                    decls.starts.push((file_index, item_index));
+                }
                 // Parsed forms whose semantics land in later milestones
                 // (M4 imports/state, M5 block handlers, M6 stdlib). Each is
                 // reported through the pre-v1 Unsupported channel — never
@@ -193,6 +197,13 @@ impl ResolvedAst {
         match &self.files[coords.0].ast.items[coords.1] {
             ast::Item::Class(class) => (class, coords.0),
             _ => unreachable!("classes indexes only Class items"),
+        }
+    }
+
+    pub fn start(&self, coords: (usize, usize)) -> (&ast::Block, usize) {
+        match &self.files[coords.0].ast.items[coords.1] {
+            ast::Item::Start(block) => (block, coords.0),
+            _ => unreachable!("starts indexes only Start items"),
         }
     }
 

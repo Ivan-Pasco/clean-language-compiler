@@ -39,3 +39,5 @@ AST:
 ]
 DIAGNOSTICS: 1
   SYN005 spec/07-statements/invalid_assignment_target.cln:2:2 assignment target must be a variable, member, or index
+UNSUPPORTED: 1
+  member/index assignment targets @ spec/07-statements/invalid_assignment_target.cln:2:2

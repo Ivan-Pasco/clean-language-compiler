@@ -1,7 +1,13 @@
-//! M3 spec conformance suite: one fixture directory per EBNF grammar
-//! chapter under `tests/spec/<chapter>/`, each `.cln` parsed to an AST
-//! snapshot under `tests/snapshots/spec/` (insta). A surprising diff is a
-//! design question — never accept blindly.
+//! Spec conformance suite: one fixture directory per EBNF grammar
+//! chapter under `tests/spec/<chapter>/`, each `.cln` run through the
+//! front-end — lex, parse, resolve, typecheck (M4) — to an insta snapshot
+//! under `tests/snapshots/spec/`. A surprising diff is a design question —
+//! never accept blindly.
+//!
+//! Fixtures see an empty target world, so host-interface declarations
+//! project against nothing; chapter fixtures are language-level. The
+//! snapshot pins the AST shape, every diagnostic, and the pre-v1
+//! unsupported notes (the frontier of what later passes cannot lower yet).
 //!
 //! The harness self-discovers fixtures so adding a `.cln` file is enough;
 //! discovery is sorted for determinism (CMP-02 discipline applies to test
@@ -13,6 +19,10 @@ use std::path::{Path, PathBuf};
 use clean_compiler::diag::DiagnosticSink;
 use clean_compiler::lexer::lex;
 use clean_compiler::parser::parse;
+use clean_compiler::resolver::{resolve, ParsedFile};
+use clean_compiler_types::request::TargetWorld;
+
+const EMPTY_WORLD_WIT: &str = "package spec:harness;\n\nworld conformance {\n}\n";
 
 fn spec_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/spec")
@@ -22,8 +32,9 @@ fn snapshot_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/snapshots/spec")
 }
 
-/// Renders the parse of one fixture: AST debug tree plus every diagnostic
-/// (code + message), so snapshots pin both the shape and the findings.
+/// Renders the front-end run of one fixture: AST debug tree, every
+/// diagnostic (code + message), and every unsupported note, so snapshots
+/// pin the shape, the findings, and the frontier.
 fn render(path: &str, source: &str) -> String {
     let mut sink = DiagnosticSink::new();
     let stream = lex(path, source, &mut sink);
@@ -31,6 +42,29 @@ fn render(path: &str, source: &str) -> String {
     let mut out = String::new();
     writeln!(out, "AST:").unwrap();
     writeln!(out, "{:#?}", ast.items).unwrap();
+
+    let target = TargetWorld {
+        host: "spec-harness".to_string(),
+        version: "0.0.0".to_string(),
+        world: "conformance".to_string(),
+        sha256: String::new(),
+        wit: EMPTY_WORLD_WIT.to_string(),
+    };
+    let world = clean_compiler::codegen::world::parse(&target, &mut sink)
+        .expect("the embedded empty world parses");
+    let resolved = resolve(vec![ParsedFile { ast, stream }], &mut sink);
+    clean_compiler::typecheck::check(&resolved, &world, &mut sink);
+
+    let unsupported: Vec<String> = sink
+        .unsupported()
+        .iter()
+        .map(|u| {
+            format!(
+                "  {} @ {}:{}:{}",
+                u.construct, u.span.file, u.span.start.line, u.span.start.column
+            )
+        })
+        .collect();
     let diagnostics = sink.into_diagnostics();
     writeln!(out, "DIAGNOSTICS: {}", diagnostics.len()).unwrap();
     for d in &diagnostics {
@@ -44,6 +78,10 @@ fn render(path: &str, source: &str) -> String {
             d.message
         )
         .unwrap();
+    }
+    writeln!(out, "UNSUPPORTED: {}", unsupported.len()).unwrap();
+    for line in &unsupported {
+        writeln!(out, "{line}").unwrap();
     }
     out
 }

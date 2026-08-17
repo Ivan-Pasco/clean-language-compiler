@@ -374,3 +374,9 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 5
+  capability declarations @ spec/14-classes-and-objects/classes_and_capabilities.cln:21:1
+  always: invariants @ spec/14-classes-and-objects/classes_and_capabilities.cln:1:1
+  class constructors and methods @ spec/14-classes-and-objects/classes_and_capabilities.cln:1:1
+  field initialisers @ spec/14-classes-and-objects/classes_and_capabilities.cln:3:2
+  class inheritance and capability claims @ spec/14-classes-and-objects/classes_and_capabilities.cln:18:1

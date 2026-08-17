@@ -1,4 +1,15 @@
+functions:
+	integer risky()
+		return 1
+	string read(string location)
+		return "data"
+	void log(string message)
+		return
+	void cleanup()
+		return
+
 start:
+	string path = "notes.txt"
 	error("something failed")
 	integer v = risky() onError 0
 	string content = read(path) onError:

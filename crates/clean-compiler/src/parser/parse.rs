@@ -2299,7 +2299,20 @@ impl<'a> Parser<'a> {
                 match name.as_str() {
                     "boolean" => BaseType::Boolean,
                     "integer" => {
-                        let width = if pos == TypePos::Host && self.at(&TokenKind::Colon) {
+                        // Host positions own the width syntax (LBS-02). In
+                        // any other position a width-shaped suffix is still
+                        // consumed so the checker can reject it as SEM009
+                        // (TYP-01: semantic, not a parse error).
+                        let width_follows = match self.peek2() {
+                            TokenKind::Int(32) => true,
+                            TokenKind::Ident(w) => {
+                                matches!(w.as_str(), "u8" | "u16" | "u32" | "u64")
+                            }
+                            _ => false,
+                        };
+                        let width = if self.at(&TokenKind::Colon)
+                            && (pos == TypePos::Host || width_follows)
+                        {
                             self.bump();
                             self.int_width(sink)
                         } else {

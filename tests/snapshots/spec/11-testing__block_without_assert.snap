@@ -75,3 +75,5 @@ AST:
 ]
 DIAGNOSTICS: 1
   SYN005 spec/11-testing/block_without_assert.cln:2:2 block test "forgot the assert" has no assert; a test asserts at least once
+UNSUPPORTED: 1
+  tests: sections @ spec/11-testing/block_without_assert.cln:2:2

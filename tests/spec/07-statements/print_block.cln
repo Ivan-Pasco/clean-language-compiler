@@ -1,4 +1,5 @@
 start:
+	integer count = 0
 	print:
 		"hello"
 		count + 1

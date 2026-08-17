@@ -1,0 +1,4 @@
+functions:
+	void init()
+		matrix<integer> m = [[1, 2], [3, 4]]
+		integer x = m[true]

@@ -110,6 +110,40 @@ fn walk_stmt(
                 walk_stmt(s, verdicts, world_name, resolved, file, sink);
             }
         }
+        HStmt::While { cond, body } => {
+            walk_expr(cond, verdicts, world_name, resolved, file, sink);
+            for s in body {
+                walk_stmt(s, verdicts, world_name, resolved, file, sink);
+            }
+        }
+        HStmt::Iterate {
+            source, step, body, ..
+        } => {
+            match source {
+                crate::hir::HIterSource::List(e)
+                | crate::hir::HIterSource::Chars(e)
+                | crate::hir::HIterSource::Rows(e) => {
+                    walk_expr(e, verdicts, world_name, resolved, file, sink)
+                }
+                crate::hir::HIterSource::Range { from, to } => {
+                    walk_expr(from, verdicts, world_name, resolved, file, sink);
+                    walk_expr(to, verdicts, world_name, resolved, file, sink);
+                }
+            }
+            if let Some(step) = step {
+                walk_expr(step, verdicts, world_name, resolved, file, sink);
+            }
+            for s in body {
+                walk_stmt(s, verdicts, world_name, resolved, file, sink);
+            }
+        }
+        HStmt::Break { .. } | HStmt::Continue { .. } => {}
+        HStmt::Print { items, .. } => {
+            for item in items {
+                walk_expr(item, verdicts, world_name, resolved, file, sink);
+            }
+        }
+        HStmt::Assert { cond, .. } => walk_expr(cond, verdicts, world_name, resolved, file, sink),
     }
 }
 
@@ -144,8 +178,28 @@ fn walk_expr(
             walk_expr(lhs, verdicts, world_name, resolved, file, sink);
             walk_expr(rhs, verdicts, world_name, resolved, file, sink);
         }
-        HExprKind::Unary { operand, .. } => {
+        HExprKind::Unary { operand, .. }
+        | HExprKind::NonNone(operand)
+        | HExprKind::IsNone { operand, .. }
+        | HExprKind::IntToNumber(operand)
+        | HExprKind::WrapSome(operand) => {
             walk_expr(operand, verdicts, world_name, resolved, file, sink)
+        }
+        HExprKind::MakeMatrix(items) => {
+            for item in items {
+                walk_expr(item, verdicts, world_name, resolved, file, sink);
+            }
+        }
+        HExprKind::Index { recv, index, .. } => {
+            walk_expr(recv, verdicts, world_name, resolved, file, sink);
+            walk_expr(index, verdicts, world_name, resolved, file, sink);
+        }
+        HExprKind::StrInterp(segs) => {
+            for seg in segs {
+                if let crate::hir::HInterpSeg::Expr(e) = seg {
+                    walk_expr(e, verdicts, world_name, resolved, file, sink);
+                }
+            }
         }
         _ => {}
     }

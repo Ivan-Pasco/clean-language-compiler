@@ -317,3 +317,10 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 6
+  import declarations @ spec/08-file-structure/full_order.cln:2:2
+  import declarations @ spec/08-file-structure/full_order.cln:5:1
+  source: provenance blocks @ spec/08-file-structure/full_order.cln:7:1
+  constant: sections @ spec/08-file-structure/full_order.cln:12:2
+  state: blocks @ spec/08-file-structure/full_order.cln:15:1
+  tests: sections @ spec/08-file-structure/full_order.cln:26:2

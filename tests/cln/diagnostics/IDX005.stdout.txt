@@ -1,0 +1,7 @@
+error[IDX005]: cannot index `xs` because it may be `none`
+ --> tests/cln/diagnostics/IDX005.cln:4:15
+  |
+4 | 		integer x = xs[0]
+  | 		            ^^ receiver has type `list<integer>?` and may be `none` here
+  |
+  = docs: https://errors.cleanlanguage.dev/E/IDX005

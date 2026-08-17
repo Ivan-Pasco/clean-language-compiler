@@ -1,19 +1,36 @@
-//! Semantic types for the Milestone 1 surface, including the boundary-only
-//! projections of world-declared WIT types (ADR-0002 §3).
+//! Semantic types for the chapter-04 surface (TYP-01..05), including the
+//! boundary-only projections of world-declared WIT types (ADR-0002 §3).
+//!
+//! `Ty::Var` is an inference variable owned by `infer::InferCtx`; every type
+//! that leaves pass [5] has been resolved (`InferCtx::finalize`), so later
+//! passes never see one.
 
 use crate::parser::ast::IntWidth;
 
-#[derive(Debug, Clone, PartialEq)]
+/// An inference variable key (`ena` union-find). Only `infer::InferCtx`
+/// creates and resolves these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TyVid(pub u32);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
     /// Surface `integer` — s64 (TYP-01).
     Integer,
     /// Width-suffixed boundary integer (`integer:32`, `integer:u32`, …) —
-    /// valid only in host-function positions (LBS-02).
+    /// valid only in host-function positions (LBS-02); anywhere else the
+    /// checker reports SEM009 (TYP-01: no width modifiers in Clean types).
     IntegerW(IntWidth),
+    /// Surface `number` — IEEE-754 binary64 (TYP-01).
+    Number,
     Boolean,
     Str,
-    /// `bytes` ↔ WIT `list<u8>` (LBS-02).
+    /// `bytes` ↔ WIT `list<u8>` (LBS-02). No literal (TYP-01).
     Bytes,
+    /// `datetime` — no literal, stdlib-constructed (TYP-01).
+    Datetime,
+    /// `any` — the compile-time generic escape hatch: the compiler skips
+    /// type checking for the value (TYP-02).
+    Any,
     Void,
     Option(Box<Ty>),
     /// A world-declared enum, projected for call-site checking. Cases are in
@@ -29,13 +46,64 @@ pub enum Ty {
         wit_name: String,
         fields: Vec<(String, Ty)>,
     },
-    /// `list<T>` for element types other than `u8` (which is `Bytes`).
-    List(Box<Ty>),
+    /// `list<T>` for element types other than `u8` (which is `Bytes`). The
+    /// behavior chain is part of the type, fixed at declaration (TYP-05):
+    /// `list<string>` and `list<string>.line` are different types.
+    List(Box<Ty>, ListBehavior),
+    /// `matrix<T>` — a two-dimensional list of lists (TYP-02).
+    Matrix(Box<Ty>),
+    /// `pairs<K, V>` — Clean's map type; `K` is a free type parameter
+    /// (TYP-02, IDX003).
+    Pairs(Box<Ty>, Box<Ty>),
+    /// An unresolved inference variable (bidirectional checking).
+    Var(TyVid),
     /// A type error already reported; absorbs further checks silently.
     Error,
 }
 
+/// The TYP-05 behavior axes: one removal discipline (`.line` FIFO or
+/// `.pile` LIFO) and independent `.unique` membership.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ListBehavior {
+    pub removal: Option<Removal>,
+    pub unique: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Removal {
+    Line,
+    Pile,
+}
+
+impl ListBehavior {
+    pub const NONE: ListBehavior = ListBehavior {
+        removal: None,
+        unique: false,
+    };
+
+    /// Canonical display order: removal discipline, then `.unique`
+    /// (declaration order is free, TYP-05; the rendered name is canonical).
+    fn display(&self) -> String {
+        let mut out = String::new();
+        match self.removal {
+            Some(Removal::Line) => out.push_str(".line"),
+            Some(Removal::Pile) => out.push_str(".pile"),
+            None => {}
+        }
+        if self.unique {
+            out.push_str(".unique");
+        }
+        out
+    }
+}
+
 impl Ty {
+    /// Plain `list<T>` with no behaviors — the shape every non-declaration
+    /// position produces.
+    pub fn list(elem: Ty) -> Ty {
+        Ty::List(Box::new(elem), ListBehavior::NONE)
+    }
+
     /// The inclusive value range of an integer type, for SEM026.
     pub fn integer_range(&self) -> Option<(i128, i128)> {
         match self {
@@ -53,6 +121,12 @@ impl Ty {
         matches!(self, Ty::Integer | Ty::IntegerW(_))
     }
 
+    /// `integer` or `number` — the domain of the arithmetic operators
+    /// (06 §Operators on built-in types).
+    pub fn is_numeric(&self) -> bool {
+        self.is_integer() || matches!(self, Ty::Number)
+    }
+
     /// Rendered name for diagnostics, using surface-language spelling.
     pub fn display(&self) -> String {
         match self {
@@ -67,23 +141,33 @@ impl Ty {
                     IntWidth::U64 => "u64",
                 }
             ),
+            Ty::Number => "number".to_string(),
             Ty::Boolean => "boolean".to_string(),
             Ty::Str => "string".to_string(),
             Ty::Bytes => "bytes".to_string(),
+            Ty::Datetime => "datetime".to_string(),
+            Ty::Any => "any".to_string(),
             Ty::Void => "void".to_string(),
             Ty::Option(inner) => format!("{}?", inner.display()),
             Ty::Enum { wit_name, .. } => wit_name.clone(),
             Ty::Record { wit_name, .. } => wit_name.clone(),
-            Ty::List(inner) => format!("list<{}>", inner.display()),
+            Ty::List(inner, behavior) => {
+                format!("list<{}>{}", inner.display(), behavior.display())
+            }
+            Ty::Matrix(inner) => format!("matrix<{}>", inner.display()),
+            Ty::Pairs(key, value) => {
+                format!("pairs<{}, {}>", key.display(), value.display())
+            }
+            Ty::Var(_) => "_".to_string(),
             Ty::Error => "<error>".to_string(),
         }
     }
 }
 
-/// Projects a WIT type onto the M1 semantic types — the boundary reading of
+/// Projects a WIT type onto the semantic types — the boundary reading of
 /// the LBS-02 table. Shared by the type checker (declaration projection) and
 /// the World Import Check (signature comparison), so the two can never
-/// disagree. `None` marks a WIT shape outside the M1 surface.
+/// disagree. `None` marks a WIT shape outside the supported surface.
 pub fn project_wit(resolve: &wit_parser::Resolve, ty: &wit_parser::Type) -> Option<Ty> {
     use wit_parser::Type as W;
     use wit_parser::TypeDefKind;
@@ -95,6 +179,7 @@ pub fn project_wit(resolve: &wit_parser::Resolve, ty: &wit_parser::Type) -> Opti
         W::U64 => Ty::IntegerW(IntWidth::U64),
         W::S32 => Ty::IntegerW(IntWidth::S32),
         W::S64 => Ty::Integer,
+        W::F64 => Ty::Number,
         W::String => Ty::Str,
         W::Id(id) => {
             let def = &resolve.types[*id];
@@ -112,7 +197,7 @@ pub fn project_wit(resolve: &wit_parser::Resolve, ty: &wit_parser::Type) -> Opti
                         .collect::<Option<Vec<_>>>()?,
                 },
                 TypeDefKind::List(W::U8) => Ty::Bytes,
-                TypeDefKind::List(inner) => Ty::List(Box::new(project_wit(resolve, inner)?)),
+                TypeDefKind::List(inner) => Ty::list(project_wit(resolve, inner)?),
                 TypeDefKind::Option(inner) => Ty::Option(Box::new(project_wit(resolve, inner)?)),
                 _ => return None,
             }

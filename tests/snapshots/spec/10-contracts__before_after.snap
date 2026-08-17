@@ -158,3 +158,5 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 1
+  contract blocks @ spec/10-contracts/before_after.cln:2:2

@@ -6,34 +6,199 @@ AST:
 [
     Start(
         [
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 15,
+                    },
+                },
+                name: "a",
+                name_span: ByteSpan {
+                    start: 16,
+                    end: 17,
+                },
+                init: Some(
+                    Int {
+                        value: 2,
+                        span: ByteSpan {
+                            start: 20,
+                            end: 21,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 8,
+                    end: 22,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 23,
+                        end: 30,
+                    },
+                },
+                name: "count",
+                name_span: ByteSpan {
+                    start: 31,
+                    end: 36,
+                },
+                init: Some(
+                    Int {
+                        value: 0,
+                        span: ByteSpan {
+                            start: 39,
+                            end: 40,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 23,
+                    end: 41,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 42,
+                        end: 49,
+                    },
+                },
+                name: "total",
+                name_span: ByteSpan {
+                    start: 50,
+                    end: 55,
+                },
+                init: Some(
+                    Int {
+                        value: 0,
+                        span: ByteSpan {
+                            start: 58,
+                            end: 59,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 42,
+                    end: 60,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: List(
+                        TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 66,
+                                end: 73,
+                            },
+                        },
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 61,
+                        end: 74,
+                    },
+                },
+                name: "items",
+                name_span: ByteSpan {
+                    start: 75,
+                    end: 80,
+                },
+                init: Some(
+                    List {
+                        items: [
+                            Int {
+                                value: 1,
+                                span: ByteSpan {
+                                    start: 84,
+                                    end: 85,
+                                },
+                            },
+                            Int {
+                                value: 2,
+                                span: ByteSpan {
+                                    start: 87,
+                                    end: 88,
+                                },
+                            },
+                            Int {
+                                value: 3,
+                                span: ByteSpan {
+                                    start: 90,
+                                    end: 91,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 83,
+                            end: 92,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 61,
+                    end: 93,
+                },
+            },
             If {
                 cond: Binary {
                     op: Gt,
                     lhs: Ident {
                         name: "a",
                         span: ByteSpan {
-                            start: 11,
-                            end: 12,
+                            start: 97,
+                            end: 98,
                         },
                     },
                     rhs: Int {
                         value: 1,
                         span: ByteSpan {
-                            start: 15,
-                            end: 16,
+                            start: 101,
+                            end: 102,
                         },
                     },
                     span: ByteSpan {
-                        start: 11,
-                        end: 16,
+                        start: 97,
+                        end: 102,
                     },
                 },
                 then: [
                     Return {
                         value: None,
                         span: ByteSpan {
-                            start: 19,
-                            end: 26,
+                            start: 105,
+                            end: 112,
                         },
                     },
                 ],
@@ -44,20 +209,20 @@ AST:
                             lhs: Ident {
                                 name: "a",
                                 span: ByteSpan {
-                                    start: 35,
-                                    end: 36,
+                                    start: 121,
+                                    end: 122,
                                 },
                             },
                             rhs: Int {
                                 value: 0,
                                 span: ByteSpan {
-                                    start: 40,
-                                    end: 41,
+                                    start: 126,
+                                    end: 127,
                                 },
                             },
                             span: ByteSpan {
-                                start: 35,
-                                end: 41,
+                                start: 121,
+                                end: 127,
                             },
                         },
                         [
@@ -65,21 +230,21 @@ AST:
                                 target: Ident {
                                     name: "count",
                                     span: ByteSpan {
-                                        start: 44,
-                                        end: 49,
+                                        start: 130,
+                                        end: 135,
                                     },
                                 },
                                 value: Int {
                                     value: 1,
                                     span: ByteSpan {
-                                        start: 52,
-                                        end: 53,
+                                        start: 138,
+                                        end: 139,
                                     },
                                 },
                                 on_error: None,
                                 span: ByteSpan {
-                                    start: 44,
-                                    end: 54,
+                                    start: 130,
+                                    end: 140,
                                 },
                             },
                         ],
@@ -91,42 +256,42 @@ AST:
                             target: Ident {
                                 name: "count",
                                 span: ByteSpan {
-                                    start: 62,
-                                    end: 67,
+                                    start: 148,
+                                    end: 153,
                                 },
                             },
                             value: Int {
                                 value: 2,
                                 span: ByteSpan {
-                                    start: 70,
-                                    end: 71,
+                                    start: 156,
+                                    end: 157,
                                 },
                             },
                             on_error: None,
                             span: ByteSpan {
-                                start: 62,
-                                end: 72,
+                                start: 148,
+                                end: 158,
                             },
                         },
                     ],
                 ),
                 span: ByteSpan {
-                    start: 8,
-                    end: 73,
+                    start: 94,
+                    end: 159,
                 },
             },
             Iterate {
                 binder: "item",
                 binder_span: ByteSpan {
-                    start: 81,
-                    end: 85,
+                    start: 167,
+                    end: 171,
                 },
                 source: Expr(
                     Ident {
                         name: "items",
                         span: ByteSpan {
-                            start: 89,
-                            end: 94,
+                            start: 175,
+                            end: 180,
                         },
                     },
                 ),
@@ -136,8 +301,8 @@ AST:
                         target: Ident {
                             name: "total",
                             span: ByteSpan {
-                                start: 97,
-                                end: 102,
+                                start: 183,
+                                end: 188,
                             },
                         },
                         value: Binary {
@@ -145,53 +310,53 @@ AST:
                             lhs: Ident {
                                 name: "total",
                                 span: ByteSpan {
-                                    start: 105,
-                                    end: 110,
+                                    start: 191,
+                                    end: 196,
                                 },
                             },
                             rhs: Ident {
                                 name: "item",
                                 span: ByteSpan {
-                                    start: 113,
-                                    end: 117,
+                                    start: 199,
+                                    end: 203,
                                 },
                             },
                             span: ByteSpan {
-                                start: 105,
-                                end: 117,
+                                start: 191,
+                                end: 203,
                             },
                         },
                         on_error: None,
                         span: ByteSpan {
-                            start: 97,
-                            end: 118,
+                            start: 183,
+                            end: 204,
                         },
                     },
                 ],
                 span: ByteSpan {
-                    start: 73,
-                    end: 119,
+                    start: 159,
+                    end: 205,
                 },
             },
             Iterate {
                 binder: "i",
                 binder_span: ByteSpan {
-                    start: 127,
-                    end: 128,
+                    start: 213,
+                    end: 214,
                 },
                 source: Range {
                     from: Int {
                         value: 1,
                         span: ByteSpan {
-                            start: 132,
-                            end: 133,
+                            start: 218,
+                            end: 219,
                         },
                     },
                     to: Int {
                         value: 10,
                         span: ByteSpan {
-                            start: 137,
-                            end: 139,
+                            start: 223,
+                            end: 225,
                         },
                     },
                 },
@@ -199,8 +364,8 @@ AST:
                     Int {
                         value: 2,
                         span: ByteSpan {
-                            start: 145,
-                            end: 146,
+                            start: 231,
+                            end: 232,
                         },
                     },
                 ),
@@ -211,68 +376,68 @@ AST:
                             lhs: Ident {
                                 name: "i",
                                 span: ByteSpan {
-                                    start: 152,
-                                    end: 153,
+                                    start: 238,
+                                    end: 239,
                                 },
                             },
                             rhs: Int {
                                 value: 5,
                                 span: ByteSpan {
-                                    start: 157,
-                                    end: 158,
+                                    start: 243,
+                                    end: 244,
                                 },
                             },
                             span: ByteSpan {
-                                start: 152,
-                                end: 158,
+                                start: 238,
+                                end: 244,
                             },
                         },
                         then: [
                             Break {
                                 span: ByteSpan {
-                                    start: 162,
-                                    end: 167,
+                                    start: 248,
+                                    end: 253,
                                 },
                             },
                         ],
                         else_ifs: [],
                         els: None,
                         span: ByteSpan {
-                            start: 149,
-                            end: 170,
+                            start: 235,
+                            end: 256,
                         },
                     },
                     Continue {
                         span: ByteSpan {
-                            start: 170,
-                            end: 178,
+                            start: 256,
+                            end: 264,
                         },
                     },
                 ],
                 span: ByteSpan {
-                    start: 119,
-                    end: 180,
+                    start: 205,
+                    end: 266,
                 },
             },
             Iterate {
                 binder: "r",
                 binder_span: ByteSpan {
-                    start: 188,
-                    end: 189,
+                    start: 274,
+                    end: 275,
                 },
                 source: Range {
                     from: Int {
                         value: 10,
                         span: ByteSpan {
-                            start: 193,
-                            end: 195,
+                            start: 279,
+                            end: 281,
                         },
                     },
                     to: Int {
                         value: 1,
                         span: ByteSpan {
-                            start: 199,
-                            end: 200,
+                            start: 285,
+                            end: 286,
                         },
                     },
                 },
@@ -282,13 +447,13 @@ AST:
                         operand: Int {
                             value: 2,
                             span: ByteSpan {
-                                start: 207,
-                                end: 208,
+                                start: 293,
+                                end: 294,
                             },
                         },
                         span: ByteSpan {
-                            start: 206,
-                            end: 208,
+                            start: 292,
+                            end: 294,
                         },
                     },
                 ),
@@ -297,8 +462,8 @@ AST:
                         target: Ident {
                             name: "total",
                             span: ByteSpan {
-                                start: 211,
-                                end: 216,
+                                start: 297,
+                                end: 302,
                             },
                         },
                         value: Binary {
@@ -306,32 +471,32 @@ AST:
                             lhs: Ident {
                                 name: "total",
                                 span: ByteSpan {
-                                    start: 219,
-                                    end: 224,
+                                    start: 305,
+                                    end: 310,
                                 },
                             },
                             rhs: Ident {
                                 name: "r",
                                 span: ByteSpan {
-                                    start: 227,
-                                    end: 228,
+                                    start: 313,
+                                    end: 314,
                                 },
                             },
                             span: ByteSpan {
-                                start: 219,
-                                end: 228,
+                                start: 305,
+                                end: 314,
                             },
                         },
                         on_error: None,
                         span: ByteSpan {
-                            start: 211,
-                            end: 229,
+                            start: 297,
+                            end: 315,
                         },
                     },
                 ],
                 span: ByteSpan {
-                    start: 180,
-                    end: 230,
+                    start: 266,
+                    end: 316,
                 },
             },
             While {
@@ -340,20 +505,20 @@ AST:
                     lhs: Ident {
                         name: "count",
                         span: ByteSpan {
-                            start: 236,
-                            end: 241,
+                            start: 322,
+                            end: 327,
                         },
                     },
                     rhs: Int {
                         value: 10,
                         span: ByteSpan {
-                            start: 244,
-                            end: 246,
+                            start: 330,
+                            end: 332,
                         },
                     },
                     span: ByteSpan {
-                        start: 236,
-                        end: 246,
+                        start: 322,
+                        end: 332,
                     },
                 },
                 body: [
@@ -361,8 +526,8 @@ AST:
                         target: Ident {
                             name: "count",
                             span: ByteSpan {
-                                start: 249,
-                                end: 254,
+                                start: 335,
+                                end: 340,
                             },
                         },
                         value: Binary {
@@ -370,35 +535,36 @@ AST:
                             lhs: Ident {
                                 name: "count",
                                 span: ByteSpan {
-                                    start: 257,
-                                    end: 262,
+                                    start: 343,
+                                    end: 348,
                                 },
                             },
                             rhs: Int {
                                 value: 1,
                                 span: ByteSpan {
-                                    start: 265,
-                                    end: 266,
+                                    start: 351,
+                                    end: 352,
                                 },
                             },
                             span: ByteSpan {
-                                start: 257,
-                                end: 266,
+                                start: 343,
+                                end: 352,
                             },
                         },
                         on_error: None,
                         span: ByteSpan {
-                            start: 249,
-                            end: 267,
+                            start: 335,
+                            end: 353,
                         },
                     },
                 ],
                 span: ByteSpan {
-                    start: 230,
-                    end: 267,
+                    start: 316,
+                    end: 353,
                 },
             },
         ],
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 0

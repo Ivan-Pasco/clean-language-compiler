@@ -1,0 +1,7 @@
+error[SEM025]: 'break' is not inside a loop
+ --> tests/cln/diagnostics/SEM025.cln:3:3
+  |
+3 | 		break
+  | 		^^^^^ no enclosing 'iterate' or 'while'
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM025

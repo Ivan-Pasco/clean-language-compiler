@@ -11,7 +11,7 @@
 //! reported as unsupported until then.
 
 use crate::diag::DiagnosticSink;
-use crate::hir::{HExpr, HExprKind, HFunction, HStmt, HirProgram};
+use crate::hir::{HExpr, HExprKind, HFunction, HIterSource, HStmt, HirProgram};
 use crate::parser::ast::{BinOp, IntWidth, UnOp};
 use crate::resolver::ResolvedAst;
 use crate::typecheck::tir::HostImport;
@@ -137,13 +137,15 @@ pub enum CmpOp {
 /// Flattened core-type shape of a semantic type, per the Canonical ABI
 /// flattening: `string`/`bytes` are `(ptr, len)`, records concatenate their
 /// fields, options prepend an `i32` discriminant. `None` marks a type with
-/// no lowering (only `Error`, which never survives a clean typecheck).
+/// no core lowering yet — `number`, `datetime`, `any`, `matrix` and
+/// `pairs` land with the M6 memory model; `Error` never survives a clean
+/// typecheck, and `Var` never leaves pass [5].
 pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
     Some(match ty {
         Ty::Void => vec![],
         Ty::Integer | Ty::IntegerW(IntWidth::U64) => vec![Val::I64],
         Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => vec![Val::I32],
-        Ty::Str | Ty::Bytes | Ty::List(_) => vec![Val::I32, Val::I32],
+        Ty::Str | Ty::Bytes | Ty::List(_, _) => vec![Val::I32, Val::I32],
         Ty::Record { fields, .. } => {
             let mut out = Vec::new();
             for (_, field_ty) in fields {
@@ -156,7 +158,8 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
             out.extend(val_types(inner)?);
             out
         }
-        Ty::Error => return None,
+        Ty::Number | Ty::Datetime | Ty::Any | Ty::Matrix(_) | Ty::Pairs(_, _) => return None,
+        Ty::Var(_) | Ty::Error => return None,
     })
 }
 
@@ -212,14 +215,29 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
                 args.iter().for_each(|a| expr(a, used));
             }
             HExprKind::CallFn { args, .. } => args.iter().for_each(|a| expr(a, used)),
-            HExprKind::MakeRecord(items) | HExprKind::MakeList(items) => {
-                items.iter().for_each(|i| expr(i, used))
-            }
+            HExprKind::MakeRecord(items)
+            | HExprKind::MakeList(items)
+            | HExprKind::MakeMatrix(items) => items.iter().for_each(|i| expr(i, used)),
             HExprKind::Binary { lhs, rhs, .. } => {
                 expr(lhs, used);
                 expr(rhs, used);
             }
-            HExprKind::Unary { operand, .. } => expr(operand, used),
+            HExprKind::Unary { operand, .. }
+            | HExprKind::NonNone(operand)
+            | HExprKind::IsNone { operand, .. }
+            | HExprKind::IntToNumber(operand)
+            | HExprKind::WrapSome(operand) => expr(operand, used),
+            HExprKind::Index { recv, index, .. } => {
+                expr(recv, used);
+                expr(index, used);
+            }
+            HExprKind::StrInterp(segs) => {
+                for seg in segs {
+                    if let crate::hir::HInterpSeg::Expr(e) = seg {
+                        expr(e, used);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -237,6 +255,30 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
                 .chain(els)
                 .for_each(|s| collect_used_imports(s, used));
         }
+        HStmt::While { cond, body } => {
+            expr(cond, used);
+            body.iter().for_each(|s| collect_used_imports(s, used));
+        }
+        HStmt::Iterate {
+            source, step, body, ..
+        } => {
+            match source {
+                HIterSource::List(e) | HIterSource::Chars(e) | HIterSource::Rows(e) => {
+                    expr(e, used)
+                }
+                HIterSource::Range { from, to } => {
+                    expr(from, used);
+                    expr(to, used);
+                }
+            }
+            if let Some(step) = step {
+                expr(step, used);
+            }
+            body.iter().for_each(|s| collect_used_imports(s, used));
+        }
+        HStmt::Break { .. } | HStmt::Continue { .. } => {}
+        HStmt::Print { items, .. } => items.iter().for_each(|e| expr(e, used)),
+        HStmt::Assert { cond, .. } => expr(cond, used),
     }
 }
 
@@ -483,6 +525,23 @@ impl<'a> FnLowerer<'a> {
                     els: else_body,
                 });
             }
+            // The M4 frontier: the type checker accepts these; their core
+            // lowering arrives with later milestones (loops with the
+            // control-flow work, `print`/`assert` with the stdlib).
+            HStmt::While { cond, .. } => {
+                self.note(sink, "while loops", cond.span);
+            }
+            HStmt::Iterate { source, .. } => {
+                let span = match source {
+                    HIterSource::List(e) | HIterSource::Chars(e) | HIterSource::Rows(e) => e.span,
+                    HIterSource::Range { from, .. } => from.span,
+                };
+                self.note(sink, "iterate loops", span);
+            }
+            HStmt::Break { span } => self.note(sink, "break", *span),
+            HStmt::Continue { span } => self.note(sink, "continue", *span),
+            HStmt::Print { span, .. } => self.note(sink, "print: blocks", *span),
+            HStmt::Assert { span, .. } => self.note(sink, "assert statements", *span),
         }
     }
 
@@ -600,6 +659,22 @@ impl<'a> FnLowerer<'a> {
                     out.push(Inst::I64Bin(I64Op::Sub));
                 }
             },
+            // TYP-03: `T` into `T?` — discriminant 1, then the payload
+            // (val_types puts the discriminant first).
+            HExprKind::WrapSome(operand) => {
+                out.push(Inst::I32Const(1));
+                self.expr(operand, out, sink);
+            }
+            // The M4 frontier: typed, not yet lowerable to core wasm.
+            HExprKind::Num(_) => self.note(sink, "number values in compiled code", expr.span),
+            HExprKind::StrInterp(_) => self.note(sink, "string interpolation", expr.span),
+            HExprKind::MakeMatrix(_) => self.note(sink, "matrix values", expr.span),
+            HExprKind::Index { .. } => self.note(sink, "index access", expr.span),
+            HExprKind::NonNone(_) => self.note(sink, "postfix `!` assertion", expr.span),
+            HExprKind::IsNone { .. } => self.note(sink, "is-none checks", expr.span),
+            HExprKind::IntToNumber(_) => {
+                self.note(sink, "number values in compiled code", expr.span)
+            }
         }
     }
 
@@ -624,6 +699,27 @@ impl<'a> FnLowerer<'a> {
         sink: &mut DiagnosticSink,
     ) {
         use BinOp::*;
+        // Operand domains codegen cannot speak yet (M6: memory model and
+        // stdlib): report and emit nothing.
+        if matches!(expr.ty, Ty::Number)
+            || matches!(lhs.ty, Ty::Number)
+            || matches!(rhs.ty, Ty::Number)
+        {
+            self.note(sink, "number values in compiled code", expr.span);
+            return;
+        }
+        if lhs.ty == Ty::Str && matches!(op, Add) {
+            self.note(sink, "string concatenation", expr.span);
+            return;
+        }
+        if lhs.ty == Ty::Str && matches!(op, Eq | NEq) {
+            self.note(sink, "string equality", expr.span);
+            return;
+        }
+        if matches!(lhs.ty, Ty::Any | Ty::Matrix(_)) || matches!(rhs.ty, Ty::Any | Ty::Matrix(_)) {
+            self.note(sink, "this operand type in compiled code", expr.span);
+            return;
+        }
         match op {
             Default => {
                 // `opt default fb`: stack after lhs is [disc, payload…].

@@ -427,3 +427,8 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 4
+  library blocks @ spec/21-block-handlers/library_blocks.cln:1:1
+  library blocks @ spec/21-block-handlers/library_blocks.cln:8:1
+  compiletime functions @ spec/21-block-handlers/library_blocks.cln:12:1
+  handles block registrations @ spec/21-block-handlers/library_blocks.cln:16:1

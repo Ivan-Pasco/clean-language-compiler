@@ -227,3 +227,5 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 1
+  tests: sections @ spec/11-testing/three_forms.cln:2:2

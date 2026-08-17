@@ -99,3 +99,7 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 3
+  state: blocks @ spec/20-state-management/reset.cln:1:1
+  reset statements @ spec/20-state-management/reset.cln:6:3
+  reset statements @ spec/20-state-management/reset.cln:7:3

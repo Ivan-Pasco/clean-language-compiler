@@ -208,3 +208,5 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 1
+  import declarations @ spec/17-modules-and-imports/imports_and_public.cln:2:2

@@ -4,14 +4,261 @@ expression: rendered
 ---
 AST:
 [
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 12,
+                        end: 19,
+                    },
+                },
+                name: "risky",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Int {
+                                    value: 1,
+                                    span: ByteSpan {
+                                        start: 37,
+                                        end: 38,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 30,
+                                end: 39,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 12,
+                    end: 40,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 40,
+                        end: 46,
+                    },
+                },
+                name: "read",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: String_,
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 52,
+                                end: 58,
+                            },
+                        },
+                        name: "location",
+                        default: None,
+                        span: ByteSpan {
+                            start: 52,
+                            end: 67,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Str {
+                                    segments: [
+                                        Text(
+                                            "data",
+                                        ),
+                                    ],
+                                    span: ByteSpan {
+                                        start: 78,
+                                        end: 84,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 71,
+                                end: 85,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 40,
+                    end: 86,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 86,
+                        end: 90,
+                    },
+                },
+                name: "log",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: String_,
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 95,
+                                end: 101,
+                            },
+                        },
+                        name: "message",
+                        default: None,
+                        span: ByteSpan {
+                            start: 95,
+                            end: 109,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 113,
+                                end: 120,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 86,
+                    end: 121,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 121,
+                        end: 125,
+                    },
+                },
+                name: "cleanup",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 138,
+                                end: 145,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 121,
+                    end: 146,
+                },
+            },
+        ],
+    ),
     Start(
         [
+            VarDecl {
+                ty: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 154,
+                        end: 160,
+                    },
+                },
+                name: "path",
+                name_span: ByteSpan {
+                    start: 161,
+                    end: 165,
+                },
+                init: Some(
+                    Str {
+                        segments: [
+                            Text(
+                                "notes.txt",
+                            ),
+                        ],
+                        span: ByteSpan {
+                            start: 168,
+                            end: 179,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 154,
+                    end: 180,
+                },
+            },
             Expr {
                 expr: Call {
                     callee: ErrorRef {
                         span: ByteSpan {
-                            start: 8,
-                            end: 13,
+                            start: 181,
+                            end: 186,
                         },
                     },
                     args: [
@@ -22,14 +269,14 @@ AST:
                                 ),
                             ],
                             span: ByteSpan {
-                                start: 14,
-                                end: 32,
+                                start: 187,
+                                end: 205,
                             },
                         },
                     ],
                     span: ByteSpan {
-                        start: 8,
-                        end: 33,
+                        start: 181,
+                        end: 206,
                     },
                 },
                 on_error: None,
@@ -43,14 +290,14 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 35,
-                        end: 42,
+                        start: 208,
+                        end: 215,
                     },
                 },
                 name: "v",
                 name_span: ByteSpan {
-                    start: 43,
-                    end: 44,
+                    start: 216,
+                    end: 217,
                 },
                 init: Some(
                     OnError {
@@ -58,33 +305,33 @@ AST:
                             callee: Ident {
                                 name: "risky",
                                 span: ByteSpan {
-                                    start: 47,
-                                    end: 52,
+                                    start: 220,
+                                    end: 225,
                                 },
                             },
                             args: [],
                             span: ByteSpan {
-                                start: 47,
-                                end: 54,
+                                start: 220,
+                                end: 227,
                             },
                         },
                         fallback: Int {
                             value: 0,
                             span: ByteSpan {
-                                start: 63,
-                                end: 64,
+                                start: 236,
+                                end: 237,
                             },
                         },
                         span: ByteSpan {
-                            start: 47,
-                            end: 64,
+                            start: 220,
+                            end: 237,
                         },
                     },
                 ),
                 on_error: None,
                 span: ByteSpan {
-                    start: 35,
-                    end: 65,
+                    start: 208,
+                    end: 238,
                 },
             },
             VarDecl {
@@ -94,36 +341,36 @@ AST:
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
-                        start: 66,
-                        end: 72,
+                        start: 239,
+                        end: 245,
                     },
                 },
                 name: "content",
                 name_span: ByteSpan {
-                    start: 73,
-                    end: 80,
+                    start: 246,
+                    end: 253,
                 },
                 init: Some(
                     Call {
                         callee: Ident {
                             name: "read",
                             span: ByteSpan {
-                                start: 83,
-                                end: 87,
+                                start: 256,
+                                end: 260,
                             },
                         },
                         args: [
                             Ident {
                                 name: "path",
                                 span: ByteSpan {
-                                    start: 88,
-                                    end: 92,
+                                    start: 261,
+                                    end: 265,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 83,
-                            end: 93,
+                            start: 256,
+                            end: 266,
                         },
                     },
                 ),
@@ -134,28 +381,28 @@ AST:
                                 callee: Ident {
                                     name: "log",
                                     span: ByteSpan {
-                                        start: 105,
-                                        end: 108,
+                                        start: 278,
+                                        end: 281,
                                     },
                                 },
                                 args: [
                                     Member {
                                         receiver: ErrorRef {
                                             span: ByteSpan {
-                                                start: 109,
-                                                end: 114,
+                                                start: 282,
+                                                end: 287,
                                             },
                                         },
                                         name: "message",
                                         span: ByteSpan {
-                                            start: 109,
-                                            end: 122,
+                                            start: 282,
+                                            end: 295,
                                         },
                                     },
                                 ],
                                 span: ByteSpan {
-                                    start: 105,
-                                    end: 123,
+                                    start: 278,
+                                    end: 296,
                                 },
                             },
                             on_error: None,
@@ -163,15 +410,15 @@ AST:
                         Return {
                             value: None,
                             span: ByteSpan {
-                                start: 126,
-                                end: 133,
+                                start: 299,
+                                end: 306,
                             },
                         },
                     ],
                 ),
                 span: ByteSpan {
-                    start: 66,
-                    end: 134,
+                    start: 239,
+                    end: 307,
                 },
             },
             Expr {
@@ -179,14 +426,14 @@ AST:
                     callee: Ident {
                         name: "cleanup",
                         span: ByteSpan {
-                            start: 134,
-                            end: 141,
+                            start: 307,
+                            end: 314,
                         },
                     },
                     args: [],
                     span: ByteSpan {
-                        start: 134,
-                        end: 143,
+                        start: 307,
+                        end: 316,
                     },
                 },
                 on_error: Some(
@@ -196,8 +443,8 @@ AST:
                                 callee: Ident {
                                     name: "log",
                                     span: ByteSpan {
-                                        start: 155,
-                                        end: 158,
+                                        start: 328,
+                                        end: 331,
                                     },
                                 },
                                 args: [
@@ -206,14 +453,14 @@ AST:
                                         lhs: Member {
                                             receiver: ErrorRef {
                                                 span: ByteSpan {
-                                                    start: 159,
-                                                    end: 164,
+                                                    start: 332,
+                                                    end: 337,
                                                 },
                                             },
                                             name: "code",
                                             span: ByteSpan {
-                                                start: 159,
-                                                end: 169,
+                                                start: 332,
+                                                end: 342,
                                             },
                                         },
                                         rhs: Str {
@@ -223,19 +470,19 @@ AST:
                                                 ),
                                             ],
                                             span: ByteSpan {
-                                                start: 178,
-                                                end: 184,
+                                                start: 351,
+                                                end: 357,
                                             },
                                         },
                                         span: ByteSpan {
-                                            start: 159,
-                                            end: 184,
+                                            start: 332,
+                                            end: 357,
                                         },
                                     },
                                 ],
                                 span: ByteSpan {
-                                    start: 155,
-                                    end: 185,
+                                    start: 328,
+                                    end: 358,
                                 },
                             },
                             on_error: None,
@@ -247,3 +494,8 @@ AST:
     ),
 ]
 DIAGNOSTICS: 0
+UNSUPPORTED: 4
+  `error(...)` failure signals @ spec/13-error-handling/raise_and_handle.cln:13:2
+  `onError` fallback @ spec/13-error-handling/raise_and_handle.cln:14:14
+  `onError:` block handlers @ spec/13-error-handling/raise_and_handle.cln:15:2
+  `onError:` block handlers @ spec/13-error-handling/raise_and_handle.cln:18:2

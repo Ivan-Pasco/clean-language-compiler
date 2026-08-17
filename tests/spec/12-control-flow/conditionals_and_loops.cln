@@ -1,4 +1,8 @@
 start:
+	integer a = 2
+	integer count = 0
+	integer total = 0
+	list<integer> items = [1, 2, 3]
 	if a > 1
 		return
 	else if a == 0
