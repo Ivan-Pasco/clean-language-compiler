@@ -1,0 +1,7 @@
+error[CLASS001]: I cannot find a parent class named `Missing`
+ --> tests/cln/diagnostics/CLASS001.cln:1:16
+  |
+1 | class Child is Missing
+  |                ^^^^^^^ not a known class
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS001

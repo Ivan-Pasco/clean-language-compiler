@@ -35,10 +35,12 @@ pub fn check(
         resolved,
         world,
         class_records: Vec::new(),
+        classes: Vec::new(),
         host_imports: Vec::new(),
         function_sigs: Vec::new(),
     };
     checker.project_classes(sink);
+    checker.build_class_table(sink);
     checker.project_host_interfaces(sink);
     checker.collect_function_signatures(sink);
     let functions = checker.check_functions(sink);
@@ -52,6 +54,10 @@ struct FunctionSig {
     name: String,
     params: Vec<Local>,
     ret: Ty,
+    /// Whether the declaration carries `before:`/`after:` blocks — a
+    /// contract expression may not call such a function (CLASS009, 10
+    /// §6.3 rule 2).
+    has_contracts: bool,
 }
 
 struct Checker<'a> {
@@ -60,8 +66,41 @@ struct Checker<'a> {
     /// Projected record types (LBS-02 class↔record), parallel to
     /// `decls.classes`; name lookups go through the module scopes.
     class_records: Vec<Ty>,
+    /// Semantic class table (CLS-02/03), parallel to `decls.classes`.
+    classes: Vec<ClassInfo>,
     host_imports: Vec<HostImport>,
     function_sigs: Vec<FunctionSig>,
+}
+
+/// One method signature on a class or capability (CLS-03 arrow-return
+/// signatures and CLS-01 `functions:` methods share this shape).
+struct MethodSig {
+    name: String,
+    params: Vec<Ty>,
+    ret: Ty,
+    /// MOD-02/SEM005 method visibility — enforced in the M4 access-rules
+    /// stage; recorded here so the table needs no second AST walk.
+    #[allow(dead_code)]
+    public: bool,
+}
+
+/// The semantic reading of one class declaration: inheritance resolved
+/// (SEM006/SEM008/CLASS001), members deduplicated (CLASS002/CLASS003),
+/// capability claims recorded for SEM011-013 validation.
+struct ClassInfo {
+    name: String,
+    /// Index into `decls.classes`.
+    parent: Option<usize>,
+    /// Claimed capability indexes (own claims; parents' claims reachable
+    /// through `parent`).
+    caps: Vec<usize>,
+    /// Own fields, in declaration order: (name, type, public).
+    fields: Vec<(String, Ty, bool)>,
+    /// Own methods.
+    methods: Vec<MethodSig>,
+    /// Declared constructor parameter lists (empty = implicit
+    /// positional constructor over the fields, CLASS004 adoption).
+    ctors: Vec<Vec<Ty>>,
 }
 
 /// Which grammatical position a type expression sits in: host-function
@@ -80,6 +119,48 @@ impl<'a> Checker<'a> {
 
     // ----- projections -------------------------------------------------
 
+    /// Replaces nominal `Class` types by their boundary record
+    /// projection, recursively. A class not yet projected (forward
+    /// reference in a field type) reports SEM020, matching M1.
+    fn to_boundary_or_report(
+        &self,
+        ty: Ty,
+        file: usize,
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> Ty {
+        match ty {
+            Ty::Class { class, name } => match self.class_records.get(class) {
+                Some(record) => record.clone(),
+                None => {
+                    sink.push(build(
+                        Level::Error,
+                        codes::SEM020,
+                        format!("I cannot find a class named `{name}`"),
+                        self.span(file, span),
+                        Some("no class with this name is in scope".to_string()),
+                    ));
+                    Ty::Error
+                }
+            },
+            Ty::Option(inner) => Ty::Option(Box::new(
+                self.to_boundary_or_report(*inner, file, span, sink),
+            )),
+            Ty::List(inner, b) => Ty::List(
+                Box::new(self.to_boundary_or_report(*inner, file, span, sink)),
+                b,
+            ),
+            Ty::Matrix(inner) => Ty::Matrix(Box::new(
+                self.to_boundary_or_report(*inner, file, span, sink),
+            )),
+            Ty::Pairs(k, v) => Ty::Pairs(
+                Box::new(self.to_boundary_or_report(*k, file, span, sink)),
+                Box::new(self.to_boundary_or_report(*v, file, span, sink)),
+            ),
+            other => other,
+        }
+    }
+
     /// Looks a class name up through `file`'s module scope, yielding its
     /// projection only if it was already projected (declaration order —
     /// forward references stay SEM020, matching M1).
@@ -92,29 +173,13 @@ impl<'a> Checker<'a> {
         for i in 0..self.resolved.decls.classes.len() {
             let coords = self.resolved.decls.classes[i].coords;
             let (class, file) = self.resolved.class(coords);
-            // The LBS-02 record projection covers plain field bags; richer
-            // class features land in the M4 class stage.
-            if class.parent.is_some() || !class.capabilities.is_empty() {
-                sink.note_unsupported(
-                    "class inheritance and capability claims",
-                    self.span(file, class.span),
-                );
-            }
-            if class.always.is_some() {
-                sink.note_unsupported("always: invariants", self.span(file, class.span));
-            }
-            if !class.constructors.is_empty() || !class.functions.is_empty() {
-                sink.note_unsupported(
-                    "class constructors and methods",
-                    self.span(file, class.span),
-                );
-            }
             let mut fields = Vec::new();
             for field in &class.fields {
                 if field.init.is_some() {
                     sink.note_unsupported("field initialisers", self.span(file, field.span));
                 }
                 let ty = self.project_type(&field.ty, TyPos::Surface, file, sink);
+                let ty = self.to_boundary_or_report(ty, file, field.span, sink);
                 fields.push((kebab(&field.name), ty));
             }
             self.class_records.push(Ty::Record {
@@ -122,6 +187,281 @@ impl<'a> Checker<'a> {
                 fields,
             });
         }
+    }
+
+    /// Builds the semantic class table (CLS-02/CLS-03): parents resolved
+    /// through the declaring module's scope (CLASS001/SEM006), inheritance
+    /// cycles reported once (SEM008), duplicate members (CLASS002/003),
+    /// constructor-parameter shadowing (CLASS010), capability claims
+    /// validated against the capability's signatures (SEM011/012/013).
+    fn build_class_table(&mut self, sink: &mut DiagnosticSink) {
+        // Pass A: shape of every class without parents.
+        for i in 0..self.resolved.decls.classes.len() {
+            let coords = self.resolved.decls.classes[i].coords;
+            let (class, file) = self.resolved.class(coords);
+            let mut fields: Vec<(String, Ty, bool)> = Vec::new();
+            for field in &class.fields {
+                if fields.iter().any(|(n, _, _)| n == &field.name) {
+                    // CLASS002 (stub rule; local wording).
+                    sink.push(build(
+                        Level::Error,
+                        codes::CLASS002,
+                        format!(
+                            "class `{}` already has a field named `{}`",
+                            class.name, field.name
+                        ),
+                        self.span(file, field.span),
+                        Some("duplicate field".to_string()),
+                    ));
+                    continue;
+                }
+                let ty = self.project_type(&field.ty, TyPos::Surface, file, sink);
+                fields.push((field.name.clone(), ty, field.public));
+            }
+            let mut methods: Vec<MethodSig> = Vec::new();
+            for m in &class.functions {
+                if methods.iter().any(|s| s.name == m.name) {
+                    // CLASS003 (stub rule; local wording).
+                    sink.push(build(
+                        Level::Error,
+                        codes::CLASS003,
+                        format!(
+                            "class `{}` already has a method named `{}`",
+                            class.name, m.name
+                        ),
+                        self.span(file, m.span),
+                        Some("duplicate method".to_string()),
+                    ));
+                    continue;
+                }
+                let params = m
+                    .params
+                    .iter()
+                    .chain(&m.body.input)
+                    .map(|p| self.project_type(&p.ty, TyPos::Surface, file, sink))
+                    .collect();
+                let ret = self.project_type(&m.ret, TyPos::Surface, file, sink);
+                methods.push(MethodSig {
+                    name: m.name.clone(),
+                    params,
+                    ret,
+                    public: m.public,
+                });
+            }
+            let mut ctors: Vec<Vec<Ty>> = Vec::new();
+            for ctor in &class.constructors {
+                for p in &ctor.params {
+                    if fields.iter().any(|(n, _, _)| n == &p.name) {
+                        // CLASS010 — template from Platform 10 §6.
+                        sink.push(build(
+                            Level::Error,
+                            codes::CLASS010,
+                            format!(
+                                "Constructor parameter '{}' has the same name as a field",
+                                p.name
+                            ),
+                            self.span(file, p.span),
+                            Some("rename this parameter".to_string()),
+                        ));
+                    }
+                }
+                ctors.push(
+                    ctor.params
+                        .iter()
+                        .map(|p| self.project_type(&p.ty, TyPos::Surface, file, sink))
+                        .collect(),
+                );
+            }
+            self.classes.push(ClassInfo {
+                name: class.name.clone(),
+                parent: None,
+                caps: Vec::new(),
+                fields,
+                methods,
+                ctors,
+            });
+        }
+        // Pass B: parents, cycles, capability claims.
+        for i in 0..self.resolved.decls.classes.len() {
+            let coords = self.resolved.decls.classes[i].coords;
+            let (class, file) = self.resolved.class(coords);
+            if let Some((parent_name, parent_span)) = &class.parent {
+                match self.resolved.decls.modules[file].classes.get(parent_name) {
+                    Some(&p) => self.classes[i].parent = Some(p),
+                    None => {
+                        // CLASS001 (stub rule; local wording). A parent
+                        // that names a non-class type is SEM006 territory;
+                        // an unknown name is CLASS001.
+                        let code = if self.resolved.decls.modules[file]
+                            .capabilities
+                            .contains_key(parent_name)
+                        {
+                            codes::SEM006
+                        } else {
+                            codes::CLASS001
+                        };
+                        let message = if code == codes::SEM006 {
+                            format!(
+                                "`{parent_name}` is a capability, not a class — a class extends classes with `is` and claims capabilities with `can`"
+                            )
+                        } else {
+                            format!("I cannot find a parent class named `{parent_name}`")
+                        };
+                        sink.push(build(
+                            Level::Error,
+                            code,
+                            message,
+                            self.span(file, *parent_span),
+                            Some("not a known class".to_string()),
+                        ));
+                    }
+                }
+            }
+            let caps: Vec<usize> = class
+                .capabilities
+                .iter()
+                .filter_map(|(cap_name, cap_span)| {
+                    match self.resolved.decls.modules[file].capabilities.get(cap_name) {
+                        Some(&c) => Some(c),
+                        None => {
+                            // SEM012 (stub rule; local wording).
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM012,
+                                format!("I cannot find a capability named `{cap_name}`"),
+                                self.span(file, *cap_span),
+                                Some("no capability with this name is in scope".to_string()),
+                            ));
+                            None
+                        }
+                    }
+                })
+                .collect();
+            self.classes[i].caps = caps;
+        }
+        // Pass C: inheritance cycles (SEM008), one report per cycle.
+        let mut in_cycle = vec![false; self.classes.len()];
+        for i in 0..self.classes.len() {
+            let mut seen = vec![false; self.classes.len()];
+            let mut cursor = Some(i);
+            while let Some(c) = cursor {
+                if seen[c] {
+                    if c == i && !in_cycle[i] {
+                        let coords = self.resolved.decls.classes[i].coords;
+                        let (class, file) = self.resolved.class(coords);
+                        // SEM008 (stub rule; local wording).
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM008,
+                            format!("class `{}` inherits from itself", class.name),
+                            self.span(file, class.span),
+                            Some("inheritance cycle".to_string()),
+                        ));
+                        // Break the cycle so member walks terminate.
+                        let mut walk = i;
+                        loop {
+                            in_cycle[walk] = true;
+                            match self.classes[walk].parent {
+                                Some(p) if p != i => walk = p,
+                                _ => break,
+                            }
+                        }
+                        self.classes[i].parent = None;
+                    }
+                    break;
+                }
+                seen[c] = true;
+                cursor = self.classes[c].parent;
+            }
+        }
+        // Every capability declaration is signatures-only (CLS-03): a
+        // body under a signature is SEM014 whether or not the capability
+        // is ever claimed.
+        for cap_index in 0..self.resolved.decls.capabilities.len() {
+            let coords = self.resolved.decls.capabilities[cap_index].coords;
+            let (cap, cap_file) = self.resolved.capability(coords);
+            for sig in &cap.signatures {
+                if let Some(body_span) = sig.body_span {
+                    // SEM014 (stub rule; local wording).
+                    sink.push(build(
+                        Level::Error,
+                        codes::SEM014,
+                        format!(
+                            "capability method `{}` cannot have a body — capabilities are pure contracts",
+                            sig.name
+                        ),
+                        self.span(cap_file, body_span),
+                        Some("declare the signature only".to_string()),
+                    ));
+                }
+            }
+        }
+        // Pass D: capability claims satisfied (SEM011/SEM013).
+        for i in 0..self.classes.len() {
+            let caps = self.classes[i].caps.clone();
+            for cap_index in caps {
+                let coords = self.resolved.decls.capabilities[cap_index].coords;
+                let (cap, cap_file) = self.resolved.capability(coords);
+                for sig in &cap.signatures {
+                    let want_params: Vec<Ty> = sig
+                        .params
+                        .iter()
+                        .map(|p| self.project_type(&p.ty, TyPos::Surface, cap_file, sink))
+                        .collect();
+                    let want_ret = self.project_type(&sig.ret, TyPos::Surface, cap_file, sink);
+                    match self.find_method(i, &sig.name) {
+                        None => {
+                            let coords = self.resolved.decls.classes[i].coords;
+                            let (class, file) = self.resolved.class(coords);
+                            // SEM011 (stub rule; local wording).
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM011,
+                                format!(
+                                    "class `{}` claims `{}` but does not implement `{}`",
+                                    class.name, cap.name, sig.name
+                                ),
+                                self.span(file, class.span),
+                                Some("every declared capability method is required".to_string()),
+                            ));
+                        }
+                        Some((owner, m)) => {
+                            let have = &self.classes[owner].methods[m];
+                            // CLS-03 is nominal and exact: `string` is not
+                            // satisfied by `string?` (TYP-03).
+                            if have.params != want_params || have.ret != want_ret {
+                                let coords = self.resolved.decls.classes[i].coords;
+                                let (class, file) = self.resolved.class(coords);
+                                // SEM013 (stub rule; local wording).
+                                sink.push(build(
+                                    Level::Error,
+                                    codes::SEM013,
+                                    format!(
+                                        "`{}` does not match the signature `{}` declares for `{}`",
+                                        sig.name, cap.name, sig.name
+                                    ),
+                                    self.span(file, class.span),
+                                    Some("capability signatures match exactly".to_string()),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Finds a method by name on a class or its ancestors (CLS-02
+    /// inheritance walk; cycles were broken in the table build).
+    fn find_method(&self, class: usize, name: &str) -> Option<(usize, usize)> {
+        let mut cursor = Some(class);
+        while let Some(c) = cursor {
+            if let Some(m) = self.classes[c].methods.iter().position(|s| s.name == name) {
+                return Some((c, m));
+            }
+            cursor = self.classes[c].parent;
+        }
+        None
     }
 
     fn project_host_interfaces(&mut self, sink: &mut DiagnosticSink) {
@@ -170,6 +510,7 @@ impl<'a> Checker<'a> {
                 name: f.name.clone(),
                 params,
                 ret,
+                has_contracts: f.body.before.is_some() || f.body.after.is_some(),
             });
         }
     }
@@ -229,20 +570,53 @@ impl<'a> Checker<'a> {
             ast::BaseType::Datetime => Ty::Datetime,
             ast::BaseType::Any => Ty::Any,
             ast::BaseType::Void => Ty::Void,
-            ast::BaseType::Named(name) => match self.class_record(file, name) {
-                Some(record) => record.clone(),
-                None => {
-                    sink.push(build(
-                        Level::Error,
-                        codes::SEM020,
-                        format!("I cannot find a class named `{name}`"),
-                        self.span(file, ty.span),
-                        Some("no class with this name is in scope".to_string()),
-                    ));
-                    errored = true;
-                    Ty::Error
+            ast::BaseType::Named(name) => {
+                let class = self.resolved.decls.modules[file].classes.get(name).copied();
+                let cap = self.resolved.decls.modules[file]
+                    .capabilities
+                    .get(name)
+                    .copied();
+                match (pos, class, cap) {
+                    // Surface positions are nominal (CLS-02/03); the
+                    // structural record projection is boundary-only and
+                    // reapplied at finalize.
+                    (TyPos::Surface, Some(index), _) => Ty::Class {
+                        class: index,
+                        name: name.clone(),
+                    },
+                    // CLS-03: capability names are valid anywhere a type
+                    // is expected.
+                    (TyPos::Surface, None, Some(index)) => Ty::Cap {
+                        cap: index,
+                        name: name.clone(),
+                    },
+                    (TyPos::Host, Some(_), _) => match self.class_record(file, name) {
+                        Some(record) => record.clone(),
+                        None => {
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM020,
+                                format!("I cannot find a class named `{name}`"),
+                                self.span(file, ty.span),
+                                Some("no class with this name is in scope".to_string()),
+                            ));
+                            errored = true;
+                            Ty::Error
+                        }
+                    },
+                    _ => {
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM020,
+                            format!("I cannot find a class named `{name}`"),
+                            self.span(file, ty.span),
+                            Some("no class with this name is in scope".to_string()),
+                        ));
+                        errored = true;
+                        Ty::Error
+                    }
                 }
-            },
+            }
             ast::BaseType::List(element) => {
                 let elem = self.project_type(element, pos, file, sink);
                 let behavior = self.project_behaviors(&ty.behaviors, file, sink);
@@ -401,8 +775,20 @@ impl<'a> Checker<'a> {
             if f.background {
                 sink.note_unsupported("background functions", self.span(file, f.span));
             }
-            if f.body.before.is_some() || f.body.after.is_some() {
-                sink.note_unsupported("contract blocks", self.span(file, f.span));
+            // CLASS005 (stub rule; local wording): `after:` comes after
+            // the `before:` block. The parser accepts either order and
+            // records spans; intervening statements cannot parse (the
+            // contract prelude precedes the statement sequence).
+            if let (Some(b), Some(a)) = (&f.body.before, &f.body.after) {
+                if a.span.start < b.span.start {
+                    sink.push(build(
+                        Level::Error,
+                        codes::CLASS005,
+                        "'after:' must come after the 'before:' block".to_string(),
+                        self.span(file, a.span),
+                        Some("swap the contract blocks".to_string()),
+                    ));
+                }
             }
             let mut body_checker = BodyChecker {
                 outer: self,
@@ -414,21 +800,196 @@ impl<'a> Checker<'a> {
                 infcx: InferCtx::new(),
                 loop_depth: 0,
                 known_none: HashSet::new(),
+                in_contract: None,
+                this_class: None,
             };
+            let before = f
+                .body
+                .before
+                .as_ref()
+                .map(|b| body_checker.check_contract_block(b, ContractKind::Before, sink))
+                .unwrap_or_default();
+            let after = f
+                .body
+                .after
+                .as_ref()
+                .map(|a| body_checker.check_contract_block(a, ContractKind::After, sink))
+                .unwrap_or_default();
             let body = body_checker.check_block(&f.body.statements, sink);
             let mut function = TFunction {
                 name: sig.name.clone(),
                 params: sig.params.clone(),
                 ret: sig.ret.clone(),
                 locals: body_checker.locals,
+                before,
+                after,
                 body,
                 span: f.span,
                 file,
             };
             // No `Ty::Var` leaves pass [5]: collapse what stayed
             // unconstrained to `any` (TYP-02).
-            finalize_function(&mut body_checker.infcx, &mut function);
+            finalize_function(&mut body_checker.infcx, &self.class_records, &mut function);
             out.push(function);
+        }
+        // Class method, constructor, and `always:` bodies (CLS-01/02,
+        // CTR-03) — checked with `this` in scope; their TIR functions
+        // append after the callable space (not name-addressable).
+        for class_idx in 0..self.resolved.decls.classes.len() {
+            let coords = self.resolved.decls.classes[class_idx].coords;
+            let (class, file) = self.resolved.class(coords);
+            let class_name = class.name.clone();
+            for (m_idx, m) in class.functions.iter().enumerate() {
+                // The method table deduplicates (CLASS003), so index by
+                // name and check only the first occurrence of each.
+                if class.functions.iter().position(|f2| f2.name == m.name) != Some(m_idx) {
+                    continue;
+                }
+                let Some(sig_idx) = self.classes[class_idx]
+                    .methods
+                    .iter()
+                    .position(|s| s.name == m.name)
+                else {
+                    continue;
+                };
+                let (params, ret) = {
+                    let sig = &self.classes[class_idx].methods[sig_idx];
+                    (sig.params.clone(), sig.ret.clone())
+                };
+                let named_params: Vec<Local> = m
+                    .params
+                    .iter()
+                    .chain(&m.body.input)
+                    .zip(&params)
+                    .map(|(p, ty)| Local {
+                        name: p.name.clone(),
+                        ty: ty.clone(),
+                    })
+                    .collect();
+                let scope: IndexMap<String, LocalId> = named_params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| (p.name.clone(), i))
+                    .collect();
+                let mut body_checker = BodyChecker {
+                    outer: self,
+                    file,
+                    locals: named_params.clone(),
+                    scopes: vec![scope],
+                    ret: ret.clone(),
+                    fn_name: format!("{class_name}.{}", m.name),
+                    infcx: InferCtx::new(),
+                    loop_depth: 0,
+                    known_none: HashSet::new(),
+                    in_contract: None,
+                    this_class: Some(class_idx),
+                };
+                let before = m
+                    .body
+                    .before
+                    .as_ref()
+                    .map(|b| body_checker.check_contract_block(b, ContractKind::Before, sink))
+                    .unwrap_or_default();
+                let after = m
+                    .body
+                    .after
+                    .as_ref()
+                    .map(|a| body_checker.check_contract_block(a, ContractKind::After, sink))
+                    .unwrap_or_default();
+                let body = body_checker.check_block(&m.body.statements, sink);
+                let mut function = TFunction {
+                    name: format!("{class_name}.{}", m.name),
+                    params: named_params,
+                    ret,
+                    locals: body_checker.locals,
+                    before,
+                    after,
+                    body,
+                    span: m.span,
+                    file,
+                };
+                finalize_function(&mut body_checker.infcx, &self.class_records, &mut function);
+                out.push(function);
+            }
+            for (c_idx, ctor) in class.constructors.iter().enumerate() {
+                let params = self.classes[class_idx].ctors[c_idx].clone();
+                let named_params: Vec<Local> = ctor
+                    .params
+                    .iter()
+                    .zip(&params)
+                    .map(|(p, ty)| Local {
+                        name: p.name.clone(),
+                        ty: ty.clone(),
+                    })
+                    .collect();
+                let scope: IndexMap<String, LocalId> = named_params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| (p.name.clone(), i))
+                    .collect();
+                let mut body_checker = BodyChecker {
+                    outer: self,
+                    file,
+                    locals: named_params.clone(),
+                    scopes: vec![scope],
+                    ret: Ty::Void,
+                    fn_name: format!("{class_name}.constructor"),
+                    infcx: InferCtx::new(),
+                    loop_depth: 0,
+                    known_none: HashSet::new(),
+                    in_contract: None,
+                    this_class: Some(class_idx),
+                };
+                let body = body_checker.check_block(&ctor.body, sink);
+                let mut function = TFunction {
+                    name: format!("{class_name}.constructor"),
+                    params: named_params,
+                    ret: Ty::Void,
+                    locals: body_checker.locals,
+                    before: Vec::new(),
+                    after: Vec::new(),
+                    body,
+                    span: ctor.span,
+                    file,
+                };
+                finalize_function(&mut body_checker.infcx, &self.class_records, &mut function);
+                out.push(function);
+            }
+            if let Some(always) = &class.always {
+                let mut body_checker = BodyChecker {
+                    outer: self,
+                    file,
+                    locals: Vec::new(),
+                    scopes: vec![IndexMap::new()],
+                    ret: Ty::Void,
+                    fn_name: format!("{class_name}.always"),
+                    infcx: InferCtx::new(),
+                    loop_depth: 0,
+                    known_none: HashSet::new(),
+                    in_contract: None,
+                    this_class: Some(class_idx),
+                };
+                body_checker.in_contract = Some(ContractKind::Before);
+                for expr in &always.exprs {
+                    let value = body_checker.check_expr(expr, Some(&Ty::Boolean), sink);
+                    let resolved = body_checker.infcx.resolve(&value.ty);
+                    if !matches!(resolved, Ty::Boolean | Ty::Error | Ty::Any) {
+                        // CLASS006 (stub rule; local wording): every
+                        // expression in `always:` must be boolean.
+                        sink.push(build(
+                            Level::Error,
+                            codes::CLASS006,
+                            format!(
+                                "every expression in `always:` must be boolean, found `{}`",
+                                resolved.display()
+                            ),
+                            body_checker.diag_span(expr.span()),
+                            Some("class invariants are boolean".to_string()),
+                        ));
+                    }
+                    body_checker.check_purity(&value, sink);
+                }
+            }
         }
         // `start:` blocks (FNC-01) check as parameterless void bodies.
         // They are not callable by name, so appending them after the
@@ -449,6 +1010,8 @@ impl<'a> Checker<'a> {
                 infcx: InferCtx::new(),
                 loop_depth: 0,
                 known_none: HashSet::new(),
+                in_contract: None,
+                this_class: None,
             };
             let body = body_checker.check_block(block, sink);
             let mut function = TFunction {
@@ -456,11 +1019,13 @@ impl<'a> Checker<'a> {
                 params: Vec::new(),
                 ret: Ty::Void,
                 locals: body_checker.locals,
+                before: Vec::new(),
+                after: Vec::new(),
                 body,
                 span,
                 file,
             };
-            finalize_function(&mut body_checker.infcx, &mut function);
+            finalize_function(&mut body_checker.infcx, &self.class_records, &mut function);
             out.push(function);
         }
         out
@@ -489,101 +1054,140 @@ fn stmt_span(stmt: &ast::Stmt) -> ByteSpan {
     }
 }
 
-/// Deep-resolves every type in the function through the inference table.
-fn finalize_function(infcx: &mut InferCtx, f: &mut TFunction) {
-    for local in &mut f.locals {
-        local.ty = infcx.finalize(&local.ty);
-    }
-    f.ret = infcx.finalize(&f.ret);
-    for stmt in &mut f.body {
-        finalize_stmt(infcx, stmt);
+/// Deep-resolves every type in the function through the inference table,
+/// then demotes nominal `Class` types to their boundary record projection
+/// (LBS-02) so later passes see the M1 structural shapes. `Cap` survives
+/// (no lowering yet).
+fn demote_classes(ty: Ty, class_records: &[Ty]) -> Ty {
+    match ty {
+        Ty::Class { class, .. } => class_records.get(class).cloned().unwrap_or(Ty::Error),
+        Ty::Option(inner) => Ty::Option(Box::new(demote_classes(*inner, class_records))),
+        Ty::List(inner, b) => Ty::List(Box::new(demote_classes(*inner, class_records)), b),
+        Ty::Matrix(inner) => Ty::Matrix(Box::new(demote_classes(*inner, class_records))),
+        Ty::Pairs(k, v) => Ty::Pairs(
+            Box::new(demote_classes(*k, class_records)),
+            Box::new(demote_classes(*v, class_records)),
+        ),
+        other => other,
     }
 }
 
-fn finalize_stmt(infcx: &mut InferCtx, stmt: &mut TStmt) {
+/// Deep-resolves every type in the function through the inference table.
+fn finalize_function(infcx: &mut InferCtx, class_records: &[Ty], f: &mut TFunction) {
+    for local in &mut f.locals {
+        local.ty = demote_classes(infcx.finalize(&local.ty), class_records);
+    }
+    f.ret = demote_classes(infcx.finalize(&f.ret), class_records);
+    for expr in f.before.iter_mut().chain(f.after.iter_mut()) {
+        finalize_expr(infcx, class_records, expr);
+    }
+    for stmt in &mut f.body {
+        finalize_stmt(infcx, class_records, stmt);
+    }
+}
+
+fn finalize_stmt(infcx: &mut InferCtx, class_records: &[Ty], stmt: &mut TStmt) {
     match stmt {
         TStmt::Let { init, .. } => {
             if let Some(init) = init {
-                finalize_expr(infcx, init);
+                finalize_expr(infcx, class_records, init);
             }
         }
-        TStmt::Assign { value, .. } => finalize_expr(infcx, value),
+        TStmt::Assign { value, .. } => finalize_expr(infcx, class_records, value),
         TStmt::Return { value, .. } => {
             if let Some(value) = value {
-                finalize_expr(infcx, value);
+                finalize_expr(infcx, class_records, value);
             }
         }
-        TStmt::Expr(expr) => finalize_expr(infcx, expr),
+        TStmt::Expr(expr) => finalize_expr(infcx, class_records, expr),
         TStmt::If {
             cond,
             then,
             else_ifs,
             els,
         } => {
-            finalize_expr(infcx, cond);
-            then.iter_mut().for_each(|s| finalize_stmt(infcx, s));
+            finalize_expr(infcx, class_records, cond);
+            then.iter_mut()
+                .for_each(|s| finalize_stmt(infcx, class_records, s));
             for (c, b) in else_ifs {
-                finalize_expr(infcx, c);
-                b.iter_mut().for_each(|s| finalize_stmt(infcx, s));
+                finalize_expr(infcx, class_records, c);
+                b.iter_mut()
+                    .for_each(|s| finalize_stmt(infcx, class_records, s));
             }
             if let Some(els) = els {
-                els.iter_mut().for_each(|s| finalize_stmt(infcx, s));
+                els.iter_mut()
+                    .for_each(|s| finalize_stmt(infcx, class_records, s));
             }
         }
         TStmt::While { cond, body } => {
-            finalize_expr(infcx, cond);
-            body.iter_mut().for_each(|s| finalize_stmt(infcx, s));
+            finalize_expr(infcx, class_records, cond);
+            body.iter_mut()
+                .for_each(|s| finalize_stmt(infcx, class_records, s));
         }
         TStmt::Iterate {
             source, step, body, ..
         } => {
             match source {
                 TIterSource::List(e) | TIterSource::Chars(e) | TIterSource::Rows(e) => {
-                    finalize_expr(infcx, e)
+                    finalize_expr(infcx, class_records, e)
                 }
                 TIterSource::Range { from, to } => {
-                    finalize_expr(infcx, from);
-                    finalize_expr(infcx, to);
+                    finalize_expr(infcx, class_records, from);
+                    finalize_expr(infcx, class_records, to);
                 }
             }
             if let Some(step) = step {
-                finalize_expr(infcx, step);
+                finalize_expr(infcx, class_records, step);
             }
-            body.iter_mut().for_each(|s| finalize_stmt(infcx, s));
+            body.iter_mut()
+                .for_each(|s| finalize_stmt(infcx, class_records, s));
         }
         TStmt::Break { .. } | TStmt::Continue { .. } => {}
-        TStmt::Print { items, .. } => items.iter_mut().for_each(|e| finalize_expr(infcx, e)),
-        TStmt::Assert { cond, .. } => finalize_expr(infcx, cond),
+        TStmt::Print { items, .. } => items
+            .iter_mut()
+            .for_each(|e| finalize_expr(infcx, class_records, e)),
+        TStmt::Assert { cond, .. } => finalize_expr(infcx, class_records, cond),
     }
 }
 
-fn finalize_expr(infcx: &mut InferCtx, expr: &mut TExpr) {
-    expr.ty = infcx.finalize(&expr.ty);
+fn finalize_expr(infcx: &mut InferCtx, class_records: &[Ty], expr: &mut TExpr) {
+    expr.ty = demote_classes(infcx.finalize(&expr.ty), class_records);
     match &mut expr.kind {
         TExprKind::MakeRecord(items)
         | TExprKind::MakeList(items)
         | TExprKind::MakeMatrix(items)
         | TExprKind::CallHost { args: items, .. }
-        | TExprKind::CallFn { args: items, .. } => {
-            items.iter_mut().for_each(|e| finalize_expr(infcx, e))
-        }
+        | TExprKind::CallFn { args: items, .. } => items
+            .iter_mut()
+            .for_each(|e| finalize_expr(infcx, class_records, e)),
         TExprKind::Binary { lhs, rhs, .. } => {
-            finalize_expr(infcx, lhs);
-            finalize_expr(infcx, rhs);
+            finalize_expr(infcx, class_records, lhs);
+            finalize_expr(infcx, class_records, rhs);
         }
         TExprKind::Unary { operand, .. }
         | TExprKind::NonNone(operand)
         | TExprKind::IsNone { operand, .. }
         | TExprKind::IntToNumber(operand)
-        | TExprKind::WrapSome(operand) => finalize_expr(infcx, operand),
+        | TExprKind::WrapSome(operand)
+        | TExprKind::Convert(operand)
+        | TExprKind::GetField { recv: operand, .. } => finalize_expr(infcx, class_records, operand),
+        TExprKind::CallMethod { recv, args, .. } | TExprKind::CallDyn { recv, args, .. } => {
+            finalize_expr(infcx, class_records, recv);
+            args.iter_mut()
+                .for_each(|a| finalize_expr(infcx, class_records, a));
+        }
+        TExprKind::CallStatic { args, .. } | TExprKind::CallCtor { args, .. } => {
+            args.iter_mut()
+                .for_each(|a| finalize_expr(infcx, class_records, a));
+        }
         TExprKind::Index { recv, index, .. } => {
-            finalize_expr(infcx, recv);
-            finalize_expr(infcx, index);
+            finalize_expr(infcx, class_records, recv);
+            finalize_expr(infcx, class_records, index);
         }
         TExprKind::StrInterp(segs) => {
             for seg in segs {
                 if let TInterpSeg::Expr(e) = seg {
-                    finalize_expr(infcx, e);
+                    finalize_expr(infcx, class_records, e);
                 }
             }
         }
@@ -594,6 +1198,8 @@ fn finalize_expr(infcx: &mut InferCtx, expr: &mut TExpr) {
         | TExprKind::NoneLit
         | TExprKind::EnumCase(_)
         | TExprKind::Local(_)
+        | TExprKind::ResultRef
+        | TExprKind::This
         | TExprKind::Error => {}
     }
 }
@@ -616,6 +1222,18 @@ struct BodyChecker<'c, 'a> {
     /// tracking; any control-flow join clears it) — the IDX005 analysis.
     /// Never iterated, so ordering cannot leak into output (CMP-02).
     known_none: HashSet<LocalId>,
+    /// Some while checking a contract expression: gates `result` (only
+    /// in `after:`, CLASS008) and purity (CLASS009).
+    in_contract: Option<ContractKind>,
+    /// Some while checking a class method, constructor, or `always:`
+    /// body: `this` is typed, fields resolve bare (CLS-02).
+    this_class: Option<usize>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ContractKind {
+    Before,
+    After,
 }
 
 impl<'c, 'a> BodyChecker<'c, 'a> {
@@ -648,10 +1266,91 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
 
     // ----- coercion ------------------------------------------------------
 
+    /// Nominal assignability (CLS-02 inheritance, CLS-03 capability
+    /// claims, class→record at the boundary) layered over the structural
+    /// `InferCtx::fit`.
+    fn fit(&mut self, from: &Ty, to: &Ty) -> Fit {
+        let from_r = self.infcx.resolve(from);
+        let to_r = self.infcx.resolve(to);
+        match (&from_r, &to_r) {
+            (Ty::Error, _) | (_, Ty::Error) | (Ty::Any, _) | (_, Ty::Any) => Fit::Exact,
+            (Ty::Class { class: a, .. }, Ty::Class { class: b, .. }) => {
+                if self.is_ancestor_or_self(*a, *b) {
+                    Fit::Exact
+                } else {
+                    Fit::No
+                }
+            }
+            (Ty::Class { class, .. }, Ty::Cap { cap, .. }) => {
+                if self.class_claims(*class, *cap) {
+                    Fit::Exact
+                } else {
+                    Fit::No
+                }
+            }
+            (Ty::Cap { cap: a, .. }, Ty::Cap { cap: b, .. }) => {
+                if a == b {
+                    Fit::Exact
+                } else {
+                    Fit::No
+                }
+            }
+            // A class value crossing into a boundary record slot: same
+            // runtime shape when the projections agree (LBS-02).
+            (Ty::Class { class, .. }, Ty::Record { .. }) => {
+                let record = self
+                    .outer
+                    .class_records
+                    .get(*class)
+                    .cloned()
+                    .unwrap_or(Ty::Error);
+                if self.infcx.unify(&record, &to_r) {
+                    Fit::Exact
+                } else {
+                    Fit::No
+                }
+            }
+            (Ty::Class { .. } | Ty::Cap { .. }, Ty::Option(inner)) => {
+                let inner = inner.as_ref().clone();
+                match self.fit(&from_r, &inner) {
+                    Fit::Exact => Fit::Wrap { promote: false },
+                    _ => Fit::No,
+                }
+            }
+            _ => self.infcx.fit(from, to),
+        }
+    }
+
+    /// Walks `from` up its parent chain looking for `to` (CLS-02).
+    fn is_ancestor_or_self(&self, from: usize, to: usize) -> bool {
+        let mut cursor = Some(from);
+        while let Some(c) = cursor {
+            if c == to {
+                return true;
+            }
+            cursor = self.outer.classes[c].parent;
+        }
+        false
+    }
+
+    /// A class satisfies a capability it (or any ancestor) claims
+    /// (CLS-03: claims are inherited).
+    fn class_claims(&self, class: usize, cap: usize) -> bool {
+        let mut cursor = Some(class);
+        while let Some(c) = cursor {
+            if self.outer.classes[c].caps.contains(&cap) {
+                return true;
+            }
+            cursor = self.outer.classes[c].parent;
+        }
+        false
+    }
+
     /// Applies the `fit` verdict, materialising promotions and option
     /// wraps. `Err` returns the original value: the caller reports.
+    #[allow(clippy::result_large_err)]
     fn coerce(&mut self, value: TExpr, to: &Ty) -> Result<TExpr, TExpr> {
-        match self.infcx.fit(&value.ty, to) {
+        match self.fit(&value.ty, to) {
             Fit::Exact => Ok(value),
             Fit::Promote => Ok(promote(value)),
             Fit::Wrap { promote: p } => {
@@ -701,6 +1400,93 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 self.push_rich(sink, d);
                 error_expr(value.span)
             }
+        }
+    }
+
+    // ----- contracts (chapter 10) ---------------------------------------
+
+    /// Checks one `before:`/`after:` block: each line a boolean
+    /// expression (SEM023 wording — chapter 10 registers no dedicated
+    /// code for a non-boolean contract line; see DISCOVERIES-M4), pure
+    /// (CLASS009), a fresh body for FLW-03 purposes.
+    fn check_contract_block(
+        &mut self,
+        block: &ast::ContractBlock,
+        kind: ContractKind,
+        sink: &mut DiagnosticSink,
+    ) -> Vec<TExpr> {
+        let saved_depth = self.loop_depth;
+        self.loop_depth = 0;
+        self.in_contract = Some(kind);
+        let out: Vec<TExpr> = block
+            .exprs
+            .iter()
+            .map(|expr| {
+                let value = self.check_condition(expr, sink);
+                self.check_purity(&value, sink);
+                value
+            })
+            .collect();
+        self.in_contract = None;
+        self.loop_depth = saved_depth;
+        out
+    }
+
+    /// CLASS009 — template from Platform 10 §6: contract expressions
+    /// cannot perform I/O or call a function that itself carries
+    /// contracts. (Assignments cannot appear: contract lines are
+    /// expressions.)
+    fn check_purity(&mut self, expr: &TExpr, sink: &mut DiagnosticSink) {
+        let operation: Option<String> = match &expr.kind {
+            TExprKind::CallHost { import, .. } => {
+                Some(self.outer.host_imports[*import].clean_name.clone())
+            }
+            TExprKind::CallFn { func, .. } => {
+                let sig = &self.outer.function_sigs[*func];
+                sig.has_contracts.then(|| sig.name.clone())
+            }
+            _ => None,
+        };
+        if let Some(operation) = operation {
+            sink.push(build(
+                Level::Error,
+                codes::CLASS009,
+                format!("Contract expression must be pure: '{operation}' is not allowed here"),
+                self.diag_span(expr.span),
+                Some("contract expressions cannot have effects".to_string()),
+            ));
+        }
+        match &expr.kind {
+            TExprKind::MakeRecord(items)
+            | TExprKind::MakeList(items)
+            | TExprKind::MakeMatrix(items)
+            | TExprKind::CallHost { args: items, .. }
+            | TExprKind::CallFn { args: items, .. } => {
+                for item in items {
+                    self.check_purity(item, sink);
+                }
+            }
+            TExprKind::Binary { lhs, rhs, .. } => {
+                self.check_purity(lhs, sink);
+                self.check_purity(rhs, sink);
+            }
+            TExprKind::Unary { operand, .. }
+            | TExprKind::NonNone(operand)
+            | TExprKind::IsNone { operand, .. }
+            | TExprKind::IntToNumber(operand)
+            | TExprKind::WrapSome(operand) => self.check_purity(operand, sink),
+            TExprKind::Index { recv, index, .. } => {
+                self.check_purity(recv, sink);
+                self.check_purity(index, sink);
+            }
+            TExprKind::StrInterp(segs) => {
+                for seg in segs {
+                    if let TInterpSeg::Expr(e) = seg {
+                        self.check_purity(e, sink);
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
@@ -793,6 +1579,27 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         span: name_span,
                     } => {
                         let Some(local) = self.lookup(name) else {
+                            // A bare field name inside a class body is a
+                            // legal assignment target (CLS-02); its
+                            // lowering is M6.
+                            if let Some(this_class) = self.this_class {
+                                let mut cursor = Some(this_class);
+                                while let Some(c) = cursor {
+                                    if self.outer.classes[c]
+                                        .fields
+                                        .iter()
+                                        .any(|(n, _, _)| n == name)
+                                    {
+                                        self.check_expr(value, None, sink);
+                                        sink.note_unsupported(
+                                            "field assignment",
+                                            self.diag_span(*name_span),
+                                        );
+                                        return None;
+                                    }
+                                    cursor = self.outer.classes[c].parent;
+                                }
+                            }
                             sink.push(build(
                                 Level::Error,
                                 codes::SEM002,
@@ -1162,6 +1969,38 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     kind: TExprKind::Local(local),
                 },
                 None => {
+                    // CLS-02 implicit context: a bare name inside a class
+                    // body reaches the instance fields.
+                    if let Some(this_class) = self.this_class {
+                        let mut cursor = Some(this_class);
+                        while let Some(c) = cursor {
+                            if let Some(field) = self.outer.classes[c]
+                                .fields
+                                .iter()
+                                .position(|(n, _, _)| n == name)
+                            {
+                                let ty = self.outer.classes[c].fields[field].1.clone();
+                                let this = TExpr {
+                                    ty: Ty::Class {
+                                        class: this_class,
+                                        name: self.outer.classes[this_class].name.clone(),
+                                    },
+                                    span,
+                                    kind: TExprKind::This,
+                                };
+                                return TExpr {
+                                    ty,
+                                    span,
+                                    kind: TExprKind::GetField {
+                                        class: c,
+                                        field,
+                                        recv: Box::new(this),
+                                    },
+                                };
+                            }
+                            cursor = self.outer.classes[c].parent;
+                        }
+                    }
                     let is_callable = self.module_scope().functions.contains_key(name)
                         || self
                             .outer
@@ -1217,20 +2056,39 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     kind: TExprKind::NonNone(Box::new(operand)),
                 }
             }
-            ast::Expr::Member { .. } => {
-                sink.note_unsupported("member access", self.diag_span(span));
-                error_expr(span)
-            }
+            ast::Expr::Member {
+                receiver,
+                name,
+                span: member_span,
+            } => self.check_member(receiver, name, *member_span, span, sink),
             ast::Expr::OnError { .. } => {
                 sink.note_unsupported("`onError` fallback", self.diag_span(span));
                 error_expr(span)
             }
-            ast::Expr::This { .. } => {
-                sink.note_unsupported("`this`", self.diag_span(span));
-                error_expr(span)
-            }
+            ast::Expr::This { .. } => match self.this_class {
+                Some(class) => TExpr {
+                    ty: Ty::Class {
+                        class,
+                        name: self.outer.classes[class].name.clone(),
+                    },
+                    span,
+                    kind: TExprKind::This,
+                },
+                None => {
+                    // SEM004 (stub rule; local wording): `this` outside a
+                    // class body.
+                    sink.push(build(
+                        Level::Error,
+                        codes::SEM004,
+                        "`this` is only available inside a class body".to_string(),
+                        self.diag_span(span),
+                        None,
+                    ));
+                    error_expr(span)
+                }
+            },
             ast::Expr::Base { .. } => {
-                sink.note_unsupported("`base`", self.diag_span(span));
+                sink.note_unsupported("`base` constructor calls", self.diag_span(span));
                 error_expr(span)
             }
             ast::Expr::ErrorRef { .. } => {
@@ -1238,8 +2096,25 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 error_expr(span)
             }
             ast::Expr::ResultRef { .. } => {
-                sink.note_unsupported("`result` in contracts", self.diag_span(span));
-                error_expr(span)
+                // CTR-02: `result` is the return value, in scope only
+                // inside an `after:` expression.
+                if self.in_contract == Some(ContractKind::After) {
+                    TExpr {
+                        ty: self.ret.clone(),
+                        span,
+                        kind: TExprKind::ResultRef,
+                    }
+                } else {
+                    // CLASS008 — template from Platform 10 §6.
+                    sink.push(build(
+                        Level::Error,
+                        codes::CLASS008,
+                        "'result' is only in scope inside an 'after:' expression".to_string(),
+                        self.diag_span(span),
+                        Some("'result' is not in scope here".to_string()),
+                    ));
+                    error_expr(span)
+                }
             }
             ast::Expr::Unary {
                 op: ast::UnOp::Not,
@@ -1571,7 +2446,8 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 (IndexKind::Matrix, Ty::list((**elem).clone()))
             }
             Ty::Pairs(key, value) => {
-                if self.infcx.fit(&index_t.ty, key) == Fit::No {
+                let key_ty = (**key).clone();
+                if self.fit(&index_t.ty, &key_ty) == Fit::No {
                     // IDX003 (stub rule; local wording). `K` is a free
                     // type parameter (TYP-02).
                     sink.push(build(
@@ -1644,9 +2520,18 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             span: callee_span,
         } = callee
         else {
-            // ERH-01's `error(message)` failure signal has its own frontier
-            // note; every other non-identifier callee is a method-style
-            // call (chapter 16).
+            // Chapter 16: `recv.op(args)` — method style and namespace
+            // style are one syntactic shape; the receiver decides.
+            if let ast::Expr::Member {
+                receiver,
+                name: method,
+                span: member_span,
+            } = callee
+            {
+                return self.check_dot_call(receiver, method, *member_span, args, span, sink);
+            }
+            // ERH-01's `error(message)` failure signal has its own
+            // frontier note (typed in the M4 error-handling stage).
             let construct = if matches!(callee, ast::Expr::ErrorRef { .. }) {
                 "`error(...)` failure signals"
             } else {
@@ -1655,6 +2540,26 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             sink.note_unsupported(construct, self.diag_span(callee.span()));
             return error_expr(span);
         };
+
+        // CLASS011 — template from Platform 10 §6: a capability name in
+        // constructor position.
+        if self
+            .module_scope()
+            .capabilities
+            .get(name)
+            .copied()
+            .is_some()
+            && self.lookup(name).is_none()
+        {
+            sink.push(build(
+                Level::Error,
+                codes::CLASS011,
+                format!("'{name}' is a capability and cannot be instantiated"),
+                self.diag_span(*callee_span),
+                Some("capabilities have no bodies".to_string()),
+            ));
+            return error_expr(span);
+        }
 
         // A local variable is not callable (FUNC003).
         if self.lookup(name).is_some() {
@@ -1707,13 +2612,14 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             };
         }
 
-        // Class constructor? (`Options(false)` — ADR-0002 §3.)
-        if let Some(record) = self.outer.class_record(self.file, name).cloned() {
-            let Ty::Record { fields, .. } = &record else {
-                unreachable!("class projections are records")
+        // Class instantiation? (`Options(false)` — CLS-02/CLASS004.)
+        if let Some(&class_idx) = self.module_scope().classes.get(name) {
+            let instance = Ty::Class {
+                class: class_idx,
+                name: name.clone(),
             };
             if let Some(expected_record @ Ty::Record { .. }) = expected {
-                if self.infcx.fit(&record, expected_record) == Fit::No {
+                if self.fit(&instance, expected_record) == Fit::No {
                     let d = build(
                         Level::Error,
                         codes::SEM016,
@@ -1727,12 +2633,51 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     self.push_rich(sink, d);
                 }
             }
-            let params: Vec<Ty> = fields.iter().map(|(_, t)| t.clone()).collect();
+            let ctors = self.outer.classes[class_idx].ctors.clone();
+            if ctors.is_empty() {
+                // CLASS004's implicit constructor: positional over the
+                // boundary record fields (M1 shape preserved).
+                let record = self
+                    .outer
+                    .class_records
+                    .get(class_idx)
+                    .cloned()
+                    .unwrap_or(Ty::Error);
+                let params: Vec<Ty> = match &record {
+                    Ty::Record { fields, .. } => fields.iter().map(|(_, t)| t.clone()).collect(),
+                    _ => Vec::new(),
+                };
+                let args = self.check_args(name, &params, args, span, false, sink);
+                return TExpr {
+                    ty: instance,
+                    span,
+                    kind: TExprKind::MakeRecord(args),
+                };
+            }
+            let Some(ctor) = ctors.iter().position(|c| c.len() == args.len()) else {
+                // CLASS004 (stub rule; local wording).
+                sink.push(build(
+                    Level::Error,
+                    codes::CLASS004,
+                    format!(
+                        "no constructor of `{name}` takes {} argument(s)",
+                        args.len()
+                    ),
+                    self.diag_span(span),
+                    Some("no matching constructor".to_string()),
+                ));
+                return error_expr(span);
+            };
+            let params = ctors[ctor].clone();
             let args = self.check_args(name, &params, args, span, false, sink);
             return TExpr {
-                ty: record,
+                ty: instance,
                 span,
-                kind: TExprKind::MakeRecord(args),
+                kind: TExprKind::CallCtor {
+                    class: class_idx,
+                    ctor,
+                    args,
+                },
             };
         }
 
@@ -1745,6 +2690,402 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             Some("no function with this name is in scope".to_string()),
         ));
         error_expr(span)
+    }
+
+    /// One `recv.op(args)` call (chapter 16): the LHS being a value picks
+    /// method dispatch; a class name picks static dispatch; a module name
+    /// or alias picks a namespace function; a standalone function name is
+    /// FUNC012; anything unresolvable module-shaped is SEM021.
+    fn check_dot_call(
+        &mut self,
+        receiver: &ast::Expr,
+        method: &str,
+        member_span: ByteSpan,
+        args: &[ast::Expr],
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        if let ast::Expr::Ident {
+            name,
+            span: recv_span,
+        } = receiver
+        {
+            if self.lookup(name).is_none() {
+                // Not a local value: class, module, builtin, or function?
+                if let Some(&class) = self.module_scope().classes.get(name) {
+                    return self.check_static_call(class, method, member_span, args, span, sink);
+                }
+                if let Some(&target) = self.module_scope().module_aliases.get(name) {
+                    return self.check_namespace_call(
+                        target,
+                        method,
+                        member_span,
+                        args,
+                        span,
+                        sink,
+                    );
+                }
+                if crate::resolver::BUILTIN_MODULES.contains(&name.as_str()) {
+                    sink.note_unsupported("standard-library calls", self.diag_span(span));
+                    return error_expr(span);
+                }
+                if self.module_scope().functions.contains_key(name)
+                    || self
+                        .outer
+                        .host_imports
+                        .iter()
+                        .any(|h| h.clean_name == *name)
+                {
+                    // FUNC012 (stub rule; local wording): dot-notation on
+                    // a symbol that is a standalone function.
+                    sink.push(build(
+                        Level::Error,
+                        codes::FUNC012,
+                        format!("`{name}` is a function, not a value or module — call it directly"),
+                        self.diag_span(*recv_span),
+                        Some("no method call on a standalone function".to_string()),
+                    ));
+                    return error_expr(span);
+                }
+                // SEM021 — template from Platform 10 §3.
+                sink.push(build(
+                    Level::Error,
+                    codes::SEM021,
+                    format!("I cannot resolve the module `{name}`"),
+                    self.diag_span(*recv_span),
+                    Some("no source or library provides this module".to_string()),
+                ));
+                return error_expr(span);
+            }
+        }
+        // The receiver is a value: dispatch on its type.
+        let recv = self.check_expr(receiver, None, sink);
+        let resolved = self.infcx.resolve(&recv.ty);
+        match resolved {
+            Ty::Class { class, .. } => {
+                let Some((owner, m)) = self.outer.find_method(class, method) else {
+                    return self.undefined_method(&recv.ty, method, member_span, span, sink);
+                };
+                let (params, ret) = {
+                    let sig = &self.outer.classes[owner].methods[m];
+                    (sig.params.clone(), sig.ret.clone())
+                };
+                let args = self.check_args(method, &params, args, span, false, sink);
+                TExpr {
+                    ty: ret,
+                    span,
+                    kind: TExprKind::CallMethod {
+                        class: owner,
+                        method: m,
+                        recv: Box::new(recv),
+                        args,
+                    },
+                }
+            }
+            Ty::Cap { cap, .. } => {
+                let coords = self.outer.resolved.decls.capabilities[cap].coords;
+                let (capability, cap_file) = self.outer.resolved.capability(coords);
+                let Some(sig) = capability.signatures.iter().find(|s| s.name == method) else {
+                    return self.undefined_method(&recv.ty, method, member_span, span, sink);
+                };
+                let params: Vec<Ty> = sig
+                    .params
+                    .iter()
+                    .map(|p| {
+                        self.outer
+                            .project_type(&p.ty, TyPos::Surface, cap_file, sink)
+                    })
+                    .collect();
+                let ret = self
+                    .outer
+                    .project_type(&sig.ret, TyPos::Surface, cap_file, sink);
+                let method = method.to_string();
+                let args = self.check_args(&method, &params, args, span, false, sink);
+                TExpr {
+                    ty: ret,
+                    span,
+                    kind: TExprKind::CallDyn {
+                        cap: Some(cap),
+                        method,
+                        recv: Box::new(recv),
+                        args,
+                    },
+                }
+            }
+            Ty::Any => {
+                // TYP-02: checking is skipped; arguments still check.
+                let args = args
+                    .iter()
+                    .map(|arg| self.check_expr(arg, None, sink))
+                    .collect();
+                TExpr {
+                    ty: Ty::Any,
+                    span,
+                    kind: TExprKind::CallDyn {
+                        cap: None,
+                        method: method.to_string(),
+                        recv: Box::new(recv),
+                        args,
+                    },
+                }
+            }
+            Ty::Error => error_expr(span),
+            other => {
+                // TYP-06's four explicit conversions are typed here; the
+                // rest of the built-in method surface is chapter 15 (M6).
+                let target = match method {
+                    "toInteger" => Some(Ty::Integer),
+                    "toNumber" => Some(Ty::Number),
+                    "toString" => Some(Ty::Str),
+                    "toBoolean" => Some(Ty::Boolean),
+                    _ => None,
+                };
+                let convertible = other.is_numeric() || matches!(other, Ty::Str | Ty::Boolean);
+                if let (Some(target), true) = (&target, convertible) {
+                    if !args.is_empty() {
+                        sink.push(build(
+                            Level::Error,
+                            codes::FUNC002,
+                            format!("`{method}` expects 0 argument(s), got {}", args.len()),
+                            self.diag_span(span),
+                            None,
+                        ));
+                    }
+                    return TExpr {
+                        ty: target.clone(),
+                        span,
+                        kind: TExprKind::Convert(Box::new(recv)),
+                    };
+                }
+                sink.note_unsupported("standard-library methods", self.diag_span(span));
+                error_expr(span)
+            }
+        }
+    }
+
+    /// Member access without a call (CLS-04 field access; chapter 16
+    /// leaves `module.symbol` and companion bare-access to their owners:
+    /// SYN010/SEM021/CLASS012).
+    fn check_member(
+        &mut self,
+        receiver: &ast::Expr,
+        name: &str,
+        member_span: ByteSpan,
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        if let ast::Expr::Ident {
+            name: recv_name,
+            span: recv_span,
+        } = receiver
+        {
+            if self.lookup(recv_name).is_none() {
+                if let Some(&class) = self.module_scope().classes.get(recv_name) {
+                    // CLS-05: `Outer.fieldName` yields a type used as a
+                    // namespace — never a value. Bare access is CLASS012.
+                    let receiver_name = self.outer.classes[class].name.clone();
+                    sink.push(build(
+                        Level::Error,
+                        codes::CLASS012,
+                        format!(
+                            "'{receiver_name}.{name}' is not a valid companion access: a companion is a namespace, not a value"
+                        ),
+                        self.diag_span(member_span),
+                        Some("invalid companion access".to_string()),
+                    ));
+                    return error_expr(span);
+                }
+                if let Some(&target) = self.module_scope().module_aliases.get(recv_name) {
+                    let is_function = self.outer.resolved.decls.modules[target]
+                        .functions
+                        .get(name)
+                        .copied()
+                        .is_some_and(|i| {
+                            let decl = &self.outer.resolved.decls.functions[i];
+                            decl.public && decl.coords.0 == target
+                        });
+                    if is_function {
+                        // FNC-05: every call carries parentheses.
+                        sink.push(build(
+                            Level::Error,
+                            codes::SYN010,
+                            format!("Call to '{name}' is missing parentheses"),
+                            self.diag_span(member_span),
+                            Some("every call carries parentheses".to_string()),
+                        ));
+                    } else {
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM019,
+                            format!("I cannot find a function named `{name}`"),
+                            self.diag_span(member_span),
+                            Some("no function with this name is in scope".to_string()),
+                        ));
+                    }
+                    return error_expr(span);
+                }
+                if crate::resolver::BUILTIN_MODULES.contains(&recv_name.as_str()) {
+                    sink.note_unsupported("standard-library constants", self.diag_span(span));
+                    return error_expr(span);
+                }
+                sink.push(build(
+                    Level::Error,
+                    codes::SEM021,
+                    format!("I cannot resolve the module `{recv_name}`"),
+                    self.diag_span(*recv_span),
+                    Some("no source or library provides this module".to_string()),
+                ));
+                return error_expr(span);
+            }
+        }
+        let recv = self.check_expr(receiver, None, sink);
+        let resolved = self.infcx.resolve(&recv.ty);
+        match resolved {
+            Ty::Class { class, .. } => {
+                // Field lookup walks the parent chain (CLS-02).
+                let mut cursor = Some(class);
+                while let Some(c) = cursor {
+                    if let Some(field) = self.outer.classes[c]
+                        .fields
+                        .iter()
+                        .position(|(n, _, _)| n == name)
+                    {
+                        let ty = self.outer.classes[c].fields[field].1.clone();
+                        return TExpr {
+                            ty,
+                            span,
+                            kind: TExprKind::GetField {
+                                class: c,
+                                field,
+                                recv: Box::new(recv),
+                            },
+                        };
+                    }
+                    cursor = self.outer.classes[c].parent;
+                }
+                // No registered code exists for a missing FIELD; SEM022
+                // (UndefinedMethod) is the nearest member-miss code — the
+                // gap is recorded in DISCOVERIES-M4.
+                self.undefined_method(&recv.ty, name, member_span, span, sink)
+            }
+            Ty::Any => {
+                sink.note_unsupported("member access on `any` values", self.diag_span(span));
+                error_expr(span)
+            }
+            Ty::Error => error_expr(span),
+            _ => {
+                // Chapter-15 property surface (`.length`, `error.message`,
+                // …) is M4 stage 4 / M6.
+                sink.note_unsupported("standard-library methods", self.diag_span(span));
+                error_expr(span)
+            }
+        }
+    }
+
+    /// SEM022 — template from Platform 10 §3.
+    fn undefined_method(
+        &mut self,
+        recv_ty: &Ty,
+        method: &str,
+        member_span: ByteSpan,
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        let display = self.infcx.resolve(recv_ty).display();
+        sink.push(build(
+            Level::Error,
+            codes::SEM022,
+            format!("type `{display}` has no method named `{method}`"),
+            self.diag_span(member_span),
+            Some("no method with this name is defined on the receiver".to_string()),
+        ));
+        error_expr(span)
+    }
+
+    /// `ClassName.method(args)` (14 §Static Methods). The
+    /// no-instance-field-access rule needs body analysis and is deferred
+    /// (recorded in DISCOVERIES-M4); unknown members are CLASS012.
+    fn check_static_call(
+        &mut self,
+        class: usize,
+        method: &str,
+        member_span: ByteSpan,
+        args: &[ast::Expr],
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        let Some((owner, m)) = self.outer.find_method(class, method) else {
+            // CLASS012 — template from Platform 10 §6.
+            let receiver = self.outer.classes[class].name.clone();
+            sink.push(build(
+                Level::Error,
+                codes::CLASS012,
+                format!(
+                    "'{receiver}.{method}' is not a valid companion access: `{receiver}` has no method or companion field named `{method}`"
+                ),
+                self.diag_span(member_span),
+                Some("invalid companion access".to_string()),
+            ));
+            return error_expr(span);
+        };
+        let (params, ret) = {
+            let sig = &self.outer.classes[owner].methods[m];
+            (sig.params.clone(), sig.ret.clone())
+        };
+        let args = self.check_args(method, &params, args, span, false, sink);
+        TExpr {
+            ty: ret,
+            span,
+            kind: TExprKind::CallStatic {
+                class: owner,
+                method: m,
+                args,
+            },
+        }
+    }
+
+    /// `module.function(args)` namespace style (chapter 16): resolves to
+    /// the target module's own public functions.
+    fn check_namespace_call(
+        &mut self,
+        target: usize,
+        method: &str,
+        member_span: ByteSpan,
+        args: &[ast::Expr],
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        let function = self.outer.resolved.decls.modules[target]
+            .functions
+            .get(method)
+            .copied()
+            .filter(|&i| {
+                let decl = &self.outer.resolved.decls.functions[i];
+                decl.public && decl.coords.0 == target
+            });
+        let Some(index) = function else {
+            sink.push(build(
+                Level::Error,
+                codes::SEM019,
+                format!("I cannot find a function named `{method}`"),
+                self.diag_span(member_span),
+                Some("no function with this name is in scope".to_string()),
+            ));
+            return error_expr(span);
+        };
+        let (params, ret): (Vec<Ty>, Ty) = {
+            let sig = &self.outer.function_sigs[index];
+            (
+                sig.params.iter().map(|p| p.ty.clone()).collect(),
+                sig.ret.clone(),
+            )
+        };
+        let args = self.check_args(method, &params, args, span, false, sink);
+        TExpr {
+            ty: ret,
+            span,
+            kind: TExprKind::CallFn { func: index, args },
+        }
     }
 
     fn check_args(

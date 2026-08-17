@@ -1,11 +1,15 @@
+class Holder
+	list<integer> items
+
 start:
 	list<integer> xs = [7, 8]
 	integer? maybe = 5
 	integer a = 1
 	integer b = 2
+	Holder obj = Holder([3, 4])
 	integer idx = xs[0]
 	integer bang = maybe!
-	integer len = obj.items[0].size(arg, 2)
+	integer len = obj.items[0].size(a, 2)
 	string s = "n: {a}, sum: {a + b}"
 	integer m = (1 +
 		2)

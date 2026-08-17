@@ -1,0 +1,7 @@
+error[SEM021]: I cannot resolve the module `unknown`
+ --> tests/cln/diagnostics/SEM021.cln:2:2
+  |
+2 | 	unknown.thing()
+  | 	^^^^^^^ no source or library provides this module
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM021

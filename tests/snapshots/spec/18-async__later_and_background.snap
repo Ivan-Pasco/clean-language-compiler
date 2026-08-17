@@ -315,5 +315,5 @@ UNSUPPORTED: 6
   background calls @ spec/18-async/later_and_background.cln:4:3
   background calls @ spec/18-async/later_and_background.cln:5:3
   background calls @ spec/18-async/later_and_background.cln:6:3
-  method-style calls @ spec/18-async/later_and_background.cln:9:3
+  standard-library methods @ spec/18-async/later_and_background.cln:9:3
   background functions @ spec/18-async/later_and_background.cln:11:2

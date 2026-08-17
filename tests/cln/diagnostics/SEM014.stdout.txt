@@ -1,0 +1,7 @@
+error[SEM014]: capability method `area` cannot have a body — capabilities are pure contracts
+ --> tests/cln/diagnostics/SEM014.cln:3:1
+  |
+3 | 		return 0
+  | ^^^^^^^^^^ declare the signature only
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM014

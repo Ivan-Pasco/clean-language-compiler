@@ -6,6 +6,43 @@ AST:
 [
     Class(
         ClassDecl {
+            name: "Canvas",
+            parent: None,
+            capabilities: [],
+            fields: [
+                Field {
+                    ty: TypeExpr {
+                        base: Integer(
+                            None,
+                        ),
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 14,
+                            end: 21,
+                        },
+                    },
+                    name: "width",
+                    init: None,
+                    public: false,
+                    span: ByteSpan {
+                        start: 14,
+                        end: 27,
+                    },
+                },
+            ],
+            always: None,
+            constructors: [],
+            functions: [],
+            span: ByteSpan {
+                start: 0,
+                end: 29,
+            },
+        },
+    ),
+    Class(
+        ClassDecl {
             name: "Point",
             parent: None,
             capabilities: [],
@@ -19,16 +56,16 @@ AST:
                         extra_optionals: [],
                         behaviors: [],
                         span: ByteSpan {
-                            start: 13,
-                            end: 20,
+                            start: 42,
+                            end: 49,
                         },
                     },
                     name: "x",
                     init: None,
                     public: false,
                     span: ByteSpan {
-                        start: 13,
-                        end: 22,
+                        start: 42,
+                        end: 51,
                     },
                 },
                 Field {
@@ -40,8 +77,8 @@ AST:
                         extra_optionals: [],
                         behaviors: [],
                         span: ByteSpan {
-                            start: 24,
-                            end: 31,
+                            start: 53,
+                            end: 60,
                         },
                     },
                     name: "y",
@@ -49,15 +86,15 @@ AST:
                         Int {
                             value: 0,
                             span: ByteSpan {
-                                start: 36,
-                                end: 37,
+                                start: 65,
+                                end: 66,
                             },
                         },
                     ),
                     public: false,
                     span: ByteSpan {
-                        start: 24,
-                        end: 37,
+                        start: 53,
+                        end: 66,
                     },
                 },
             ],
@@ -69,26 +106,26 @@ AST:
                             lhs: Ident {
                                 name: "x",
                                 span: ByteSpan {
-                                    start: 50,
-                                    end: 51,
+                                    start: 79,
+                                    end: 80,
                                 },
                             },
                             rhs: Int {
                                 value: 0,
                                 span: ByteSpan {
-                                    start: 55,
-                                    end: 56,
+                                    start: 84,
+                                    end: 85,
                                 },
                             },
                             span: ByteSpan {
-                                start: 50,
-                                end: 56,
+                                start: 79,
+                                end: 85,
                             },
                         },
                     ],
                     span: ByteSpan {
-                        start: 40,
-                        end: 59,
+                        start: 69,
+                        end: 88,
                     },
                 },
             ),
@@ -104,48 +141,18 @@ AST:
                                 extra_optionals: [],
                                 behaviors: [],
                                 span: ByteSpan {
-                                    start: 71,
-                                    end: 78,
+                                    start: 100,
+                                    end: 107,
                                 },
                             },
                             name: "startX",
                             default: None,
                             span: ByteSpan {
-                                start: 71,
-                                end: 85,
+                                start: 100,
+                                end: 114,
                             },
                         },
                     ],
-                    body: [
-                        Assign {
-                            target: Ident {
-                                name: "x",
-                                span: ByteSpan {
-                                    start: 89,
-                                    end: 90,
-                                },
-                            },
-                            value: Ident {
-                                name: "startX",
-                                span: ByteSpan {
-                                    start: 93,
-                                    end: 99,
-                                },
-                            },
-                            on_error: None,
-                            span: ByteSpan {
-                                start: 89,
-                                end: 100,
-                            },
-                        },
-                    ],
-                    span: ByteSpan {
-                        start: 59,
-                        end: 102,
-                    },
-                },
-                Constructor {
-                    params: [],
                     body: [
                         Assign {
                             target: Ident {
@@ -155,23 +162,53 @@ AST:
                                     end: 119,
                                 },
                             },
-                            value: Int {
-                                value: 0,
+                            value: Ident {
+                                name: "startX",
                                 span: ByteSpan {
                                     start: 122,
-                                    end: 123,
+                                    end: 128,
                                 },
                             },
                             on_error: None,
                             span: ByteSpan {
                                 start: 118,
-                                end: 124,
+                                end: 129,
                             },
                         },
                     ],
                     span: ByteSpan {
-                        start: 102,
-                        end: 126,
+                        start: 88,
+                        end: 131,
+                    },
+                },
+                Constructor {
+                    params: [],
+                    body: [
+                        Assign {
+                            target: Ident {
+                                name: "x",
+                                span: ByteSpan {
+                                    start: 147,
+                                    end: 148,
+                                },
+                            },
+                            value: Int {
+                                value: 0,
+                                span: ByteSpan {
+                                    start: 151,
+                                    end: 152,
+                                },
+                            },
+                            on_error: None,
+                            span: ByteSpan {
+                                start: 147,
+                                end: 153,
+                            },
+                        },
+                    ],
+                    span: ByteSpan {
+                        start: 131,
+                        end: 155,
                     },
                 },
             ],
@@ -185,8 +222,8 @@ AST:
                         extra_optionals: [],
                         behaviors: [],
                         span: ByteSpan {
-                            start: 139,
-                            end: 146,
+                            start: 168,
+                            end: 175,
                         },
                     },
                     name: "sum",
@@ -208,39 +245,191 @@ AST:
                                         lhs: Ident {
                                             name: "x",
                                             span: ByteSpan {
-                                                start: 163,
-                                                end: 164,
+                                                start: 192,
+                                                end: 193,
                                             },
                                         },
                                         rhs: Ident {
                                             name: "y",
                                             span: ByteSpan {
-                                                start: 167,
-                                                end: 168,
+                                                start: 196,
+                                                end: 197,
                                             },
                                         },
                                         span: ByteSpan {
-                                            start: 163,
-                                            end: 168,
+                                            start: 192,
+                                            end: 197,
                                         },
                                     },
                                 ),
                                 span: ByteSpan {
-                                    start: 156,
-                                    end: 169,
+                                    start: 185,
+                                    end: 198,
                                 },
                             },
                         ],
                     },
                     span: ByteSpan {
-                        start: 139,
-                        end: 170,
+                        start: 168,
+                        end: 200,
+                    },
+                },
+                Function {
+                    ret: TypeExpr {
+                        base: Void,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 200,
+                            end: 204,
+                        },
+                    },
+                    name: "draw",
+                    params: [
+                        Param {
+                            ty: TypeExpr {
+                                base: Named(
+                                    "Canvas",
+                                ),
+                                optional: false,
+                                extra_optionals: [],
+                                behaviors: [],
+                                span: ByteSpan {
+                                    start: 210,
+                                    end: 216,
+                                },
+                            },
+                            name: "target",
+                            default: None,
+                            span: ByteSpan {
+                                start: 210,
+                                end: 223,
+                            },
+                        },
+                    ],
+                    background: false,
+                    public: false,
+                    body: FunctionBody {
+                        description: None,
+                        input: [],
+                        intents: [],
+                        specs: [],
+                        before: None,
+                        after: None,
+                        statements: [
+                            Return {
+                                value: None,
+                                span: ByteSpan {
+                                    start: 228,
+                                    end: 235,
+                                },
+                            },
+                        ],
+                    },
+                    span: ByteSpan {
+                        start: 200,
+                        end: 237,
+                    },
+                },
+                Function {
+                    ret: TypeExpr {
+                        base: Number,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 237,
+                            end: 243,
+                        },
+                    },
+                    name: "area",
+                    params: [],
+                    background: false,
+                    public: false,
+                    body: FunctionBody {
+                        description: None,
+                        input: [],
+                        intents: [],
+                        specs: [],
+                        before: None,
+                        after: None,
+                        statements: [
+                            Return {
+                                value: Some(
+                                    Number {
+                                        text: "0.0",
+                                        span: ByteSpan {
+                                            start: 261,
+                                            end: 264,
+                                        },
+                                    },
+                                ),
+                                span: ByteSpan {
+                                    start: 254,
+                                    end: 265,
+                                },
+                            },
+                        ],
+                    },
+                    span: ByteSpan {
+                        start: 237,
+                        end: 267,
+                    },
+                },
+                Function {
+                    ret: TypeExpr {
+                        base: String_,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 267,
+                            end: 273,
+                        },
+                    },
+                    name: "describe",
+                    params: [],
+                    background: false,
+                    public: false,
+                    body: FunctionBody {
+                        description: None,
+                        input: [],
+                        intents: [],
+                        specs: [],
+                        before: None,
+                        after: None,
+                        statements: [
+                            Return {
+                                value: Some(
+                                    Str {
+                                        segments: [
+                                            Text(
+                                                "point",
+                                            ),
+                                        ],
+                                        span: ByteSpan {
+                                            start: 295,
+                                            end: 302,
+                                        },
+                                    },
+                                ),
+                                span: ByteSpan {
+                                    start: 288,
+                                    end: 303,
+                                },
+                            },
+                        ],
+                    },
+                    span: ByteSpan {
+                        start: 267,
+                        end: 304,
                     },
                 },
             ],
             span: ByteSpan {
-                start: 0,
-                end: 170,
+                start: 29,
+                end: 304,
             },
         },
     ),
@@ -251,8 +440,8 @@ AST:
                 (
                     "Point",
                     ByteSpan {
-                        start: 186,
-                        end: 191,
+                        start: 320,
+                        end: 325,
                     },
                 ),
             ),
@@ -260,15 +449,15 @@ AST:
                 (
                     "Draw",
                     ByteSpan {
-                        start: 196,
-                        end: 200,
+                        start: 330,
+                        end: 334,
                     },
                 ),
                 (
                     "Serialize",
                     ByteSpan {
-                        start: 202,
-                        end: 211,
+                        start: 336,
+                        end: 345,
                     },
                 ),
             ],
@@ -282,16 +471,16 @@ AST:
                         extra_optionals: [],
                         behaviors: [],
                         span: ByteSpan {
-                            start: 213,
-                            end: 220,
+                            start: 347,
+                            end: 354,
                         },
                     },
                     name: "z",
                     init: None,
                     public: false,
                     span: ByteSpan {
-                        start: 213,
-                        end: 222,
+                        start: 347,
+                        end: 356,
                     },
                 },
             ],
@@ -299,8 +488,8 @@ AST:
             constructors: [],
             functions: [],
             span: ByteSpan {
-                start: 170,
-                end: 224,
+                start: 304,
+                end: 358,
             },
         },
     ),
@@ -320,15 +509,15 @@ AST:
                                 extra_optionals: [],
                                 behaviors: [],
                                 span: ByteSpan {
-                                    start: 240,
-                                    end: 246,
+                                    start: 374,
+                                    end: 380,
                                 },
                             },
                             name: "target",
                             default: None,
                             span: ByteSpan {
-                                start: 240,
-                                end: 253,
+                                start: 374,
+                                end: 387,
                             },
                         },
                     ],
@@ -338,13 +527,14 @@ AST:
                         extra_optionals: [],
                         behaviors: [],
                         span: ByteSpan {
-                            start: 258,
-                            end: 262,
+                            start: 392,
+                            end: 396,
                         },
                     },
+                    body_span: None,
                     span: ByteSpan {
-                        start: 235,
-                        end: 262,
+                        start: 369,
+                        end: 396,
                     },
                 },
                 CapabilitySig {
@@ -356,27 +546,56 @@ AST:
                         extra_optionals: [],
                         behaviors: [],
                         span: ByteSpan {
-                            start: 274,
-                            end: 280,
+                            start: 408,
+                            end: 414,
                         },
                     },
+                    body_span: None,
                     span: ByteSpan {
-                        start: 264,
-                        end: 280,
+                        start: 398,
+                        end: 414,
                     },
                 },
             ],
             span: ByteSpan {
-                start: 224,
-                end: 281,
+                start: 358,
+                end: 416,
+            },
+        },
+    ),
+    Capability(
+        CapabilityDecl {
+            name: "Serialize",
+            signatures: [
+                CapabilitySig {
+                    name: "describe",
+                    params: [],
+                    ret: TypeExpr {
+                        base: String_,
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 446,
+                            end: 452,
+                        },
+                    },
+                    body_span: None,
+                    span: ByteSpan {
+                        start: 432,
+                        end: 452,
+                    },
+                },
+            ],
+            span: ByteSpan {
+                start: 416,
+                end: 453,
             },
         },
     ),
 ]
 DIAGNOSTICS: 0
-UNSUPPORTED: 5
-  capability declarations @ spec/14-classes-and-objects/classes_and_capabilities.cln:21:1
-  always: invariants @ spec/14-classes-and-objects/classes_and_capabilities.cln:1:1
-  class constructors and methods @ spec/14-classes-and-objects/classes_and_capabilities.cln:1:1
-  field initialisers @ spec/14-classes-and-objects/classes_and_capabilities.cln:3:2
-  class inheritance and capability claims @ spec/14-classes-and-objects/classes_and_capabilities.cln:18:1
+UNSUPPORTED: 3
+  field initialisers @ spec/14-classes-and-objects/classes_and_capabilities.cln:6:2
+  field assignment @ spec/14-classes-and-objects/classes_and_capabilities.cln:12:3
+  field assignment @ spec/14-classes-and-objects/classes_and_capabilities.cln:15:3

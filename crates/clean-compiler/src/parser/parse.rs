@@ -1147,13 +1147,42 @@ impl<'a> Parser<'a> {
                         continue;
                     }
                     let ret = self.type_expr(TypePos::Surface, sink);
+                    let span = sig_start.merge(self.prev_span());
+                    self.expect(&TokenKind::Newline, "end of line", sink);
+                    // CLS-03: capabilities are pure contracts — an indented
+                    // body under a signature parses (so the checker can
+                    // report SEM014) and is discarded.
+                    let body_span = if self.at(&TokenKind::Indent) {
+                        let body_start = self.span();
+                        self.bump();
+                        let mut depth = 1i32;
+                        while depth > 0 {
+                            match self.peek() {
+                                TokenKind::Eof => break,
+                                TokenKind::Indent => {
+                                    depth += 1;
+                                    self.bump();
+                                }
+                                TokenKind::Dedent => {
+                                    depth -= 1;
+                                    self.bump();
+                                }
+                                _ => {
+                                    self.bump();
+                                }
+                            }
+                        }
+                        Some(body_start.merge(self.prev_span()))
+                    } else {
+                        None
+                    };
                     signatures.push(CapabilitySig {
                         name: sig_name,
                         params,
                         ret,
-                        span: sig_start.merge(self.prev_span()),
+                        body_span,
+                        span,
                     });
-                    self.expect(&TokenKind::Newline, "end of line", sink);
                 }
             }
         }

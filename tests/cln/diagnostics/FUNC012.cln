@@ -1,0 +1,6 @@
+functions:
+	integer f()
+		return 1
+
+start:
+	f.g()

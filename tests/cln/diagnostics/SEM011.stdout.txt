@@ -1,0 +1,7 @@
+error[SEM011]: class `Dot` claims `Draw` but does not implement `area`
+ --> tests/cln/diagnostics/SEM011.cln:4:1
+  |
+4 | class Dot can Draw
+  | ^^^^^^^^^^^^^^^^^^ every declared capability method is required
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM011

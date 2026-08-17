@@ -34,6 +34,12 @@ pub struct TFunction {
     pub params: Vec<Local>,
     pub ret: Ty,
     pub locals: Vec<Local>,
+    /// `before:` precondition expressions, in order (CTR-01) — always
+    /// checked at runtime, never strippable.
+    pub before: Vec<TExpr>,
+    /// `after:` postcondition expressions (CTR-02); `result` refers to
+    /// the return value inside these.
+    pub after: Vec<TExpr>,
     pub body: Vec<TStmt>,
     pub span: ByteSpan,
     /// Which parsed file the declaration lives in (for span conversion).
@@ -50,6 +56,9 @@ pub struct Local {
 /// declared locals (`index < params.len()` means parameter).
 pub type LocalId = usize;
 
+// Statements are built once and traversed; the size spread is inherent
+// to the tree shape (same rationale as `hir::HStmt`).
+#[allow(clippy::large_enum_variant)]
 pub enum TStmt {
     Let {
         local: LocalId,
@@ -176,6 +185,49 @@ pub enum TExprKind {
     IntToNumber(Box<TExpr>),
     /// TYP-03's `T` → `T?` injection, materialised.
     WrapSome(Box<TExpr>),
+    /// `result` inside an `after:` contract expression (CTR-02) — the
+    /// function's return value.
+    ResultRef,
+    /// `this` inside a class method/constructor body (CLS-02).
+    This,
+    /// Instance method call, statically dispatched: the receiver's class
+    /// is known (`class` owns the method — possibly an ancestor of the
+    /// receiver's class, CLS-02).
+    CallMethod {
+        class: usize,
+        method: usize,
+        recv: Box<TExpr>,
+        args: Vec<TExpr>,
+    },
+    /// Dynamically dispatched call on a capability-typed receiver
+    /// (CLS-03); `cap` is `None` for an `any` receiver (TYP-02).
+    CallDyn {
+        cap: Option<usize>,
+        method: String,
+        recv: Box<TExpr>,
+        args: Vec<TExpr>,
+    },
+    /// Declared-constructor instantiation (CLS-02); lowering is M6.
+    CallCtor {
+        class: usize,
+        ctor: usize,
+        args: Vec<TExpr>,
+    },
+    /// Static method call on a class name (14 §Static Methods).
+    CallStatic {
+        class: usize,
+        method: usize,
+        args: Vec<TExpr>,
+    },
+    /// Instance field access; `class` declares the field (CLS-04).
+    GetField {
+        class: usize,
+        field: usize,
+        recv: Box<TExpr>,
+    },
+    /// Explicit conversion method (TYP-06: `.toInteger()`, `.toNumber()`,
+    /// `.toString()`, `.toBoolean()`); the node's `ty` is the target.
+    Convert(Box<TExpr>),
     /// A subexpression whose type failed; absorbs downstream checks.
     Error,
 }

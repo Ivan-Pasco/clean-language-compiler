@@ -1,0 +1,7 @@
+error[CLASS010]: Constructor parameter 'x' has the same name as a field
+ --> tests/cln/diagnostics/CLASS010.cln:4:14
+  |
+4 | 	constructor(integer x)
+  | 	            ^^^^^^^^^ rename this parameter
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS010

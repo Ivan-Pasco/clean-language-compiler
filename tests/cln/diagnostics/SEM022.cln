@@ -1,0 +1,10 @@
+class Dot
+	integer x
+
+	functions:
+		integer sum()
+			return x
+
+start:
+	Dot d = Dot(1)
+	d.missing()

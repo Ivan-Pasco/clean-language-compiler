@@ -1,0 +1,7 @@
+error[SEM022]: type `Dot` has no method named `missing`
+  --> tests/cln/diagnostics/SEM022.cln:10:2
+   |
+10 | 	d.missing()
+   | 	^^^^^^^^^ no method with this name is defined on the receiver
+   |
+   = docs: https://errors.cleanlanguage.dev/E/SEM022

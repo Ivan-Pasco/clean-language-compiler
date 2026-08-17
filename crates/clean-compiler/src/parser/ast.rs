@@ -247,6 +247,9 @@ pub struct CapabilitySig {
     pub name: String,
     pub params: Vec<Param>,
     pub ret: TypeExpr,
+    /// An indented body under the signature — illegal (CLS-03: pure
+    /// contracts); parsed and discarded so the checker can report SEM014.
+    pub body_span: Option<ByteSpan>,
     pub span: ByteSpan,
 }
 

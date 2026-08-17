@@ -41,6 +41,26 @@ AST:
                             end: 43,
                         },
                     },
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 45,
+                                end: 52,
+                            },
+                        },
+                        name: "balance",
+                        default: None,
+                        span: ByteSpan {
+                            start: 45,
+                            end: 60,
+                        },
+                    },
                 ],
                 background: false,
                 public: false,
@@ -57,20 +77,20 @@ AST:
                                     lhs: Ident {
                                         name: "amount",
                                         span: ByteSpan {
-                                            start: 58,
-                                            end: 64,
+                                            start: 75,
+                                            end: 81,
                                         },
                                     },
                                     rhs: Int {
                                         value: 0,
                                         span: ByteSpan {
-                                            start: 67,
-                                            end: 68,
+                                            start: 84,
+                                            end: 85,
                                         },
                                     },
                                     span: ByteSpan {
-                                        start: 58,
-                                        end: 68,
+                                        start: 75,
+                                        end: 85,
                                     },
                                 },
                                 Binary {
@@ -78,26 +98,26 @@ AST:
                                     lhs: Ident {
                                         name: "amount",
                                         span: ByteSpan {
-                                            start: 72,
-                                            end: 78,
+                                            start: 89,
+                                            end: 95,
                                         },
                                     },
                                     rhs: Ident {
                                         name: "balance",
                                         span: ByteSpan {
-                                            start: 82,
-                                            end: 89,
+                                            start: 99,
+                                            end: 106,
                                         },
                                     },
                                     span: ByteSpan {
-                                        start: 72,
-                                        end: 89,
+                                        start: 89,
+                                        end: 106,
                                     },
                                 },
                             ],
                             span: ByteSpan {
-                                start: 47,
-                                end: 92,
+                                start: 64,
+                                end: 109,
                             },
                         },
                     ),
@@ -108,26 +128,26 @@ AST:
                                     op: GtEq,
                                     lhs: ResultRef {
                                         span: ByteSpan {
-                                            start: 102,
-                                            end: 108,
+                                            start: 119,
+                                            end: 125,
                                         },
                                     },
                                     rhs: Int {
                                         value: 0,
                                         span: ByteSpan {
-                                            start: 112,
-                                            end: 113,
+                                            start: 129,
+                                            end: 130,
                                         },
                                     },
                                     span: ByteSpan {
-                                        start: 102,
-                                        end: 113,
+                                        start: 119,
+                                        end: 130,
                                     },
                                 },
                             ],
                             span: ByteSpan {
-                                start: 92,
-                                end: 116,
+                                start: 109,
+                                end: 133,
                             },
                         },
                     ),
@@ -137,26 +157,25 @@ AST:
                                 Ident {
                                     name: "amount",
                                     span: ByteSpan {
-                                        start: 123,
-                                        end: 129,
+                                        start: 140,
+                                        end: 146,
                                     },
                                 },
                             ),
                             span: ByteSpan {
-                                start: 116,
-                                end: 130,
+                                start: 133,
+                                end: 147,
                             },
                         },
                     ],
                 },
                 span: ByteSpan {
                     start: 12,
-                    end: 130,
+                    end: 147,
                 },
             },
         ],
     ),
 ]
 DIAGNOSTICS: 0
-UNSUPPORTED: 1
-  contract blocks @ spec/10-contracts/before_after.cln:2:2
+UNSUPPORTED: 0

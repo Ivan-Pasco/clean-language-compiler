@@ -159,6 +159,10 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
             out
         }
         Ty::Number | Ty::Datetime | Ty::Any | Ty::Matrix(_) | Ty::Pairs(_, _) => return None,
+        // Nominal class instances and capability-typed values get their
+        // memory representation with the M6 memory model; only the
+        // structural `Record` boundary projection lowers today.
+        Ty::Class { .. } | Ty::Cap { .. } => return None,
         Ty::Var(_) | Ty::Error => return None,
     })
 }
@@ -226,7 +230,16 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
             | HExprKind::NonNone(operand)
             | HExprKind::IsNone { operand, .. }
             | HExprKind::IntToNumber(operand)
-            | HExprKind::WrapSome(operand) => expr(operand, used),
+            | HExprKind::WrapSome(operand)
+            | HExprKind::Convert(operand)
+            | HExprKind::GetField { recv: operand, .. } => expr(operand, used),
+            HExprKind::CallMethod { recv, args, .. } | HExprKind::CallDyn { recv, args, .. } => {
+                expr(recv, used);
+                args.iter().for_each(|a| expr(a, used));
+            }
+            HExprKind::CallStatic { args, .. } | HExprKind::CallCtor { args, .. } => {
+                args.iter().for_each(|a| expr(a, used))
+            }
             HExprKind::Index { recv, index, .. } => {
                 expr(recv, used);
                 expr(index, used);
@@ -404,6 +417,12 @@ fn lower_function(
         scratch: Vec::new(),
         remap,
     };
+    if let Some(first) = function.before.first().or(function.after.first()) {
+        sink.note_unsupported(
+            "contract blocks in compiled code",
+            resolved.span(function.file, first.span),
+        );
+    }
     let mut body = Vec::new();
     for stmt in &function.body {
         lowerer.stmt(stmt, &mut body, sink);
@@ -674,6 +693,18 @@ impl<'a> FnLowerer<'a> {
             HExprKind::IsNone { .. } => self.note(sink, "is-none checks", expr.span),
             HExprKind::IntToNumber(_) => {
                 self.note(sink, "number values in compiled code", expr.span)
+            }
+            HExprKind::ResultRef => self.note(sink, "contract blocks in compiled code", expr.span),
+            HExprKind::This => self.note(sink, "class values in compiled code", expr.span),
+            HExprKind::CallMethod { .. }
+            | HExprKind::CallDyn { .. }
+            | HExprKind::CallCtor { .. }
+            | HExprKind::CallStatic { .. }
+            | HExprKind::GetField { .. } => {
+                self.note(sink, "class values in compiled code", expr.span)
+            }
+            HExprKind::Convert(_) => {
+                self.note(sink, "conversion methods in compiled code", expr.span)
             }
         }
     }

@@ -55,6 +55,20 @@ pub enum Ty {
     /// `pairs<K, V>` — Clean's map type; `K` is a free type parameter
     /// (TYP-02, IDX003).
     Pairs(Box<Ty>, Box<Ty>),
+    /// A class instance, nominal (CLS-02): `class` indexes
+    /// `Declarations::classes`. Distinct from the structural `Record`
+    /// boundary projection (LBS-02), which class values take only when
+    /// they cross the host boundary.
+    Class {
+        class: usize,
+        name: String,
+    },
+    /// A capability used as a type (CLS-03): values dispatch dynamically;
+    /// `cap` indexes `Declarations::capabilities`.
+    Cap {
+        cap: usize,
+        name: String,
+    },
     /// An unresolved inference variable (bidirectional checking).
     Var(TyVid),
     /// A type error already reported; absorbs further checks silently.
@@ -158,6 +172,8 @@ impl Ty {
             Ty::Pairs(key, value) => {
                 format!("pairs<{}, {}>", key.display(), value.display())
             }
+            Ty::Class { name, .. } => name.clone(),
+            Ty::Cap { name, .. } => name.clone(),
             Ty::Var(_) => "_".to_string(),
             Ty::Error => "<error>".to_string(),
         }

@@ -1,0 +1,7 @@
+functions:
+	integer f(integer n)
+		after:
+			result >= 0
+		before:
+			n > 0
+		return n

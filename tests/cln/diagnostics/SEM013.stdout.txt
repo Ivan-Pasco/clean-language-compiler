@@ -1,0 +1,7 @@
+error[SEM013]: `area` does not match the signature `Draw` declares for `area`
+ --> tests/cln/diagnostics/SEM013.cln:4:1
+  |
+4 | class Dot can Draw
+  | ^^^^^^^^^^^^^^^^^^ capability signatures match exactly
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM013

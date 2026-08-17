@@ -1,0 +1,7 @@
+error[FUNC012]: `f` is a function, not a value or module — call it directly
+ --> tests/cln/diagnostics/FUNC012.cln:6:2
+  |
+6 | 	f.g()
+  | 	^ no method call on a standalone function
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC012

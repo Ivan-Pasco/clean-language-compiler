@@ -25,6 +25,10 @@ pub struct HFunction {
     pub ret: Ty,
     /// Declared locals after the parameters (LocalId space continues).
     pub locals: Vec<Ty>,
+    /// `before:`/`after:` contract expressions (chapter 10); their core
+    /// lowering is a later milestone (pass [8] reports them).
+    pub before: Vec<HExpr>,
+    pub after: Vec<HExpr>,
     pub body: Vec<HStmt>,
     /// Which parsed file the declaration lives in (for span conversion).
     pub file: usize,
@@ -128,6 +132,36 @@ pub enum HExprKind {
     },
     IntToNumber(Box<HExpr>),
     WrapSome(Box<HExpr>),
+    ResultRef,
+    This,
+    CallMethod {
+        class: usize,
+        method: usize,
+        recv: Box<HExpr>,
+        args: Vec<HExpr>,
+    },
+    CallDyn {
+        cap: Option<usize>,
+        method: String,
+        recv: Box<HExpr>,
+        args: Vec<HExpr>,
+    },
+    CallCtor {
+        class: usize,
+        ctor: usize,
+        args: Vec<HExpr>,
+    },
+    CallStatic {
+        class: usize,
+        method: usize,
+        args: Vec<HExpr>,
+    },
+    GetField {
+        class: usize,
+        field: usize,
+        recv: Box<HExpr>,
+    },
+    Convert(Box<HExpr>),
 }
 
 pub enum HInterpSeg {
@@ -153,6 +187,8 @@ pub fn lower(program: tir::TypedProgram) -> HirProgram {
                         .skip(param_count)
                         .map(|l| l.ty)
                         .collect(),
+                    before: f.before.into_iter().map(lower_expr).collect(),
+                    after: f.after.into_iter().map(lower_expr).collect(),
                     body: lower_block(f.body),
                     file: f.file,
                 }
@@ -293,6 +329,50 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
             HExprKind::IntToNumber(Box::new(lower_expr(*operand)))
         }
         tir::TExprKind::WrapSome(operand) => HExprKind::WrapSome(Box::new(lower_expr(*operand))),
+        tir::TExprKind::ResultRef => HExprKind::ResultRef,
+        tir::TExprKind::This => HExprKind::This,
+        tir::TExprKind::CallMethod {
+            class,
+            method,
+            recv,
+            args,
+        } => HExprKind::CallMethod {
+            class,
+            method,
+            recv: Box::new(lower_expr(*recv)),
+            args: args.into_iter().map(lower_expr).collect(),
+        },
+        tir::TExprKind::CallDyn {
+            cap,
+            method,
+            recv,
+            args,
+        } => HExprKind::CallDyn {
+            cap,
+            method,
+            recv: Box::new(lower_expr(*recv)),
+            args: args.into_iter().map(lower_expr).collect(),
+        },
+        tir::TExprKind::CallCtor { class, ctor, args } => HExprKind::CallCtor {
+            class,
+            ctor,
+            args: args.into_iter().map(lower_expr).collect(),
+        },
+        tir::TExprKind::CallStatic {
+            class,
+            method,
+            args,
+        } => HExprKind::CallStatic {
+            class,
+            method,
+            args: args.into_iter().map(lower_expr).collect(),
+        },
+        tir::TExprKind::GetField { class, field, recv } => HExprKind::GetField {
+            class,
+            field,
+            recv: Box::new(lower_expr(*recv)),
+        },
+        tir::TExprKind::Convert(operand) => HExprKind::Convert(Box::new(lower_expr(*operand))),
         tir::TExprKind::Error => {
             unreachable!("error expressions never survive a clean typecheck")
         }

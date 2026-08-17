@@ -1,0 +1,7 @@
+error[CLASS003]: class `Dot` already has a method named `f`
+ --> tests/cln/diagnostics/CLASS003.cln:7:3
+  |
+7 | 		integer f()
+  | 		^^^^^^^^^^^ duplicate method
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS003

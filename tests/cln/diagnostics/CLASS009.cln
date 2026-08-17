@@ -1,0 +1,9 @@
+functions:
+	integer g(integer n)
+		before:
+			n > 0
+		return n
+	integer f(integer n)
+		before:
+			g(n) > 0
+		return n

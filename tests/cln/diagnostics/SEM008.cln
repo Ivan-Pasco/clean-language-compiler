@@ -1,0 +1,2 @@
+class Loop is Loop
+	integer x

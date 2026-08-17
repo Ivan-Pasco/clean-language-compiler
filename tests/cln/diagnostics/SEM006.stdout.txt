@@ -1,0 +1,7 @@
+error[SEM006]: `Draw` is a capability, not a class — a class extends classes with `is` and claims capabilities with `can`
+ --> tests/cln/diagnostics/SEM006.cln:4:16
+  |
+4 | class Shape is Draw
+  |                ^^^^ not a known class
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM006

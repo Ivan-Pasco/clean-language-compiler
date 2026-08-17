@@ -1,0 +1,5 @@
+class Dot
+	integer x
+
+	always:
+		x + 1

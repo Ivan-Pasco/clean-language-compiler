@@ -1,0 +1,7 @@
+error[CLASS008]: 'result' is only in scope inside an 'after:' expression
+ --> tests/cln/diagnostics/CLASS008.cln:3:10
+  |
+3 | 		return result
+  | 		       ^^^^^^ 'result' is not in scope here
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS008

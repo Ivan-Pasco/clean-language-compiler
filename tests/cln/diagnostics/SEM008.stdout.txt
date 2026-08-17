@@ -1,0 +1,7 @@
+error[SEM008]: class `Loop` inherits from itself
+ --> tests/cln/diagnostics/SEM008.cln:1:1
+  |
+1 | class Loop is Loop
+  | ^^^^^^^^^^^^^^^^^^ inheritance cycle
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM008

@@ -1,0 +1,7 @@
+error[SEM012]: I cannot find a capability named `Unknown`
+ --> tests/cln/diagnostics/SEM012.cln:1:15
+  |
+1 | class Dot can Unknown
+  |               ^^^^^^^ no capability with this name is in scope
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM012

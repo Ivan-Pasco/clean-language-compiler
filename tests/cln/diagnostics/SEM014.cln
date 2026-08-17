@@ -1,0 +1,3 @@
+can Draw:
+	area() -> integer
+		return 0

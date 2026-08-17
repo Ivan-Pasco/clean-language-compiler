@@ -1,0 +1,5 @@
+class Dot
+	integer x
+
+	constructor(integer x)
+		return

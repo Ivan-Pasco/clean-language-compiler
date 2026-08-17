@@ -1,0 +1,8 @@
+class Dot
+	integer x
+
+	constructor(integer startX)
+		x = startX
+
+start:
+	Dot d = Dot()

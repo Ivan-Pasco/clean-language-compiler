@@ -1,0 +1,3 @@
+functions:
+	integer f()
+		return result

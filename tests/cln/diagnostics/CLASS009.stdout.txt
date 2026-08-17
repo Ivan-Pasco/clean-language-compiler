@@ -1,0 +1,7 @@
+error[CLASS009]: Contract expression must be pure: 'g' is not allowed here
+ --> tests/cln/diagnostics/CLASS009.cln:8:4
+  |
+8 | 			g(n) > 0
+  | 			^^^^ contract expressions cannot have effects
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS009

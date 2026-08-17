@@ -1,0 +1,5 @@
+can Draw:
+	area() -> integer
+
+class Shape is Draw
+	integer x

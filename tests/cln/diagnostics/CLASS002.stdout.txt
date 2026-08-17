@@ -1,0 +1,7 @@
+error[CLASS002]: class `Dot` already has a field named `x`
+ --> tests/cln/diagnostics/CLASS002.cln:3:2
+  |
+3 | 	integer x
+  | 	^^^^^^^^^ duplicate field
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS002

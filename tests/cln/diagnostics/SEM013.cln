@@ -1,0 +1,9 @@
+can Draw:
+	area() -> integer
+
+class Dot can Draw
+	integer x
+
+	functions:
+		string area()
+			return "big"

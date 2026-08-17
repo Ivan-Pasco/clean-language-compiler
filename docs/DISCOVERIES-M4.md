@@ -137,3 +137,48 @@ resolution (new field) or bless this derivation.
   exists for import-name collisions; needs foundation wording.
 - **SEM003 is module-scoped** for functions/classes (two modules may each
   declare a private `helper`); host-function names still clash globally.
+
+## 10. `before:`/`after:` lines have no dedicated non-boolean code
+
+CTR-01/02 require every contract line to be boolean, but chapter 10
+registers a code only for `always:` (CLASS006). **Local adoption:** a
+non-boolean `before:`/`after:` line reports SEM023 (its template reads
+"Condition must be a boolean expression", which a contract line is);
+`always:` uses CLASS006 with local wording (its Platform 10 entry is a
+stub).
+
+## 11. CLASS005 and CLASS007 overlap; CLASS007's cases are parser-owned
+
+CLASS005 ("after must appear after before and before other statements")
+is a strict subset of CLASS007's "'{keyword}:' block is out of position"
+condition list. M3's parser already rejects the class-body order cases
+with SYN005 (snapshot-pinned) and the function-body prelude cannot place
+contracts after statements grammatically — leaving only the
+after-before-before swap, which M4 reports as CLASS005 (local wording).
+CLASS007 currently has no reachable trigger and stays in the DIA-06
+ledger. Foundation should either merge the two or name distinct triggers.
+
+## 12. No registered code for an unknown FIELD on a class
+
+SEM022 is named UndefinedMethod and its template says "no method named".
+CLS-04 field access has no missing-field code. **Local adoption:** a
+missing member of either kind reports SEM022. Needs a foundation ruling
+(new code or a widened SEM022).
+
+## 13. Chapter 14's `Container` example violates CLASS010
+
+`constructor(any value)` — bodyless, with the parameter named after the
+field `value` — violates the CLASS010 rule the chapter itself registered
+(2026-08-01 changelog), and implies an implicit param→field assignment no
+chapter specifies. **Local adoption:** no implicit field assignment;
+CLASS010 applies as registered; bodyless constructors simply run an empty
+body. The example needs an erratum.
+
+## 14. Static methods' no-instance-field rule needs body analysis
+
+14 §Static Methods allows `ClassName.method()` only when the method does
+not touch instance fields. Enforcing that requires a body analysis pass
+the milestone plan does not sequence before M6. **Local adoption:** the
+static call type-checks against the method signature; the field-access
+restriction is not yet enforced (tracked here so it is not mistaken for
+spec conformance).

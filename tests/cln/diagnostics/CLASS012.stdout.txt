@@ -1,0 +1,7 @@
+error[CLASS012]: 'Dot.missing' is not a valid companion access: `Dot` has no method or companion field named `missing`
+ --> tests/cln/diagnostics/CLASS012.cln:5:2
+  |
+5 | 	Dot.missing()
+  | 	^^^^^^^^^^^ invalid companion access
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS012

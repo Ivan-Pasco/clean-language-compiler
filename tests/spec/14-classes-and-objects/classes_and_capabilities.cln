@@ -1,3 +1,6 @@
+class Canvas
+	integer width
+
 class Point
 	integer x
 	integer y = 0
@@ -14,6 +17,12 @@ class Point
 	functions:
 		integer sum()
 			return x + y
+		void draw(Canvas target)
+			return
+		number area()
+			return 0.0
+		string describe()
+			return "point"
 
 class Point3 is Point can Draw, Serialize
 	integer z
@@ -21,3 +30,6 @@ class Point3 is Point can Draw, Serialize
 can Draw:
 	draw(Canvas target) -> void
 	area() -> number
+
+can Serialize:
+	describe() -> string

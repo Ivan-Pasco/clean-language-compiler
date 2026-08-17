@@ -1,5 +1,5 @@
 functions:
-	integer withdraw(integer amount)
+	integer withdraw(integer amount, integer balance)
 		before:
 			amount > 0
 			amount <= balance

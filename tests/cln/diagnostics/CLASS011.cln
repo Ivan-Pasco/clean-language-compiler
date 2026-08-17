@@ -1,0 +1,5 @@
+can Draw:
+	area() -> integer
+
+start:
+	integer x = Draw()

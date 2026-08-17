@@ -41,7 +41,7 @@ pub struct ResolvedAst {
 
 /// The chapter-15 built-in modules: available without import, valid as
 /// import targets. Their surfaces land in M6.
-const BUILTIN_MODULES: [&str; 8] = [
+pub const BUILTIN_MODULES: [&str; 8] = [
     "console",
     "math",
     "string",
@@ -65,6 +65,8 @@ pub struct Declarations {
     pub functions: Vec<FnDecl>,
     /// Every declared class, flat, in the same order discipline.
     pub classes: Vec<ClassRef>,
+    /// Every declared capability (CLS-03), flat, same order discipline.
+    pub capabilities: Vec<CapRef>,
     /// `start:` blocks, in `sources[]` order: `(file, item)` (FNC-01).
     pub starts: Vec<(usize, usize)>,
     /// Visibility scope per module; index = file index.
@@ -85,6 +87,12 @@ pub struct ClassRef {
     pub coords: (usize, usize),
 }
 
+pub struct CapRef {
+    pub name: String,
+    /// `(file, item)` into `files`.
+    pub coords: (usize, usize),
+}
+
 /// What one module sees: its own declarations plus what its imports
 /// brought in (public names only, MOD-01/MOD-02).
 #[derive(Default)]
@@ -96,6 +104,9 @@ pub struct ModuleScope {
     pub functions: IndexMap<String, usize>,
     /// Visible name → index into `Declarations::classes`.
     pub classes: IndexMap<String, usize>,
+    /// Visible name → index into `Declarations::capabilities` (exported
+    /// by default, same adoption as classes).
+    pub capabilities: IndexMap<String, usize>,
     /// `utils as u` module aliases → file index (namespace-style access
     /// is chapter-16 dispatch, M4 stage 3).
     pub module_aliases: IndexMap<String, usize>,
@@ -250,12 +261,21 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                     unsupported(sink, &file.stream, "handles block registrations", h.span);
                 }
                 ast::Item::Capability(capability) => {
-                    unsupported(
-                        sink,
-                        &file.stream,
-                        "capability declarations",
-                        capability.span,
-                    );
+                    if decls.modules[file_index]
+                        .capabilities
+                        .contains_key(&capability.name)
+                    {
+                        redefinition(sink, &file.stream, &capability.name, capability.span);
+                        continue;
+                    }
+                    let index = decls.capabilities.len();
+                    decls.capabilities.push(CapRef {
+                        name: capability.name.clone(),
+                        coords: (file_index, item_index),
+                    });
+                    decls.modules[file_index]
+                        .capabilities
+                        .insert(capability.name.clone(), index);
                 }
                 ast::Item::Watch(watch) => {
                     unsupported(sink, &file.stream, "watch blocks", watch.span);
@@ -359,11 +379,24 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                 for (name, index) in target_classes {
                     decls.modules[from].classes.entry(name).or_insert(index);
                 }
-                if let Some(alias) = &edge.module_alias {
+                let target_caps: Vec<(String, usize)> = decls.modules[edge.to]
+                    .capabilities
+                    .iter()
+                    .map(|(n, &i)| (n.clone(), i))
+                    .collect();
+                for (name, index) in target_caps {
                     decls.modules[from]
-                        .module_aliases
-                        .insert(alias.clone(), edge.to);
+                        .capabilities
+                        .entry(name)
+                        .or_insert(index);
                 }
+                // The module is addressable namespace-style (chapter 16)
+                // under its alias, or its stem when no alias was given.
+                let handle = edge
+                    .module_alias
+                    .clone()
+                    .unwrap_or_else(|| decls.modules[edge.to].name.clone());
+                decls.modules[from].module_aliases.insert(handle, edge.to);
             }
             Some((symbol, bind_name)) => {
                 let function = decls.modules[edge.to]
@@ -641,6 +674,13 @@ impl ResolvedAst {
         match &self.files[coords.0].ast.items[coords.1] {
             ast::Item::Class(class) => (class, coords.0),
             _ => unreachable!("classes indexes only Class items"),
+        }
+    }
+
+    pub fn capability(&self, coords: (usize, usize)) -> (&ast::CapabilityDecl, usize) {
+        match &self.files[coords.0].ast.items[coords.1] {
+            ast::Item::Capability(capability) => (capability, coords.0),
+            _ => unreachable!("capabilities indexes only Capability items"),
         }
     }
 

@@ -1,0 +1,7 @@
+error[CLASS004]: no constructor of `Dot` takes 0 argument(s)
+ --> tests/cln/diagnostics/CLASS004.cln:8:10
+  |
+8 | 	Dot d = Dot()
+  | 	        ^^^^^ no matching constructor
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS004

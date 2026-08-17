@@ -1,0 +1,7 @@
+error[CLASS011]: 'Draw' is a capability and cannot be instantiated
+ --> tests/cln/diagnostics/CLASS011.cln:5:14
+  |
+5 | 	integer x = Draw()
+  | 	            ^^^^ capabilities have no bodies
+  |
+  = docs: https://errors.cleanlanguage.dev/E/CLASS011
