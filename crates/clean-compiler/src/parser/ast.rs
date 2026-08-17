@@ -113,22 +113,27 @@ pub enum Stmt {
     Print { items: Vec<Expr>, span: ByteSpan },
 }
 
+/// One segment of a string literal (06-expressions §3): literal text or a
+/// `{expr}` interpolation, in source order.
+#[derive(Debug)]
+pub enum StrSeg {
+    Text(String),
+    Interp { expr: Expr, span: ByteSpan },
+}
+
 #[derive(Debug)]
 pub enum Expr {
     Int {
         value: u128,
         span: ByteSpan,
     },
-    /// Float-shaped literal; `number` support is outside the M1 surface.
+    /// Float-shaped literal; the `number` type's semantics land in M6.
     Number {
         text: String,
         span: ByteSpan,
     },
     Str {
-        value: String,
-        /// Non-empty means interpolation — outside the M1 surface, rejected
-        /// in typecheck with these exact spans.
-        interpolations: Vec<ByteSpan>,
+        segments: Vec<StrSeg>,
         span: ByteSpan,
     },
     Bool {
@@ -142,6 +147,24 @@ pub enum Expr {
         name: String,
         span: ByteSpan,
     },
+    /// `this` in class-method scope (CLS prose §5).
+    This {
+        span: ByteSpan,
+    },
+    /// `base` — parent-constructor callee in class scope (CLS-02).
+    Base {
+        span: ByteSpan,
+    },
+    /// `error` as the bound Error value inside a handler (ERH-04), or as
+    /// the raise/emission callee when a Call wraps it (ERH-01, BLK-03) —
+    /// the parser dispatches on the following token per 13 §3.
+    ErrorRef {
+        span: ByteSpan,
+    },
+    /// `result` inside an `after:` contract block (CTR-02).
+    ResultRef {
+        span: ByteSpan,
+    },
     Call {
         callee: Box<Expr>,
         args: Vec<Expr>,
@@ -150,6 +173,17 @@ pub enum Expr {
     Member {
         receiver: Box<Expr>,
         name: String,
+        span: ByteSpan,
+    },
+    /// `receiver[index]` (06 §1 IndexAccess).
+    Index {
+        receiver: Box<Expr>,
+        index: Box<Expr>,
+        span: ByteSpan,
+    },
+    /// Postfix `!` — required-assertion on an optional (EXP-03).
+    NonNone {
+        operand: Box<Expr>,
         span: ByteSpan,
     },
     Binary {
@@ -161,6 +195,13 @@ pub enum Expr {
     Unary {
         op: UnOp,
         operand: Box<Expr>,
+        span: ByteSpan,
+    },
+    /// `value onError fallback` — suffix form, level 13 (ERH-02). The block
+    /// form is a statement tail, `Stmt`-side.
+    OnError {
+        value: Box<Expr>,
+        fallback: Box<Expr>,
         span: ByteSpan,
     },
     List {
@@ -178,10 +219,17 @@ impl Expr {
             | Expr::Bool { span, .. }
             | Expr::NoneLit { span }
             | Expr::Ident { span, .. }
+            | Expr::This { span }
+            | Expr::Base { span }
+            | Expr::ErrorRef { span }
+            | Expr::ResultRef { span }
             | Expr::Call { span, .. }
             | Expr::Member { span, .. }
+            | Expr::Index { span, .. }
+            | Expr::NonNone { span, .. }
             | Expr::Binary { span, .. }
             | Expr::Unary { span, .. }
+            | Expr::OnError { span, .. }
             | Expr::List { span, .. } => *span,
         }
     }
@@ -197,6 +245,10 @@ pub enum BinOp {
     Pow,
     Eq,
     NEq,
+    /// `a is b` — identity comparison, level 8 (EXP-01).
+    Is,
+    /// `a not b` — binary `not` in operator position, level 8 (EXP-01).
+    NotIs,
     Lt,
     LtEq,
     Gt,
@@ -219,7 +271,27 @@ pub enum UnOp {
 pub struct TypeExpr {
     pub base: BaseType,
     pub optional: bool,
+    /// Spans of `?` markers beyond the first. TYP-03 forbids `T??`; the
+    /// parser records the extras so the checker can report SEM009 (M4).
+    pub extra_optionals: Vec<ByteSpan>,
+    /// TYP-05 behavior suffix chain (`list<T>.line`), declaration-LHS only.
+    /// The grammar admits any chain; the checker restricts combinations.
+    pub behaviors: Vec<Behavior>,
     pub span: ByteSpan,
+}
+
+/// One `.line` / `.pile` / `.unique` suffix (TYP-05).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Behavior {
+    pub name: BehaviorName,
+    pub span: ByteSpan,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BehaviorName {
+    Line,
+    Pile,
+    Unique,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -235,8 +307,10 @@ pub enum BaseType {
     Any,
     Void,
     List(Box<TypeExpr>),
+    Matrix(Box<TypeExpr>),
     Pairs(Box<TypeExpr>, Box<TypeExpr>),
-    /// Class, capability, or world-declared type referenced by name.
+    /// Class, capability, world-declared, or compile-time (TYP-04) type
+    /// referenced by name.
     Named(String),
 }
 

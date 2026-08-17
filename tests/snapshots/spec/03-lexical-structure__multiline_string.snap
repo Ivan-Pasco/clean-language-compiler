@@ -1,0 +1,44 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            VarDecl {
+                ty: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 14,
+                    },
+                },
+                name: "m",
+                init: Some(
+                    Str {
+                        segments: [
+                            Text(
+                                "line one\n  line two",
+                            ),
+                        ],
+                        span: ByteSpan {
+                            start: 19,
+                            end: 50,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 8,
+                    end: 50,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 2
+  SYN002 spec/03-lexical-structure/multiline_string.cln:6:2 expected end of line
+  SYN002 spec/03-lexical-structure/multiline_string.cln:6:10 keyword cannot be used as variable name

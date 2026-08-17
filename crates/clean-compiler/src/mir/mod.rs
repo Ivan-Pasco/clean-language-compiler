@@ -709,6 +709,9 @@ impl<'a> FnLowerer<'a> {
             Pow => {
                 self.note(sink, "exponentiation in compiled code", expr.span);
             }
+            Is | NotIs => {
+                self.note(sink, "identity comparison in compiled code", expr.span);
+            }
         }
     }
 

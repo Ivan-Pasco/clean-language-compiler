@@ -1,0 +1,284 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 15,
+                    },
+                },
+                name: "a",
+                init: Some(
+                    Int {
+                        value: 42,
+                        span: ByteSpan {
+                            start: 20,
+                            end: 22,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 8,
+                    end: 23,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 24,
+                        end: 31,
+                    },
+                },
+                name: "h",
+                init: Some(
+                    Int {
+                        value: 255,
+                        span: ByteSpan {
+                            start: 36,
+                            end: 40,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 24,
+                    end: 41,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 42,
+                        end: 49,
+                    },
+                },
+                name: "b",
+                init: Some(
+                    Int {
+                        value: 5,
+                        span: ByteSpan {
+                            start: 54,
+                            end: 59,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 42,
+                    end: 60,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 61,
+                        end: 68,
+                    },
+                },
+                name: "o",
+                init: Some(
+                    Int {
+                        value: 15,
+                        span: ByteSpan {
+                            start: 73,
+                            end: 77,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 61,
+                    end: 78,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Number,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 79,
+                        end: 85,
+                    },
+                },
+                name: "n",
+                init: Some(
+                    Number {
+                        text: "3.5",
+                        span: ByteSpan {
+                            start: 90,
+                            end: 93,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 79,
+                    end: 94,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Number,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 95,
+                        end: 101,
+                    },
+                },
+                name: "x",
+                init: Some(
+                    Number {
+                        text: "1e10",
+                        span: ByteSpan {
+                            start: 106,
+                            end: 110,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 95,
+                    end: 111,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Number,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 112,
+                        end: 118,
+                    },
+                },
+                name: "tiny",
+                init: Some(
+                    Number {
+                        text: ".25",
+                        span: ByteSpan {
+                            start: 126,
+                            end: 129,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 112,
+                    end: 130,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 131,
+                        end: 137,
+                    },
+                },
+                name: "s",
+                init: Some(
+                    Str {
+                        segments: [
+                            Text(
+                                "hi\tthere😀",
+                            ),
+                        ],
+                        span: ByteSpan {
+                            start: 142,
+                            end: 161,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 131,
+                    end: 162,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Boolean,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 163,
+                        end: 170,
+                    },
+                },
+                name: "t",
+                init: Some(
+                    Bool {
+                        value: true,
+                        span: ByteSpan {
+                            start: 175,
+                            end: 179,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 163,
+                    end: 180,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Boolean,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 181,
+                        end: 188,
+                    },
+                },
+                name: "f",
+                init: Some(
+                    Bool {
+                        value: false,
+                        span: ByteSpan {
+                            start: 193,
+                            end: 198,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 181,
+                    end: 199,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

@@ -1,0 +1,6 @@
+start:
+	string m = """
+	line one
+	  line two
+	"""
+	integer after = 3

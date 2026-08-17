@@ -1,0 +1,9 @@
+start:
+	integer a = 1 + 2 * 3 - 4 / 5 % 6
+	integer p = 2 ^ 3 ^ 2
+	boolean c = 1 < 2 and 3 >= 4 or not true
+	boolean e = a == 2 or a != 3
+	boolean i = a is a
+	boolean n = a not a
+	integer d = maybe default 7
+	integer f = risky() onError 0

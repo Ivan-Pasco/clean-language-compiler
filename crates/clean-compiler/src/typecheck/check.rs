@@ -157,6 +157,7 @@ impl<'a> Checker<'a> {
             ast::BaseType::Number
             | ast::BaseType::Datetime
             | ast::BaseType::Any
+            | ast::BaseType::Matrix(_)
             | ast::BaseType::Pairs(_, _) => {
                 sink.note_unsupported(
                     "type outside the Milestone 1 surface",
@@ -165,6 +166,12 @@ impl<'a> Checker<'a> {
                 Ty::Error
             }
         };
+        for behavior in &ty.behaviors {
+            sink.note_unsupported("list behavior suffixes", self.span(file, behavior.span));
+        }
+        for extra in &ty.extra_optionals {
+            sink.note_unsupported("doubled optional marker", self.span(file, *extra));
+        }
         if ty.optional {
             Ty::Option(Box::new(base))
         } else {
@@ -535,15 +542,21 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     error_expr(span)
                 }
             },
-            ast::Expr::Str {
-                value,
-                interpolations,
-                ..
-            } => {
-                if !interpolations.is_empty() {
-                    sink.note_unsupported("string interpolation", self.diag_span(span));
-                    return error_expr(span);
+            ast::Expr::Str { segments, .. } => {
+                let mut value = String::new();
+                for seg in segments {
+                    match seg {
+                        ast::StrSeg::Text(text) => value.push_str(text),
+                        ast::StrSeg::Interp { span: seg_span, .. } => {
+                            sink.note_unsupported(
+                                "string interpolation",
+                                self.diag_span(*seg_span),
+                            );
+                            return error_expr(span);
+                        }
+                    }
                 }
+                let value = &value;
                 if let Some(Ty::Enum { wit_name, cases }) = expected {
                     // ADR-0002 §3: an enum-typed parameter takes a
                     // compile-time string literal naming a case.
@@ -639,6 +652,34 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             ast::Expr::Member { .. } => {
                 sink.note_unsupported("member access", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::Index { .. } => {
+                sink.note_unsupported("index access", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::NonNone { .. } => {
+                sink.note_unsupported("postfix `!` assertion", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::OnError { .. } => {
+                sink.note_unsupported("`onError` fallback", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::This { .. } => {
+                sink.note_unsupported("`this`", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::Base { .. } => {
+                sink.note_unsupported("`base`", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::ErrorRef { .. } => {
+                sink.note_unsupported("`error` values", self.diag_span(span));
+                error_expr(span)
+            }
+            ast::Expr::ResultRef { .. } => {
+                sink.note_unsupported("`result` in contracts", self.diag_span(span));
                 error_expr(span)
             }
             ast::Expr::Unary {
@@ -900,6 +941,10 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             Pow => {
                 sink.note_unsupported("exponentiation", self.diag_span(span));
+                return error_expr(span);
+            }
+            Is | NotIs => {
+                sink.note_unsupported("identity comparison", self.diag_span(span));
                 return error_expr(span);
             }
             Lt | LtEq | Gt | GtEq => {

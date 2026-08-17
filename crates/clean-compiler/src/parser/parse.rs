@@ -16,6 +16,7 @@ use super::ast::*;
 pub fn parse(stream: &TokenStream, sink: &mut DiagnosticSink) -> SourceFile {
     let mut parser = Parser {
         stream,
+        tokens: &stream.tokens,
         pos: 0,
         paren_depth: 0,
     };
@@ -24,6 +25,9 @@ pub fn parse(stream: &TokenStream, sink: &mut DiagnosticSink) -> SourceFile {
 
 struct Parser<'a> {
     stream: &'a TokenStream,
+    /// The token slice being parsed — the whole file, or one interpolation
+    /// interior (both end in `Eof`).
+    tokens: &'a [Token],
     pos: usize,
     paren_depth: u32,
 }
@@ -32,23 +36,23 @@ impl<'a> Parser<'a> {
     // ----- cursor -----------------------------------------------------
 
     fn peek(&self) -> &'a TokenKind {
-        &self.stream.tokens[self.effective_pos()].kind
+        &self.tokens[self.effective_pos()].kind
     }
 
     fn peek2(&self) -> &'a TokenKind {
-        let last = self.stream.tokens.len() - 1;
+        let last = self.tokens.len() - 1;
         let mut i = (self.effective_pos() + 1).min(last);
         if self.paren_depth > 0 {
             while i < last
                 && matches!(
-                    self.stream.tokens[i].kind,
+                    self.tokens[i].kind,
                     TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent
                 )
             {
                 i += 1;
             }
         }
-        &self.stream.tokens[i].kind
+        &self.tokens[i].kind
     }
 
     fn effective_pos(&self) -> usize {
@@ -57,7 +61,7 @@ impl<'a> Parser<'a> {
             // EXP-02: inside parentheses, line breaks do not end the
             // expression — layout tokens are transparent.
             while matches!(
-                self.stream.tokens[i].kind,
+                self.tokens[i].kind,
                 TokenKind::Newline | TokenKind::Indent | TokenKind::Dedent
             ) {
                 i += 1;
@@ -67,18 +71,18 @@ impl<'a> Parser<'a> {
     }
 
     fn span(&self) -> ByteSpan {
-        self.stream.tokens[self.effective_pos()].span
+        self.tokens[self.effective_pos()].span
     }
 
     fn prev_span(&self) -> ByteSpan {
-        self.stream.tokens[self.pos.saturating_sub(1)].span
+        self.tokens[self.pos.saturating_sub(1)].span
     }
 
     /// Advances past the current token — except at `Eof`, which is sticky so
     /// error recovery can never run off the end of the stream.
     fn bump(&mut self) -> &'a Token {
         let i = self.effective_pos();
-        let token = &self.stream.tokens[i];
+        let token = &self.tokens[i];
         if !matches!(token.kind, TokenKind::Eof) {
             self.pos = i + 1;
         }
@@ -401,7 +405,7 @@ impl<'a> Parser<'a> {
                     "':' between parameter name and type",
                     sink,
                 );
-                let ty = self.type_expr(true, sink);
+                let ty = self.type_expr(TypePos::Host, sink);
                 params.push(HostParam {
                     name: param_name,
                     ty,
@@ -415,7 +419,7 @@ impl<'a> Parser<'a> {
         self.paren_depth -= 1;
         self.expect(&TokenKind::RParen, "')'", sink);
         let ret = if self.eat_kw(Kw::Returns) {
-            Some(self.type_expr(true, sink))
+            Some(self.type_expr(TypePos::Host, sink))
         } else {
             None
         };
@@ -512,7 +516,7 @@ impl<'a> Parser<'a> {
     /// `ReturnType name(params)` + indented body (FNC-02/FNC-03).
     fn function_decl(&mut self, sink: &mut DiagnosticSink) -> Option<Function> {
         let start = self.span();
-        let ret = self.type_expr(false, sink);
+        let ret = self.type_expr(TypePos::Surface, sink);
         let Some((name, _)) = self.ident("function name", sink) else {
             self.sync_line();
             return None;
@@ -526,7 +530,7 @@ impl<'a> Parser<'a> {
         if !self.at(&TokenKind::RParen) {
             loop {
                 let param_start = self.span();
-                let ty = self.type_expr(false, sink);
+                let ty = self.type_expr(TypePos::Surface, sink);
                 let Some((param_name, _)) = self.ident("parameter name", sink) else {
                     break;
                 };
@@ -577,7 +581,7 @@ impl<'a> Parser<'a> {
                 TokenKind::Dedent | TokenKind::Eof => break,
                 _ => {
                     let field_start = self.span();
-                    let ty = self.type_expr(false, sink);
+                    let ty = self.type_expr(TypePos::Surface, sink);
                     match self.ident("field name", sink) {
                         Some((field_name, _)) => {
                             fields.push(Field {
@@ -650,7 +654,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Kw::If) => self.if_statement(sink),
             TokenKind::Keyword(Kw::Print) => self.print_block(sink),
             _ if self.starts_type_first_declaration() => {
-                let ty = self.type_expr(false, sink);
+                let ty = self.type_expr(TypePos::DeclLhs, sink);
                 let Some((name, _)) = self.ident("variable name", sink) else {
                     self.sync_line();
                     return None;
@@ -671,7 +675,10 @@ impl<'a> Parser<'a> {
             _ => {
                 let expr = self.expression(sink);
                 if self.eat(&TokenKind::Assign) {
-                    if !matches!(expr, Expr::Ident { .. } | Expr::Member { .. }) {
+                    if !matches!(
+                        expr,
+                        Expr::Ident { .. } | Expr::Member { .. } | Expr::Index { .. }
+                    ) {
                         // STM-02: targets are identifier, member, or index.
                         self.error_at(
                             sink,
@@ -775,17 +782,23 @@ impl<'a> Parser<'a> {
 
     // ----- types --------------------------------------------------------
 
-    /// `host_position` admits the LBS-02 width suffixes (`integer:32`,
-    /// `integer:u32`) that are invalid in surface-language positions.
-    fn type_expr(&mut self, host_position: bool, sink: &mut DiagnosticSink) -> TypeExpr {
+    /// Parses one TypeExpression (04-type-system.ebnf.md §1).
+    fn type_expr(&mut self, pos: TypePos, sink: &mut DiagnosticSink) -> TypeExpr {
         let start = self.span();
+        // Inside generic arguments the special powers of the outer position
+        // (behavior chains) do not apply; host width suffixes do (a host
+        // signature is host throughout).
+        let element_pos = match pos {
+            TypePos::Host => TypePos::Host,
+            _ => TypePos::Surface,
+        };
         let base = match self.peek().clone() {
             TokenKind::Ident(name) => {
                 self.bump();
                 match name.as_str() {
                     "boolean" => BaseType::Boolean,
                     "integer" => {
-                        let width = if host_position && self.at(&TokenKind::Colon) {
+                        let width = if pos == TypePos::Host && self.at(&TokenKind::Colon) {
                             self.bump();
                             self.int_width(sink)
                         } else {
@@ -801,15 +814,21 @@ impl<'a> Parser<'a> {
                     "void" => BaseType::Void,
                     "list" => {
                         self.expect(&TokenKind::Lt, "'<' after 'list'", sink);
-                        let element = self.type_expr(host_position, sink);
+                        let element = self.type_expr(element_pos, sink);
                         self.expect(&TokenKind::Gt, "'>'", sink);
                         BaseType::List(Box::new(element))
                     }
+                    "matrix" => {
+                        self.expect(&TokenKind::Lt, "'<' after 'matrix'", sink);
+                        let element = self.type_expr(element_pos, sink);
+                        self.expect(&TokenKind::Gt, "'>'", sink);
+                        BaseType::Matrix(Box::new(element))
+                    }
                     "pairs" => {
                         self.expect(&TokenKind::Lt, "'<' after 'pairs'", sink);
-                        let key = self.type_expr(host_position, sink);
+                        let key = self.type_expr(element_pos, sink);
                         self.expect(&TokenKind::Comma, "','", sink);
-                        let value = self.type_expr(host_position, sink);
+                        let value = self.type_expr(element_pos, sink);
                         self.expect(&TokenKind::Gt, "'>'", sink);
                         BaseType::Pairs(Box::new(key), Box::new(value))
                     }
@@ -821,12 +840,43 @@ impl<'a> Parser<'a> {
                 BaseType::Named("<error>".to_string())
             }
         };
-        // TYP-03: a single `?` only; the grammar rejects `??` here and the
-        // second `?` falls out as an unexpected token.
+        // TYP-05: behavior suffix chain — declaration LHS, list<T> only.
+        // The grammar admits any chain; the checker restricts combinations.
+        let mut behaviors = Vec::new();
+        if pos == TypePos::DeclLhs && matches!(base, BaseType::List(_)) {
+            while self.at(&TokenKind::Dot) {
+                let name = match self.peek2() {
+                    TokenKind::Ident(word) => match word.as_str() {
+                        "line" => BehaviorName::Line,
+                        "pile" => BehaviorName::Pile,
+                        "unique" => BehaviorName::Unique,
+                        _ => break,
+                    },
+                    _ => break,
+                };
+                let dot = self.span();
+                self.bump(); // '.'
+                let word_span = self.span();
+                self.bump(); // behavior word
+                behaviors.push(Behavior {
+                    name,
+                    span: dot.merge(word_span),
+                });
+            }
+        }
+        // TYP-03: a single `?` only. Extra markers are recorded for the
+        // checker's SEM009 (grammar admits, checker restricts).
         let optional = self.eat(&TokenKind::Question);
+        let mut extra_optionals = Vec::new();
+        while self.at(&TokenKind::Question) {
+            extra_optionals.push(self.span());
+            self.bump();
+        }
         TypeExpr {
             base,
             optional,
+            extra_optionals,
+            behaviors,
             span: start.merge(self.prev_span()),
         }
     }
@@ -868,11 +918,28 @@ impl<'a> Parser<'a> {
     // ----- expressions (EXP-01 ladder) ----------------------------------
 
     fn expression(&mut self, sink: &mut DiagnosticSink) -> Expr {
-        self.default_expr(sink)
+        self.on_error_expr(sink)
+    }
+
+    /// Level 13: `onError` suffix — failure fallback, left-associative
+    /// (13-error-handling §2). `onError ':'` is the block form, a statement
+    /// tail — the expression ladder leaves it for the statement parser.
+    fn on_error_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
+        let mut lhs = self.default_expr(sink);
+        while self.at_kw(Kw::OnError) && !matches!(self.peek2(), TokenKind::Colon) {
+            self.bump();
+            let rhs = self.default_expr(sink);
+            let span = lhs.span().merge(rhs.span());
+            lhs = Expr::OnError {
+                value: Box::new(lhs),
+                fallback: Box::new(rhs),
+                span,
+            };
+        }
+        lhs
     }
 
     /// Level 11: `default` — none-coalescing, left-associative (EXP-03).
-    /// `onError` (level 13) sits above this and is outside the M1 surface.
     fn default_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.or_expr(sink);
         while self.at_kw(Kw::Default) {
@@ -903,12 +970,17 @@ impl<'a> Parser<'a> {
         lhs
     }
 
+    /// Level 8: equality and identity. `not` here is the BINARY form —
+    /// operator position after an operand distinguishes it from unary `not`
+    /// (06-expressions §1, position dispatch).
     fn equality_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.comparison_expr(sink);
         loop {
             let op = match self.peek() {
                 TokenKind::Eq => BinOp::Eq,
                 TokenKind::NEq => BinOp::NEq,
+                TokenKind::Keyword(Kw::Is) => BinOp::Is,
+                TokenKind::Keyword(Kw::Not) => BinOp::NotIs,
                 _ => break,
             };
             self.bump();
@@ -1043,8 +1115,49 @@ impl<'a> Parser<'a> {
                         span,
                     };
                 }
+                TokenKind::LBracket => {
+                    // IndexAccess (06 §1).
+                    self.bump();
+                    self.paren_depth += 1;
+                    let index = self.expression(sink);
+                    self.paren_depth -= 1;
+                    let end = self.span();
+                    self.expect(&TokenKind::RBracket, "']'", sink);
+                    let span = expr.span().merge(end);
+                    expr = Expr::Index {
+                        receiver: Box::new(expr),
+                        index: Box::new(index),
+                        span,
+                    };
+                }
+                TokenKind::Bang => {
+                    // Postfix `!` (EXP-03 required-assertion).
+                    let bang = self.span();
+                    self.bump();
+                    let span = expr.span().merge(bang);
+                    expr = Expr::NonNone {
+                        operand: Box::new(expr),
+                        span,
+                    };
+                }
                 _ => break,
             }
+        }
+        expr
+    }
+
+    /// Parses one `{…}` interpolation interior (tokenized by the lexer,
+    /// Eof-terminated) as a full Expression (06-expressions §3).
+    fn parse_interpolation(&self, tokens: &[Token], sink: &mut DiagnosticSink) -> Expr {
+        let mut sub = Parser {
+            stream: self.stream,
+            tokens,
+            pos: 0,
+            paren_depth: 0,
+        };
+        let expr = sub.expression(sink);
+        if !matches!(sub.peek(), TokenKind::Eof) {
+            sub.error_here(sink, "expected the end of the interpolation".to_string());
         }
         expr
     }
@@ -1062,19 +1175,23 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Str { parts } => {
                 self.bump();
-                let mut value = String::new();
-                let mut interpolations = Vec::new();
+                let mut segments = Vec::new();
                 for part in parts {
                     match part {
-                        crate::lexer::StrPart::Text(text) => value.push_str(&text),
-                        crate::lexer::StrPart::Interp { span, .. } => interpolations.push(span),
+                        crate::lexer::StrPart::Text(text) => segments.push(StrSeg::Text(text)),
+                        crate::lexer::StrPart::Interp {
+                            span: seg_span,
+                            tokens,
+                        } => {
+                            let expr = self.parse_interpolation(&tokens, sink);
+                            segments.push(StrSeg::Interp {
+                                expr,
+                                span: seg_span,
+                            });
+                        }
                     }
                 }
-                Expr::Str {
-                    value,
-                    interpolations,
-                    span,
-                }
+                Expr::Str { segments, span }
             }
             TokenKind::Keyword(Kw::True) => {
                 self.bump();
@@ -1087,6 +1204,24 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Kw::None) => {
                 self.bump();
                 Expr::NoneLit { span }
+            }
+            TokenKind::Keyword(Kw::This) => {
+                self.bump();
+                Expr::This { span }
+            }
+            TokenKind::Keyword(Kw::Base) => {
+                self.bump();
+                Expr::Base { span }
+            }
+            TokenKind::Keyword(Kw::Error) => {
+                // 13 §3: `error(` raise / `error.` member / `error` binding —
+                // one primary; the postfix loop builds the rest.
+                self.bump();
+                Expr::ErrorRef { span }
+            }
+            TokenKind::Keyword(Kw::Result) => {
+                self.bump();
+                Expr::ResultRef { span }
             }
             TokenKind::Ident(name) => {
                 self.bump();
@@ -1132,6 +1267,16 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// Which position a TypeExpression is being read in — the grammar is the
+/// same, but host signatures admit width suffixes (LBS-02) and declaration
+/// LHS admits TYP-05 behavior chains.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TypePos {
+    Surface,
+    Host,
+    DeclLhs,
+}
+
 fn binary(op: BinOp, lhs: Expr, rhs: Expr) -> Expr {
     let span = lhs.span().merge(rhs.span());
     Expr::Binary {
@@ -1142,6 +1287,7 @@ fn binary(op: BinOp, lhs: Expr, rhs: Expr) -> Expr {
     }
 }
 
+/// TypeKeyword table (03 §4).
 fn is_type_word(word: &str) -> bool {
     matches!(
         word,
@@ -1154,6 +1300,7 @@ fn is_type_word(word: &str) -> bool {
             | "any"
             | "void"
             | "list"
+            | "matrix"
             | "pairs"
     )
 }

@@ -1,0 +1,352 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: true,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 16,
+                    },
+                },
+                name: "maybe",
+                init: Some(
+                    NoneLit {
+                        span: ByteSpan {
+                            start: 25,
+                            end: 29,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 8,
+                    end: 30,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: List(
+                        TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 36,
+                                end: 43,
+                            },
+                        },
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 31,
+                        end: 44,
+                    },
+                },
+                name: "xs",
+                init: Some(
+                    List {
+                        items: [
+                            Int {
+                                value: 1,
+                                span: ByteSpan {
+                                    start: 51,
+                                    end: 52,
+                                },
+                            },
+                            Int {
+                                value: 2,
+                                span: ByteSpan {
+                                    start: 54,
+                                    end: 55,
+                                },
+                            },
+                            Int {
+                                value: 3,
+                                span: ByteSpan {
+                                    start: 57,
+                                    end: 58,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 50,
+                            end: 59,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 31,
+                    end: 60,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: List(
+                        TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 66,
+                                end: 73,
+                            },
+                        },
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [
+                        Behavior {
+                            name: Line,
+                            span: ByteSpan {
+                                start: 74,
+                                end: 79,
+                            },
+                        },
+                    ],
+                    span: ByteSpan {
+                        start: 61,
+                        end: 79,
+                    },
+                },
+                name: "queue",
+                init: Some(
+                    List {
+                        items: [
+                            Int {
+                                value: 1,
+                                span: ByteSpan {
+                                    start: 89,
+                                    end: 90,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 88,
+                            end: 91,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 61,
+                    end: 92,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: List(
+                        TypeExpr {
+                            base: String_,
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 98,
+                                end: 104,
+                            },
+                        },
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [
+                        Behavior {
+                            name: Unique,
+                            span: ByteSpan {
+                                start: 105,
+                                end: 112,
+                            },
+                        },
+                        Behavior {
+                            name: Pile,
+                            span: ByteSpan {
+                                start: 112,
+                                end: 117,
+                            },
+                        },
+                    ],
+                    span: ByteSpan {
+                        start: 93,
+                        end: 117,
+                    },
+                },
+                name: "bag",
+                init: Some(
+                    List {
+                        items: [],
+                        span: ByteSpan {
+                            start: 124,
+                            end: 126,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 93,
+                    end: 127,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Matrix(
+                        TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 135,
+                                end: 142,
+                            },
+                        },
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 128,
+                        end: 143,
+                    },
+                },
+                name: "grid",
+                init: Some(
+                    List {
+                        items: [
+                            List {
+                                items: [
+                                    Int {
+                                        value: 1,
+                                        span: ByteSpan {
+                                            start: 153,
+                                            end: 154,
+                                        },
+                                    },
+                                    Int {
+                                        value: 2,
+                                        span: ByteSpan {
+                                            start: 156,
+                                            end: 157,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 152,
+                                    end: 158,
+                                },
+                            },
+                            List {
+                                items: [
+                                    Int {
+                                        value: 3,
+                                        span: ByteSpan {
+                                            start: 161,
+                                            end: 162,
+                                        },
+                                    },
+                                    Int {
+                                        value: 4,
+                                        span: ByteSpan {
+                                            start: 164,
+                                            end: 165,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 160,
+                                    end: 166,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 151,
+                            end: 167,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 128,
+                    end: 168,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Pairs(
+                        TypeExpr {
+                            base: String_,
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 175,
+                                end: 181,
+                            },
+                        },
+                        TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 183,
+                                end: 190,
+                            },
+                        },
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 169,
+                        end: 191,
+                    },
+                },
+                name: "ages",
+                init: None,
+                span: ByteSpan {
+                    start: 169,
+                    end: 197,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Named(
+                        "User",
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 198,
+                        end: 202,
+                    },
+                },
+                name: "owner",
+                init: None,
+                span: ByteSpan {
+                    start: 198,
+                    end: 209,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

@@ -1,0 +1,279 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 15,
+                    },
+                },
+                name: "idx",
+                init: Some(
+                    Index {
+                        receiver: Ident {
+                            name: "xs",
+                            span: ByteSpan {
+                                start: 22,
+                                end: 24,
+                            },
+                        },
+                        index: Int {
+                            value: 0,
+                            span: ByteSpan {
+                                start: 25,
+                                end: 26,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 22,
+                            end: 27,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 8,
+                    end: 28,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 29,
+                        end: 36,
+                    },
+                },
+                name: "bang",
+                init: Some(
+                    NonNone {
+                        operand: Ident {
+                            name: "maybe",
+                            span: ByteSpan {
+                                start: 44,
+                                end: 49,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 44,
+                            end: 50,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 29,
+                    end: 51,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 52,
+                        end: 59,
+                    },
+                },
+                name: "len",
+                init: Some(
+                    Call {
+                        callee: Member {
+                            receiver: Index {
+                                receiver: Member {
+                                    receiver: Ident {
+                                        name: "obj",
+                                        span: ByteSpan {
+                                            start: 66,
+                                            end: 69,
+                                        },
+                                    },
+                                    name: "items",
+                                    span: ByteSpan {
+                                        start: 66,
+                                        end: 75,
+                                    },
+                                },
+                                index: Int {
+                                    value: 0,
+                                    span: ByteSpan {
+                                        start: 76,
+                                        end: 77,
+                                    },
+                                },
+                                span: ByteSpan {
+                                    start: 66,
+                                    end: 78,
+                                },
+                            },
+                            name: "size",
+                            span: ByteSpan {
+                                start: 66,
+                                end: 83,
+                            },
+                        },
+                        args: [
+                            Ident {
+                                name: "arg",
+                                span: ByteSpan {
+                                    start: 84,
+                                    end: 87,
+                                },
+                            },
+                            Int {
+                                value: 2,
+                                span: ByteSpan {
+                                    start: 89,
+                                    end: 90,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 66,
+                            end: 91,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 52,
+                    end: 92,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 93,
+                        end: 99,
+                    },
+                },
+                name: "s",
+                init: Some(
+                    Str {
+                        segments: [
+                            Text(
+                                "n: ",
+                            ),
+                            Interp {
+                                expr: Ident {
+                                    name: "a",
+                                    span: ByteSpan {
+                                        start: 109,
+                                        end: 110,
+                                    },
+                                },
+                                span: ByteSpan {
+                                    start: 108,
+                                    end: 111,
+                                },
+                            },
+                            Text(
+                                ", sum: ",
+                            ),
+                            Interp {
+                                expr: Binary {
+                                    op: Add,
+                                    lhs: Ident {
+                                        name: "a",
+                                        span: ByteSpan {
+                                            start: 119,
+                                            end: 120,
+                                        },
+                                    },
+                                    rhs: Ident {
+                                        name: "b",
+                                        span: ByteSpan {
+                                            start: 123,
+                                            end: 124,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 119,
+                                        end: 124,
+                                    },
+                                },
+                                span: ByteSpan {
+                                    start: 118,
+                                    end: 125,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 104,
+                            end: 126,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 93,
+                    end: 127,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 128,
+                        end: 135,
+                    },
+                },
+                name: "m",
+                init: Some(
+                    Binary {
+                        op: Add,
+                        lhs: Int {
+                            value: 1,
+                            span: ByteSpan {
+                                start: 141,
+                                end: 142,
+                            },
+                        },
+                        rhs: Int {
+                            value: 2,
+                            span: ByteSpan {
+                                start: 147,
+                                end: 148,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 141,
+                            end: 148,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 128,
+                    end: 150,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

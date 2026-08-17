@@ -1,0 +1,4 @@
+// line comment
+/* block /* nested */ comment */
+start:
+	integer a = 1 // trailing

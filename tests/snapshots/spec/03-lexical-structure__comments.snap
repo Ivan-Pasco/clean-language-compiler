@@ -1,0 +1,40 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 57,
+                        end: 64,
+                    },
+                },
+                name: "a",
+                init: Some(
+                    Int {
+                        value: 1,
+                        span: ByteSpan {
+                            start: 69,
+                            end: 70,
+                        },
+                    },
+                ),
+                span: ByteSpan {
+                    start: 57,
+                    end: 83,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

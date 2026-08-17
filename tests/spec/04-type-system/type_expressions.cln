@@ -1,0 +1,8 @@
+start:
+	integer? maybe = none
+	list<integer> xs = [1, 2, 3]
+	list<integer>.line queue = [1]
+	list<string>.unique.pile bag = []
+	matrix<integer> grid = [[1, 2], [3, 4]]
+	pairs<string, integer> ages
+	User owner

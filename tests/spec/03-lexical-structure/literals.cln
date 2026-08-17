@@ -1,0 +1,11 @@
+start:
+	integer a = 42
+	integer h = 0xff
+	integer b = 0b101
+	integer o = 0o17
+	number n = 3.5
+	number x = 1e10
+	number tiny = .25
+	string s = "hi\tthere\u01F600"
+	boolean t = true
+	boolean f = false

@@ -1,0 +1,7 @@
+start:
+	integer idx = xs[0]
+	integer bang = maybe!
+	integer len = obj.items[0].size(arg, 2)
+	string s = "n: {a}, sum: {a + b}"
+	integer m = (1 +
+		2)
