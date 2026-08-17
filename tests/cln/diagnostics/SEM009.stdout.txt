@@ -1,4 +1,4 @@
-error[SEM009]: the optional marker `?` cannot be repeated
+error[SEM009]: `integer?` is already optional: absence does not stack
  --> tests/cln/diagnostics/SEM009.cln:3:11
   |
 3 | 		integer?? x = none

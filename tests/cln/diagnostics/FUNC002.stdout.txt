@@ -1,4 +1,4 @@
-error[FUNC002]: `add` expects 2 argument(s), got 1
+error[FUNC002]: function 'add' expects 2 arguments, found 1
  --> tests/cln/diagnostics/FUNC002.cln:5:15
   |
 5 | 		integer x = add(1)

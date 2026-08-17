@@ -1,0 +1,17 @@
+warning[SEM027]: integer value 9007199254740993 exceeds 2^53 and loses precision as a number
+ --> tests/cln/diagnostics/SEM027.cln:2:18
+  |
+2 | 	number weight = 9007199254740993
+  | 	                ^^^^^^^^^^^^^^^^ lossy conversion to number
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM027
+
+error[SEM001]: type mismatch in assignment
+ --> tests/cln/diagnostics/SEM027.cln:3:10
+  |
+3 | 	integer bad = "x"
+  | 	        ^^^   --- this expression has type `string`
+  | 	        |
+  | 	        `bad` is declared with type `integer`
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM001

@@ -1,7 +1,7 @@
-error[CLASS005]: 'after:' must come after the 'before:' block
+error[CLASS005]: 'after:' must follow 'before:' at the top of the function body
  --> tests/cln/diagnostics/CLASS005.cln:3:3
   |
 3 | 		after:
-  | 		^^^^^^ swap the contract blocks
+  | 		^^^^^^ 'after:' out of position
   |
   = docs: https://errors.cleanlanguage.dev/E/CLASS005

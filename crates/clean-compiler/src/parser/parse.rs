@@ -423,7 +423,10 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Keyword(Kw::Start) => {
                 let block = self.start_section(sink)?;
-                Some((Item::Start(block), SectionOrder::singleton("start:", 9)))
+                // The grammar carries no cardinality on `start:` — a
+                // duplicate is FUNC015, the checker's (FNC-01, M4
+                // registry pass), not a parse-order violation.
+                Some((Item::Start(block), SectionOrder::repeatable("start:", 9)))
             }
             // A library-registered block (08 §3): an identifier-headed line
             // ending in ':' that no earlier arm claimed. Checked before the

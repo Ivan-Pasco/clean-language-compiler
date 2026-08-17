@@ -2,6 +2,6 @@ error[IDX002]: matrix index must be `integer`, found `boolean`
  --> tests/cln/diagnostics/IDX002.cln:4:17
   |
 4 | 		integer x = m[true]
-  | 		              ^^^^ matrices are indexed by integer row
+  | 		              ^^^^ expected an integer index
   |
   = docs: https://errors.cleanlanguage.dev/E/IDX002

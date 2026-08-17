@@ -48,5 +48,5 @@ AST:
     ),
 ]
 DIAGNOSTICS: 1
-  SEM009 spec/04-type-system/double_optional.cln:2:10 the optional marker `?` cannot be repeated
+  SEM009 spec/04-type-system/double_optional.cln:2:10 `integer?` is already optional: absence does not stack
 UNSUPPORTED: 0

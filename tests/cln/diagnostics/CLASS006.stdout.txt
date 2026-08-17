@@ -1,7 +1,7 @@
-error[CLASS006]: every expression in `always:` must be boolean, found `integer`
+error[CLASS006]: expression inside 'always:' must be a boolean expression, found integer
  --> tests/cln/diagnostics/CLASS006.cln:5:3
   |
 5 | 		x + 1
-  | 		^^^^^ class invariants are boolean
+  | 		^^^^^ expected boolean
   |
   = docs: https://errors.cleanlanguage.dev/E/CLASS006

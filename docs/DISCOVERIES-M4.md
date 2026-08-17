@@ -7,13 +7,37 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-Nothing taken to foundation yet; all items open, adoptions local. The
-milestone's six stages landed 2026-08-17 (inference engine 15e9ff7,
-module graph 70beb25, classes/dispatch 513d824, state/tests/functions
-2b6d813, error handling 4334218, --emit=hir-json acad65d); conformance
-for chapters 04/06/09/12/13/14/16/17 is green through the spec suite in
-debug and release, and the ADR-0027 line-coverage measurement job runs
-non-blocking in CI.
+All 19 items resolved on the foundation side 2026-08-17 (errata 36ec0af,
+briefs f755ba0, registry pass ca98747; report received the same day) and
+landed back here in the M4 registry-pass commit. Per item:
+
+- **Resolved, implemented here** — 1 (SEM027 emitted, adoption retired),
+  2 (fixture wordings conformed to the upgraded templates: SEM004 was
+  already verbatim; SEM009's four templates, IDX001/002 labels adopted),
+  4 (FUNC015 emitted; the parser no longer claims the duplicate as
+  SYN007), 10 (SEM023-for-contracts is now spec; CLASS006 template
+  conformed), 11 (CLASS007 withdrawn from registry+ledger; CLASS005
+  template conformed), 12 (SEM028 emitted for fields; the widened-SEM022
+  adoption retired), 18 (FUNC001 withdrawn; FUNC002 range wording is now
+  spec — adoption retired).
+- **Resolved by erratum, no compiler change** — 3 (ch. 07 print example),
+  6 (ch. 17 examples export what they call), 13 (ch. 14 Container:
+  no implicit field assignment — our adoption ratified), 19-TST-01
+  (boolean-ness is the enforced condition — ratified), 19-SEM024
+  (conservative literal reading is now the rule text — ratified).
+- **Briefs Ready in foundation `work/`, local adoptions stay in force** —
+  5 (iterate step non-range), 7 (class export surface; ours is option 1),
+  8 (module-name→file mapping), 9 (import visibility boundary rules),
+  15 (onError result typing; ours is option 1), 16 (state visibility
+  surface), 17 (named arguments home; FUNC008-011 stay in the ledger).
+- **No spec action** — 14 (static-method field rule: enforcement remains
+  deferred to M6 body analysis — implementation-status note), 19-rest
+  (FUNC006 ledger-with-rationale; SCOPE004 computed targets and reset
+  validation stay open; SCOPE003 limit fine; compiletime-after-dot fine;
+  test.compiletime frontier is M5).
+
+Registry after the pass: 165 registered / 8 withdrawn / 157 emittable;
+this repo's ledger: 42 codes.
 
 ## 1. TYP-06's lossy-promotion warning has no registered code
 

@@ -1,0 +1,9 @@
+error[FUNC015]: file declares more than one 'start:' block
+ --> tests/cln/diagnostics/FUNC015.cln:5:2
+  |
+2 | 	return
+  | 	------ the first 'start:' block is here
+5 | 	return
+  | 	^^^^^^ second 'start:' block
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC015

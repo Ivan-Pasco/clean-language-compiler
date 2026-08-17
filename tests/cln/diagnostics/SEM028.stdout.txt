@@ -1,0 +1,7 @@
+error[SEM028]: type `Dot` has no field named `z`
+  --> tests/cln/diagnostics/SEM028.cln:10:14
+   |
+10 | 	integer z = d.z
+   | 	            ^^^ no field with this name is defined on the receiver
+   |
+   = docs: https://errors.cleanlanguage.dev/E/SEM028

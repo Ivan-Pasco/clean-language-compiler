@@ -588,9 +588,11 @@ impl<'a> Checker<'a> {
                 } else {
                     // TYP-01: no width or signedness modifiers — widths
                     // exist only inside host function declarations.
+                    let name = Ty::IntegerW(*width).display();
+                    let name = name.strip_prefix("integer:").unwrap_or(&name).to_string();
                     self.sem009(
                         sink,
-                        "integer widths exist only in host function signatures".to_string(),
+                        format!("integer width `{name}` exists only in host signatures"),
                         "not a Clean type",
                         file,
                         ty.span,
@@ -668,9 +670,14 @@ impl<'a> Checker<'a> {
         // TYP-03: a single `?` only — absence does not stack; `T??` written
         // in source is SEM009.
         if let Some(extra) = ty.extra_optionals.first() {
+            let base_display = if errored {
+                "<error>".to_string()
+            } else {
+                base.display()
+            };
             self.sem009(
                 sink,
-                "the optional marker `?` cannot be repeated".to_string(),
+                format!("`{base_display}?` is already optional: absence does not stack"),
                 "absence does not stack",
                 file,
                 *extra,
@@ -708,9 +715,8 @@ impl<'a> Checker<'a> {
                     if out.removal.is_some() {
                         self.sem009(
                             sink,
-                            "a list takes at most one removal discipline (`.line` or `.pile`)"
-                                .to_string(),
-                            "second removal discipline",
+                            "invalid behavior chain: a second removal discipline".to_string(),
+                            "one removal discipline per list (`.line` or `.pile`)",
                             file,
                             b.span,
                         );
@@ -722,7 +728,7 @@ impl<'a> Checker<'a> {
                     if out.unique {
                         self.sem009(
                             sink,
-                            "`.unique` is already applied to this list".to_string(),
+                            "invalid behavior chain: repeated `.unique`".to_string(),
                             "repeated behavior",
                             file,
                             b.span,
@@ -892,7 +898,7 @@ impl<'a> Checker<'a> {
                         let mut bc =
                             self.section_checker(file, format!("state.{}", var.name), Ty::Void);
                         let value = bc.check_expr(&var.init, Some(&ty), sink);
-                        if let Err(value) = bc.coerce(value, &ty) {
+                        if let Err(value) = bc.coerce(value, &ty, sink) {
                             // SEM017 — templates from Platform 10 §3.
                             let actual = bc.infcx.resolve(&value.ty).display();
                             let mut d = build(
@@ -1168,9 +1174,10 @@ impl<'a> Checker<'a> {
                     sink.push(build(
                         Level::Error,
                         codes::CLASS005,
-                        "'after:' must come after the 'before:' block".to_string(),
+                        "'after:' must follow 'before:' at the top of the function body"
+                            .to_string(),
                         self.span(file, a.span),
-                        Some("swap the contract blocks".to_string()),
+                        Some("'after:' out of position".to_string()),
                     ));
                 }
             }
@@ -1390,18 +1397,50 @@ impl<'a> Checker<'a> {
                     if !matches!(resolved, Ty::Boolean | Ty::Error | Ty::Any) {
                         // CLASS006 (stub rule; local wording): every
                         // expression in `always:` must be boolean.
+                        // CLASS006 — template from Platform 10 §6.
                         sink.push(build(
                             Level::Error,
                             codes::CLASS006,
                             format!(
-                                "every expression in `always:` must be boolean, found `{}`",
+                                "expression inside 'always:' must be a boolean expression, found {}",
                                 resolved.display()
                             ),
                             body_checker.diag_span(expr.span()),
-                            Some("class invariants are boolean".to_string()),
+                            Some("expected boolean".to_string()),
                         ));
                     }
                     body_checker.check_purity(&value, sink);
+                }
+            }
+        }
+        // FUNC015 — template from Platform 10 §5: one `start:` per file
+        // (FNC-01); every block after the first reports, with a secondary
+        // on the first.
+        let mut first_start: IndexMap<usize, ByteSpan> = IndexMap::new();
+        for coords in self.resolved.decls.starts.clone() {
+            let (block, file) = self.resolved.start(coords);
+            let span = block
+                .first()
+                .map(stmt_span)
+                .unwrap_or(ByteSpan { start: 0, end: 0 });
+            match first_start.get(&file) {
+                None => {
+                    first_start.insert(file, span);
+                }
+                Some(first) => {
+                    let mut d = build(
+                        Level::Error,
+                        codes::FUNC015,
+                        "file declares more than one 'start:' block".to_string(),
+                        self.span(file, span),
+                        Some("second 'start:' block".to_string()),
+                    );
+                    d.secondary.push(clean_compiler_types::Annotation {
+                        span: self.span(file, *first),
+                        label: "the first 'start:' block is here".to_string(),
+                    });
+                    d.rendered = crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
+                    sink.push(d);
                 }
             }
         }
@@ -1820,13 +1859,44 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
 
     /// Applies the `fit` verdict, materialising promotions and option
     /// wraps. `Err` returns the original value: the caller reports.
+    /// TYP-06's implicit `integer` → `number` conversion, materialised;
+    /// SEM027 (template verbatim) when the value is compile-time
+    /// evaluable and provably beyond 2^53.
+    fn promote(&mut self, value: TExpr, sink: &mut DiagnosticSink) -> TExpr {
+        if let Some(v) = const_int(&value) {
+            if v.abs() > EXACT_IN_NUMBER {
+                sink.push(build(
+                    Level::Warning,
+                    codes::SEM027,
+                    format!("integer value {v} exceeds 2^53 and loses precision as a number"),
+                    self.diag_span(value.span),
+                    Some("lossy conversion to number".to_string()),
+                ));
+            }
+        }
+        // Integer literals fold directly (no runtime conversion node).
+        if let TExprKind::Int(v) = value.kind {
+            return TExpr {
+                ty: Ty::Number,
+                span: value.span,
+                kind: TExprKind::Num(v as f64),
+            };
+        }
+        let span = value.span;
+        TExpr {
+            ty: Ty::Number,
+            span,
+            kind: TExprKind::IntToNumber(Box::new(value)),
+        }
+    }
+
     #[allow(clippy::result_large_err)]
-    fn coerce(&mut self, value: TExpr, to: &Ty) -> Result<TExpr, TExpr> {
+    fn coerce(&mut self, value: TExpr, to: &Ty, sink: &mut DiagnosticSink) -> Result<TExpr, TExpr> {
         match self.fit(&value.ty, to) {
             Fit::Exact => Ok(value),
-            Fit::Promote => Ok(promote(value)),
+            Fit::Promote => Ok(self.promote(value, sink)),
             Fit::Wrap { promote: p } => {
-                let inner = if p { promote(value) } else { value };
+                let inner = if p { self.promote(value, sink) } else { value };
                 let span = inner.span;
                 Ok(TExpr {
                     ty: self.infcx.resolve(to),
@@ -1849,7 +1919,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         name_span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
-        match self.coerce(value, declared) {
+        match self.coerce(value, declared, sink) {
             Ok(value) => value,
             Err(value) => {
                 let mut d = build(
@@ -1929,7 +1999,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             };
             let span = value.span;
             let ret = self.ret.clone();
-            let value = match self.coerce(value, &ret) {
+            let value = match self.coerce(value, &ret, sink) {
                 Ok(value) => value,
                 Err(value) => {
                     self.return_mismatch(&value, span, sink);
@@ -2274,7 +2344,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         }
                         let ret = self.ret.clone();
                         let v = self.check_expr(expr, Some(&ret), sink);
-                        match self.coerce(v, &ret) {
+                        match self.coerce(v, &ret, sink) {
                             Ok(v) => Some(v),
                             Err(v) => {
                                 self.return_mismatch(&v, expr.span(), sink);
@@ -2553,7 +2623,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     sink.push(build(
                         Level::Error,
                         codes::FUNC002,
-                        format!("`error` expects 1 argument(s), got {}", args.len()),
+                        format!("function 'error' expects 1 arguments, found {}", args.len()),
                         self.diag_span(span),
                         None,
                     ));
@@ -2561,7 +2631,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 let message = match args.first() {
                     Some(arg) => {
                         let value = self.check_expr(arg, Some(&Ty::Str), sink);
-                        match self.coerce(value, &Ty::Str) {
+                        match self.coerce(value, &Ty::Str, sink) {
                             Ok(value) => value,
                             Err(value) => {
                                 let mut d = build(
@@ -3066,7 +3136,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
-        match self.coerce(value, elem) {
+        match self.coerce(value, elem, sink) {
             Ok(value) => value,
             Err(value) => {
                 let mut d = build(
@@ -3100,8 +3170,18 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         sink: &mut DiagnosticSink,
     ) -> TExpr {
         // TYP-06: an integer literal in `number` context is a number (the
-        // one implicit conversion, folded at the literal).
+        // one implicit conversion, folded at the literal). SEM027 when the
+        // magnitude provably exceeds 2^53.
         if let Some(Ty::Number) = expected {
+            if value.abs() > EXACT_IN_NUMBER {
+                sink.push(build(
+                    Level::Warning,
+                    codes::SEM027,
+                    format!("integer value {value} exceeds 2^53 and loses precision as a number"),
+                    self.diag_span(span),
+                    Some("lossy conversion to number".to_string()),
+                ));
+            }
             return TExpr {
                 ty: Ty::Number,
                 span,
@@ -3191,7 +3271,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                             self.infcx.resolve(&index_t.ty).display()
                         ),
                         self.diag_span(index_t.span),
-                        Some("lists are indexed by integer position".to_string()),
+                        Some("expected an integer index".to_string()),
                     ));
                     return error_expr(span);
                 }
@@ -3208,7 +3288,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                             self.infcx.resolve(&index_t.ty).display()
                         ),
                         self.diag_span(index_t.span),
-                        Some("matrices are indexed by integer row".to_string()),
+                        Some("expected an integer index".to_string()),
                     ));
                     return error_expr(span);
                 }
@@ -3353,18 +3433,25 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 )
             };
             if args.len() < required || args.len() > params.len() {
-                let expected = if required == params.len() {
-                    format!("{}", params.len())
+                // FUNC002 — templates from Platform 10 §5 (the range
+                // collapses when the signature has no defaults, FNC-04).
+                let message = if required == params.len() {
+                    format!(
+                        "function '{name}' expects {} arguments, found {}",
+                        params.len(),
+                        args.len()
+                    )
                 } else {
-                    format!("between {required} and {}", params.len())
+                    format!(
+                        "function '{name}' expects between {required} and {} arguments, found {}",
+                        params.len(),
+                        args.len()
+                    )
                 };
                 sink.push(build(
                     Level::Error,
                     codes::FUNC002,
-                    format!(
-                        "`{name}` expects {expected} argument(s), got {}",
-                        args.len()
-                    ),
+                    message,
                     self.diag_span(span),
                     None,
                 ));
@@ -3735,7 +3822,10 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         sink.push(build(
                             Level::Error,
                             codes::FUNC002,
-                            format!("`{method}` expects 0 argument(s), got {}", args.len()),
+                            format!(
+                                "function '{method}' expects 0 arguments, found {}",
+                                args.len()
+                            ),
                             self.diag_span(span),
                             None,
                         ));
@@ -3865,10 +3955,9 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     }
                     cursor = self.outer.classes[c].parent;
                 }
-                // No registered code exists for a missing FIELD; SEM022
-                // (UndefinedMethod) is the nearest member-miss code — the
-                // gap is recorded in DISCOVERIES-M4.
-                self.undefined_method(&recv.ty, name, member_span, span, sink)
+                // SEM028 — template from Platform 10 §3 (M4 registry
+                // pass): the field-side counterpart of SEM022.
+                self.undefined_field(&recv.ty, name, member_span, span, sink)
             }
             Ty::Any => {
                 sink.note_unsupported("member access on `any` values", self.diag_span(span));
@@ -3876,7 +3965,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             Ty::Record { fields, .. } => {
                 let Some(index) = fields.iter().position(|(n, _)| n == name) else {
-                    return self.undefined_method(&recv.ty, name, member_span, span, sink);
+                    return self.undefined_field(&recv.ty, name, member_span, span, sink);
                 };
                 let ty = fields[index].1.clone();
                 TExpr {
@@ -3895,6 +3984,37 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 error_expr(span)
             }
         }
+    }
+
+    /// SEM028 — template from Platform 10 §3 (fields; SEM022 stays
+    /// methods-only). Help suggests parentheses when a method of the
+    /// name exists.
+    fn undefined_field(
+        &mut self,
+        recv_ty: &Ty,
+        field: &str,
+        member_span: ByteSpan,
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        let resolved = self.infcx.resolve(recv_ty);
+        let display = resolved.display();
+        let mut d = build(
+            Level::Error,
+            codes::SEM028,
+            format!("type `{display}` has no field named `{field}`"),
+            self.diag_span(member_span),
+            Some("no field with this name is defined on the receiver".to_string()),
+        );
+        if let Ty::Class { class, .. } = &resolved {
+            if self.outer.find_method(*class, field).is_some() {
+                d.helps.push(format!(
+                    "a method named `{field}` exists — call it with parentheses"
+                ));
+            }
+        }
+        self.push_rich(sink, d);
+        error_expr(span)
     }
 
     /// SEM022 — template from Platform 10 §3.
@@ -4017,7 +4137,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 Level::Error,
                 codes::FUNC002,
                 format!(
-                    "`{fn_name}` expects {} argument(s), got {}",
+                    "function '{fn_name}' expects {} arguments, found {}",
                     params.len(),
                     args.len()
                 ),
@@ -4065,7 +4185,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 if boundary_identity {
                     return value;
                 }
-                match self.coerce(value, param_ty) {
+                match self.coerce(value, param_ty, sink) {
                     Ok(value) => value,
                     Err(value) => {
                         // SEM016 — headline template from Platform 10 §3.
@@ -4118,7 +4238,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     }
                 };
                 let r = self.check_expr(rhs, Some(&inner), sink);
-                let r = match self.coerce(r, &inner) {
+                let r = match self.coerce(r, &inner, sink) {
                     Ok(r) => r,
                     Err(r) => {
                         let resolved = self.infcx.resolve(&r.ty);
@@ -4246,12 +4366,12 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 Ty::Integer
             };
             let l = if result == Ty::Number && lt.is_integer() {
-                promote(l)
+                self.promote(l, sink)
             } else {
                 l
             };
             let r = if result == Ty::Number && rt.is_integer() {
-                promote(r)
+                self.promote(r, sink)
             } else {
                 r
             };
@@ -4278,8 +4398,16 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         }
         if lt.is_numeric() && rt.is_numeric() {
             if lt == Ty::Number || rt == Ty::Number {
-                let l = if lt.is_integer() { promote(l) } else { l };
-                let r = if rt.is_integer() { promote(r) } else { r };
+                let l = if lt.is_integer() {
+                    self.promote(l, sink)
+                } else {
+                    l
+                };
+                let r = if rt.is_integer() {
+                    self.promote(r, sink)
+                } else {
+                    r
+                };
                 return (l, r);
             }
             return (l, r);
@@ -4307,8 +4435,16 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         }
         if lt.is_numeric() && rt.is_numeric() {
             if lt == Ty::Number || rt == Ty::Number {
-                let l = if lt.is_integer() { promote(l) } else { l };
-                let r = if rt.is_integer() { promote(r) } else { r };
+                let l = if lt.is_integer() {
+                    self.promote(l, sink)
+                } else {
+                    l
+                };
+                let r = if rt.is_integer() {
+                    self.promote(r, sink)
+                } else {
+                    r
+                };
                 return (l, r);
             }
             return (l, r);
@@ -4355,23 +4491,31 @@ fn op_name(op: ast::BinOp) -> &'static str {
     }
 }
 
-/// Materialises TYP-06's implicit `integer` → `number` conversion.
-fn promote(value: TExpr) -> TExpr {
-    // Integer literals fold directly (no runtime conversion node).
-    if let TExprKind::Int(v) = value.kind {
-        return TExpr {
-            ty: Ty::Number,
-            span: value.span,
-            kind: TExprKind::Num(v as f64),
-        };
-    }
-    let span = value.span;
-    TExpr {
-        ty: Ty::Number,
-        span,
-        kind: TExprKind::IntToNumber(Box::new(value)),
+/// SEM027's compile-time evaluation: literals and compositions of
+/// literals (the SEM024 conservative reading, now also SEM027's).
+fn const_int(expr: &TExpr) -> Option<i128> {
+    match &expr.kind {
+        TExprKind::Int(v) => Some(*v),
+        TExprKind::Unary {
+            op: crate::parser::ast::UnOp::Neg,
+            operand,
+        } => const_int(operand).and_then(i128::checked_neg),
+        TExprKind::Binary { op, lhs, rhs } => {
+            use crate::parser::ast::BinOp::*;
+            let (a, b) = (const_int(lhs)?, const_int(rhs)?);
+            match op {
+                Add => a.checked_add(b),
+                Sub => a.checked_sub(b),
+                Mul => a.checked_mul(b),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
+
+/// 2^53 — the largest integer magnitude binary64 represents exactly.
+const EXACT_IN_NUMBER: i128 = 1 << 53;
 
 /// Every path through the block ends in a `return` (conservative: `if`
 /// needs an `else` and all arms terminating; loops never count).

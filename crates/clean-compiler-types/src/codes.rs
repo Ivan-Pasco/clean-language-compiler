@@ -4,9 +4,10 @@
 //! (never redacted), and the six withdrawn identifiers are retained so they
 //! can never be reused (DOC-13).
 //!
-//! Counts per Platform 09 §1.1 (recount of 2026-08-15): 162 rows
-//! registered, 6 withdrawn (`SCOPE005`, `LIB005`, `LIB007`, `LIB008`,
-//! `LIB009`, `IMPORT005` — never emitted, never reused), 156 emittable.
+//! Counts per Platform 09 §1.1 (M4 registry pass, 2026-08-17): 165 rows
+//! registered, 8 withdrawn (`SCOPE005`, `FUNC001`, `CLASS007`, `LIB005`,
+//! `LIB007`, `LIB008`, `LIB009`, `IMPORT005` — never emitted, never
+//! reused), 157 emittable.
 //!
 //! The 1:1 obligation (ERC-02 / RUL-02) is enforced by
 //! `tests/registry_spec.rs` against the local `clean-language-foundation`
@@ -103,10 +104,11 @@ code_consts!(
     SYN010, SYN100, SYN101,
     SEM001, SEM002, SEM003, SEM004, SEM005, SEM006, SEM007, SEM008, SEM009,
     SEM010, SEM011, SEM012, SEM013, SEM014, SEM015, SEM016, SEM017, SEM018,
-    SEM019, SEM020, SEM021, SEM022, SEM023, SEM024, SEM025, SEM026,
+    SEM019, SEM020, SEM021, SEM022, SEM023, SEM024, SEM025, SEM026, SEM027,
+    SEM028,
     SCOPE001, SCOPE002, SCOPE003, SCOPE004, SCOPE006,
     FUNC001, FUNC002, FUNC003, FUNC004, FUNC005, FUNC006, FUNC007, FUNC008,
-    FUNC009, FUNC010, FUNC011, FUNC012, FUNC013, FUNC014,
+    FUNC009, FUNC010, FUNC011, FUNC012, FUNC013, FUNC014, FUNC015,
     CLASS001, CLASS002, CLASS003, CLASS004, CLASS005, CLASS006, CLASS007,
     CLASS008, CLASS009, CLASS010, CLASS011, CLASS012,
     IDX001, IDX002, IDX003, IDX004, IDX005,
@@ -178,7 +180,7 @@ const fn w(code: &'static str, name: &'static str) -> CodeInfo {
 use Emitter::{Compiler, Framework, Host, Toolchain};
 use Severity::{Error, PerDiagnostic, Runtime, Warning};
 
-/// The full Platform 09 §3 index — 162 rows, in registry order.
+/// The full Platform 09 §3 index — 165 rows, in registry order.
 #[rustfmt::skip]
 pub const REGISTRY: &[CodeInfo] = &[
     // §3.1 Syntax (SYN) — parsing; only tokens are known.
@@ -206,13 +208,15 @@ pub const REGISTRY: &[CodeInfo] = &[
     t(SEM002, "UndefinedVariable", Error, Compiler,
       "I cannot find a variable named `<name>` in scope"),
     c(SEM003, "SymbolRedefinition", Error, Compiler),
-    c(SEM004, "InvalidOperationForType", Error, Compiler),
+    t(SEM004, "InvalidOperationForType", Error, Compiler,
+      "operator `<op>` is not defined for type `<T>`"),
     t(SEM005, "AccessViolation", Error, Compiler,
       "'{name}' is private and cannot be accessed from outside '{scope}'"),
     c(SEM006, "InheritanceError", Error, Compiler),
     c(SEM007, "GenericTypeError", Error, Compiler),
     c(SEM008, "InheritanceCycle", Error, Compiler),
-    c(SEM009, "InvalidTypeSpecification", Error, Compiler),
+    t(SEM009, "InvalidTypeSpecification", Error, Compiler,
+      "`<T>?` is already optional: absence does not stack"),
     c(SEM010, "InvalidMatchPattern", Error, Compiler),
     c(SEM011, "MissingCapabilityMethod", Error, Compiler),
     c(SEM012, "UndefinedCapability", Error, Compiler),
@@ -242,6 +246,10 @@ pub const REGISTRY: &[CodeInfo] = &[
       "'{keyword}' is not inside a loop"),
     t(SEM026, "LiteralOutOfRange", Error, Compiler,
       "literal {value} does not fit {type} (range {min} to {max})"),
+    t(SEM027, "LossyIntegerPromotion", Warning, Compiler,
+      "integer value {value} exceeds 2^53 and loses precision as a number"),
+    t(SEM028, "UndefinedField", Error, Compiler,
+      "type `<T>` has no field named `<field>`"),
 
     // §3.3 Scope (SCOPE) — resolver.
     c(SCOPE001, "UseBeforeDeclaration", Error, Compiler),
@@ -253,8 +261,9 @@ pub const REGISTRY: &[CodeInfo] = &[
       "'test.compiletime.{name}' is only available inside a 'tests:' block"),
 
     // §3.4 Function (FUNC) — HIR validation of definitions and calls.
-    c(FUNC001, "FunctionNotDefined", Error, Compiler),
-    c(FUNC002, "ArgumentCountMismatch", Error, Compiler),
+    w(FUNC001, "FunctionNotDefined"),
+    t(FUNC002, "ArgumentCountMismatch", Error, Compiler,
+      "function '{name}' expects between {required} and {total} arguments, found {count}"),
     c(FUNC003, "CallOnNonFunction", Error, Compiler),
     c(FUNC004, "MissingReturn", Warning, Compiler),
     c(FUNC005, "EmptyReturnInNonVoid", Warning, Compiler),
@@ -269,16 +278,19 @@ pub const REGISTRY: &[CodeInfo] = &[
       "Function '{name}' must be declared inside a 'functions:' block"),
     t(FUNC014, "OptionalParameterOrder", Error, Compiler,
       "Parameter '{name}' has no default and follows '{previous}', which has one"),
+    t(FUNC015, "DuplicateStartBlock", Error, Compiler,
+      "file declares more than one 'start:' block"),
 
     // §3.5 Class (CLASS) — HIR validation of class definitions.
     c(CLASS001, "ParentClassNotFound", Error, Compiler),
     c(CLASS002, "DuplicateField", Error, Compiler),
     c(CLASS003, "DuplicateMethod", Error, Compiler),
     c(CLASS004, "MissingConstructor", Error, Compiler),
-    c(CLASS005, "AfterBeforeLogic", Error, Compiler),
-    c(CLASS006, "AlwaysConditionNotBoolean", Error, Compiler),
-    t(CLASS007, "ContractBlockOutOfPosition", Error, Compiler,
-      "'{keyword}:' block is out of position: {expected}"),
+    t(CLASS005, "AfterBeforeLogic", Error, Compiler,
+      "'after:' must follow 'before:' at the top of the function body"),
+    t(CLASS006, "AlwaysConditionNotBoolean", Error, Compiler,
+      "expression inside 'always:' must be a boolean expression, found {type}"),
+    w(CLASS007, "ContractBlockOutOfPosition"),
     t(CLASS008, "ResultOutsideAfter", Error, Compiler,
       "'result' is only in scope inside an 'after:' expression"),
     t(CLASS009, "ContractSideEffect", Error, Compiler,
@@ -291,9 +303,12 @@ pub const REGISTRY: &[CodeInfo] = &[
       "'{receiver}.{member}' is not a valid companion access: {reason}"),
 
     // §3.6 Index access (IDX) — type checker.
-    c(IDX001, "ListIndexNotInteger", Error, Compiler),
-    c(IDX002, "MatrixIndexNotInteger", Error, Compiler),
-    c(IDX003, "PairsKeyTypeMismatch", Error, Compiler),
+    t(IDX001, "ListIndexNotInteger", Error, Compiler,
+      "list index must be `integer`, found `<T>`"),
+    t(IDX002, "MatrixIndexNotInteger", Error, Compiler,
+      "matrix index must be `integer`, found `<T>`"),
+    t(IDX003, "PairsKeyTypeMismatch", Error, Compiler,
+      "`pairs<K, V>` is indexed with `<K>`, found `<T>`"),
     t(IDX004, "IndexOnNonIndexable", Error, Compiler,
       "type `<T>` does not support bracket access"),
     t(IDX005, "IndexOnNone", Error, Compiler,

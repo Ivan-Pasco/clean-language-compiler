@@ -244,7 +244,7 @@ functions:
     assert_eq!(diagnostics[0].code, codes::FUNC002);
     assert!(diagnostics[0]
         .message
-        .contains("`add` expects 2 argument(s), got 3"));
+        .contains("function 'add' expects 2 arguments, found 3"));
 }
 
 #[test]
