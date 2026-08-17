@@ -29,10 +29,23 @@ jobs:
 
       # Acceptance checks (Milestone 1 steps 4/8) shell out to wasm-tools to
       # cross-check the emitted component with the same binary developers use.
+      # Direct release download (pinned): taiki-e/install-action's own
+      # archive hit codeload 429s on 4/5 runs of 2026-08-17.
       - name: install wasm-tools
-        uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=1.252.0
+          case "$(uname -s)" in
+            Darwin) TARGET=aarch64-macos ;;
+            *) TARGET=x86_64-linux ;;
+          esac
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/wasm-tools.tar.gz \
+            "https://github.com/bytecodealliance/wasm-tools/releases/download/v${V}/wasm-tools-${V}-${TARGET}.tar.gz"
+          tar -xzf /tmp/wasm-tools.tar.gz -C /tmp
+          install -m 0755 "/tmp/wasm-tools-${V}-${TARGET}/wasm-tools" /usr/local/bin/wasm-tools 2>/dev/null \
+            || sudo install -m 0755 "/tmp/wasm-tools-${V}-${TARGET}/wasm-tools" /usr/local/bin/wasm-tools
+          wasm-tools --version
 
       - name: fmt
         run: cargo fmt --all -- --check
@@ -72,9 +85,19 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: install cargo-llvm-cov and wasm-tools
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-llvm-cov,wasm-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          CV=0.6.16
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/llvm-cov.tar.gz \
+            "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v${CV}/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/llvm-cov.tar.gz -C "$HOME/.cargo/bin"
+          V=1.252.0
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/wasm-tools.tar.gz \
+            "https://github.com/bytecodealliance/wasm-tools/releases/download/v${V}/wasm-tools-${V}-x86_64-linux.tar.gz"
+          tar -xzf /tmp/wasm-tools.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/wasm-tools-${V}-x86_64-linux/wasm-tools" /usr/local/bin/wasm-tools
+          cargo llvm-cov --version && wasm-tools --version
 
       - name: measure line coverage
         run: cargo llvm-cov --workspace --summary-only

@@ -7,7 +7,13 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-Nothing taken to foundation yet; all items open, adoptions local.
+Nothing taken to foundation yet; all items open, adoptions local. The
+milestone's six stages landed 2026-08-17 (inference engine 15e9ff7,
+module graph 70beb25, classes/dispatch 513d824, state/tests/functions
+2b6d813, error handling 4334218, --emit=hir-json acad65d); conformance
+for chapters 04/06/09/12/13/14/16/17 is green through the spec suite in
+debug and release, and the ADR-0027 line-coverage measurement job runs
+non-blocking in CI.
 
 ## 1. TYP-06's lossy-promotion warning has no registered code
 
