@@ -1,9 +1,15 @@
-# Milestone 2 — Discoveries (ready to paste into the brief)
+# Milestone 2 — Discoveries
 
 Spec findings made while building the diagnostics infrastructure (registry,
 renderer, DIA-06 harness, `cln check`). This repo's session is
-path-allowlisted out of foundation (CT-H-16); a foundation session should
-carry these over as spec fixes or task briefs.
+path-allowlisted out of foundation (CT-H-16); a foundation session carried
+them over.
+
+**Status (2026-08-15):** items 1, 2 and 4 landed in foundation as errata
+(`46ad2f6`, `a05f7dd`, `0353ec6` — the compiler realigned to the LIB017
+template and the §1.1 recount in the same day's commit); items 3, 5 and 6
+became decision briefs in `foundation/work/` (`c4f2a3f`). Item 7 is this
+repo's own M3/M4 backlog and involves no spec change.
 
 1. **LIB017's message template carries example values, not placeholders.**
    Platform 10 §10.7 writes the template as `"Folder scope 'app/ui' maps to

@@ -33,11 +33,10 @@ fn codes_are_unique() {
     }
 }
 
-/// The counts of Platform 09 §1.1 as of 2026-08-10: 162 registered rows.
-/// Six identifiers are retired (SCOPE005, IMPORT005, LIB005, LIB007,
-/// LIB008, LIB009); the module docs record the reconciliation with 09's
-/// "161 active / 1 withdrawn" phrasing. Changing either number is a spec
-/// change (ERC-03), never an implementation choice.
+/// The counts of Platform 09 §1.1 (recount of 2026-08-15): 162 rows
+/// registered, 6 withdrawn, 156 emittable — of which 121 belong to the
+/// compiler pipeline. Changing any of these is a spec change (ERC-03),
+/// never an implementation choice.
 #[test]
 fn registry_counts_match_platform_09() {
     assert_eq!(codes::REGISTRY.len(), 162, "registered rows");

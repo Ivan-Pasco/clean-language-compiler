@@ -4,12 +4,9 @@
 //! (never redacted), and the six withdrawn identifiers are retained so they
 //! can never be reused (DOC-13).
 //!
-//! Counting reconciliation with Platform 09 §1.1 ("162 registered, 1
-//! withdrawn — 161 active"): this table holds the same 162 rows. Six of them
-//! are marked [`Status::Withdrawn`] here — `IMPORT005` plus the five rows 09
-//! still counts as registered-but-retired (`SCOPE005`, `LIB005`, `LIB007`,
-//! `LIB008`, `LIB009`) — because what matters mechanically is identical for
-//! all six: they MUST never be emitted and their numbers are never reused.
+//! Counts per Platform 09 §1.1 (recount of 2026-08-15): 162 rows
+//! registered, 6 withdrawn (`SCOPE005`, `LIB005`, `LIB007`, `LIB008`,
+//! `LIB009`, `IMPORT005` — never emitted, never reused), 156 emittable.
 //!
 //! The 1:1 obligation (ERC-02 / RUL-02) is enforced by
 //! `tests/registry_spec.rs` against the local `clean-language-foundation`
@@ -354,11 +351,8 @@ pub const REGISTRY: &[CodeInfo] = &[
       "Type '{type}' claims capability '{cap}' but does not implement required method '{method}'"),
     t(LIB016, "CapabilityConflict", Error, Compiler,
       "Capability '{name}' is defined by both '{libA}' and '{libB}' with incompatible signatures"),
-    // Platform 10 writes LIB017's template with example values instead of
-    // placeholders; copied verbatim per the no-redaction rule and flagged in
-    // docs/DISCOVERIES-M2.md as a spec-defect candidate.
     t(LIB017, "FolderScopeUnclaimed", Error, Compiler,
-      "Folder scope 'app/ui' maps to library 'clean.ui.v2' which is not a declared dependency"),
+      "Folder scope '{folder}' maps to library '{lib}' which is not a declared dependency"),
     t(LIB018, "FolderScopeAmbiguous", Error, Compiler,
       "Namespace '{ns}' in folder '{folder}' is claimed by both '{libA}' and '{libB}'"),
     t(LIB019, "HostBridgeMisplaced", Error, Compiler,
