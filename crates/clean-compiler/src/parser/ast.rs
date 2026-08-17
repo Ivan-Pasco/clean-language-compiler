@@ -1,6 +1,7 @@
 //! AST for the Milestone 1 surface. Every node carries a real source span
 //! (§14.4.2[3]: no synthetic spans without a source anchor).
 
+use crate::lexer::Token;
 use crate::source::ByteSpan;
 
 #[derive(Debug)]
@@ -43,6 +44,60 @@ pub enum Item {
     Tests(Vec<TestDecl>),
     /// `start:` section.
     Start(Block),
+    /// A library-registered block (08 §3) — the typed BlockAST node the
+    /// pass-6 handler receives (21 §21.3, schema/block-ast.md). Expansion
+    /// stays pass-through until M5.
+    LibraryBlock(BlockAst),
+}
+
+/// The parsed block a handler receives (schema/block-ast.md). `span` is
+/// anchored to the block header per the schema.
+#[derive(Debug)]
+pub struct BlockAst {
+    /// Qualified identifier (`data`, `data.query`).
+    pub name: String,
+    pub arguments: Vec<BlockArg>,
+    pub body: Vec<BlockNode>,
+    /// Modifier annotations. Distinguishing attribute lines from DSL body
+    /// lines is under-specified (see docs/DISCOVERIES-M3.md); the parser
+    /// leaves this empty until the schema pins the shape down.
+    pub attributes: Vec<BlockAttribute>,
+    pub span: ByteSpan,
+}
+
+/// Sum type over block-body children (schema/block-ast.md). The
+/// `Statement` variant materialises during pass-6 expansion (M5); at parse
+/// time every non-block line is preserved as a `BlockLine`.
+#[derive(Debug)]
+pub enum BlockNode {
+    Block(BlockAst),
+    Line(BlockLine),
+}
+
+/// A structured DSL line — the handler tokenises it itself.
+#[derive(Debug)]
+pub struct BlockLine {
+    pub tokens: Vec<Token>,
+    pub span: ByteSpan,
+}
+
+/// Positional or keyword block argument (schema/block-ast.md).
+#[derive(Debug)]
+pub enum BlockArg {
+    Positional(Expr),
+    Keyword {
+        name: String,
+        value: Expr,
+        span: ByteSpan,
+    },
+}
+
+/// Block modifier annotation (schema/block-ast.md).
+#[derive(Debug)]
+pub struct BlockAttribute {
+    pub name: String,
+    pub arguments: Vec<Expr>,
+    pub span: ByteSpan,
 }
 
 /// One entry in an `import:` block (17 §2): dotted module path with an

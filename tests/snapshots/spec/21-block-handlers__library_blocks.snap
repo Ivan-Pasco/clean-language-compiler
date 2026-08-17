@@ -1,0 +1,429 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    LibraryBlock(
+        BlockAst {
+            name: "data",
+            arguments: [
+                Positional(
+                    Ident {
+                        name: "UserData",
+                        span: ByteSpan {
+                            start: 5,
+                            end: 13,
+                        },
+                    },
+                ),
+            ],
+            body: [
+                Line(
+                    BlockLine {
+                        tokens: [
+                            Token {
+                                kind: Ident(
+                                    "deprecated",
+                                ),
+                                span: ByteSpan {
+                                    start: 16,
+                                    end: 26,
+                                },
+                            },
+                            Token {
+                                kind: Str {
+                                    parts: [
+                                        Text(
+                                            "Use ExtendedUserData instead",
+                                        ),
+                                    ],
+                                },
+                                span: ByteSpan {
+                                    start: 27,
+                                    end: 57,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 16,
+                            end: 57,
+                        },
+                    },
+                ),
+                Block(
+                    BlockAst {
+                        name: "fields",
+                        arguments: [],
+                        body: [
+                            Line(
+                                BlockLine {
+                                    tokens: [
+                                        Token {
+                                            kind: Ident(
+                                                "integer",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 69,
+                                                end: 76,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "id",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 77,
+                                                end: 79,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "primary",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 80,
+                                                end: 87,
+                                            },
+                                        },
+                                    ],
+                                    span: ByteSpan {
+                                        start: 69,
+                                        end: 87,
+                                    },
+                                },
+                            ),
+                            Line(
+                                BlockLine {
+                                    tokens: [
+                                        Token {
+                                            kind: Ident(
+                                                "string",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 90,
+                                                end: 96,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "email",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 97,
+                                                end: 102,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "required",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 103,
+                                                end: 111,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "unique",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 112,
+                                                end: 118,
+                                            },
+                                        },
+                                    ],
+                                    span: ByteSpan {
+                                        start: 90,
+                                        end: 118,
+                                    },
+                                },
+                            ),
+                            Line(
+                                BlockLine {
+                                    tokens: [
+                                        Token {
+                                            kind: Ident(
+                                                "string",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 121,
+                                                end: 127,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "passwordHash",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 128,
+                                                end: 140,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Ident(
+                                                "as",
+                                            ),
+                                            span: ByteSpan {
+                                                start: 141,
+                                                end: 143,
+                                            },
+                                        },
+                                        Token {
+                                            kind: Str {
+                                                parts: [
+                                                    Text(
+                                                        "password_hash",
+                                                    ),
+                                                ],
+                                            },
+                                            span: ByteSpan {
+                                                start: 144,
+                                                end: 159,
+                                            },
+                                        },
+                                    ],
+                                    span: ByteSpan {
+                                        start: 121,
+                                        end: 159,
+                                    },
+                                },
+                            ),
+                        ],
+                        attributes: [],
+                        span: ByteSpan {
+                            start: 59,
+                            end: 161,
+                        },
+                    },
+                ),
+            ],
+            attributes: [],
+            span: ByteSpan {
+                start: 0,
+                end: 161,
+            },
+        },
+    ),
+    LibraryBlock(
+        BlockAst {
+            name: "endpoints",
+            arguments: [
+                Keyword {
+                    name: "prefix",
+                    value: Str {
+                        segments: [
+                            Text(
+                                "/api",
+                            ),
+                        ],
+                        span: ByteSpan {
+                            start: 180,
+                            end: 186,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 171,
+                        end: 186,
+                    },
+                },
+                Positional(
+                    Ident {
+                        name: "cache",
+                        span: ByteSpan {
+                            start: 188,
+                            end: 193,
+                        },
+                    },
+                ),
+            ],
+            body: [
+                Line(
+                    BlockLine {
+                        tokens: [
+                            Token {
+                                kind: Ident(
+                                    "get",
+                                ),
+                                span: ByteSpan {
+                                    start: 197,
+                                    end: 200,
+                                },
+                            },
+                            Token {
+                                kind: Str {
+                                    parts: [
+                                        Text(
+                                            "/users",
+                                        ),
+                                    ],
+                                },
+                                span: ByteSpan {
+                                    start: 201,
+                                    end: 209,
+                                },
+                            },
+                            Token {
+                                kind: Ident(
+                                    "listUsers",
+                                ),
+                                span: ByteSpan {
+                                    start: 210,
+                                    end: 219,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 197,
+                            end: 219,
+                        },
+                    },
+                ),
+                Line(
+                    BlockLine {
+                        tokens: [
+                            Token {
+                                kind: Ident(
+                                    "post",
+                                ),
+                                span: ByteSpan {
+                                    start: 221,
+                                    end: 225,
+                                },
+                            },
+                            Token {
+                                kind: Str {
+                                    parts: [
+                                        Text(
+                                            "/users",
+                                        ),
+                                    ],
+                                },
+                                span: ByteSpan {
+                                    start: 226,
+                                    end: 234,
+                                },
+                            },
+                            Token {
+                                kind: Ident(
+                                    "createUser",
+                                ),
+                                span: ByteSpan {
+                                    start: 235,
+                                    end: 245,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 221,
+                            end: 245,
+                        },
+                    },
+                ),
+            ],
+            attributes: [],
+            span: ByteSpan {
+                start: 161,
+                end: 247,
+            },
+        },
+    ),
+    CompiletimeFunction(
+        CompiletimeFunction {
+            name: "expandData",
+            params: [
+                Param {
+                    ty: TypeExpr {
+                        base: Named(
+                            "BlockAST",
+                        ),
+                        optional: false,
+                        extra_optionals: [],
+                        behaviors: [],
+                        span: ByteSpan {
+                            start: 279,
+                            end: 287,
+                        },
+                    },
+                    name: "ast",
+                    default: None,
+                    span: ByteSpan {
+                        start: 279,
+                        end: 291,
+                    },
+                },
+            ],
+            ret: Some(
+                TypeExpr {
+                    base: Named(
+                        "IR",
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 301,
+                        end: 303,
+                    },
+                },
+            ),
+            body: FunctionBody {
+                description: Some(
+                    "Expands a data block.",
+                ),
+                input: [],
+                intents: [],
+                specs: [],
+                before: None,
+                after: None,
+                statements: [
+                    Return {
+                        value: Some(
+                            Call {
+                                callee: Ident {
+                                    name: "buildIr",
+                                    span: ByteSpan {
+                                        start: 349,
+                                        end: 356,
+                                    },
+                                },
+                                args: [
+                                    Ident {
+                                        name: "ast",
+                                        span: ByteSpan {
+                                            start: 357,
+                                            end: 360,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 349,
+                                    end: 361,
+                                },
+                            },
+                        ),
+                        span: ByteSpan {
+                            start: 342,
+                            end: 362,
+                        },
+                    },
+                ],
+            },
+            span: ByteSpan {
+                start: 247,
+                end: 363,
+            },
+        },
+    ),
+    HandlesBlock(
+        HandlesBlock {
+            block_name: "data",
+            handler: "expandData",
+            span: ByteSpan {
+                start: 363,
+                end: 400,
+            },
+        },
+    ),
+]
+DIAGNOSTICS: 0

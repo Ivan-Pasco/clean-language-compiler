@@ -143,6 +143,9 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                 ast::Item::Watch(watch) => {
                     unsupported(sink, &file.stream, "watch blocks", watch.span);
                 }
+                ast::Item::LibraryBlock(block) => {
+                    unsupported(sink, &file.stream, "library blocks", block.span);
+                }
                 ast::Item::Tests(tests) => {
                     if let Some(first) = tests.first() {
                         let span = match first {

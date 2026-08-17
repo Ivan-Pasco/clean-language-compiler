@@ -425,6 +425,14 @@ impl<'a> Parser<'a> {
                 let block = self.start_section(sink)?;
                 Some((Item::Start(block), SectionOrder::singleton("start:", 9)))
             }
+            // A library-registered block (08 §3): an identifier-headed line
+            // ending in ':' that no earlier arm claimed. Checked before the
+            // type-first arm so `data UserData:` is a block, not a
+            // malformed declaration.
+            TokenKind::Ident(_) if self.line_is_block_header() => {
+                let block = self.library_block(sink)?;
+                Some((Item::LibraryBlock(block), None))
+            }
             _ if self.starts_type_first_declaration() => {
                 // A type-first header at the top level is a bare
                 // FunctionDeclaration (08 §2 TopLevelCallable); a variable
@@ -1638,6 +1646,160 @@ impl<'a> Parser<'a> {
         self.expect(&TokenKind::Colon, "':'", sink);
         self.expect(&TokenKind::Newline, "end of line", sink);
         Some(self.indented_block(sink))
+    }
+
+    // ----- library blocks (21 §21.3) ------------------------------------
+
+    /// Does the line at the cursor look like a block header — an
+    /// identifier-headed line whose last token is `':'` and that opens an
+    /// indented body?
+    fn line_is_block_header(&self) -> bool {
+        let mut i = self.effective_pos();
+        if !matches!(self.tokens[i].kind, TokenKind::Ident(_)) {
+            return false;
+        }
+        let mut last_was_colon = false;
+        while i < self.tokens.len() {
+            match &self.tokens[i].kind {
+                TokenKind::Newline | TokenKind::Eof => break,
+                TokenKind::Colon => {
+                    last_was_colon = true;
+                    i += 1;
+                }
+                _ => {
+                    last_was_colon = false;
+                    i += 1;
+                }
+            }
+        }
+        last_was_colon
+            && matches!(
+                self.tokens.get(i + 1).map(|t| &t.kind),
+                Some(TokenKind::Indent)
+            )
+    }
+
+    /// One library block: `qualified.name [args…]:` + indented body of DSL
+    /// lines and nested blocks (schema/block-ast.md). Body lines are
+    /// preserved as token lists — the handler tokenises them itself; the
+    /// `Statement` variant materialises during expansion (M5).
+    fn library_block(&mut self, sink: &mut DiagnosticSink) -> Option<BlockAst> {
+        let start = self.span();
+        let (mut name, mut last_span) = self.ident("block name", sink)?;
+        while self.at(&TokenKind::Dot) {
+            self.bump();
+            let Some((segment, seg_span)) = self.ident("block name segment", sink) else {
+                break;
+            };
+            name.push('.');
+            name.push_str(&segment);
+            last_span = seg_span;
+        }
+        let _ = last_span;
+        let mut arguments = Vec::new();
+        if self.eat(&TokenKind::LParen) {
+            self.paren_depth += 1;
+            if !self.at(&TokenKind::RParen) {
+                loop {
+                    arguments.push(self.block_arg(sink));
+                    if !self.eat(&TokenKind::Comma) {
+                        break;
+                    }
+                }
+            }
+            self.paren_depth -= 1;
+            self.expect(&TokenKind::RParen, "')'", sink);
+        }
+        // Bare header arguments (`data UserData:`): expressions up to the
+        // ':' that closes the header.
+        while !matches!(
+            self.peek(),
+            TokenKind::Colon | TokenKind::Newline | TokenKind::Eof
+        ) {
+            let before = self.pos;
+            arguments.push(self.block_arg(sink));
+            if self.pos == before {
+                break;
+            }
+        }
+        self.expect(&TokenKind::Colon, "':'", sink);
+        self.expect(&TokenKind::Newline, "end of line", sink);
+        let mut body = Vec::new();
+        if self.expect(&TokenKind::Indent, "indented block body", sink) {
+            // Raw-line regions indented deeper than the block's own level
+            // are flattened into this block's line list (nesting for raw
+            // lines is under-specified — docs/DISCOVERIES-M3.md).
+            let mut depth = 0u32;
+            loop {
+                match self.peek() {
+                    TokenKind::Newline => {
+                        self.bump();
+                    }
+                    TokenKind::Indent => {
+                        depth += 1;
+                        self.bump();
+                    }
+                    TokenKind::Dedent => {
+                        if depth == 0 {
+                            break;
+                        }
+                        depth -= 1;
+                        self.bump();
+                    }
+                    TokenKind::Eof => break,
+                    _ => {
+                        if depth == 0 && self.line_is_block_header() {
+                            if let Some(nested) = self.library_block(sink) {
+                                body.push(BlockNode::Block(nested));
+                            }
+                        } else {
+                            body.push(BlockNode::Line(self.block_line()));
+                        }
+                    }
+                }
+            }
+            self.eat(&TokenKind::Dedent);
+        }
+        Some(BlockAst {
+            name,
+            arguments,
+            body,
+            attributes: Vec::new(),
+            span: start.merge(self.prev_span()),
+        })
+    }
+
+    /// One block argument: `name = value` is a keyword argument, anything
+    /// else positional (schema/block-ast.md).
+    fn block_arg(&mut self, sink: &mut DiagnosticSink) -> BlockArg {
+        if let TokenKind::Ident(name) = self.peek() {
+            if matches!(self.peek2(), TokenKind::Assign) {
+                let name = name.clone();
+                let start = self.span();
+                self.bump(); // name
+                self.bump(); // '='
+                let value = self.expression(sink);
+                let span = start.merge(self.prev_span());
+                return BlockArg::Keyword { name, value, span };
+            }
+        }
+        BlockArg::Positional(self.expression(sink))
+    }
+
+    /// One raw DSL line: every token up to the line end, preserved for the
+    /// handler.
+    fn block_line(&mut self) -> BlockLine {
+        let start = self.span();
+        let mut tokens = Vec::new();
+        while !matches!(
+            self.peek(),
+            TokenKind::Newline | TokenKind::Dedent | TokenKind::Eof
+        ) {
+            tokens.push(self.bump().clone());
+        }
+        let span = start.merge(self.prev_span());
+        self.eat(&TokenKind::Newline);
+        BlockLine { tokens, span }
     }
 
     // ----- statements --------------------------------------------------

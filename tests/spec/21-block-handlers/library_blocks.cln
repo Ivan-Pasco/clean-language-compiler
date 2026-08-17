@@ -1,0 +1,16 @@
+data UserData:
+	deprecated "Use ExtendedUserData instead"
+	fields:
+		integer id primary
+		string email required unique
+		string passwordHash as "password_hash"
+
+endpoints(prefix = "/api", cache):
+	get "/users" listUsers
+	post "/users" createUser
+
+compiletime function expandData(BlockAST ast) returns IR
+	description "Expands a data block."
+	return buildIr(ast)
+
+handles block "data" with expandData
