@@ -1,0 +1,3 @@
+functions:
+	void f(integer a = 1, integer b)
+		return

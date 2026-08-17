@@ -1,0 +1,3 @@
+state:
+	integer counter = 0
+		guard counter + 1 else "not a condition"

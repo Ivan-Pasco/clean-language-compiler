@@ -1,0 +1,7 @@
+error[SCOPE004]: `nothere` is not a state variable
+ --> tests/cln/diagnostics/SCOPE004.cln:8:7
+  |
+8 | watch nothere:
+  |       ^^^^^^^ watch targets name variables from a `state:` block
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SCOPE004

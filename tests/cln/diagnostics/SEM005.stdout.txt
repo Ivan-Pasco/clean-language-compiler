@@ -1,0 +1,7 @@
+error[SEM005]: 'secret' is private and cannot be accessed from outside 'Vault'
+ --> main.cln:6:13
+  |
+6 | 	string s = v.secret
+  | 	           ^^^^^^^^ not inside a `public:` wrapper
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM005

@@ -1,0 +1,4 @@
+state:
+	computed:
+		integer doubled
+			return "big"

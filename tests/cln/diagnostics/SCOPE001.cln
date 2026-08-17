@@ -1,0 +1,3 @@
+start:
+	integer x = y
+	integer y = 2

@@ -1,0 +1,6 @@
+state:
+	computed:
+		integer a
+			return b
+		integer b
+			return a

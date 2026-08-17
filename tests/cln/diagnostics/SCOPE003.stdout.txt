@@ -1,0 +1,7 @@
+error[SCOPE003]: the scope nesting depth exceeds the implementation limit of 64
+  --> tests/cln/diagnostics/SCOPE003.cln:65:65
+   |
+65 | 																																																																if true
+   | 																																																																^^^^^^^ flatten this nesting
+   |
+   = docs: https://errors.cleanlanguage.dev/E/SCOPE003

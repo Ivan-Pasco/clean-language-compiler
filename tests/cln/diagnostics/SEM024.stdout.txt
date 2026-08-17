@@ -1,0 +1,7 @@
+error[SEM024]: Expected value must be evaluable at compile time
+ --> tests/cln/diagnostics/SEM024.cln:6:28
+  |
+6 | 	"reflexive": add(1, 2) == add(1, 2)
+  | 	                          ^^^^^^^^^ not a compile-time value
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM024

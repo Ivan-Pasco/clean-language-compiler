@@ -1,0 +1,7 @@
+error[STATE004]: Cannot assign to computed state variable 'doubled': it is read-only
+ --> tests/cln/diagnostics/STATE004.cln:9:2
+  |
+9 | 	doubled = 9
+  | 	^^^^^^^ computed state is derived
+  |
+  = docs: https://errors.cleanlanguage.dev/E/STATE004

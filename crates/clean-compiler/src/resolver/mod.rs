@@ -69,6 +69,12 @@ pub struct Declarations {
     pub capabilities: Vec<CapRef>,
     /// `start:` blocks, in `sources[]` order: `(file, item)` (FNC-01).
     pub starts: Vec<(usize, usize)>,
+    /// `state:` sections (SMG-01), `(file, item)`.
+    pub states: Vec<(usize, usize)>,
+    /// `watch` blocks (SMG-04), `(file, item)`.
+    pub watches: Vec<(usize, usize)>,
+    /// `tests:` sections (TST-01), `(file, item)`.
+    pub tests: Vec<(usize, usize)>,
     /// Visibility scope per module; index = file index.
     pub modules: Vec<ModuleScope>,
 }
@@ -227,12 +233,17 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                 // Unsupported channel — never silently dropped, never an
                 // invented code.
                 ast::Item::Function(f) => {
-                    unsupported(
-                        sink,
-                        &file.stream,
-                        "top-level function declarations",
-                        f.span,
-                    );
+                    // FUNC013 — template from Platform 10 §5 (FNC-02).
+                    sink.push(build(
+                        Level::Error,
+                        codes::FUNC013,
+                        format!(
+                            "Function '{}' must be declared inside a 'functions:' block",
+                            f.name
+                        ),
+                        file.stream.diag_span(f.span),
+                        Some("not inside functions:".to_string()),
+                    ));
                 }
                 ast::Item::Imports(_) | ast::Item::FileImport { .. } => {}
                 ast::Item::Source(section) => {
@@ -248,8 +259,8 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                         unsupported(sink, &file.stream, "constant: sections", first.span);
                     }
                 }
-                ast::Item::State(section) => {
-                    unsupported(sink, &file.stream, "state: blocks", section.span);
+                ast::Item::State(_) => {
+                    decls.states.push((file_index, item_index));
                 }
                 ast::Item::ConstantFunction(f) => {
                     unsupported(sink, &file.stream, "constant functions", f.span);
@@ -277,21 +288,14 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                         .capabilities
                         .insert(capability.name.clone(), index);
                 }
-                ast::Item::Watch(watch) => {
-                    unsupported(sink, &file.stream, "watch blocks", watch.span);
+                ast::Item::Watch(_) => {
+                    decls.watches.push((file_index, item_index));
                 }
                 ast::Item::LibraryBlock(block) => {
                     unsupported(sink, &file.stream, "library blocks", block.span);
                 }
-                ast::Item::Tests(tests) => {
-                    if let Some(first) = tests.first() {
-                        let span = match first {
-                            ast::TestDecl::Named { span, .. }
-                            | ast::TestDecl::Anonymous { span, .. }
-                            | ast::TestDecl::Block { span, .. } => *span,
-                        };
-                        unsupported(sink, &file.stream, "tests: sections", span);
-                    }
+                ast::Item::Tests(_) => {
+                    decls.tests.push((file_index, item_index));
                 }
             }
         }
@@ -681,6 +685,27 @@ impl ResolvedAst {
         match &self.files[coords.0].ast.items[coords.1] {
             ast::Item::Capability(capability) => (capability, coords.0),
             _ => unreachable!("capabilities indexes only Capability items"),
+        }
+    }
+
+    pub fn state(&self, coords: (usize, usize)) -> (&ast::StateSection, usize) {
+        match &self.files[coords.0].ast.items[coords.1] {
+            ast::Item::State(section) => (section, coords.0),
+            _ => unreachable!("states indexes only State items"),
+        }
+    }
+
+    pub fn watch(&self, coords: (usize, usize)) -> (&ast::WatchBlock, usize) {
+        match &self.files[coords.0].ast.items[coords.1] {
+            ast::Item::Watch(watch) => (watch, coords.0),
+            _ => unreachable!("watches indexes only Watch items"),
+        }
+    }
+
+    pub fn tests(&self, coords: (usize, usize)) -> (&[ast::TestDecl], usize) {
+        match &self.files[coords.0].ast.items[coords.1] {
+            ast::Item::Tests(tests) => (tests, coords.0),
+            _ => unreachable!("tests indexes only Tests items"),
         }
     }
 

@@ -1,0 +1,9 @@
+state:
+	integer counter = 0
+
+functions:
+	void log(string message)
+		return
+
+watch nothere:
+	log("changed")

@@ -1,0 +1,9 @@
+state:
+	integer counter = 0
+
+	computed:
+		integer doubled
+			return counter * 2
+
+start:
+	doubled = 9

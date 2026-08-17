@@ -1,0 +1,7 @@
+error[SCOPE001]: `y` is used before it is declared
+ --> tests/cln/diagnostics/SCOPE001.cln:2:14
+  |
+2 | 	integer x = y
+  | 	            ^ declared later in this scope
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SCOPE001

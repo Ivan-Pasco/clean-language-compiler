@@ -1,0 +1,7 @@
+warning[FUNC004]: `f` declares return type `integer` but may complete without returning
+ --> tests/cln/diagnostics/FUNC004.cln:2:2
+  |
+2 | 	integer f(boolean flag)
+  | 	^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC004

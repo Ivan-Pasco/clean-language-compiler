@@ -2624,6 +2624,20 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 TokenKind::Dot => {
                     self.bump();
+                    // `compiletime` is a keyword (LEX-04) but also a legal
+                    // member name: `test.compiletime.*` is ordinary
+                    // member access per 21 §grammar note.
+                    if matches!(self.peek(), TokenKind::Keyword(Kw::Compiletime)) {
+                        let name_span = self.span();
+                        self.bump();
+                        let span = expr.span().merge(name_span);
+                        expr = Expr::Member {
+                            receiver: Box::new(expr),
+                            name: "compiletime".to_string(),
+                            span,
+                        };
+                        continue;
+                    }
                     match self.ident("member name", sink) {
                         Some((name, name_span)) => {
                             let span = expr.span().merge(name_span);

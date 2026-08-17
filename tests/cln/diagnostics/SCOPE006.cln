@@ -1,0 +1,2 @@
+start:
+	test.compiletime.parseBlock("data x:")

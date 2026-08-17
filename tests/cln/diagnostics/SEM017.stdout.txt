@@ -1,0 +1,8 @@
+error[SEM017]: state initializer for `counter` has the wrong type
+ --> tests/cln/diagnostics/SEM017.cln:2:20
+  |
+2 | 	integer counter = "hola"
+  | 	                  ^^^^^^ this initializer has type `string`
+  |
+  = note: `counter` is declared with type `integer`
+  = docs: https://errors.cleanlanguage.dev/E/SEM017

@@ -1,0 +1,5 @@
+state:
+	integer counter = 0
+
+	rules:
+		counter + 1

@@ -1,0 +1,6 @@
+import:
+	lib
+
+start:
+	Vault v = Vault("a", "b")
+	string s = v.secret

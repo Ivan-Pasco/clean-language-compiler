@@ -182,14 +182,74 @@ AST:
             },
         },
     ),
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 197,
+                        end: 201,
+                    },
+                },
+                name: "log",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: String_,
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 206,
+                                end: 212,
+                            },
+                        },
+                        name: "message",
+                        default: None,
+                        span: ByteSpan {
+                            start: 206,
+                            end: 220,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 224,
+                                end: 231,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 197,
+                    end: 232,
+                },
+            },
+        ],
+    ),
     Watch(
         WatchBlock {
             targets: [
                 (
                     "counter",
                     ByteSpan {
-                        start: 191,
-                        end: 198,
+                        start: 238,
+                        end: 245,
                     },
                 ),
             ],
@@ -199,8 +259,8 @@ AST:
                         callee: Ident {
                             name: "log",
                             span: ByteSpan {
-                                start: 201,
-                                end: 204,
+                                start: 248,
+                                end: 251,
                             },
                         },
                         args: [
@@ -211,22 +271,22 @@ AST:
                                     ),
                                 ],
                                 span: ByteSpan {
-                                    start: 205,
-                                    end: 214,
+                                    start: 252,
+                                    end: 261,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 201,
-                            end: 215,
+                            start: 248,
+                            end: 262,
                         },
                     },
                     on_error: None,
                 },
             ],
             span: ByteSpan {
-                start: 185,
-                end: 217,
+                start: 232,
+                end: 264,
             },
         },
     ),
@@ -236,15 +296,15 @@ AST:
                 (
                     "counter",
                     ByteSpan {
-                        start: 224,
-                        end: 231,
+                        start: 271,
+                        end: 278,
                     },
                 ),
                 (
                     "mode",
                     ByteSpan {
-                        start: 233,
-                        end: 237,
+                        start: 280,
+                        end: 284,
                     },
                 ),
             ],
@@ -254,8 +314,8 @@ AST:
                         callee: Ident {
                             name: "log",
                             span: ByteSpan {
-                                start: 241,
-                                end: 244,
+                                start: 288,
+                                end: 291,
                             },
                         },
                         args: [
@@ -266,28 +326,25 @@ AST:
                                     ),
                                 ],
                                 span: ByteSpan {
-                                    start: 245,
-                                    end: 259,
+                                    start: 292,
+                                    end: 306,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 241,
-                            end: 260,
+                            start: 288,
+                            end: 307,
                         },
                     },
                     on_error: None,
                 },
             ],
             span: ByteSpan {
-                start: 217,
-                end: 261,
+                start: 264,
+                end: 308,
             },
         },
     ),
 ]
 DIAGNOSTICS: 0
-UNSUPPORTED: 3
-  state: blocks @ spec/20-state-management/state_and_watch.cln:1:1
-  watch blocks @ spec/20-state-management/state_and_watch.cln:13:1
-  watch blocks @ spec/20-state-management/state_and_watch.cln:16:1
+UNSUPPORTED: 0

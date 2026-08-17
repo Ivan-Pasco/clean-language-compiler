@@ -19,6 +19,9 @@ class User
 	string name
 
 functions:
+	integer add(integer a, integer b)
+		return a + b
+
 	void init()
 		return
 

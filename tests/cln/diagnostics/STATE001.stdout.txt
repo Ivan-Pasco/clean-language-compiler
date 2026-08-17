@@ -1,0 +1,7 @@
+error[STATE001]: Guard condition must be a pure boolean expression
+ --> tests/cln/diagnostics/STATE001.cln:3:9
+  |
+3 | 		guard counter + 1 else "not a condition"
+  | 		      ^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/STATE001

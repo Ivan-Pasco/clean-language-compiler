@@ -4,6 +4,112 @@ expression: rendered
 ---
 AST:
 [
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 12,
+                        end: 19,
+                    },
+                },
+                name: "add",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 24,
+                                end: 31,
+                            },
+                        },
+                        name: "a",
+                        default: None,
+                        span: ByteSpan {
+                            start: 24,
+                            end: 33,
+                        },
+                    },
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 35,
+                                end: 42,
+                            },
+                        },
+                        name: "b",
+                        default: None,
+                        span: ByteSpan {
+                            start: 35,
+                            end: 44,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Binary {
+                                    op: Add,
+                                    lhs: Ident {
+                                        name: "a",
+                                        span: ByteSpan {
+                                            start: 55,
+                                            end: 56,
+                                        },
+                                    },
+                                    rhs: Ident {
+                                        name: "b",
+                                        span: ByteSpan {
+                                            start: 59,
+                                            end: 60,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 55,
+                                        end: 60,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 48,
+                                end: 61,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 12,
+                    end: 62,
+                },
+            },
+        ],
+    ),
     Tests(
         [
             Named {
@@ -14,46 +120,46 @@ AST:
                         callee: Ident {
                             name: "add",
                             span: ByteSpan {
-                                start: 30,
-                                end: 33,
+                                start: 92,
+                                end: 95,
                             },
                         },
                         args: [
                             Int {
                                 value: 1,
                                 span: ByteSpan {
-                                    start: 34,
-                                    end: 35,
+                                    start: 96,
+                                    end: 97,
                                 },
                             },
                             Int {
                                 value: 2,
                                 span: ByteSpan {
-                                    start: 37,
-                                    end: 38,
+                                    start: 99,
+                                    end: 100,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 30,
-                            end: 39,
+                            start: 92,
+                            end: 101,
                         },
                     },
                     rhs: Int {
                         value: 3,
                         span: ByteSpan {
-                            start: 43,
-                            end: 44,
+                            start: 105,
+                            end: 106,
                         },
                     },
                     span: ByteSpan {
-                        start: 30,
-                        end: 44,
+                        start: 92,
+                        end: 106,
                     },
                 },
                 span: ByteSpan {
-                    start: 8,
-                    end: 45,
+                    start: 70,
+                    end: 107,
                 },
             },
             Anonymous {
@@ -63,46 +169,46 @@ AST:
                         callee: Ident {
                             name: "add",
                             span: ByteSpan {
-                                start: 46,
-                                end: 49,
+                                start: 108,
+                                end: 111,
                             },
                         },
                         args: [
                             Int {
                                 value: 0,
                                 span: ByteSpan {
-                                    start: 50,
-                                    end: 51,
+                                    start: 112,
+                                    end: 113,
                                 },
                             },
                             Int {
                                 value: 0,
                                 span: ByteSpan {
-                                    start: 53,
-                                    end: 54,
+                                    start: 115,
+                                    end: 116,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 46,
-                            end: 55,
+                            start: 108,
+                            end: 117,
                         },
                     },
                     rhs: Int {
                         value: 0,
                         span: ByteSpan {
-                            start: 59,
-                            end: 60,
+                            start: 121,
+                            end: 122,
                         },
                     },
                     span: ByteSpan {
-                        start: 46,
-                        end: 60,
+                        start: 108,
+                        end: 122,
                     },
                 },
                 span: ByteSpan {
-                    start: 46,
-                    end: 61,
+                    start: 108,
+                    end: 123,
                 },
             },
             Block {
@@ -117,50 +223,50 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 84,
-                                end: 91,
+                                start: 146,
+                                end: 153,
                             },
                         },
                         name: "total",
                         name_span: ByteSpan {
-                            start: 92,
-                            end: 97,
+                            start: 154,
+                            end: 159,
                         },
                         init: Some(
                             Call {
                                 callee: Ident {
                                     name: "add",
                                     span: ByteSpan {
-                                        start: 100,
-                                        end: 103,
+                                        start: 162,
+                                        end: 165,
                                     },
                                 },
                                 args: [
                                     Int {
                                         value: 2,
                                         span: ByteSpan {
-                                            start: 104,
-                                            end: 105,
+                                            start: 166,
+                                            end: 167,
                                         },
                                     },
                                     Int {
                                         value: 3,
                                         span: ByteSpan {
-                                            start: 107,
-                                            end: 108,
+                                            start: 169,
+                                            end: 170,
                                         },
                                     },
                                 ],
                                 span: ByteSpan {
-                                    start: 100,
-                                    end: 109,
+                                    start: 162,
+                                    end: 171,
                                 },
                             },
                         ),
                         on_error: None,
                         span: ByteSpan {
-                            start: 84,
-                            end: 110,
+                            start: 146,
+                            end: 172,
                         },
                     },
                     Assert {
@@ -169,25 +275,25 @@ AST:
                             lhs: Ident {
                                 name: "total",
                                 span: ByteSpan {
-                                    start: 119,
-                                    end: 124,
+                                    start: 181,
+                                    end: 186,
                                 },
                             },
                             rhs: Int {
                                 value: 5,
                                 span: ByteSpan {
-                                    start: 128,
-                                    end: 129,
+                                    start: 190,
+                                    end: 191,
                                 },
                             },
                             span: ByteSpan {
-                                start: 119,
-                                end: 129,
+                                start: 181,
+                                end: 191,
                             },
                         },
                         span: ByteSpan {
-                            start: 112,
-                            end: 130,
+                            start: 174,
+                            end: 192,
                         },
                     },
                     Assert {
@@ -196,36 +302,35 @@ AST:
                             lhs: Ident {
                                 name: "total",
                                 span: ByteSpan {
-                                    start: 139,
-                                    end: 144,
+                                    start: 201,
+                                    end: 206,
                                 },
                             },
                             rhs: Int {
                                 value: 0,
                                 span: ByteSpan {
-                                    start: 148,
-                                    end: 149,
+                                    start: 210,
+                                    end: 211,
                                 },
                             },
                             span: ByteSpan {
-                                start: 139,
-                                end: 149,
+                                start: 201,
+                                end: 211,
                             },
                         },
                         span: ByteSpan {
-                            start: 132,
-                            end: 150,
+                            start: 194,
+                            end: 212,
                         },
                     },
                 ],
                 span: ByteSpan {
-                    start: 62,
-                    end: 150,
+                    start: 124,
+                    end: 212,
                 },
             },
         ],
     ),
 ]
 DIAGNOSTICS: 0
-UNSUPPORTED: 1
-  tests: sections @ spec/11-testing/three_forms.cln:2:2
+UNSUPPORTED: 0

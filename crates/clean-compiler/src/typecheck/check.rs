@@ -36,6 +36,7 @@ pub fn check(
         world,
         class_records: Vec::new(),
         classes: Vec::new(),
+        state_vars: Vec::new(),
         host_imports: Vec::new(),
         function_sigs: Vec::new(),
     };
@@ -43,7 +44,10 @@ pub fn check(
     checker.build_class_table(sink);
     checker.project_host_interfaces(sink);
     checker.collect_function_signatures(sink);
+    checker.build_state_table(sink);
+    checker.check_default_values(sink);
     let functions = checker.check_functions(sink);
+    checker.check_state_watch_tests(sink);
     TypedProgram {
         host_imports: checker.host_imports,
         functions,
@@ -54,6 +58,13 @@ struct FunctionSig {
     name: String,
     params: Vec<Local>,
     ret: Ty,
+    /// Parameters before the first defaulted one (FNC-04): the minimum
+    /// call arity.
+    required: usize,
+    /// Typed default expressions, positionally (None = required). Filled
+    /// during signature checking; cloned into call sites (FNC-04:
+    /// evaluated fresh per call, at the call site).
+    defaults: Vec<Option<TExpr>>,
     /// Whether the declaration carries `before:`/`after:` blocks — a
     /// contract expression may not call such a function (CLASS009, 10
     /// §6.3 rule 2).
@@ -68,6 +79,8 @@ struct Checker<'a> {
     class_records: Vec<Ty>,
     /// Semantic class table (CLS-02/03), parallel to `decls.classes`.
     classes: Vec<ClassInfo>,
+    /// State variables per module (SMG-01): name → (type, is_computed).
+    state_vars: Vec<IndexMap<String, (Ty, bool)>>,
     host_imports: Vec<HostImport>,
     function_sigs: Vec<FunctionSig>,
 }
@@ -78,9 +91,7 @@ struct MethodSig {
     name: String,
     params: Vec<Ty>,
     ret: Ty,
-    /// MOD-02/SEM005 method visibility — enforced in the M4 access-rules
-    /// stage; recorded here so the table needs no second AST walk.
-    #[allow(dead_code)]
+    /// MOD-02/SEM005: method visibility is module-scoped.
     public: bool,
 }
 
@@ -506,10 +517,34 @@ impl<'a> Checker<'a> {
                 })
                 .collect();
             let ret = self.project_type(&f.ret, TyPos::Surface, file, sink);
+            // FUNC014 — template from Platform 10 §5: parameters with
+            // defaults follow all required ones (FNC-04).
+            let mut required = 0usize;
+            let mut previous_defaulted: Option<String> = None;
+            for p in f.params.iter().chain(&f.body.input) {
+                match (&p.default, &previous_defaulted) {
+                    (Some(_), _) => previous_defaulted = Some(p.name.clone()),
+                    (None, Some(previous)) => {
+                        sink.push(build(
+                            Level::Error,
+                            codes::FUNC014,
+                            format!(
+                                "Parameter '{}' has no default and follows '{previous}', which has one",
+                                p.name
+                            ),
+                            self.span(file, p.span),
+                            Some("required parameter after an optional one".to_string()),
+                        ));
+                    }
+                    (None, None) => required += 1,
+                }
+            }
             self.function_sigs.push(FunctionSig {
                 name: f.name.clone(),
                 params,
                 ret,
+                required,
+                defaults: Vec::new(),
                 has_contracts: f.body.before.is_some() || f.body.after.is_some(),
             });
         }
@@ -760,6 +795,351 @@ impl<'a> Checker<'a> {
 
     // ----- function bodies ----------------------------------------------
 
+    /// Types every default parameter value against its declared type
+    /// (FNC-04: defaults must match, SEM001) and stores the typed
+    /// expression for call-site fill (defaults evaluate fresh per call).
+    fn check_default_values(&mut self, sink: &mut DiagnosticSink) {
+        let mut all_defaults: Vec<Vec<Option<TExpr>>> = Vec::new();
+        for index in 0..self.resolved.decls.functions.len() {
+            let coords = self.resolved.decls.functions[index].coords;
+            let (f, file) = self.resolved.function(coords);
+            let param_tys: Vec<Ty> = self.function_sigs[index]
+                .params
+                .iter()
+                .map(|p| p.ty.clone())
+                .collect();
+            let mut checker = BodyChecker {
+                outer: self,
+                file,
+                locals: Vec::new(),
+                scopes: vec![IndexMap::new()],
+                ret: Ty::Void,
+                fn_name: f.name.clone(),
+                infcx: InferCtx::new(),
+                loop_depth: 0,
+                known_none: HashSet::new(),
+                in_contract: None,
+                this_class: None,
+                pending_decls: Vec::new(),
+                guard_value: None,
+                in_tests: false,
+                computed_state: None,
+                depth_reported: false,
+            };
+            let defaults: Vec<Option<TExpr>> = f
+                .params
+                .iter()
+                .chain(&f.body.input)
+                .zip(&param_tys)
+                .map(|(p, ty)| {
+                    p.default.as_ref().map(|expr| {
+                        let value = checker.check_expr(expr, Some(ty), sink);
+                        let mut value = checker.coerce_assign(value, ty, &p.name, p.span, sink);
+                        finalize_expr(&mut checker.infcx, &checker.outer.class_records, &mut value);
+                        value
+                    })
+                })
+                .collect();
+            all_defaults.push(defaults);
+        }
+        for (index, defaults) in all_defaults.into_iter().enumerate() {
+            self.function_sigs[index].defaults = defaults;
+        }
+    }
+
+    /// A body checker with empty scopes for section bodies (state
+    /// initialisers, guards, computed bodies, watch and test bodies).
+    fn section_checker(&self, file: usize, name: String, ret: Ty) -> BodyChecker<'_, 'a> {
+        BodyChecker {
+            outer: self,
+            file,
+            locals: Vec::new(),
+            scopes: vec![IndexMap::new()],
+            ret,
+            fn_name: name,
+            infcx: InferCtx::new(),
+            loop_depth: 0,
+            known_none: HashSet::new(),
+            in_contract: None,
+            this_class: None,
+            pending_decls: Vec::new(),
+            guard_value: None,
+            in_tests: false,
+            computed_state: None,
+            depth_reported: false,
+        }
+    }
+
+    /// Chapters 20 and 11: state sections (SEM017, STATE001/003/005,
+    /// SEM018 via the computed bodies), watch blocks (SCOPE004), and
+    /// tests sections (SEM023 assertions, SEM024 expected values,
+    /// SCOPE006 via the in_tests gate). Bodies type-check and are
+    /// discarded — their lowering is a later milestone.
+    fn check_state_watch_tests(&mut self, sink: &mut DiagnosticSink) {
+        for i in 0..self.resolved.decls.states.len() {
+            let coords = self.resolved.decls.states[i];
+            let (section, file) = self.resolved.state(coords);
+            for member in &section.members {
+                match member {
+                    ast::StateMember::Var(var) => {
+                        let Some((ty, _)) = self.state_vars[file].get(&var.name).cloned() else {
+                            continue;
+                        };
+                        let mut bc =
+                            self.section_checker(file, format!("state.{}", var.name), Ty::Void);
+                        let value = bc.check_expr(&var.init, Some(&ty), sink);
+                        if let Err(value) = bc.coerce(value, &ty) {
+                            // SEM017 — templates from Platform 10 §3.
+                            let actual = bc.infcx.resolve(&value.ty).display();
+                            let mut d = build(
+                                Level::Error,
+                                codes::SEM017,
+                                format!("state initializer for `{}` has the wrong type", var.name),
+                                bc.diag_span(var.init.span()),
+                                Some(format!("this initializer has type `{actual}`")),
+                            );
+                            d.notes.push(format!(
+                                "`{}` is declared with type `{}`",
+                                var.name,
+                                ty.display()
+                            ));
+                            bc.push_rich(sink, d);
+                        }
+                        for guard in &var.guards {
+                            bc.guard_value = Some(ty.clone());
+                            let g = bc.check_expr(&guard.cond, Some(&Ty::Boolean), sink);
+                            bc.guard_value = None;
+                            let resolved = bc.infcx.resolve(&g.ty);
+                            let boolean = matches!(resolved, Ty::Boolean | Ty::Error | Ty::Any);
+                            if !boolean || bc.find_impurity(&g).is_some() {
+                                // STATE001 — template from Platform 10 §8.
+                                sink.push(build(
+                                    Level::Error,
+                                    codes::STATE001,
+                                    "Guard condition must be a pure boolean expression".to_string(),
+                                    bc.diag_span(guard.cond.span()),
+                                    None,
+                                ));
+                            }
+                        }
+                    }
+                    ast::StateMember::Computed(decls) => {
+                        for c in decls {
+                            let Some((ty, _)) = self.state_vars[file].get(&c.name).cloned() else {
+                                continue;
+                            };
+                            let mut bc =
+                                self.section_checker(file, format!("state.{}", c.name), ty.clone());
+                            bc.computed_state = Some(c.name.clone());
+                            let mut body = bc.check_block(&c.body, sink);
+                            bc.apply_auto_return(&mut body, c.span, sink);
+                        }
+                    }
+                    ast::StateMember::Rules(exprs) => {
+                        let mut bc =
+                            self.section_checker(file, "state.rules".to_string(), Ty::Void);
+                        for expr in exprs {
+                            let value = bc.check_expr(expr, Some(&Ty::Boolean), sink);
+                            let resolved = bc.infcx.resolve(&value.ty);
+                            if !matches!(resolved, Ty::Boolean | Ty::Error | Ty::Any) {
+                                // STATE005 — template from Platform 10 §8.
+                                sink.push(build(
+                                    Level::Error,
+                                    codes::STATE005,
+                                    format!(
+                                        "State rule expression must be a boolean expression, got {}",
+                                        resolved.display()
+                                    ),
+                                    bc.diag_span(expr.span()),
+                                    None,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.check_computed_cycles(sink);
+        for i in 0..self.resolved.decls.watches.len() {
+            let coords = self.resolved.decls.watches[i];
+            let (watch, file) = self.resolved.watch(coords);
+            for (target, target_span) in &watch.targets {
+                if !self.state_vars[file].contains_key(target) {
+                    // SCOPE004 (stub rule; local wording).
+                    sink.push(build(
+                        Level::Error,
+                        codes::SCOPE004,
+                        format!("`{target}` is not a state variable"),
+                        self.span(file, *target_span),
+                        Some("watch targets name variables from a `state:` block".to_string()),
+                    ));
+                }
+            }
+            let mut bc = self.section_checker(file, "watch".to_string(), Ty::Void);
+            bc.check_block(&watch.body, sink);
+        }
+        for i in 0..self.resolved.decls.tests.len() {
+            let coords = self.resolved.decls.tests[i];
+            let (tests, file) = self.resolved.tests(coords);
+            for test in tests {
+                match test {
+                    ast::TestDecl::Named { assertion, .. }
+                    | ast::TestDecl::Anonymous { assertion, .. } => {
+                        let mut bc = self.section_checker(file, "test".to_string(), Ty::Void);
+                        bc.in_tests = true;
+                        let value = bc.check_expr(assertion, Some(&Ty::Boolean), sink);
+                        let resolved = bc.infcx.resolve(&value.ty);
+                        if !matches!(resolved, Ty::Boolean | Ty::Error | Ty::Any) {
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM023,
+                                format!(
+                                    "Condition must be a boolean expression, found {}",
+                                    resolved.display()
+                                ),
+                                bc.diag_span(assertion.span()),
+                                Some("expected boolean".to_string()),
+                            ));
+                        }
+                        // TST-01: the right side of the comparison is the
+                        // expected result and must be compile-time
+                        // evaluable (SEM024, template verbatim).
+                        if let ast::Expr::Binary {
+                            op: ast::BinOp::Eq | ast::BinOp::NEq,
+                            rhs,
+                            ..
+                        } = assertion
+                        {
+                            if !is_compile_time_constant(rhs) {
+                                sink.push(build(
+                                    Level::Error,
+                                    codes::SEM024,
+                                    "Expected value must be evaluable at compile time".to_string(),
+                                    self.span(file, rhs.span()),
+                                    Some("not a compile-time value".to_string()),
+                                ));
+                            }
+                        }
+                    }
+                    ast::TestDecl::Block { body, .. } => {
+                        let mut bc = self.section_checker(file, "test".to_string(), Ty::Void);
+                        bc.in_tests = true;
+                        bc.check_block(body, sink);
+                    }
+                }
+            }
+        }
+    }
+
+    /// STATE003 — computed-state dependency cycles (SMG-05: static
+    /// tracking over the names that appear in each computed body),
+    /// reported once per cycle with the Platform 10 template.
+    fn check_computed_cycles(&mut self, sink: &mut DiagnosticSink) {
+        for i in 0..self.resolved.decls.states.len() {
+            let coords = self.resolved.decls.states[i];
+            let (section, file) = self.resolved.state(coords);
+            let mut computed: Vec<(&str, &ast::ComputedDecl)> = Vec::new();
+            for member in &section.members {
+                if let ast::StateMember::Computed(decls) = member {
+                    for c in decls {
+                        computed.push((c.name.as_str(), c));
+                    }
+                }
+            }
+            let names: Vec<&str> = computed.iter().map(|(n, _)| *n).collect();
+            let deps: Vec<Vec<usize>> = computed
+                .iter()
+                .map(|(_, c)| {
+                    let mut mentioned = Vec::new();
+                    for stmt in &c.body {
+                        collect_idents(stmt, &mut mentioned);
+                    }
+                    names
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, n)| mentioned.iter().any(|m| m == *n))
+                        .map(|(j, _)| j)
+                        .collect()
+                })
+                .collect();
+            let mut reported = vec![false; computed.len()];
+            for start in 0..computed.len() {
+                let mut seen = vec![false; computed.len()];
+                let mut stack = vec![start];
+                while let Some(node) = stack.pop() {
+                    for &next in &deps[node] {
+                        if next == start {
+                            if !reported[start] {
+                                reported[start] = true;
+                                sink.push(build(
+                                    Level::Error,
+                                    codes::STATE003,
+                                    format!(
+                                        "Circular dependency in computed state: '{}' depends on itself",
+                                        names[start]
+                                    ),
+                                    self.span(file, computed[start].1.span),
+                                    None,
+                                ));
+                            }
+                        } else if !seen[next] {
+                            seen[next] = true;
+                            stack.push(next);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// SMG-01: registers every module's state variables (declared and
+    /// computed) so bodies can resolve them; duplicate names are SEM003
+    /// (module-scoped, like every other declaration).
+    fn build_state_table(&mut self, sink: &mut DiagnosticSink) {
+        self.state_vars = vec![IndexMap::new(); self.resolved.files.len()];
+        for i in 0..self.resolved.decls.states.len() {
+            let coords = self.resolved.decls.states[i];
+            let (section, file) = self.resolved.state(coords);
+            for member in &section.members {
+                match member {
+                    ast::StateMember::Var(var) => {
+                        let ty = self.project_type(&var.ty, TyPos::Surface, file, sink);
+                        if self.state_vars[file]
+                            .insert(var.name.clone(), (ty, false))
+                            .is_some()
+                        {
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM003,
+                                format!("`{}` is declared more than once", var.name),
+                                self.span(file, var.span),
+                                Some("redefinition".to_string()),
+                            ));
+                        }
+                    }
+                    ast::StateMember::Computed(decls) => {
+                        for c in decls {
+                            let ty = self.project_type(&c.ty, TyPos::Surface, file, sink);
+                            if self.state_vars[file]
+                                .insert(c.name.clone(), (ty, true))
+                                .is_some()
+                            {
+                                sink.push(build(
+                                    Level::Error,
+                                    codes::SEM003,
+                                    format!("`{}` is declared more than once", c.name),
+                                    self.span(file, c.span),
+                                    Some("redefinition".to_string()),
+                                ));
+                            }
+                        }
+                    }
+                    ast::StateMember::Rules(_) => {}
+                }
+            }
+        }
+    }
+
     fn check_functions(&mut self, sink: &mut DiagnosticSink) -> Vec<TFunction> {
         let mut out = Vec::new();
         for index in 0..self.resolved.decls.functions.len() {
@@ -802,6 +1182,11 @@ impl<'a> Checker<'a> {
                 known_none: HashSet::new(),
                 in_contract: None,
                 this_class: None,
+                pending_decls: Vec::new(),
+                guard_value: None,
+                in_tests: false,
+                computed_state: None,
+                depth_reported: false,
             };
             let before = f
                 .body
@@ -815,7 +1200,8 @@ impl<'a> Checker<'a> {
                 .as_ref()
                 .map(|a| body_checker.check_contract_block(a, ContractKind::After, sink))
                 .unwrap_or_default();
-            let body = body_checker.check_block(&f.body.statements, sink);
+            let mut body = body_checker.check_block(&f.body.statements, sink);
+            body_checker.apply_auto_return(&mut body, f.span, sink);
             let mut function = TFunction {
                 name: sig.name.clone(),
                 params: sig.params.clone(),
@@ -883,6 +1269,11 @@ impl<'a> Checker<'a> {
                     known_none: HashSet::new(),
                     in_contract: None,
                     this_class: Some(class_idx),
+                    pending_decls: Vec::new(),
+                    guard_value: None,
+                    in_tests: false,
+                    computed_state: None,
+                    depth_reported: false,
                 };
                 let before = m
                     .body
@@ -896,7 +1287,8 @@ impl<'a> Checker<'a> {
                     .as_ref()
                     .map(|a| body_checker.check_contract_block(a, ContractKind::After, sink))
                     .unwrap_or_default();
-                let body = body_checker.check_block(&m.body.statements, sink);
+                let mut body = body_checker.check_block(&m.body.statements, sink);
+                body_checker.apply_auto_return(&mut body, m.span, sink);
                 let mut function = TFunction {
                     name: format!("{class_name}.{}", m.name),
                     params: named_params,
@@ -939,6 +1331,11 @@ impl<'a> Checker<'a> {
                     known_none: HashSet::new(),
                     in_contract: None,
                     this_class: Some(class_idx),
+                    pending_decls: Vec::new(),
+                    guard_value: None,
+                    in_tests: false,
+                    computed_state: None,
+                    depth_reported: false,
                 };
                 let body = body_checker.check_block(&ctor.body, sink);
                 let mut function = TFunction {
@@ -968,6 +1365,11 @@ impl<'a> Checker<'a> {
                     known_none: HashSet::new(),
                     in_contract: None,
                     this_class: Some(class_idx),
+                    pending_decls: Vec::new(),
+                    guard_value: None,
+                    in_tests: false,
+                    computed_state: None,
+                    depth_reported: false,
                 };
                 body_checker.in_contract = Some(ContractKind::Before);
                 for expr in &always.exprs {
@@ -1012,6 +1414,11 @@ impl<'a> Checker<'a> {
                 known_none: HashSet::new(),
                 in_contract: None,
                 this_class: None,
+                pending_decls: Vec::new(),
+                guard_value: None,
+                in_tests: false,
+                computed_state: None,
+                depth_reported: false,
             };
             let body = body_checker.check_block(block, sink);
             let mut function = TFunction {
@@ -1200,6 +1607,8 @@ fn finalize_expr(infcx: &mut InferCtx, class_records: &[Ty], expr: &mut TExpr) {
         | TExprKind::Local(_)
         | TExprKind::ResultRef
         | TExprKind::This
+        | TExprKind::GetState { .. }
+        | TExprKind::GuardValue
         | TExprKind::Error => {}
     }
 }
@@ -1228,6 +1637,18 @@ struct BodyChecker<'c, 'a> {
     /// Some while checking a class method, constructor, or `always:`
     /// body: `this` is typed, fields resolve bare (CLS-02).
     this_class: Option<usize>,
+    /// Names declared anywhere in each open block with their declaration
+    /// start offsets — the SCOPE001 use-before-declaration probe.
+    pending_decls: Vec<Vec<(String, u32)>>,
+    /// The type of `value` inside a guard clause (SMG-02).
+    guard_value: Option<Ty>,
+    /// Inside a `tests:` block body (SCOPE006 gate).
+    in_tests: bool,
+    /// Set for computed-state bodies: return mismatches report SEM018
+    /// with the state templates instead of SEM015.
+    computed_state: Option<String>,
+    /// SCOPE003 reported once per body.
+    depth_reported: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1244,6 +1665,17 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
     /// The visibility scope of the module this body lives in.
     fn module_scope(&self) -> &crate::resolver::ModuleScope {
         &self.outer.resolved.decls.modules[self.file]
+    }
+
+    /// SCOPE001 probe: is `name` declared in an open block at an offset
+    /// after `use_start`? (SEM002 owns the no-declaration-at-all case.)
+    fn declared_later(&self, name: &str, use_start: u32) -> Option<u32> {
+        self.pending_decls
+            .iter()
+            .rev()
+            .flat_map(|block| block.iter())
+            .find(|(n, start)| n == name && *start > use_start)
+            .map(|(_, start)| *start)
     }
 
     fn lookup(&self, name: &str) -> Option<LocalId> {
@@ -1403,6 +1835,88 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         }
     }
 
+    /// SEM015 for functions; SEM018 (templates from Platform 10 §3) when
+    /// the body is a computed-state declaration (SMG-05 boundary: type
+    /// mismatch is SEM018, never STATE003).
+    fn return_mismatch(&mut self, value: &TExpr, span: ByteSpan, sink: &mut DiagnosticSink) {
+        let actual = self.infcx.resolve(&value.ty).display();
+        if let Some(state_name) = self.computed_state.clone() {
+            let mut d = build(
+                Level::Error,
+                codes::SEM018,
+                format!("computed state `{state_name}` returns the wrong type"),
+                self.diag_span(span),
+                Some(format!("this body evaluates to `{actual}`")),
+            );
+            d.notes.push(format!(
+                "`{state_name}` is declared with type `{}`",
+                self.ret.display()
+            ));
+            self.push_rich(sink, d);
+            return;
+        }
+        let mut d = build(
+            Level::Error,
+            codes::SEM015,
+            format!("return type mismatch in `{}`", self.fn_name),
+            self.diag_span(span),
+            Some(format!("this expression has type `{actual}`")),
+        );
+        d.notes.push(format!(
+            "function declares return type `{}`",
+            self.ret.display()
+        ));
+        self.push_rich(sink, d);
+    }
+
+    /// Chapter 09 §Automatic Return: with no explicit `return`, the value
+    /// of the last expression is returned. For non-void bodies the last
+    /// expression statement becomes the return value (SEM015 on
+    /// mismatch); a body that can still complete without returning gets
+    /// the FUNC004 warning (stub rule; local wording).
+    fn apply_auto_return(
+        &mut self,
+        body: &mut Vec<TStmt>,
+        fn_span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) {
+        if matches!(self.ret, Ty::Void | Ty::Error) {
+            return;
+        }
+        if matches!(body.last(), Some(TStmt::Expr(_))) {
+            let Some(TStmt::Expr(value)) = body.pop() else {
+                unreachable!("just matched an expression statement")
+            };
+            let span = value.span;
+            let ret = self.ret.clone();
+            let value = match self.coerce(value, &ret) {
+                Ok(value) => value,
+                Err(value) => {
+                    self.return_mismatch(&value, span, sink);
+                    error_expr(span)
+                }
+            };
+            body.push(TStmt::Return {
+                value: Some(value),
+                span,
+            });
+            return;
+        }
+        if !terminates(body) {
+            sink.push(build(
+                Level::Warning,
+                codes::FUNC004,
+                format!(
+                    "`{}` declares return type `{}` but may complete without returning",
+                    self.fn_name,
+                    self.ret.display()
+                ),
+                self.diag_span(fn_span),
+                None,
+            ));
+        }
+    }
+
     // ----- contracts (chapter 10) ---------------------------------------
 
     /// Checks one `before:`/`after:` block: each line a boolean
@@ -1456,6 +1970,31 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 Some("contract expressions cannot have effects".to_string()),
             ));
         }
+        self.walk_purity_children(expr, sink);
+    }
+
+    /// SMG-02's purity probe: the first effectful operation in the
+    /// expression, if any (host calls; calls to contract-carrying
+    /// functions).
+    fn find_impurity(&self, expr: &TExpr) -> Option<String> {
+        match &expr.kind {
+            TExprKind::CallHost { import, .. } => {
+                return Some(self.outer.host_imports[*import].clean_name.clone());
+            }
+            TExprKind::CallFn { func, .. } => {
+                let sig = &self.outer.function_sigs[*func];
+                if sig.has_contracts {
+                    return Some(sig.name.clone());
+                }
+            }
+            _ => {}
+        }
+        purity_children(expr)
+            .into_iter()
+            .find_map(|e| self.find_impurity(e))
+    }
+
+    fn walk_purity_children(&mut self, expr: &TExpr, sink: &mut DiagnosticSink) {
         match &expr.kind {
             TExprKind::MakeRecord(items)
             | TExprKind::MakeList(items)
@@ -1493,11 +2032,37 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
     // ----- statements ----------------------------------------------------
 
     fn check_block(&mut self, block: &[ast::Stmt], sink: &mut DiagnosticSink) -> Vec<TStmt> {
+        // SCOPE003 (stub rule; local wording): implementation limit of 64
+        // nested scopes, reported once per body.
+        if self.scopes.len() >= 64 && !self.depth_reported {
+            self.depth_reported = true;
+            if let Some(first) = block.first() {
+                sink.push(build(
+                    Level::Error,
+                    codes::SCOPE003,
+                    "the scope nesting depth exceeds the implementation limit of 64".to_string(),
+                    self.diag_span(stmt_span(first)),
+                    Some("flatten this nesting".to_string()),
+                ));
+            }
+        }
         self.scopes.push(IndexMap::new());
+        self.pending_decls.push(
+            block
+                .iter()
+                .filter_map(|stmt| match stmt {
+                    ast::Stmt::VarDecl {
+                        name, name_span, ..
+                    } => Some((name.clone(), name_span.start)),
+                    _ => None,
+                })
+                .collect(),
+        );
         let out = block
             .iter()
             .filter_map(|stmt| self.check_stmt(stmt, sink))
             .collect();
+        self.pending_decls.pop();
         self.scopes.pop();
         out
     }
@@ -1579,6 +2144,30 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         span: name_span,
                     } => {
                         let Some(local) = self.lookup(name) else {
+                            if let Some((ty, computed)) =
+                                self.outer.state_vars[self.file].get(name).cloned()
+                            {
+                                if computed {
+                                    // STATE004 — template from Platform 10 §8.
+                                    sink.push(build(
+                                        Level::Error,
+                                        codes::STATE004,
+                                        format!(
+                                            "Cannot assign to computed state variable '{name}': it is read-only"
+                                        ),
+                                        self.diag_span(*name_span),
+                                        Some("computed state is derived".to_string()),
+                                    ));
+                                    return None;
+                                }
+                                let value = self.check_expr(value, Some(&ty), sink);
+                                self.coerce_assign(value, &ty, name, *name_span, sink);
+                                sink.note_unsupported(
+                                    "state assignment",
+                                    self.diag_span(*name_span),
+                                );
+                                return None;
+                            }
                             // A bare field name inside a class body is a
                             // legal assignment target (CLS-02); its
                             // lowering is M6.
@@ -1631,26 +2220,28 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             ast::Stmt::Return { value, span } => {
                 let value = match value {
                     Some(expr) => {
+                        // FUNC007 — Warning (Platform 09 §3.4): `start:`
+                        // should return void; the value still checks.
+                        if self.fn_name == "start" {
+                            let v = self.check_expr(expr, None, sink);
+                            sink.push(build(
+                                Level::Warning,
+                                codes::FUNC007,
+                                "the start block should return void".to_string(),
+                                self.diag_span(expr.span()),
+                                Some("this value is discarded".to_string()),
+                            ));
+                            return Some(TStmt::Return {
+                                value: Some(v),
+                                span: *span,
+                            });
+                        }
                         let ret = self.ret.clone();
                         let v = self.check_expr(expr, Some(&ret), sink);
                         match self.coerce(v, &ret) {
                             Ok(v) => Some(v),
                             Err(v) => {
-                                let mut d = build(
-                                    Level::Error,
-                                    codes::SEM015,
-                                    format!("return type mismatch in `{}`", self.fn_name),
-                                    self.diag_span(expr.span()),
-                                    Some(format!(
-                                        "this expression has type `{}`",
-                                        self.infcx.resolve(&v.ty).display()
-                                    )),
-                                );
-                                d.notes.push(format!(
-                                    "function declares return type `{}`",
-                                    self.ret.display()
-                                ));
-                                self.push_rich(sink, d);
+                                self.return_mismatch(&v, expr.span(), sink);
                                 Some(error_expr(expr.span()))
                             }
                         }
@@ -1969,6 +2560,29 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     kind: TExprKind::Local(local),
                 },
                 None => {
+                    // SMG-02: `value` is the proposed new value, bound
+                    // only inside a guard clause.
+                    if name == "value" {
+                        if let Some(ty) = &self.guard_value {
+                            return TExpr {
+                                ty: ty.clone(),
+                                span,
+                                kind: TExprKind::GuardValue,
+                            };
+                        }
+                    }
+                    // SMG-01: module state variables are in scope in
+                    // every body of the module.
+                    if let Some((ty, _)) = self.outer.state_vars[self.file].get(name) {
+                        return TExpr {
+                            ty: ty.clone(),
+                            span,
+                            kind: TExprKind::GetState {
+                                module: self.file,
+                                name: name.clone(),
+                            },
+                        };
+                    }
                     // CLS-02 implicit context: a bare name inside a class
                     // body reaches the instance fields.
                     if let Some(this_class) = self.this_class {
@@ -2018,6 +2632,17 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                             format!("Call to '{name}' is missing parentheses"),
                             self.diag_span(span),
                             Some("every call carries parentheses".to_string()),
+                        ));
+                    } else if let Some(decl_start) = self.declared_later(name, span.start) {
+                        // SCOPE001 (stub rule; local wording): the
+                        // declaration exists, lexically after this use.
+                        let _ = decl_start;
+                        sink.push(build(
+                            Level::Error,
+                            codes::SCOPE001,
+                            format!("`{name}` is used before it is declared"),
+                            self.diag_span(span),
+                            Some("declared later in this scope".to_string()),
                         ));
                     } else {
                         sink.push(build(
@@ -2575,18 +3200,52 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
 
         // User function? (Visible through this module's scope, MOD-01/02.)
         if let Some(index) = self.module_scope().functions.get(name).copied() {
-            let (params, ret): (Vec<Ty>, Ty) = {
+            let (params, ret, required): (Vec<Ty>, Ty, usize) = {
                 let sig = &self.outer.function_sigs[index];
                 (
                     sig.params.iter().map(|p| p.ty.clone()).collect(),
                     sig.ret.clone(),
+                    sig.required,
                 )
             };
-            let args = self.check_args(name, &params, args, span, false, sink);
+            if args.len() < required || args.len() > params.len() {
+                let expected = if required == params.len() {
+                    format!("{}", params.len())
+                } else {
+                    format!("between {required} and {}", params.len())
+                };
+                sink.push(build(
+                    Level::Error,
+                    codes::FUNC002,
+                    format!(
+                        "`{name}` expects {expected} argument(s), got {}",
+                        args.len()
+                    ),
+                    self.diag_span(span),
+                    None,
+                ));
+            }
+            let mut typed = self.check_args_against(name, &params, args, sink);
+            // FNC-04: omitted trailing arguments take their defaults,
+            // materialised at the call site (fresh per call).
+            for i in typed.len()..params.len() {
+                if let Some(default) = self
+                    .outer
+                    .function_sigs
+                    .get(index)
+                    .and_then(|s| s.defaults.get(i))
+                    .and_then(|d| d.clone())
+                {
+                    typed.push(default);
+                }
+            }
             return TExpr {
                 ty: ret,
                 span,
-                kind: TExprKind::CallFn { func: index, args },
+                kind: TExprKind::CallFn {
+                    func: index,
+                    args: typed,
+                },
             };
         }
 
@@ -2705,6 +3364,35 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
+        // SCOPE006 — template from Platform 10 §4: the `test.compiletime`
+        // namespace exists only inside a `tests:` block body.
+        if let ast::Expr::Member {
+            receiver: inner,
+            name: mid,
+            ..
+        } = receiver
+        {
+            if mid == "compiletime" {
+                if let ast::Expr::Ident { name: root, .. } = inner.as_ref() {
+                    if root == "test" && self.lookup(root).is_none() {
+                        if self.in_tests {
+                            sink.note_unsupported("test.compiletime helpers", self.diag_span(span));
+                        } else {
+                            sink.push(build(
+                                Level::Error,
+                                codes::SCOPE006,
+                                format!(
+                                    "'test.compiletime.{method}' is only available inside a 'tests:' block"
+                                ),
+                                self.diag_span(member_span),
+                                Some("not available here".to_string()),
+                            ));
+                        }
+                        return error_expr(span);
+                    }
+                }
+            }
+        }
         if let ast::Expr::Ident {
             name,
             span: recv_span,
@@ -2766,10 +3454,25 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 let Some((owner, m)) = self.outer.find_method(class, method) else {
                     return self.undefined_method(&recv.ty, method, member_span, span, sink);
                 };
-                let (params, ret) = {
+                let (params, ret, public) = {
                     let sig = &self.outer.classes[owner].methods[m];
-                    (sig.params.clone(), sig.ret.clone())
+                    (sig.params.clone(), sig.ret.clone(), sig.public)
                 };
+                // SEM005 — template from Platform 10 §3: private by
+                // default; visibility is module-scoped (MOD-02).
+                let owner_file = self.outer.resolved.decls.classes[owner].coords.0;
+                if !public && owner_file != self.file {
+                    let scope = self.outer.classes[owner].name.clone();
+                    sink.push(build(
+                        Level::Error,
+                        codes::SEM005,
+                        format!(
+                            "'{method}' is private and cannot be accessed from outside '{scope}'"
+                        ),
+                        self.diag_span(member_span),
+                        Some("not inside a `public:` wrapper".to_string()),
+                    ));
+                }
                 let args = self.check_args(method, &params, args, span, false, sink);
                 TExpr {
                     ty: ret,
@@ -2831,6 +3534,48 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             Ty::Error => error_expr(span),
             other => {
+                // SEM010 (stub rule; local wording): `string.matches()`
+                // takes one of the fourteen named pattern constants (15
+                // §String Patterns) — an identifier check at compile
+                // time, no runtime lookup (ADR-0009).
+                if other == Ty::Str && method == "matches" {
+                    const PATTERNS: [&str; 14] = [
+                        "emailPattern",
+                        "urlPattern",
+                        "phonePattern",
+                        "uuidPattern",
+                        "integerPattern",
+                        "numberPattern",
+                        "alphanumericPattern",
+                        "slugPattern",
+                        "datePattern",
+                        "timePattern",
+                        "ipv4Pattern",
+                        "hexColorPattern",
+                        "alphaPattern",
+                        "numericPattern",
+                    ];
+                    let valid = args.len() == 1
+                        && matches!(&args[0], ast::Expr::Ident { name, .. }
+                            if PATTERNS.contains(&name.as_str()));
+                    if !valid {
+                        let arg_span = args.first().map(|a| a.span()).unwrap_or(member_span);
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM010,
+                            "the argument to `string.matches()` must be a named pattern constant"
+                                .to_string(),
+                            self.diag_span(arg_span),
+                            Some(
+                                "the pattern vocabulary is closed — no strings, no variables"
+                                    .to_string(),
+                            ),
+                        ));
+                        return error_expr(span);
+                    }
+                    sink.note_unsupported("standard-library methods", self.diag_span(span));
+                    return error_expr(span);
+                }
                 // TYP-06's four explicit conversions are typed here; the
                 // rest of the built-in method surface is chapter 15 (M6).
                 let target = match method {
@@ -2950,7 +3695,20 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         .iter()
                         .position(|(n, _, _)| n == name)
                     {
-                        let ty = self.outer.classes[c].fields[field].1.clone();
+                        let (_, ty, public) = self.outer.classes[c].fields[field].clone();
+                        let owner_file = self.outer.resolved.decls.classes[c].coords.0;
+                        if !public && owner_file != self.file {
+                            let scope = self.outer.classes[c].name.clone();
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM005,
+                                format!(
+                                    "'{name}' is private and cannot be accessed from outside '{scope}'"
+                                ),
+                                self.diag_span(member_span),
+                                Some("not inside a `public:` wrapper".to_string()),
+                            ));
+                        }
                         return TExpr {
                             ty,
                             span,
@@ -3110,6 +3868,29 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 None,
             ));
         }
+        self.check_args_core(fn_name, params, args, host_boundary, sink)
+    }
+
+    /// Positional argument checking without the arity report (the caller
+    /// owns FUNC002 when defaults widen the legal range).
+    fn check_args_against(
+        &mut self,
+        fn_name: &str,
+        params: &[Ty],
+        args: &[ast::Expr],
+        sink: &mut DiagnosticSink,
+    ) -> Vec<TExpr> {
+        self.check_args_core(fn_name, params, args, false, sink)
+    }
+
+    fn check_args_core(
+        &mut self,
+        fn_name: &str,
+        params: &[Ty],
+        args: &[ast::Expr],
+        host_boundary: bool,
+        sink: &mut DiagnosticSink,
+    ) -> Vec<TExpr> {
         args.iter()
             .enumerate()
             .map(|(i, arg)| {
@@ -3432,6 +4213,173 @@ fn promote(value: TExpr) -> TExpr {
         ty: Ty::Number,
         span,
         kind: TExprKind::IntToNumber(Box::new(value)),
+    }
+}
+
+/// Every path through the block ends in a `return` (conservative: `if`
+/// needs an `else` and all arms terminating; loops never count).
+fn terminates(block: &[TStmt]) -> bool {
+    match block.last() {
+        Some(TStmt::Return { .. }) => true,
+        Some(TStmt::If {
+            then,
+            else_ifs,
+            els: Some(els),
+            ..
+        }) => terminates(then) && else_ifs.iter().all(|(_, b)| terminates(b)) && terminates(els),
+        _ => false,
+    }
+}
+
+/// TST-01: literals and compositions of literals are compile-time
+/// evaluable (SEM024's conservative reading; anything with a name or a
+/// call is not).
+fn is_compile_time_constant(expr: &ast::Expr) -> bool {
+    match expr {
+        ast::Expr::Int { .. }
+        | ast::Expr::Number { .. }
+        | ast::Expr::Bool { .. }
+        | ast::Expr::NoneLit { .. } => true,
+        ast::Expr::Str { segments, .. } => segments
+            .iter()
+            .all(|seg| matches!(seg, ast::StrSeg::Text(_))),
+        ast::Expr::List { items, .. } => items.iter().all(is_compile_time_constant),
+        ast::Expr::Unary { operand, .. } => is_compile_time_constant(operand),
+        ast::Expr::Binary { lhs, rhs, .. } => {
+            is_compile_time_constant(lhs) && is_compile_time_constant(rhs)
+        }
+        _ => false,
+    }
+}
+
+/// Names mentioned anywhere in a statement — SMG-05's static dependency
+/// probe for computed state.
+fn collect_idents(stmt: &ast::Stmt, out: &mut Vec<String>) {
+    fn expr(e: &ast::Expr, out: &mut Vec<String>) {
+        match e {
+            ast::Expr::Ident { name, .. } => out.push(name.clone()),
+            ast::Expr::Call { callee, args, .. } => {
+                expr(callee, out);
+                args.iter().for_each(|a| expr(a, out));
+            }
+            ast::Expr::Member { receiver, .. } => expr(receiver, out),
+            ast::Expr::Index {
+                receiver, index, ..
+            } => {
+                expr(receiver, out);
+                expr(index, out);
+            }
+            ast::Expr::NonNone { operand, .. } | ast::Expr::Unary { operand, .. } => {
+                expr(operand, out)
+            }
+            ast::Expr::Binary { lhs, rhs, .. } => {
+                expr(lhs, out);
+                expr(rhs, out);
+            }
+            ast::Expr::OnError {
+                value, fallback, ..
+            } => {
+                expr(value, out);
+                expr(fallback, out);
+            }
+            ast::Expr::List { items, .. } => items.iter().for_each(|i| expr(i, out)),
+            ast::Expr::Str { segments, .. } => {
+                for seg in segments {
+                    if let ast::StrSeg::Interp { expr: e, .. } = seg {
+                        expr(e, out);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    use ast::Stmt::*;
+    match stmt {
+        VarDecl {
+            init: Some(init), ..
+        } => expr(init, out),
+        VarDecl { init: None, .. } => {}
+        Assign { target, value, .. } => {
+            expr(target, out);
+            expr(value, out);
+        }
+        Return {
+            value: Some(value), ..
+        } => expr(value, out),
+        Return { value: None, .. } => {}
+        Expr { expr: e, .. } => expr(e, out),
+        If {
+            cond,
+            then,
+            else_ifs,
+            els,
+            ..
+        } => {
+            expr(cond, out);
+            then.iter().for_each(|s| collect_idents(s, out));
+            for (c, b) in else_ifs {
+                expr(c, out);
+                b.iter().for_each(|s| collect_idents(s, out));
+            }
+            if let Some(els) = els {
+                els.iter().for_each(|s| collect_idents(s, out));
+            }
+        }
+        While { cond, body, .. } => {
+            expr(cond, out);
+            body.iter().for_each(|s| collect_idents(s, out));
+        }
+        Iterate {
+            source, step, body, ..
+        } => {
+            match source {
+                ast::IterateSource::Range { from, to } => {
+                    expr(from, out);
+                    expr(to, out);
+                }
+                ast::IterateSource::Expr(e) => expr(e, out),
+            }
+            if let Some(step) = step {
+                expr(step, out);
+            }
+            body.iter().for_each(|s| collect_idents(s, out));
+        }
+        Print { items, .. } => items.iter().for_each(|e| expr(e, out)),
+        Assert { expr: e, .. } => expr(e, out),
+        _ => {}
+    }
+}
+
+/// The child expressions of a node, for purity walks.
+fn purity_children(expr: &TExpr) -> Vec<&TExpr> {
+    match &expr.kind {
+        TExprKind::MakeRecord(items)
+        | TExprKind::MakeList(items)
+        | TExprKind::MakeMatrix(items)
+        | TExprKind::CallHost { args: items, .. }
+        | TExprKind::CallFn { args: items, .. }
+        | TExprKind::CallStatic { args: items, .. }
+        | TExprKind::CallCtor { args: items, .. } => items.iter().collect(),
+        TExprKind::CallMethod { recv, args, .. } | TExprKind::CallDyn { recv, args, .. } => {
+            std::iter::once(recv.as_ref()).chain(args.iter()).collect()
+        }
+        TExprKind::Binary { lhs, rhs, .. } => vec![lhs, rhs],
+        TExprKind::Unary { operand, .. }
+        | TExprKind::NonNone(operand)
+        | TExprKind::IsNone { operand, .. }
+        | TExprKind::IntToNumber(operand)
+        | TExprKind::WrapSome(operand)
+        | TExprKind::Convert(operand)
+        | TExprKind::GetField { recv: operand, .. } => vec![operand],
+        TExprKind::Index { recv, index, .. } => vec![recv, index],
+        TExprKind::StrInterp(segs) => segs
+            .iter()
+            .filter_map(|seg| match seg {
+                TInterpSeg::Expr(e) => Some(e),
+                TInterpSeg::Text(_) => None,
+            })
+            .collect(),
+        _ => Vec::new(),
     }
 }
 

@@ -1,0 +1,7 @@
+error[SEM010]: the argument to `string.matches()` must be a named pattern constant
+ --> tests/cln/diagnostics/SEM010.cln:3:24
+  |
+3 | 	boolean b = s.matches("email")
+  | 	                      ^^^^^^^ the pattern vocabulary is closed — no strings, no variables
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM010

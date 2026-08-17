@@ -204,13 +204,115 @@ AST:
         [
             Function {
                 ret: TypeExpr {
-                    base: Void,
+                    base: Integer(
+                        None,
+                    ),
                     optional: false,
                     extra_optionals: [],
                     behaviors: [],
                     span: ByteSpan {
                         start: 232,
-                        end: 236,
+                        end: 239,
+                    },
+                },
+                name: "add",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 244,
+                                end: 251,
+                            },
+                        },
+                        name: "a",
+                        default: None,
+                        span: ByteSpan {
+                            start: 244,
+                            end: 253,
+                        },
+                    },
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 255,
+                                end: 262,
+                            },
+                        },
+                        name: "b",
+                        default: None,
+                        span: ByteSpan {
+                            start: 255,
+                            end: 264,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Binary {
+                                    op: Add,
+                                    lhs: Ident {
+                                        name: "a",
+                                        span: ByteSpan {
+                                            start: 275,
+                                            end: 276,
+                                        },
+                                    },
+                                    rhs: Ident {
+                                        name: "b",
+                                        span: ByteSpan {
+                                            start: 279,
+                                            end: 280,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 275,
+                                        end: 280,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 268,
+                                end: 281,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 232,
+                    end: 283,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 283,
+                        end: 287,
                     },
                 },
                 name: "init",
@@ -228,15 +330,15 @@ AST:
                         Return {
                             value: None,
                             span: ByteSpan {
-                                start: 246,
-                                end: 253,
+                                start: 297,
+                                end: 304,
                             },
                         },
                     ],
                 },
                 span: ByteSpan {
-                    start: 232,
-                    end: 254,
+                    start: 283,
+                    end: 305,
                 },
             },
         ],
@@ -250,46 +352,46 @@ AST:
                         callee: Ident {
                             name: "add",
                             span: ByteSpan {
-                                start: 262,
-                                end: 265,
+                                start: 313,
+                                end: 316,
                             },
                         },
                         args: [
                             Int {
                                 value: 1,
                                 span: ByteSpan {
-                                    start: 266,
-                                    end: 267,
+                                    start: 317,
+                                    end: 318,
                                 },
                             },
                             Int {
                                 value: 2,
                                 span: ByteSpan {
-                                    start: 269,
-                                    end: 270,
+                                    start: 320,
+                                    end: 321,
                                 },
                             },
                         ],
                         span: ByteSpan {
-                            start: 262,
-                            end: 271,
+                            start: 313,
+                            end: 322,
                         },
                     },
                     rhs: Int {
                         value: 3,
                         span: ByteSpan {
-                            start: 275,
-                            end: 276,
+                            start: 326,
+                            end: 327,
                         },
                     },
                     span: ByteSpan {
-                        start: 262,
-                        end: 276,
+                        start: 313,
+                        end: 327,
                     },
                 },
                 span: ByteSpan {
-                    start: 262,
-                    end: 277,
+                    start: 313,
+                    end: 328,
                 },
             },
         ],
@@ -301,14 +403,14 @@ AST:
                     callee: Ident {
                         name: "init",
                         span: ByteSpan {
-                            start: 286,
-                            end: 290,
+                            start: 337,
+                            end: 341,
                         },
                     },
                     args: [],
                     span: ByteSpan {
-                        start: 286,
-                        end: 292,
+                        start: 337,
+                        end: 343,
                     },
                 },
                 on_error: None,
@@ -319,9 +421,7 @@ AST:
 DIAGNOSTICS: 2
   IMPORT002 spec/08-file-structure/full_order.cln:3:2 I cannot find the module `data.models` in this build
   IMPORT002 spec/08-file-structure/full_order.cln:5:1 I cannot find the module `lib/util.cln` in this build
-UNSUPPORTED: 5
+UNSUPPORTED: 3
   source: provenance blocks @ spec/08-file-structure/full_order.cln:7:1
   constant: sections @ spec/08-file-structure/full_order.cln:12:2
-  state: blocks @ spec/08-file-structure/full_order.cln:15:1
-  tests: sections @ spec/08-file-structure/full_order.cln:26:2
   standard-library imports @ spec/08-file-structure/full_order.cln:2:2

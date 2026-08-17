@@ -4,6 +4,112 @@ expression: rendered
 ---
 AST:
 [
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 12,
+                        end: 19,
+                    },
+                },
+                name: "add",
+                params: [
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 24,
+                                end: 31,
+                            },
+                        },
+                        name: "a",
+                        default: None,
+                        span: ByteSpan {
+                            start: 24,
+                            end: 33,
+                        },
+                    },
+                    Param {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 35,
+                                end: 42,
+                            },
+                        },
+                        name: "b",
+                        default: None,
+                        span: ByteSpan {
+                            start: 35,
+                            end: 44,
+                        },
+                    },
+                ],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: Some(
+                                Binary {
+                                    op: Add,
+                                    lhs: Ident {
+                                        name: "a",
+                                        span: ByteSpan {
+                                            start: 55,
+                                            end: 56,
+                                        },
+                                    },
+                                    rhs: Ident {
+                                        name: "b",
+                                        span: ByteSpan {
+                                            start: 59,
+                                            end: 60,
+                                        },
+                                    },
+                                    span: ByteSpan {
+                                        start: 55,
+                                        end: 60,
+                                    },
+                                },
+                            ),
+                            span: ByteSpan {
+                                start: 48,
+                                end: 61,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 12,
+                    end: 62,
+                },
+            },
+        ],
+    ),
     Tests(
         [
             Block {
@@ -18,62 +124,61 @@ AST:
                             extra_optionals: [],
                             behaviors: [],
                             span: ByteSpan {
-                                start: 30,
-                                end: 37,
+                                start: 92,
+                                end: 99,
                             },
                         },
                         name: "total",
                         name_span: ByteSpan {
-                            start: 38,
-                            end: 43,
+                            start: 100,
+                            end: 105,
                         },
                         init: Some(
                             Call {
                                 callee: Ident {
                                     name: "add",
                                     span: ByteSpan {
-                                        start: 46,
-                                        end: 49,
+                                        start: 108,
+                                        end: 111,
                                     },
                                 },
                                 args: [
                                     Int {
                                         value: 2,
                                         span: ByteSpan {
-                                            start: 50,
-                                            end: 51,
+                                            start: 112,
+                                            end: 113,
                                         },
                                     },
                                     Int {
                                         value: 3,
                                         span: ByteSpan {
-                                            start: 53,
-                                            end: 54,
+                                            start: 115,
+                                            end: 116,
                                         },
                                     },
                                 ],
                                 span: ByteSpan {
-                                    start: 46,
-                                    end: 55,
+                                    start: 108,
+                                    end: 117,
                                 },
                             },
                         ),
                         on_error: None,
                         span: ByteSpan {
-                            start: 30,
-                            end: 56,
+                            start: 92,
+                            end: 118,
                         },
                     },
                 ],
                 span: ByteSpan {
-                    start: 8,
-                    end: 56,
+                    start: 70,
+                    end: 118,
                 },
             },
         ],
     ),
 ]
 DIAGNOSTICS: 1
-  SYN005 spec/11-testing/block_without_assert.cln:2:2 block test "forgot the assert" has no assert; a test asserts at least once
-UNSUPPORTED: 1
-  tests: sections @ spec/11-testing/block_without_assert.cln:2:2
+  SYN005 spec/11-testing/block_without_assert.cln:6:2 block test "forgot the assert" has no assert; a test asserts at least once
+UNSUPPORTED: 0

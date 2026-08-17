@@ -134,6 +134,11 @@ pub enum HExprKind {
     WrapSome(Box<HExpr>),
     ResultRef,
     This,
+    GetState {
+        module: usize,
+        name: String,
+    },
+    GuardValue,
     CallMethod {
         class: usize,
         method: usize,
@@ -331,6 +336,8 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
         tir::TExprKind::WrapSome(operand) => HExprKind::WrapSome(Box::new(lower_expr(*operand))),
         tir::TExprKind::ResultRef => HExprKind::ResultRef,
         tir::TExprKind::This => HExprKind::This,
+        tir::TExprKind::GetState { module, name } => HExprKind::GetState { module, name },
+        tir::TExprKind::GuardValue => HExprKind::GuardValue,
         tir::TExprKind::CallMethod {
             class,
             method,

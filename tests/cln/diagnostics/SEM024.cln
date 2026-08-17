@@ -3,5 +3,4 @@ functions:
 		return a + b
 
 tests:
-	"forgot the assert"
-		integer total = add(2, 3)
+	"reflexive": add(1, 2) == add(1, 2)

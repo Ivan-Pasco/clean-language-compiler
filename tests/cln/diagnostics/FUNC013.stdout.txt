@@ -1,0 +1,7 @@
+error[FUNC013]: Function 'f' must be declared inside a 'functions:' block
+ --> tests/cln/diagnostics/FUNC013.cln:1:1
+  |
+1 | integer f(integer x)
+  | ^^^^^^^^^^^^^^^^^^^^ not inside functions:
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC013

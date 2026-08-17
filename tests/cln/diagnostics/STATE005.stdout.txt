@@ -1,0 +1,7 @@
+error[STATE005]: State rule expression must be a boolean expression, got integer
+ --> tests/cln/diagnostics/STATE005.cln:5:3
+  |
+5 | 		counter + 1
+  | 		^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/STATE005

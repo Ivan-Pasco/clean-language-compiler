@@ -124,12 +124,14 @@ pub enum TIterSource {
     Range { from: TExpr, to: TExpr },
 }
 
+#[derive(Clone)]
 pub struct TExpr {
     pub ty: Ty,
     pub span: ByteSpan,
     pub kind: TExprKind,
 }
 
+#[derive(Clone)]
 pub enum TExprKind {
     Int(i128),
     /// `number` literal (TYP-01: IEEE-754 binary64).
@@ -190,6 +192,13 @@ pub enum TExprKind {
     ResultRef,
     /// `this` inside a class method/constructor body (CLS-02).
     This,
+    /// Read of a module state variable (SMG-01); lowering is M6.
+    GetState {
+        module: usize,
+        name: String,
+    },
+    /// The proposed new value inside a guard clause (SMG-02).
+    GuardValue,
     /// Instance method call, statically dispatched: the receiver's class
     /// is known (`class` owns the method — possibly an ancestor of the
     /// receiver's class, CLS-02).
@@ -233,6 +242,7 @@ pub enum TExprKind {
 }
 
 /// One typed interpolation segment (03 §String Interpolation).
+#[derive(Clone)]
 pub enum TInterpSeg {
     Text(String),
     Expr(TExpr),

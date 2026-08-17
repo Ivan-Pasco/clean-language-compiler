@@ -696,6 +696,9 @@ impl<'a> FnLowerer<'a> {
             }
             HExprKind::ResultRef => self.note(sink, "contract blocks in compiled code", expr.span),
             HExprKind::This => self.note(sink, "class values in compiled code", expr.span),
+            HExprKind::GetState { .. } | HExprKind::GuardValue => {
+                self.note(sink, "state access in compiled code", expr.span)
+            }
             HExprKind::CallMethod { .. }
             | HExprKind::CallDyn { .. }
             | HExprKind::CallCtor { .. }

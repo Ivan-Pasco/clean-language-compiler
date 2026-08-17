@@ -1,0 +1,2 @@
+integer f(integer x)
+	return x

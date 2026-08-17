@@ -1,0 +1,7 @@
+error[SCOPE006]: 'test.compiletime.parseBlock' is only available inside a 'tests:' block
+ --> tests/cln/diagnostics/SCOPE006.cln:2:2
+  |
+2 | 	test.compiletime.parseBlock("data x:")
+  | 	^^^^^^^^^^^^^^^^^^^^^^^^^^^ not available here
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SCOPE006

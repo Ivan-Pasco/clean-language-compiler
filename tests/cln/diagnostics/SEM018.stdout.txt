@@ -1,0 +1,8 @@
+error[SEM018]: computed state `doubled` returns the wrong type
+ --> tests/cln/diagnostics/SEM018.cln:4:11
+  |
+4 | 			return "big"
+  | 			       ^^^^^ this body evaluates to `string`
+  |
+  = note: `doubled` is declared with type `integer`
+  = docs: https://errors.cleanlanguage.dev/E/SEM018

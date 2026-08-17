@@ -1,0 +1,3 @@
+start:
+	string s = "x"
+	boolean b = s.matches("email")

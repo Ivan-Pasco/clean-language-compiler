@@ -1,0 +1,4 @@
+functions:
+	integer f(boolean flag)
+		if flag
+			return 1

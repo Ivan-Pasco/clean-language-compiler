@@ -1,0 +1,7 @@
+error[FUNC014]: Parameter 'b' has no default and follows 'a', which has one
+ --> tests/cln/diagnostics/FUNC014.cln:2:24
+  |
+2 | 	void f(integer a = 1, integer b)
+  | 	                      ^^^^^^^^^ required parameter after an optional one
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC014

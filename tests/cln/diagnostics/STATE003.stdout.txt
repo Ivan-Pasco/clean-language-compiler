@@ -1,0 +1,15 @@
+error[STATE003]: Circular dependency in computed state: 'a' depends on itself
+ --> tests/cln/diagnostics/STATE003.cln:3:3
+  |
+3 | 		integer a
+  | 		^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/STATE003
+
+error[STATE003]: Circular dependency in computed state: 'b' depends on itself
+ --> tests/cln/diagnostics/STATE003.cln:5:3
+  |
+5 | 		integer b
+  | 		^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/STATE003

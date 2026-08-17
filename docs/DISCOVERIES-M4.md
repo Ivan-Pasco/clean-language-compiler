@@ -182,3 +182,57 @@ the milestone plan does not sequence before M6. **Local adoption:** the
 static call type-checks against the method signature; the field-access
 restriction is not yet enforced (tracked here so it is not mistaken for
 spec conformance).
+
+## 15. `onError` has no result-typing rule
+
+ERH-02 defines binding and scope but no rule constrains the fallback's
+type against the guarded expression's, and no code exists for a
+mismatch (every spec example is type-identical). Typed in the M4
+error-handling stage as: fallback coerces to the guarded expression's
+type; mismatch reports SEM001 through the enclosing assignment. Needs a
+foundation ruling.
+
+## 16. `public:` inside `state:` is required by SEM005 and unparseable
+
+SEM005 §Applies-to includes "state variables not inside a `public:`
+sub-section of `state:`", but neither `StateBodyMember` (20 ebnf) nor
+`PublicDeclaration` (17 ebnf) admits it. Per DOC-15 the parser follows
+the grammar: state has no visibility surface, and state names do not
+travel across modules at all in M4 (imports bring functions and classes
+only), so the conflict is latent. Needs a grammar decision.
+
+## 17. Named arguments (FUNC008–011) have no grammar and no chapter
+
+The only syntax evidence is the examples inside the four Platform 10
+rule bodies (`add(a: 1, b: 2)`); `ArgumentList` is positional-only and
+the 2026-08-01 language-compliance audit records "cero apariciones de
+'named argument' en todo 04 language/". The four codes stay in the
+DIA-06 ledger until a chapter owns the feature.
+
+## 18. FUNC001/FUNC002/FUNC011 conflict with FNC-04 and recursion
+
+FUNC001's stub ("functions must be defined before being called") would
+forbid mutual recursion and forward references, which chapter 09 never
+restricts; it stays in the ledger. FUNC002/FUNC011 are stated with no
+exception for defaulted parameters and contradict FNC-04 rule 4 as
+written — the compiler exempts defaulted parameters (arity is a
+`required..=total` range) and FUNC002's wording widens to "between R
+and N" for such calls.
+
+## 19. Smaller stage-4 adoptions
+
+- **FUNC006** (start with parameters) is grammatically impossible
+  (`Item::Start` carries no parameter surface); stays in the ledger.
+- **SEM024**'s "compile-time evaluable" reads conservatively: literals
+  and compositions of literals; anything with a name or call is not.
+- **Watch targets**: SCOPE004 accepts computed names (the spec is
+  silent); `reset <name>` targets are not validated (no code exists).
+- **`test.compiletime` helper calls** inside tests are a frontier note
+  (the inspector set is open-ended; expansion is M5).
+- **SCOPE003**'s implementation limit is 64 nested scopes.
+- **`compiletime`** is a hard keyword and also a member name
+  (`test.compiletime.*`); the parser special-cases it after `.` per the
+  chapter-21 grammar note.
+- **Test assertions**: TST-01's "top-level operator must be a
+  comparison" has no registered code; the checker requires boolean
+  (SEM023) and leaves the shape rule unenforced.

@@ -1,0 +1,7 @@
+warning[FUNC007]: the start block should return void
+ --> tests/cln/diagnostics/FUNC007.cln:2:9
+  |
+2 | 	return 5
+  | 	       ^ this value is discarded
+  |
+  = docs: https://errors.cleanlanguage.dev/E/FUNC007
