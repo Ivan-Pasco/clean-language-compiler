@@ -1,0 +1,12 @@
+functions:
+	void orchestrate()
+		later integer answer = start compute(42)
+		background syncCache()
+		background risky() onError log(error.message)
+		background fragile() onError:
+			log(error.message)
+		integer value = answer
+		answer.cancel()
+
+	void syncCache() background
+		return

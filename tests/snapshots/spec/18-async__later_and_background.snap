@@ -1,0 +1,308 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 12,
+                        end: 16,
+                    },
+                },
+                name: "orchestrate",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Later {
+                            ty: TypeExpr {
+                                base: Integer(
+                                    None,
+                                ),
+                                optional: false,
+                                extra_optionals: [],
+                                behaviors: [],
+                                span: ByteSpan {
+                                    start: 39,
+                                    end: 46,
+                                },
+                            },
+                            name: "answer",
+                            name_span: ByteSpan {
+                                start: 47,
+                                end: 53,
+                            },
+                            call: Call {
+                                callee: Ident {
+                                    name: "compute",
+                                    span: ByteSpan {
+                                        start: 62,
+                                        end: 69,
+                                    },
+                                },
+                                args: [
+                                    Int {
+                                        value: 42,
+                                        span: ByteSpan {
+                                            start: 70,
+                                            end: 72,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 62,
+                                    end: 73,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 33,
+                                end: 74,
+                            },
+                        },
+                        Background {
+                            call: Call {
+                                callee: Ident {
+                                    name: "syncCache",
+                                    span: ByteSpan {
+                                        start: 87,
+                                        end: 96,
+                                    },
+                                },
+                                args: [],
+                                span: ByteSpan {
+                                    start: 87,
+                                    end: 98,
+                                },
+                            },
+                            on_error: None,
+                            span: ByteSpan {
+                                start: 76,
+                                end: 99,
+                            },
+                        },
+                        Background {
+                            call: OnError {
+                                value: Call {
+                                    callee: Ident {
+                                        name: "risky",
+                                        span: ByteSpan {
+                                            start: 112,
+                                            end: 117,
+                                        },
+                                    },
+                                    args: [],
+                                    span: ByteSpan {
+                                        start: 112,
+                                        end: 119,
+                                    },
+                                },
+                                fallback: Call {
+                                    callee: Ident {
+                                        name: "log",
+                                        span: ByteSpan {
+                                            start: 128,
+                                            end: 131,
+                                        },
+                                    },
+                                    args: [
+                                        Member {
+                                            receiver: ErrorRef {
+                                                span: ByteSpan {
+                                                    start: 132,
+                                                    end: 137,
+                                                },
+                                            },
+                                            name: "message",
+                                            span: ByteSpan {
+                                                start: 132,
+                                                end: 145,
+                                            },
+                                        },
+                                    ],
+                                    span: ByteSpan {
+                                        start: 128,
+                                        end: 146,
+                                    },
+                                },
+                                span: ByteSpan {
+                                    start: 112,
+                                    end: 146,
+                                },
+                            },
+                            on_error: None,
+                            span: ByteSpan {
+                                start: 101,
+                                end: 147,
+                            },
+                        },
+                        Background {
+                            call: Call {
+                                callee: Ident {
+                                    name: "fragile",
+                                    span: ByteSpan {
+                                        start: 160,
+                                        end: 167,
+                                    },
+                                },
+                                args: [],
+                                span: ByteSpan {
+                                    start: 160,
+                                    end: 169,
+                                },
+                            },
+                            on_error: Some(
+                                [
+                                    Expr {
+                                        expr: Call {
+                                            callee: Ident {
+                                                name: "log",
+                                                span: ByteSpan {
+                                                    start: 182,
+                                                    end: 185,
+                                                },
+                                            },
+                                            args: [
+                                                Member {
+                                                    receiver: ErrorRef {
+                                                        span: ByteSpan {
+                                                            start: 186,
+                                                            end: 191,
+                                                        },
+                                                    },
+                                                    name: "message",
+                                                    span: ByteSpan {
+                                                        start: 186,
+                                                        end: 199,
+                                                    },
+                                                },
+                                            ],
+                                            span: ByteSpan {
+                                                start: 182,
+                                                end: 200,
+                                            },
+                                        },
+                                        on_error: None,
+                                    },
+                                ],
+                            ),
+                            span: ByteSpan {
+                                start: 149,
+                                end: 203,
+                            },
+                        },
+                        VarDecl {
+                            ty: TypeExpr {
+                                base: Integer(
+                                    None,
+                                ),
+                                optional: false,
+                                extra_optionals: [],
+                                behaviors: [],
+                                span: ByteSpan {
+                                    start: 203,
+                                    end: 210,
+                                },
+                            },
+                            name: "value",
+                            init: Some(
+                                Ident {
+                                    name: "answer",
+                                    span: ByteSpan {
+                                        start: 219,
+                                        end: 225,
+                                    },
+                                },
+                            ),
+                            on_error: None,
+                            span: ByteSpan {
+                                start: 203,
+                                end: 226,
+                            },
+                        },
+                        Expr {
+                            expr: Call {
+                                callee: Member {
+                                    receiver: Ident {
+                                        name: "answer",
+                                        span: ByteSpan {
+                                            start: 228,
+                                            end: 234,
+                                        },
+                                    },
+                                    name: "cancel",
+                                    span: ByteSpan {
+                                        start: 228,
+                                        end: 241,
+                                    },
+                                },
+                                args: [],
+                                span: ByteSpan {
+                                    start: 228,
+                                    end: 243,
+                                },
+                            },
+                            on_error: None,
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 12,
+                    end: 246,
+                },
+            },
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 246,
+                        end: 250,
+                    },
+                },
+                name: "syncCache",
+                params: [],
+                background: true,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 276,
+                                end: 283,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 246,
+                    end: 283,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

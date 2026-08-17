@@ -1,0 +1,101 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    State(
+        StateSection {
+            members: [
+                Var(
+                    StateVar {
+                        ty: TypeExpr {
+                            base: Integer(
+                                None,
+                            ),
+                            optional: false,
+                            extra_optionals: [],
+                            behaviors: [],
+                            span: ByteSpan {
+                                start: 8,
+                                end: 15,
+                            },
+                        },
+                        name: "counter",
+                        init: Int {
+                            value: 0,
+                            span: ByteSpan {
+                                start: 26,
+                                end: 27,
+                            },
+                        },
+                        guards: [],
+                        span: ByteSpan {
+                            start: 8,
+                            end: 28,
+                        },
+                    },
+                ),
+            ],
+            span: ByteSpan {
+                start: 0,
+                end: 29,
+            },
+        },
+    ),
+    Functions(
+        [
+            Function {
+                ret: TypeExpr {
+                    base: Void,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 41,
+                        end: 45,
+                    },
+                },
+                name: "restart",
+                params: [],
+                background: false,
+                public: false,
+                body: FunctionBody {
+                    description: None,
+                    input: [],
+                    intents: [],
+                    specs: [],
+                    before: None,
+                    after: None,
+                    statements: [
+                        Reset {
+                            target: Var {
+                                name: "counter",
+                                span: ByteSpan {
+                                    start: 64,
+                                    end: 71,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 58,
+                                end: 72,
+                            },
+                        },
+                        Reset {
+                            target: State,
+                            span: ByteSpan {
+                                start: 74,
+                                end: 86,
+                            },
+                        },
+                    ],
+                },
+                span: ByteSpan {
+                    start: 41,
+                    end: 86,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

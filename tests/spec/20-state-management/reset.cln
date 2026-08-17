@@ -1,0 +1,7 @@
+state:
+	integer counter = 0
+
+functions:
+	void restart()
+		reset counter
+		reset state

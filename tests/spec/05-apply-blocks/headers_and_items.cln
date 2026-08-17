@@ -1,0 +1,12 @@
+start:
+	items.add:
+		"first"
+		"second"
+	report.messages.append:
+		buildGreeting(user)
+	integer:
+		count = 0
+		total
+	constant:
+		integer maxRetries = 3
+		string label = "demo"

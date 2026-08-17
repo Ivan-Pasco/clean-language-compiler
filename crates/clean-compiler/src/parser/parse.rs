@@ -1703,6 +1703,63 @@ impl<'a> Parser<'a> {
                     span: start.merge(self.prev_span()),
                 })
             }
+            TokenKind::Keyword(Kw::Later) => self.later_binding(sink),
+            TokenKind::Keyword(Kw::Background) => {
+                self.bump();
+                let call = self.expression(sink);
+                let on_error = self.on_error_block_tail(sink);
+                if on_error.is_none() {
+                    self.expect(&TokenKind::Newline, "end of line", sink);
+                }
+                Some(Stmt::Background {
+                    call,
+                    on_error,
+                    span: start.merge(self.prev_span()),
+                })
+            }
+            TokenKind::Keyword(Kw::Start) => {
+                // ASY-01 boundary rule: `start` appears only on the RHS of
+                // a `later` binding or after `background`.
+                self.error_here(
+                    sink,
+                    "'start' runs a call in the background only in 'later T x = start f()' or 'background f()' positions"
+                        .to_string(),
+                );
+                self.sync_line();
+                None
+            }
+            TokenKind::Keyword(Kw::Reset) => {
+                self.bump();
+                let target = if self.eat_word("state") {
+                    ResetTarget::State
+                } else {
+                    match self.ident("variable name to reset", sink) {
+                        Some((name, span)) => ResetTarget::Var { name, span },
+                        None => {
+                            self.sync_line();
+                            return None;
+                        }
+                    }
+                };
+                self.expect(&TokenKind::Newline, "end of line", sink);
+                Some(Stmt::Reset {
+                    target,
+                    span: start.merge(self.prev_span()),
+                })
+            }
+            TokenKind::Keyword(Kw::Constant) if matches!(self.peek2(), TokenKind::Colon) => {
+                self.bump(); // constant
+                self.apply_block(ApplyHeader::Constant { span: start }, start, sink)
+            }
+            TokenKind::Ident(w)
+                if is_type_word(w)
+                    && matches!(self.peek2(), TokenKind::Colon)
+                    && !matches!(w.as_str(), "list" | "matrix" | "pairs") =>
+            {
+                // Grouped declarations: a bare TypeKeyword header (05 §1).
+                let ty = self.type_expr(TypePos::Surface, sink);
+                self.apply_block(ApplyHeader::TypeKeyword(ty), start, sink)
+            }
             _ if self.starts_type_first_declaration() => {
                 let ty = self.type_expr(TypePos::DeclLhs, sink);
                 let Some((name, _)) = self.ident("variable name", sink) else {
@@ -1737,6 +1794,10 @@ impl<'a> Parser<'a> {
             }
             _ => {
                 let expr = self.expression(sink);
+                if self.at(&TokenKind::Colon) {
+                    // Callable-headed apply-block (APB-01).
+                    return self.apply_block(ApplyHeader::Callable(expr), start, sink);
+                }
                 if self.eat(&TokenKind::Assign) {
                     if !matches!(
                         expr,
@@ -1769,6 +1830,122 @@ impl<'a> Parser<'a> {
                 Some(Stmt::Expr { expr, on_error })
             }
         }
+    }
+
+    /// Apply-block body (APB-01): `':'` at the cursor; each indented line
+    /// is one item, shaped by the header kind.
+    fn apply_block(
+        &mut self,
+        header: ApplyHeader,
+        start: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> Option<Stmt> {
+        self.bump(); // ':'
+        self.expect(&TokenKind::Newline, "end of line", sink);
+        let mut items = Vec::new();
+        if self.expect(&TokenKind::Indent, "indented apply-block body", sink) {
+            loop {
+                match self.peek() {
+                    TokenKind::Newline => {
+                        self.bump();
+                    }
+                    TokenKind::Dedent | TokenKind::Eof => break,
+                    _ => {
+                        let item_start = self.span();
+                        match &header {
+                            ApplyHeader::Callable(_) => {
+                                items.push(ApplyItem::Expr(self.expression(sink)));
+                            }
+                            ApplyHeader::TypeKeyword(_) => {
+                                // `name [= expr]` — one variable per line.
+                                let Some((name, _)) = self.ident("variable name", sink) else {
+                                    self.sync_line();
+                                    continue;
+                                };
+                                let init = if self.eat(&TokenKind::Assign) {
+                                    Some(self.expression(sink))
+                                } else {
+                                    None
+                                };
+                                items.push(ApplyItem::Binding {
+                                    ty: None,
+                                    name,
+                                    init,
+                                    span: item_start.merge(self.prev_span()),
+                                });
+                            }
+                            ApplyHeader::Constant { .. } => {
+                                // A full TypedDeclaration per line.
+                                let ty = self.type_expr(TypePos::Surface, sink);
+                                let Some((name, _)) = self.ident("constant name", sink) else {
+                                    self.sync_line();
+                                    continue;
+                                };
+                                let init = if self.eat(&TokenKind::Assign) {
+                                    Some(self.expression(sink))
+                                } else {
+                                    None
+                                };
+                                items.push(ApplyItem::Binding {
+                                    ty: Some(ty),
+                                    name,
+                                    init,
+                                    span: item_start.merge(self.prev_span()),
+                                });
+                            }
+                        }
+                        self.expect(&TokenKind::Newline, "end of line", sink);
+                    }
+                }
+            }
+            self.eat(&TokenKind::Dedent);
+        }
+        if items.is_empty() {
+            self.error_at(
+                sink,
+                codes::SYN005,
+                "an apply-block applies its header to at least one item".to_string(),
+                start,
+            );
+        }
+        Some(Stmt::Apply {
+            header,
+            items,
+            span: start.merge(self.prev_span()),
+        })
+    }
+
+    /// `later T name = start f()` (ASY-01). The RHS must be a
+    /// StartExpression — any other RHS is SYN002 per the boundary rule.
+    fn later_binding(&mut self, sink: &mut DiagnosticSink) -> Option<Stmt> {
+        let start = self.span();
+        self.bump(); // later
+        let ty = self.type_expr(TypePos::Surface, sink);
+        let Some((name, name_span)) = self.ident("deferred binding name", sink) else {
+            self.sync_line();
+            return None;
+        };
+        if !self.expect(&TokenKind::Assign, "'='", sink) {
+            self.sync_line();
+            return None;
+        }
+        if !self.eat_kw(Kw::Start) {
+            self.error_here(
+                sink,
+                "the right-hand side of a 'later' binding must be 'start f()'".to_string(),
+            );
+            self.sync_line();
+            return None;
+        }
+        let call = self.expression(sink);
+        self.expect(&TokenKind::Newline, "end of line", sink);
+        Some(Stmt::Later {
+            ty,
+            name,
+            name_span,
+            call,
+            span: start.merge(self.prev_span()),
+        })
     }
 
     /// ERH-02 block form: `… onError:` NEWLINE INDENT handler DEDENT. The

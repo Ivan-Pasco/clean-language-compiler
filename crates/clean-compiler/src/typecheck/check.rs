@@ -513,6 +513,22 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 sink.note_unsupported("assert statements", self.diag_span(*span));
                 None
             }
+            ast::Stmt::Apply { span, .. } => {
+                sink.note_unsupported("apply-blocks", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::Later { span, .. } => {
+                sink.note_unsupported("later bindings", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::Background { span, .. } => {
+                sink.note_unsupported("background calls", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::Reset { span, .. } => {
+                sink.note_unsupported("reset statements", self.diag_span(*span));
+                None
+            }
             ast::Stmt::If {
                 cond,
                 then,

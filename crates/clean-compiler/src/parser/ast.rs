@@ -372,6 +372,64 @@ pub enum Stmt {
     /// `assert <expr>` (11 §3) — block-test bodies; the checker owns the
     /// placement rule.
     Assert { expr: Expr, span: ByteSpan },
+    /// Apply-block (APB-01): `header:` + one item per indented line.
+    Apply {
+        header: ApplyHeader,
+        items: Vec<ApplyItem>,
+        span: ByteSpan,
+    },
+    /// `later T name = start f()` deferred binding (ASY-01).
+    Later {
+        ty: TypeExpr,
+        name: String,
+        name_span: ByteSpan,
+        /// The call following `start` — the only legal RHS shape.
+        call: Expr,
+        span: ByteSpan,
+    },
+    /// `background f() [onError …]` (ASY-01/ASY-03). A suffix handler
+    /// folds into `call` as `Expr::OnError`; the block form is `on_error`.
+    Background {
+        call: Expr,
+        on_error: Option<Block>,
+        span: ByteSpan,
+    },
+    /// `reset <target>` (20 §6).
+    Reset { target: ResetTarget, span: ByteSpan },
+}
+
+/// Apply-block header kinds (05 §1) — the parser dispatches the body's
+/// item shape on this.
+#[derive(Debug)]
+pub enum ApplyHeader {
+    /// `items.add:` — any callable expression.
+    Callable(Expr),
+    /// `integer:` — grouped declarations in that type.
+    TypeKeyword(TypeExpr),
+    /// `constant:` — each item a full TypedDeclaration.
+    Constant { span: ByteSpan },
+}
+
+/// One apply-block body line (05 §1).
+#[derive(Debug)]
+pub enum ApplyItem {
+    /// Callable-style header: one call argument.
+    Expr(Expr),
+    /// Declaration-style headers: `name [= expr]` (type-keyword header,
+    /// `ty` empty) or a full TypedDeclaration (`constant:` header).
+    Binding {
+        ty: Option<TypeExpr>,
+        name: String,
+        init: Option<Expr>,
+        span: ByteSpan,
+    },
+}
+
+/// `reset` target (20 §6): one variable, or the whole state in scope.
+#[derive(Debug)]
+pub enum ResetTarget {
+    State,
+    Var { name: String, span: ByteSpan },
 }
 
 /// One segment of a string literal (06-expressions §3): literal text or a
