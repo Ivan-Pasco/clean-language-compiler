@@ -1,0 +1,241 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            Expr {
+                expr: Call {
+                    callee: ErrorRef {
+                        span: ByteSpan {
+                            start: 8,
+                            end: 13,
+                        },
+                    },
+                    args: [
+                        Str {
+                            segments: [
+                                Text(
+                                    "something failed",
+                                ),
+                            ],
+                            span: ByteSpan {
+                                start: 14,
+                                end: 32,
+                            },
+                        },
+                    ],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 33,
+                    },
+                },
+                on_error: None,
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 35,
+                        end: 42,
+                    },
+                },
+                name: "v",
+                init: Some(
+                    OnError {
+                        value: Call {
+                            callee: Ident {
+                                name: "risky",
+                                span: ByteSpan {
+                                    start: 47,
+                                    end: 52,
+                                },
+                            },
+                            args: [],
+                            span: ByteSpan {
+                                start: 47,
+                                end: 54,
+                            },
+                        },
+                        fallback: Int {
+                            value: 0,
+                            span: ByteSpan {
+                                start: 63,
+                                end: 64,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 47,
+                            end: 64,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 35,
+                    end: 65,
+                },
+            },
+            VarDecl {
+                ty: TypeExpr {
+                    base: String_,
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 66,
+                        end: 72,
+                    },
+                },
+                name: "content",
+                init: Some(
+                    Call {
+                        callee: Ident {
+                            name: "read",
+                            span: ByteSpan {
+                                start: 83,
+                                end: 87,
+                            },
+                        },
+                        args: [
+                            Ident {
+                                name: "path",
+                                span: ByteSpan {
+                                    start: 88,
+                                    end: 92,
+                                },
+                            },
+                        ],
+                        span: ByteSpan {
+                            start: 83,
+                            end: 93,
+                        },
+                    },
+                ),
+                on_error: Some(
+                    [
+                        Expr {
+                            expr: Call {
+                                callee: Ident {
+                                    name: "log",
+                                    span: ByteSpan {
+                                        start: 105,
+                                        end: 108,
+                                    },
+                                },
+                                args: [
+                                    Member {
+                                        receiver: ErrorRef {
+                                            span: ByteSpan {
+                                                start: 109,
+                                                end: 114,
+                                            },
+                                        },
+                                        name: "message",
+                                        span: ByteSpan {
+                                            start: 109,
+                                            end: 122,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 105,
+                                    end: 123,
+                                },
+                            },
+                            on_error: None,
+                        },
+                        Return {
+                            value: None,
+                            span: ByteSpan {
+                                start: 126,
+                                end: 133,
+                            },
+                        },
+                    ],
+                ),
+                span: ByteSpan {
+                    start: 66,
+                    end: 134,
+                },
+            },
+            Expr {
+                expr: Call {
+                    callee: Ident {
+                        name: "cleanup",
+                        span: ByteSpan {
+                            start: 134,
+                            end: 141,
+                        },
+                    },
+                    args: [],
+                    span: ByteSpan {
+                        start: 134,
+                        end: 143,
+                    },
+                },
+                on_error: Some(
+                    [
+                        Expr {
+                            expr: Call {
+                                callee: Ident {
+                                    name: "log",
+                                    span: ByteSpan {
+                                        start: 155,
+                                        end: 158,
+                                    },
+                                },
+                                args: [
+                                    Binary {
+                                        op: Default,
+                                        lhs: Member {
+                                            receiver: ErrorRef {
+                                                span: ByteSpan {
+                                                    start: 159,
+                                                    end: 164,
+                                                },
+                                            },
+                                            name: "code",
+                                            span: ByteSpan {
+                                                start: 159,
+                                                end: 169,
+                                            },
+                                        },
+                                        rhs: Str {
+                                            segments: [
+                                                Text(
+                                                    "none",
+                                                ),
+                                            ],
+                                            span: ByteSpan {
+                                                start: 178,
+                                                end: 184,
+                                            },
+                                        },
+                                        span: ByteSpan {
+                                            start: 159,
+                                            end: 184,
+                                        },
+                                    },
+                                ],
+                                span: ByteSpan {
+                                    start: 155,
+                                    end: 185,
+                                },
+                            },
+                            on_error: None,
+                        },
+                    ],
+                ),
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

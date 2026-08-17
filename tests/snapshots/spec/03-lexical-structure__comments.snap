@@ -29,6 +29,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 57,
                     end: 83,

@@ -1,0 +1,174 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            VarDecl {
+                ty: TypeExpr {
+                    base: Integer(
+                        None,
+                    ),
+                    optional: false,
+                    extra_optionals: [],
+                    behaviors: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 15,
+                    },
+                },
+                name: "count",
+                init: Some(
+                    Int {
+                        value: 0,
+                        span: ByteSpan {
+                            start: 24,
+                            end: 25,
+                        },
+                    },
+                ),
+                on_error: None,
+                span: ByteSpan {
+                    start: 8,
+                    end: 26,
+                },
+            },
+            Assign {
+                target: Ident {
+                    name: "count",
+                    span: ByteSpan {
+                        start: 27,
+                        end: 32,
+                    },
+                },
+                value: Binary {
+                    op: Add,
+                    lhs: Ident {
+                        name: "count",
+                        span: ByteSpan {
+                            start: 35,
+                            end: 40,
+                        },
+                    },
+                    rhs: Int {
+                        value: 1,
+                        span: ByteSpan {
+                            start: 43,
+                            end: 44,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 35,
+                        end: 44,
+                    },
+                },
+                on_error: None,
+                span: ByteSpan {
+                    start: 27,
+                    end: 45,
+                },
+            },
+            Assign {
+                target: Index {
+                    receiver: Ident {
+                        name: "items",
+                        span: ByteSpan {
+                            start: 46,
+                            end: 51,
+                        },
+                    },
+                    index: Int {
+                        value: 0,
+                        span: ByteSpan {
+                            start: 52,
+                            end: 53,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 46,
+                        end: 54,
+                    },
+                },
+                value: Int {
+                    value: 5,
+                    span: ByteSpan {
+                        start: 57,
+                        end: 58,
+                    },
+                },
+                on_error: None,
+                span: ByteSpan {
+                    start: 46,
+                    end: 59,
+                },
+            },
+            Assign {
+                target: Member {
+                    receiver: Ident {
+                        name: "user",
+                        span: ByteSpan {
+                            start: 60,
+                            end: 64,
+                        },
+                    },
+                    name: "name",
+                    span: ByteSpan {
+                        start: 60,
+                        end: 69,
+                    },
+                },
+                value: Str {
+                    segments: [
+                        Text(
+                            "ada",
+                        ),
+                    ],
+                    span: ByteSpan {
+                        start: 72,
+                        end: 77,
+                    },
+                },
+                on_error: None,
+                span: ByteSpan {
+                    start: 60,
+                    end: 78,
+                },
+            },
+            Expr {
+                expr: Call {
+                    callee: Ident {
+                        name: "total",
+                        span: ByteSpan {
+                            start: 79,
+                            end: 84,
+                        },
+                    },
+                    args: [
+                        Int {
+                            value: 1,
+                            span: ByteSpan {
+                                start: 85,
+                                end: 86,
+                            },
+                        },
+                    ],
+                    span: ByteSpan {
+                        start: 79,
+                        end: 87,
+                    },
+                },
+                on_error: None,
+            },
+            Return {
+                value: None,
+                span: ByteSpan {
+                    start: 89,
+                    end: 96,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

@@ -1,0 +1,8 @@
+start:
+	error("something failed")
+	integer v = risky() onError 0
+	string content = read(path) onError:
+		log(error.message)
+		return
+	cleanup() onError:
+		log(error.code default "none")

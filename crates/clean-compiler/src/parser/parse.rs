@@ -652,6 +652,18 @@ impl<'a> Parser<'a> {
                 })
             }
             TokenKind::Keyword(Kw::If) => self.if_statement(sink),
+            TokenKind::Keyword(Kw::While) => self.while_statement(sink),
+            TokenKind::Keyword(Kw::Iterate) => self.iterate_statement(sink),
+            TokenKind::Keyword(Kw::Break) => {
+                self.bump();
+                self.expect(&TokenKind::Newline, "end of line", sink);
+                Some(Stmt::Break { span: start })
+            }
+            TokenKind::Keyword(Kw::Continue) => {
+                self.bump();
+                self.expect(&TokenKind::Newline, "end of line", sink);
+                Some(Stmt::Continue { span: start })
+            }
             TokenKind::Keyword(Kw::Print) => self.print_block(sink),
             _ if self.starts_type_first_declaration() => {
                 let ty = self.type_expr(TypePos::DeclLhs, sink);
@@ -664,11 +676,24 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 };
-                self.expect(&TokenKind::Newline, "end of line", sink);
+                let on_error = self.on_error_block_tail(sink);
+                if on_error.is_some() && init.is_none() {
+                    self.error_at(
+                        sink,
+                        codes::SYN005,
+                        "an `onError:` handler needs an initialising expression to guard"
+                            .to_string(),
+                        start,
+                    );
+                }
+                if on_error.is_none() {
+                    self.expect(&TokenKind::Newline, "end of line", sink);
+                }
                 Some(Stmt::VarDecl {
                     ty,
                     name,
                     init,
+                    on_error,
                     span: start.merge(self.prev_span()),
                 })
             }
@@ -688,17 +713,36 @@ impl<'a> Parser<'a> {
                         );
                     }
                     let value = self.expression(sink);
-                    self.expect(&TokenKind::Newline, "end of line", sink);
+                    let on_error = self.on_error_block_tail(sink);
+                    if on_error.is_none() {
+                        self.expect(&TokenKind::Newline, "end of line", sink);
+                    }
                     return Some(Stmt::Assign {
                         target: expr,
                         value,
+                        on_error,
                         span: start.merge(self.prev_span()),
                     });
                 }
-                self.expect(&TokenKind::Newline, "end of line", sink);
-                Some(Stmt::Expr(expr))
+                let on_error = self.on_error_block_tail(sink);
+                if on_error.is_none() {
+                    self.expect(&TokenKind::Newline, "end of line", sink);
+                }
+                Some(Stmt::Expr { expr, on_error })
             }
         }
+    }
+
+    /// ERH-02 block form: `… onError:` NEWLINE INDENT handler DEDENT. The
+    /// expression ladder leaves `onError ':'` unconsumed for this tail.
+    fn on_error_block_tail(&mut self, sink: &mut DiagnosticSink) -> Option<Block> {
+        if !(self.at_kw(Kw::OnError) && matches!(self.peek2(), TokenKind::Colon)) {
+            return None;
+        }
+        self.bump(); // onError
+        self.bump(); // ':'
+        self.expect(&TokenKind::Newline, "end of line", sink);
+        Some(self.indented_block(sink))
     }
 
     /// Type-first declaration starts with a type keyword, or with an
@@ -713,6 +757,63 @@ impl<'a> Parser<'a> {
             }
             _ => false,
         }
+    }
+
+    /// `while <condition>` + indented body (FLW-02 §While).
+    fn while_statement(&mut self, sink: &mut DiagnosticSink) -> Option<Stmt> {
+        let start = self.span();
+        self.bump(); // while
+        let cond = self.expression(sink);
+        self.expect(&TokenKind::Newline, "end of line", sink);
+        let body = self.indented_block(sink);
+        Some(Stmt::While {
+            cond,
+            body,
+            span: start.merge(self.prev_span()),
+        })
+    }
+
+    /// `iterate <binder> in <source> [step <expr>]` + indented body
+    /// (FLW-02). A `to` after the source expression makes it the range
+    /// form — `to` is iterate-only, never a general operator.
+    fn iterate_statement(&mut self, sink: &mut DiagnosticSink) -> Option<Stmt> {
+        let start = self.span();
+        self.bump(); // iterate
+        let Some((binder, binder_span)) = self.ident("iteration variable name", sink) else {
+            self.sync_line();
+            return None;
+        };
+        if !self.eat_kw(Kw::In) {
+            self.error_here(
+                sink,
+                "expected 'in' after the iteration variable".to_string(),
+            );
+            self.sync_line();
+            return None;
+        }
+        let first = self.expression(sink);
+        let source = if self.eat_kw(Kw::To) {
+            let to = self.expression(sink);
+            IterateSource::Range { from: first, to }
+        } else {
+            IterateSource::Expr(first)
+        };
+        // `step` is a contextual keyword (03 §4) — identifier text here.
+        let step = if self.eat_word("step") {
+            Some(self.expression(sink))
+        } else {
+            None
+        };
+        self.expect(&TokenKind::Newline, "end of line", sink);
+        let body = self.indented_block(sink);
+        Some(Stmt::Iterate {
+            binder,
+            binder_span,
+            source,
+            step,
+            body,
+            span: start.merge(self.prev_span()),
+        })
     }
 
     fn if_statement(&mut self, sink: &mut DiagnosticSink) -> Option<Stmt> {

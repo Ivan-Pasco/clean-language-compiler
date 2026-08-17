@@ -82,25 +82,38 @@ pub struct Field {
 
 pub type Block = Vec<Stmt>;
 
+/// The source of an `iterate` loop (FLW-02): a range (`a to b`) or any
+/// iterable expression. `to` is iterate-only, never a general operator.
+#[derive(Debug)]
+pub enum IterateSource {
+    Range { from: Expr, to: Expr },
+    Expr(Expr),
+}
+
 #[derive(Debug)]
 pub enum Stmt {
-    /// `TypeExpression Identifier [= Expression]` (STM-01).
+    /// `TypeExpression Identifier [= Expression]` (STM-01). `on_error`
+    /// carries the ERH-02 block form terminating the statement
+    /// (`T x = expr onError:` + indented handler).
     VarDecl {
         ty: TypeExpr,
         name: String,
         init: Option<Expr>,
+        on_error: Option<Block>,
         span: ByteSpan,
     },
     /// `target = value` (STM-02 — statement, never expression).
     Assign {
         target: Expr,
         value: Expr,
+        on_error: Option<Block>,
         span: ByteSpan,
     },
     /// `return [expr]` (STM-03).
     Return { value: Option<Expr>, span: ByteSpan },
-    /// Expression whose result is discarded.
-    Expr(Expr),
+    /// Expression whose result is discarded; `on_error` is the ERH-02
+    /// block form (`expr onError:` + indented handler).
+    Expr { expr: Expr, on_error: Option<Block> },
     /// `if` / `else if` / `else` (FLW-01).
     If {
         cond: Expr,
@@ -109,6 +122,25 @@ pub enum Stmt {
         els: Option<Block>,
         span: ByteSpan,
     },
+    /// `iterate <binder> in <source> [step <expr>]` (FLW-02).
+    Iterate {
+        binder: String,
+        binder_span: ByteSpan,
+        source: IterateSource,
+        step: Option<Expr>,
+        body: Block,
+        span: ByteSpan,
+    },
+    /// `while <condition>` (FLW-02 §While).
+    While {
+        cond: Expr,
+        body: Block,
+        span: ByteSpan,
+    },
+    /// `break` (FLW-03).
+    Break { span: ByteSpan },
+    /// `continue` (FLW-03).
+    Continue { span: ByteSpan },
     /// `print:` block (STM prose; SYN008 checked at parse).
     Print { items: Vec<Expr>, span: ByteSpan },
 }

@@ -1,0 +1,4 @@
+start:
+	print:
+		"hello"
+		count + 1

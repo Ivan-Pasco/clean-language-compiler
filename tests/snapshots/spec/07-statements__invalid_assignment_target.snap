@@ -1,0 +1,41 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            Assign {
+                target: Call {
+                    callee: Ident {
+                        name: "foo",
+                        span: ByteSpan {
+                            start: 8,
+                            end: 11,
+                        },
+                    },
+                    args: [],
+                    span: ByteSpan {
+                        start: 8,
+                        end: 13,
+                    },
+                },
+                value: Int {
+                    value: 42,
+                    span: ByteSpan {
+                        start: 16,
+                        end: 18,
+                    },
+                },
+                on_error: None,
+                span: ByteSpan {
+                    start: 8,
+                    end: 19,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 1
+  SYN005 spec/07-statements/invalid_assignment_target.cln:2:2 assignment target must be a variable, member, or index

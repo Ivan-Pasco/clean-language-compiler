@@ -1,0 +1,404 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            If {
+                cond: Binary {
+                    op: Gt,
+                    lhs: Ident {
+                        name: "a",
+                        span: ByteSpan {
+                            start: 11,
+                            end: 12,
+                        },
+                    },
+                    rhs: Int {
+                        value: 1,
+                        span: ByteSpan {
+                            start: 15,
+                            end: 16,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 11,
+                        end: 16,
+                    },
+                },
+                then: [
+                    Return {
+                        value: None,
+                        span: ByteSpan {
+                            start: 19,
+                            end: 26,
+                        },
+                    },
+                ],
+                else_ifs: [
+                    (
+                        Binary {
+                            op: Eq,
+                            lhs: Ident {
+                                name: "a",
+                                span: ByteSpan {
+                                    start: 35,
+                                    end: 36,
+                                },
+                            },
+                            rhs: Int {
+                                value: 0,
+                                span: ByteSpan {
+                                    start: 40,
+                                    end: 41,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 35,
+                                end: 41,
+                            },
+                        },
+                        [
+                            Assign {
+                                target: Ident {
+                                    name: "count",
+                                    span: ByteSpan {
+                                        start: 44,
+                                        end: 49,
+                                    },
+                                },
+                                value: Int {
+                                    value: 1,
+                                    span: ByteSpan {
+                                        start: 52,
+                                        end: 53,
+                                    },
+                                },
+                                on_error: None,
+                                span: ByteSpan {
+                                    start: 44,
+                                    end: 54,
+                                },
+                            },
+                        ],
+                    ),
+                ],
+                els: Some(
+                    [
+                        Assign {
+                            target: Ident {
+                                name: "count",
+                                span: ByteSpan {
+                                    start: 62,
+                                    end: 67,
+                                },
+                            },
+                            value: Int {
+                                value: 2,
+                                span: ByteSpan {
+                                    start: 70,
+                                    end: 71,
+                                },
+                            },
+                            on_error: None,
+                            span: ByteSpan {
+                                start: 62,
+                                end: 72,
+                            },
+                        },
+                    ],
+                ),
+                span: ByteSpan {
+                    start: 8,
+                    end: 73,
+                },
+            },
+            Iterate {
+                binder: "item",
+                binder_span: ByteSpan {
+                    start: 81,
+                    end: 85,
+                },
+                source: Expr(
+                    Ident {
+                        name: "items",
+                        span: ByteSpan {
+                            start: 89,
+                            end: 94,
+                        },
+                    },
+                ),
+                step: None,
+                body: [
+                    Assign {
+                        target: Ident {
+                            name: "total",
+                            span: ByteSpan {
+                                start: 97,
+                                end: 102,
+                            },
+                        },
+                        value: Binary {
+                            op: Add,
+                            lhs: Ident {
+                                name: "total",
+                                span: ByteSpan {
+                                    start: 105,
+                                    end: 110,
+                                },
+                            },
+                            rhs: Ident {
+                                name: "item",
+                                span: ByteSpan {
+                                    start: 113,
+                                    end: 117,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 105,
+                                end: 117,
+                            },
+                        },
+                        on_error: None,
+                        span: ByteSpan {
+                            start: 97,
+                            end: 118,
+                        },
+                    },
+                ],
+                span: ByteSpan {
+                    start: 73,
+                    end: 119,
+                },
+            },
+            Iterate {
+                binder: "i",
+                binder_span: ByteSpan {
+                    start: 127,
+                    end: 128,
+                },
+                source: Range {
+                    from: Int {
+                        value: 1,
+                        span: ByteSpan {
+                            start: 132,
+                            end: 133,
+                        },
+                    },
+                    to: Int {
+                        value: 10,
+                        span: ByteSpan {
+                            start: 137,
+                            end: 139,
+                        },
+                    },
+                },
+                step: Some(
+                    Int {
+                        value: 2,
+                        span: ByteSpan {
+                            start: 145,
+                            end: 146,
+                        },
+                    },
+                ),
+                body: [
+                    If {
+                        cond: Binary {
+                            op: Eq,
+                            lhs: Ident {
+                                name: "i",
+                                span: ByteSpan {
+                                    start: 152,
+                                    end: 153,
+                                },
+                            },
+                            rhs: Int {
+                                value: 5,
+                                span: ByteSpan {
+                                    start: 157,
+                                    end: 158,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 152,
+                                end: 158,
+                            },
+                        },
+                        then: [
+                            Break {
+                                span: ByteSpan {
+                                    start: 162,
+                                    end: 167,
+                                },
+                            },
+                        ],
+                        else_ifs: [],
+                        els: None,
+                        span: ByteSpan {
+                            start: 149,
+                            end: 170,
+                        },
+                    },
+                    Continue {
+                        span: ByteSpan {
+                            start: 170,
+                            end: 178,
+                        },
+                    },
+                ],
+                span: ByteSpan {
+                    start: 119,
+                    end: 180,
+                },
+            },
+            Iterate {
+                binder: "r",
+                binder_span: ByteSpan {
+                    start: 188,
+                    end: 189,
+                },
+                source: Range {
+                    from: Int {
+                        value: 10,
+                        span: ByteSpan {
+                            start: 193,
+                            end: 195,
+                        },
+                    },
+                    to: Int {
+                        value: 1,
+                        span: ByteSpan {
+                            start: 199,
+                            end: 200,
+                        },
+                    },
+                },
+                step: Some(
+                    Unary {
+                        op: Neg,
+                        operand: Int {
+                            value: 2,
+                            span: ByteSpan {
+                                start: 207,
+                                end: 208,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 206,
+                            end: 208,
+                        },
+                    },
+                ),
+                body: [
+                    Assign {
+                        target: Ident {
+                            name: "total",
+                            span: ByteSpan {
+                                start: 211,
+                                end: 216,
+                            },
+                        },
+                        value: Binary {
+                            op: Add,
+                            lhs: Ident {
+                                name: "total",
+                                span: ByteSpan {
+                                    start: 219,
+                                    end: 224,
+                                },
+                            },
+                            rhs: Ident {
+                                name: "r",
+                                span: ByteSpan {
+                                    start: 227,
+                                    end: 228,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 219,
+                                end: 228,
+                            },
+                        },
+                        on_error: None,
+                        span: ByteSpan {
+                            start: 211,
+                            end: 229,
+                        },
+                    },
+                ],
+                span: ByteSpan {
+                    start: 180,
+                    end: 230,
+                },
+            },
+            While {
+                cond: Binary {
+                    op: Lt,
+                    lhs: Ident {
+                        name: "count",
+                        span: ByteSpan {
+                            start: 236,
+                            end: 241,
+                        },
+                    },
+                    rhs: Int {
+                        value: 10,
+                        span: ByteSpan {
+                            start: 244,
+                            end: 246,
+                        },
+                    },
+                    span: ByteSpan {
+                        start: 236,
+                        end: 246,
+                    },
+                },
+                body: [
+                    Assign {
+                        target: Ident {
+                            name: "count",
+                            span: ByteSpan {
+                                start: 249,
+                                end: 254,
+                            },
+                        },
+                        value: Binary {
+                            op: Add,
+                            lhs: Ident {
+                                name: "count",
+                                span: ByteSpan {
+                                    start: 257,
+                                    end: 262,
+                                },
+                            },
+                            rhs: Int {
+                                value: 1,
+                                span: ByteSpan {
+                                    start: 265,
+                                    end: 266,
+                                },
+                            },
+                            span: ByteSpan {
+                                start: 257,
+                                end: 266,
+                            },
+                        },
+                        on_error: None,
+                        span: ByteSpan {
+                            start: 249,
+                            end: 267,
+                        },
+                    },
+                ],
+                span: ByteSpan {
+                    start: 230,
+                    end: 267,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0

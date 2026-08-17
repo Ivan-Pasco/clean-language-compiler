@@ -313,8 +313,12 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 ty,
                 name,
                 init,
+                on_error,
                 span,
             } => {
+                if on_error.is_some() {
+                    sink.note_unsupported("`onError:` block handlers", self.diag_span(*span));
+                }
                 let declared = self.outer.project_surface_type(ty, self.file, sink);
                 if self.scopes.last().unwrap().contains_key(name) {
                     sink.push(build(
@@ -360,50 +364,59 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             ast::Stmt::Assign {
                 target,
                 value,
+                on_error,
                 span,
-            } => match target {
-                ast::Expr::Ident {
-                    name,
-                    span: name_span,
-                } => {
-                    let Some(local) = self.lookup(name) else {
-                        sink.push(build(
-                            Level::Error,
-                            codes::SEM002,
-                            format!("I cannot find a variable named `{name}` in scope"),
-                            self.diag_span(*name_span),
-                            Some("no variable with this name exists here".to_string()),
-                        ));
-                        return None;
-                    };
-                    let declared = self.locals[local].ty.clone();
-                    let value = self.check_expr(value, Some(&declared), sink);
-                    if !assignable(&value.ty, &declared) {
-                        let mut d = build(
-                            Level::Error,
-                            codes::SEM001,
-                            "type mismatch in assignment".to_string(),
-                            self.diag_span(*name_span),
-                            Some(format!(
-                                "`{name}` is declared with type `{}`",
-                                declared.display()
-                            )),
-                        );
-                        d.secondary.push(Annotation {
-                            span: self.diag_span(value.span),
-                            label: format!("this expression has type `{}`", value.ty.display()),
-                        });
-                        d.rendered =
-                            crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
-                        sink.push(d);
+            } => {
+                if on_error.is_some() {
+                    sink.note_unsupported("`onError:` block handlers", self.diag_span(*span));
+                }
+                match target {
+                    ast::Expr::Ident {
+                        name,
+                        span: name_span,
+                    } => {
+                        let Some(local) = self.lookup(name) else {
+                            sink.push(build(
+                                Level::Error,
+                                codes::SEM002,
+                                format!("I cannot find a variable named `{name}` in scope"),
+                                self.diag_span(*name_span),
+                                Some("no variable with this name exists here".to_string()),
+                            ));
+                            return None;
+                        };
+                        let declared = self.locals[local].ty.clone();
+                        let value = self.check_expr(value, Some(&declared), sink);
+                        if !assignable(&value.ty, &declared) {
+                            let mut d = build(
+                                Level::Error,
+                                codes::SEM001,
+                                "type mismatch in assignment".to_string(),
+                                self.diag_span(*name_span),
+                                Some(format!(
+                                    "`{name}` is declared with type `{}`",
+                                    declared.display()
+                                )),
+                            );
+                            d.secondary.push(Annotation {
+                                span: self.diag_span(value.span),
+                                label: format!("this expression has type `{}`", value.ty.display()),
+                            });
+                            d.rendered =
+                                crate::diag::render_cli(&d, &crate::diag::SourceCache::empty());
+                            sink.push(d);
+                        }
+                        Some(TStmt::Assign { local, value })
                     }
-                    Some(TStmt::Assign { local, value })
+                    _ => {
+                        sink.note_unsupported(
+                            "member/index assignment targets",
+                            self.diag_span(*span),
+                        );
+                        None
+                    }
                 }
-                _ => {
-                    sink.note_unsupported("member/index assignment targets", self.diag_span(*span));
-                    None
-                }
-            },
+            }
             ast::Stmt::Return { value, span } => {
                 let value = match value {
                     Some(expr) => {
@@ -445,7 +458,28 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 };
                 Some(TStmt::Return { value, span: *span })
             }
-            ast::Stmt::Expr(expr) => Some(TStmt::Expr(self.check_expr(expr, None, sink))),
+            ast::Stmt::Expr { expr, on_error } => {
+                if on_error.is_some() {
+                    sink.note_unsupported("`onError:` block handlers", self.diag_span(expr.span()));
+                }
+                Some(TStmt::Expr(self.check_expr(expr, None, sink)))
+            }
+            ast::Stmt::Iterate { span, .. } => {
+                sink.note_unsupported("iterate loops", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::While { span, .. } => {
+                sink.note_unsupported("while loops", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::Break { span } => {
+                sink.note_unsupported("break", self.diag_span(*span));
+                None
+            }
+            ast::Stmt::Continue { span } => {
+                sink.note_unsupported("continue", self.diag_span(*span));
+                None
+            }
             ast::Stmt::If {
                 cond,
                 then,

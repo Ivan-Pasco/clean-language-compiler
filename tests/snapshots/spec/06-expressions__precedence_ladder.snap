@@ -99,6 +99,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 8,
                     end: 42,
@@ -155,6 +156,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 43,
                     end: 65,
@@ -244,6 +246,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 66,
                     end: 107,
@@ -312,6 +315,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 108,
                     end: 137,
@@ -352,6 +356,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 138,
                     end: 157,
@@ -392,6 +397,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 158,
                     end: 178,
@@ -434,6 +440,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 179,
                     end: 207,
@@ -482,6 +489,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 208,
                     end: 238,

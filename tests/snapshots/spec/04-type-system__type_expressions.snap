@@ -28,6 +28,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 8,
                     end: 30,
@@ -89,6 +90,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 31,
                     end: 60,
@@ -144,6 +146,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 61,
                     end: 92,
@@ -196,6 +199,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 93,
                     end: 127,
@@ -280,6 +284,7 @@ AST:
                         },
                     },
                 ),
+                on_error: None,
                 span: ByteSpan {
                     start: 128,
                     end: 168,
@@ -321,6 +326,7 @@ AST:
                 },
                 name: "ages",
                 init: None,
+                on_error: None,
                 span: ByteSpan {
                     start: 169,
                     end: 197,
@@ -341,6 +347,7 @@ AST:
                 },
                 name: "owner",
                 init: None,
+                on_error: None,
                 span: ByteSpan {
                     start: 198,
                     end: 209,

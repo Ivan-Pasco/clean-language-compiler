@@ -1,0 +1,7 @@
+start:
+	integer count = 0
+	count = count + 1
+	items[0] = 5
+	user.name = "ada"
+	total(1)
+	return

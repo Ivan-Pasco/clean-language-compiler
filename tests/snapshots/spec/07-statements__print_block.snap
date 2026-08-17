@@ -1,0 +1,52 @@
+---
+source: crates/clean-compiler/tests/spec_suite.rs
+expression: rendered
+---
+AST:
+[
+    Start(
+        [
+            Print {
+                items: [
+                    Str {
+                        segments: [
+                            Text(
+                                "hello",
+                            ),
+                        ],
+                        span: ByteSpan {
+                            start: 17,
+                            end: 24,
+                        },
+                    },
+                    Binary {
+                        op: Add,
+                        lhs: Ident {
+                            name: "count",
+                            span: ByteSpan {
+                                start: 27,
+                                end: 32,
+                            },
+                        },
+                        rhs: Int {
+                            value: 1,
+                            span: ByteSpan {
+                                start: 35,
+                                end: 36,
+                            },
+                        },
+                        span: ByteSpan {
+                            start: 27,
+                            end: 36,
+                        },
+                    },
+                ],
+                span: ByteSpan {
+                    start: 8,
+                    end: 37,
+                },
+            },
+        ],
+    ),
+]
+DIAGNOSTICS: 0
