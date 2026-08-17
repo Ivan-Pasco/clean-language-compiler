@@ -11,7 +11,7 @@ use clean_compiler_types::{codes, Diagnostic, Level};
 use crate::diag::{render_cli, DiagnosticSink};
 use crate::source::{ByteSpan, LineMap};
 
-use super::token::{Kw, Token, TokenKind, TokenStream};
+use super::token::{Kw, StrPart, Token, TokenKind, TokenStream};
 
 pub fn lex(path: &str, content: &str, sink: &mut DiagnosticSink) -> TokenStream {
     let mut scanner = Scanner {
@@ -190,7 +190,7 @@ impl<'src> Scanner<'src> {
                 b'.' if matches!(self.bytes.get(self.pos + 1), Some(b'0'..=b'9')) => {
                     self.number(sink)
                 }
-                b'A'..=b'Z' | b'a'..=b'z' => self.word(),
+                b'A'..=b'Z' | b'a'..=b'z' => self.word(sink),
                 _ => self.punctuation(sink),
             }
         }
@@ -276,7 +276,7 @@ impl<'src> Scanner<'src> {
             .push(ByteSpan::new(start as u32, self.pos as u32));
     }
 
-    fn word(&mut self) {
+    fn word(&mut self, sink: &mut DiagnosticSink) {
         let start = self.pos;
         while let Some(&b) = self.bytes.get(self.pos) {
             if b.is_ascii_alphanumeric() || b == b'_' {
@@ -286,14 +286,23 @@ impl<'src> Scanner<'src> {
             }
         }
         let text = &self.content[start..self.pos];
+        let span = ByteSpan::new(start as u32, self.pos as u32);
+        // LEX-04 ReservedUnused: `for`/`from`/`unit` have no meaning yet, so
+        // any use is use-as-identifier — SYN002. The token survives as an
+        // identifier so parsing continues.
+        if matches!(text, "for" | "from" | "unit") {
+            self.error(
+                sink,
+                codes::SYN002,
+                format!("'{text}' is reserved for a future language version and cannot be used as an identifier"),
+                span,
+            );
+        }
         let kind = match Kw::from_word(text) {
             Some(kw) => TokenKind::Keyword(kw),
             None => TokenKind::Ident(text.to_string()),
         };
-        self.tokens.push(Token {
-            kind,
-            span: ByteSpan::new(start as u32, self.pos as u32),
-        });
+        self.tokens.push(Token { kind, span });
     }
 
     fn number(&mut self, sink: &mut DiagnosticSink) {
@@ -399,11 +408,20 @@ impl<'src> Scanner<'src> {
         }
         let start = self.pos;
         self.pos += 1;
-        let mut value = String::new();
-        let mut interpolations: Vec<ByteSpan> = Vec::new();
+        let mut parts: Vec<StrPart> = Vec::new();
+        let mut text = String::new();
         loop {
             match self.bytes.get(self.pos) {
                 None | Some(b'\n') => {
+                    self.error(
+                        sink,
+                        codes::SYN004,
+                        "string literal is not closed before the end of the line".to_string(),
+                        ByteSpan::new(start as u32, self.pos as u32),
+                    );
+                    break;
+                }
+                Some(b'\r') if self.bytes.get(self.pos + 1) == Some(&b'\n') => {
                     self.error(
                         sink,
                         codes::SYN004,
@@ -416,37 +434,88 @@ impl<'src> Scanner<'src> {
                     self.pos += 1;
                     break;
                 }
-                Some(b'\\') => self.escape(sink, &mut value),
+                Some(b'\\') => self.escape(sink, &mut text),
                 Some(b'{') => {
-                    // Interpolation segment: recorded, not decoded — the
-                    // construct is outside the Milestone 1 surface and is
-                    // rejected downstream with its exact span.
-                    let seg_start = self.pos;
-                    while let Some(&b) = self.bytes.get(self.pos) {
-                        self.pos += 1;
-                        if b == b'}' {
-                            break;
-                        }
-                        if b == b'\n' {
-                            break;
-                        }
+                    // Interpolation: the interior is a full Expression
+                    // (06-expressions §3), tokenized here so the parser
+                    // receives real tokens with file-accurate spans.
+                    if !text.is_empty() {
+                        parts.push(StrPart::Text(std::mem::take(&mut text)));
                     }
-                    interpolations.push(ByteSpan::new(seg_start as u32, self.pos as u32));
+                    let (span, tokens, closed) = self.interpolation(sink);
+                    parts.push(StrPart::Interp { span, tokens });
+                    if !closed {
+                        // The line (or file) ended inside `{…}`; the string
+                        // itself is unterminated too, reported once here.
+                        self.error(
+                            sink,
+                            codes::SYN004,
+                            "string literal is not closed before the end of the line".to_string(),
+                            ByteSpan::new(start as u32, self.pos as u32),
+                        );
+                        break;
+                    }
                 }
                 Some(_) => {
                     let ch = self.content[self.pos..].chars().next().expect("in bounds");
-                    value.push(ch);
+                    text.push(ch);
                     self.pos += ch.len_utf8();
                 }
             }
         }
+        if !text.is_empty() {
+            parts.push(StrPart::Text(text));
+        }
         self.tokens.push(Token {
-            kind: TokenKind::Str {
-                value,
-                interpolations,
-            },
+            kind: TokenKind::Str { parts },
             span: ByteSpan::new(start as u32, self.pos as u32),
         });
+    }
+
+    /// Scans one `{expr}` interpolation from its opening brace, tokenizing
+    /// the interior with the ordinary token rules (nested strings included).
+    /// Returns the full `{…}` span, the interior tokens (Eof-terminated),
+    /// and whether the closing `}` was found before the line ended.
+    fn interpolation(&mut self, sink: &mut DiagnosticSink) -> (ByteSpan, Vec<Token>, bool) {
+        let start = self.pos;
+        self.pos += 1; // '{'
+        let saved = std::mem::take(&mut self.tokens);
+        let mut depth = 0u32;
+        let mut closed = false;
+        while let Some(&b) = self.bytes.get(self.pos) {
+            match b {
+                b'}' if depth == 0 => {
+                    self.pos += 1;
+                    closed = true;
+                    break;
+                }
+                b'\n' => break,
+                b'\r' if self.bytes.get(self.pos + 1) == Some(&b'\n') => break,
+                b' ' | b'\t' => self.pos += 1,
+                b'{' => {
+                    depth += 1;
+                    self.punctuation(sink);
+                }
+                b'}' => {
+                    depth -= 1;
+                    self.punctuation(sink);
+                }
+                b'"' => self.string(sink),
+                b'0'..=b'9' => self.number(sink),
+                b'.' if matches!(self.bytes.get(self.pos + 1), Some(b'0'..=b'9')) => {
+                    self.number(sink)
+                }
+                b'A'..=b'Z' | b'a'..=b'z' => self.word(sink),
+                _ => self.punctuation(sink),
+            }
+        }
+        let end = self.pos;
+        let mut tokens = std::mem::replace(&mut self.tokens, saved);
+        tokens.push(Token {
+            kind: TokenKind::Eof,
+            span: ByteSpan::new(end as u32, end as u32),
+        });
+        (ByteSpan::new(start as u32, end as u32), tokens, closed)
     }
 
     fn escape(&mut self, sink: &mut DiagnosticSink, value: &mut String) {
@@ -591,8 +660,7 @@ impl<'src> Scanner<'src> {
         }
         self.tokens.push(Token {
             kind: TokenKind::Str {
-                value,
-                interpolations: Vec::new(),
+                parts: vec![StrPart::Text(value)],
             },
             span: ByteSpan::new(start as u32, self.pos as u32),
         });
@@ -611,6 +679,8 @@ impl<'src> Scanner<'src> {
             b')' => (RParen, 1),
             b'[' => (LBracket, 1),
             b']' => (RBracket, 1),
+            b'{' => (LBrace, 1),
+            b'}' => (RBrace, 1),
             b',' => (Comma, 1),
             b':' => (Colon, 1),
             b'.' => (Dot, 1),

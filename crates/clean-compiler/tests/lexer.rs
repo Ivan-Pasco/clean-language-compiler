@@ -3,7 +3,7 @@
 //! literals, comments, and the SYN recovery paths.
 
 use clean_compiler::diag::DiagnosticSink;
-use clean_compiler::lexer::{lex, Kw, TokenKind};
+use clean_compiler::lexer::{lex, plain_text, Kw, StrPart, TokenKind};
 use clean_compiler_types::codes;
 
 fn kinds(source: &str) -> (Vec<TokenKind>, Vec<clean_compiler_types::Diagnostic>) {
@@ -100,31 +100,108 @@ fn string_escapes_decode() {
     let (tokens, diagnostics) = kinds(&source);
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     match &tokens[0] {
-        TokenKind::Str {
-            value,
-            interpolations,
-        } => {
-            assert_eq!(value, "a\tb\"c{d");
-            assert!(interpolations.is_empty());
+        TokenKind::Str { parts } => {
+            assert_eq!(plain_text(parts).as_deref(), Some("a\tb\"c{d"));
         }
         other => panic!("expected string, got {other:?}"),
     }
 }
 
 #[test]
-fn interpolation_segments_are_recorded_not_decoded() {
+fn interpolation_interior_is_tokenized() {
     let (tokens, diagnostics) = kinds("\"total: {a + b}!\"\n");
-    assert!(diagnostics.is_empty());
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
     match &tokens[0] {
-        TokenKind::Str {
-            value,
-            interpolations,
-        } => {
-            assert_eq!(value, "total: !");
-            assert_eq!(interpolations.len(), 1);
+        TokenKind::Str { parts } => {
+            assert_eq!(parts.len(), 3, "{parts:#?}");
+            assert_eq!(parts[0], StrPart::Text("total: ".into()));
+            match &parts[1] {
+                StrPart::Interp { tokens, .. } => {
+                    let kinds: Vec<_> = tokens.iter().map(|t| &t.kind).collect();
+                    assert!(
+                        matches!(
+                            kinds[..],
+                            [
+                                TokenKind::Ident(_),
+                                TokenKind::Plus,
+                                TokenKind::Ident(_),
+                                TokenKind::Eof
+                            ]
+                        ),
+                        "{kinds:?}"
+                    );
+                }
+                other => panic!("expected interpolation, got {other:?}"),
+            }
+            assert_eq!(parts[2], StrPart::Text("!".into()));
         }
         other => panic!("expected string, got {other:?}"),
     }
+}
+
+#[test]
+fn interpolation_admits_nested_string_with_brace() {
+    // The nested literal contains "}" — the tokenizer must not mistake it
+    // for the interpolation's close.
+    let (tokens, diagnostics) = kinds("\"v: {f(\"}\")}\"\n");
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    match &tokens[0] {
+        TokenKind::Str { parts } => {
+            assert_eq!(parts.len(), 2, "{parts:#?}");
+            match &parts[1] {
+                StrPart::Interp { tokens, .. } => {
+                    assert!(
+                        matches!(
+                            tokens.iter().map(|t| &t.kind).collect::<Vec<_>>()[..],
+                            [
+                                TokenKind::Ident(_),
+                                TokenKind::LParen,
+                                TokenKind::Str { .. },
+                                TokenKind::RParen,
+                                TokenKind::Eof
+                            ]
+                        ),
+                        "{tokens:#?}"
+                    );
+                }
+                other => panic!("expected interpolation, got {other:?}"),
+            }
+        }
+        other => panic!("expected string, got {other:?}"),
+    }
+}
+
+#[test]
+fn unclosed_interpolation_is_syn004_once() {
+    let (_, diagnostics) = kinds("\"v: {a + b\n");
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].code, codes::SYN004);
+}
+
+#[test]
+fn braces_outside_strings_lex_as_tokens() {
+    // §8 lists LBrace/RBrace as tokens; the parser, not the lexer, rejects
+    // them where the grammar has no production.
+    let (tokens, diagnostics) = kinds("{ }\n");
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    use TokenKind::*;
+    assert_eq!(tokens[..2], [LBrace, RBrace]);
+}
+
+#[test]
+fn reserved_unused_words_are_syn002_but_survive_as_identifiers() {
+    let (tokens, diagnostics) = kinds("for from unit\n");
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(diagnostics.iter().all(|d| d.code == codes::SYN002));
+    use TokenKind::*;
+    assert_eq!(
+        tokens[..3],
+        [
+            Ident("for".into()),
+            Ident("from".into()),
+            Ident("unit".into())
+        ]
+    );
 }
 
 #[test]
@@ -181,7 +258,7 @@ fn multiline_string_removes_close_margin() {
         .tokens
         .iter()
         .find_map(|t| match &t.kind {
-            TokenKind::Str { value, .. } => Some(value.clone()),
+            TokenKind::Str { parts } => plain_text(parts),
             _ => None,
         })
         .expect("a string token");

@@ -110,27 +110,54 @@ impl Kw {
     }
 }
 
+/// One decoded piece of a single-line string literal (LEX-06 §6): literal
+/// text (escapes decoded) or a `{…}` interpolation whose interior is already
+/// tokenized — 06-expressions §3 makes the body a full Expression, so the
+/// lexer hands the parser real tokens, not raw text.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StrPart {
+    Text(String),
+    /// `span` covers `{`…`}` inclusive; `tokens` are the interior tokens,
+    /// terminated by an `Eof` so a sub-parser stops cleanly.
+    Interp {
+        span: ByteSpan,
+        tokens: Vec<Token>,
+    },
+}
+
+/// Joins the text parts when the string has no interpolation.
+pub fn plain_text(parts: &[StrPart]) -> Option<String> {
+    let mut out = String::new();
+    for part in parts {
+        match part {
+            StrPart::Text(text) => out.push_str(text),
+            StrPart::Interp { .. } => return None,
+        }
+    }
+    Some(out)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Ident(String),
     Keyword(Kw),
     /// Integer literal in any base (LEX-06); value already decoded.
     Int(u128),
-    /// Float-shaped literal (`NumberLiteral`); raw text kept — the `number`
-    /// type is outside the Milestone 1 surface and rejects downstream.
+    /// Float-shaped literal (`NumberLiteral`); raw text kept until the
+    /// `number` type gets a semantic home (M6).
     Number(String),
-    /// Single-line string, escapes decoded. `interpolations` carries the
-    /// spans of `{…}` segments; non-empty means the string interpolates
-    /// (outside the Milestone 1 surface — rejected downstream, not here).
+    /// String literal as an ordered sequence of text and interpolation
+    /// parts. A plain string is a single `Text` part (or none, if empty).
     Str {
-        value: String,
-        interpolations: Vec<ByteSpan>,
+        parts: Vec<StrPart>,
     },
     // Punctuation (§8).
     LParen,
     RParen,
     LBracket,
     RBracket,
+    LBrace,
+    RBrace,
     Comma,
     Colon,
     Dot,

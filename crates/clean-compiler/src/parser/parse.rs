@@ -156,10 +156,24 @@ impl<'a> Parser<'a> {
 
     fn string_literal(&mut self, what: &str, sink: &mut DiagnosticSink) -> Option<String> {
         match self.peek() {
-            TokenKind::Str { value, .. } => {
-                let value = value.clone();
+            TokenKind::Str { parts } => {
+                let span = self.span();
+                let plain = crate::lexer::plain_text(parts);
                 self.bump();
-                Some(value)
+                match plain {
+                    Some(value) => Some(value),
+                    None => {
+                        // A literal-only position (version, path, description)
+                        // cannot interpolate.
+                        self.error_at(
+                            sink,
+                            codes::SYN005,
+                            format!("{what} must be a plain string literal without interpolation"),
+                            span,
+                        );
+                        None
+                    }
+                }
             }
             _ => {
                 self.error_here(sink, format!("expected {what}"));
@@ -1046,11 +1060,16 @@ impl<'a> Parser<'a> {
                 self.bump();
                 Expr::Number { text, span }
             }
-            TokenKind::Str {
-                value,
-                interpolations,
-            } => {
+            TokenKind::Str { parts } => {
                 self.bump();
+                let mut value = String::new();
+                let mut interpolations = Vec::new();
+                for part in parts {
+                    match part {
+                        crate::lexer::StrPart::Text(text) => value.push_str(&text),
+                        crate::lexer::StrPart::Interp { span, .. } => interpolations.push(span),
+                    }
+                }
                 Expr::Str {
                     value,
                     interpolations,
