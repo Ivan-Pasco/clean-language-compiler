@@ -46,6 +46,7 @@ pub fn expand(
 ) -> (ResolvedAst, TypedProgram) {
     let request = &validated.request;
     let catalog = resolve::build_catalog(request, sink);
+    check_source_registrations(&resolved, request, sink);
     if resolved.decls.blocks.is_empty() {
         return (resolved, typed);
     }
@@ -305,6 +306,60 @@ pub fn expand(
         return (resolved, typed);
     }
     (resolved, typed_expanded)
+}
+
+/// BLK-01 over in-source registrations: a `handles block` declaration must
+/// name a non-reserved qualified block name (LEX-05 → `BLOCK003`, at the
+/// declaration; the library here is the unit being compiled, named by
+/// `project.name`) and reference a `compiletime function` defined in the
+/// same library — the compilation unit (missing → `SEM019`, whose
+/// registered template states exactly this failure). The arity/return
+/// constraints of BLK-01 have no registered codes (DISCOVERIES-M5
+/// item 15).
+fn check_source_registrations(
+    resolved: &ResolvedAst,
+    request: &clean_compiler_types::CompileRequest,
+    sink: &mut DiagnosticSink,
+) {
+    let handler_names: Vec<&str> = resolved
+        .decls
+        .compiletime_functions
+        .iter()
+        .filter_map(|&(f, i)| match &resolved.files[f].ast.items[i] {
+            ast::Item::CompiletimeFunction(cf) => Some(cf.name.as_str()),
+            _ => None,
+        })
+        .collect();
+    for &(file_index, item_index) in &resolved.decls.handles {
+        let file = &resolved.files[file_index];
+        let ast::Item::HandlesBlock(handles) = &file.ast.items[item_index] else {
+            continue;
+        };
+        let span = file.stream.diag_span(handles.span);
+        if resolve::is_reserved_block_name(&handles.block_name) {
+            sink.push(build(
+                Level::Error,
+                codes::BLOCK003,
+                format!(
+                    "library '{}' registers reserved block name `{}`",
+                    request.project.name, handles.block_name
+                ),
+                span,
+                Some("reserved block name".to_string()),
+            ));
+            continue;
+        }
+        if !handler_names.contains(&handles.handler.as_str()) {
+            // SEM019 — exact wording from Platform 10 §3.
+            sink.push(build(
+                Level::Error,
+                codes::SEM019,
+                format!("I cannot find a function named `{}`", handles.handler),
+                span,
+                Some("no function with this name is in scope".to_string()),
+            ));
+        }
+    }
 }
 
 /// Where one block was expanded, for re-validation error attribution.

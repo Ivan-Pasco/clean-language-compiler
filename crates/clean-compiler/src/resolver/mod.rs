@@ -78,6 +78,11 @@ pub struct Declarations {
     /// `Item::LibraryBlock` sites in `sources[]` then item order —
     /// pass [6]'s work list (chapter 21).
     pub blocks: Vec<(usize, usize)>,
+    /// `compiletime function` declarations (BLK-01), `(file, item)`.
+    pub compiletime_functions: Vec<(usize, usize)>,
+    /// `handles block "…" with …` registrations (BLK-01), `(file, item)`;
+    /// validated in pass [6] against the unit's compiletime functions.
+    pub handles: Vec<(usize, usize)>,
     /// Visibility scope per module; index = file index.
     pub modules: Vec<ModuleScope>,
 }
@@ -281,10 +286,15 @@ pub fn resolve(
                     unsupported(sink, &file.stream, "constant functions", f.span);
                 }
                 ast::Item::CompiletimeFunction(f) => {
-                    unsupported(sink, &file.stream, "compiletime functions", f.span);
+                    decls.compiletime_functions.push((file_index, item_index));
+                    // The declaration surface is accepted (BLK-01); the
+                    // body's TYP-04 checking and self-hosted execution are
+                    // blocked on spec gaps recorded in DISCOVERIES-M5 —
+                    // BlockNode pattern-matching has no defined syntax.
+                    unsupported(sink, &file.stream, "compiletime function bodies", f.span);
                 }
-                ast::Item::HandlesBlock(h) => {
-                    unsupported(sink, &file.stream, "handles block registrations", h.span);
+                ast::Item::HandlesBlock(_) => {
+                    decls.handles.push((file_index, item_index));
                 }
                 ast::Item::Capability(capability) => {
                     if decls.modules[file_index]

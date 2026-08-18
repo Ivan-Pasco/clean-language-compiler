@@ -163,6 +163,42 @@ is unusable. **Local adoption:** handler-emitted fields are public;
 emitted functions are module-local (not `public:`-exported). Needs a
 foundation ruling on the builder surface.
 
+## 15. BLK-01's checker rules have no diagnostic codes
+
+`grammar/21-block-handlers.ebnf.md` §1 assigns three restrictions to "the
+checker": exactly one parameter of type `BlockAST`, `returns IR`
+mandatory, and the block-name string being a qualified identifier. No
+BLOCK or SEM code covers a violation, and DIA-01 forbids inventing one.
+**Local state:** the missing-handler leg of BLK-01 ("must reference a
+`compiletime function` defined in the same library") is emitted as
+`SEM019`, whose registered template ("I cannot find a function named…")
+states exactly that failure; reserved names are `BLOCK003` (LEX-05, at
+the declaration, with `project.name` as the library); the arity/return/
+name-form violations are currently accepted without a diagnostic. Needs a
+foundation brief registering codes for the BLK-01 checker rules.
+
+## 16. Self-hosted handler execution is blocked by the spec, not the milestone
+
+Two independent gaps keep `compiletime function` bodies on the
+Unsupported channel (note: "compiletime function bodies") and
+`test.compiletime` helpers as a frontier:
+
+- **No pattern-match syntax exists.** `BlockNode`/`BlockArg`/`Token` are
+  sum types a handler must "pattern-match on the variant" (schema), but
+  the grammar file itself flags (⚠, §2) that no chapter defines a
+  `match`/`case` construct. A conforming handler body that walks
+  `ast.body` cannot be written under the Accepted grammar, so
+  type-checking such bodies has no spec to check against.
+- **Execution belongs to a different compilation mode.** ADR-0004 gives
+  handler compilation (Clean source → sandbox wasm) to the framework at
+  library-install time; the compiler *executes* precompiled artifacts
+  from `library_manifests`. Compiling a handler body to the ADR-0003 ABI
+  is a distinct target surface (TYP-04 value marshalling, `ir` builder
+  runtime, envelope emission) that no platform document specifies.
+
+M5 therefore executes framework-precompiled handlers only. Needs the
+pattern-match brief before any of the rest can move.
+
 ## 10. Registry inconsistency: LIB020 is both registered and reserved
 
 Platform 09 §3.9 registers `LIB020` (`SourceBlockMalformed`, with a rule

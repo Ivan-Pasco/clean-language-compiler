@@ -171,3 +171,44 @@ fn library_without_wasm_is_lib004_at_load() {
         "expected LIB004 (handles_blocks without compiletime_wasm), got {codes:?}"
     );
 }
+
+#[test]
+fn source_handles_block_with_reserved_name_is_block003() {
+    let content = "compiletime function expandData(BlockAST ast) returns IR\n\treturn 0\n\nhandles block \"state\" with expandData\n";
+    let request = block_request("app/main.cln", content, &[], vec![]);
+    let codes = codes_of(request);
+    assert!(
+        codes.contains(&"BLOCK003".to_string()),
+        "expected BLOCK003, got {codes:?}"
+    );
+}
+
+#[test]
+fn source_handles_block_with_missing_handler_is_sem019() {
+    let content = "handles block \"custom\" with missingHandler\n";
+    let request = block_request("app/main.cln", content, &[], vec![]);
+    let codes = codes_of(request);
+    assert!(
+        codes.contains(&"SEM019".to_string()),
+        "expected SEM019, got {codes:?}"
+    );
+}
+
+#[test]
+fn valid_registration_pair_reaches_the_body_frontier() {
+    // BLK-01 accepted; the body's TYP-04 checking is a recorded spec
+    // blocker (DISCOVERIES-M5) and stays on the Unsupported channel.
+    let content = "compiletime function expandData(BlockAST ast) returns IR\n\treturn 0\n\nhandles block \"custom\" with expandData\n";
+    let request = block_request("app/main.cln", content, &[], vec![]);
+    match clean_compiler::check(request) {
+        Err(clean_compiler::driver::CompileError::Unsupported(notes)) => {
+            assert!(
+                notes
+                    .iter()
+                    .any(|n| n.construct == "compiletime function bodies"),
+                "expected the body frontier note, got {notes:?}"
+            );
+        }
+        other => panic!("expected Unsupported(compiletime function bodies), got {other:?}"),
+    }
+}

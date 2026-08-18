@@ -68,7 +68,7 @@ fn is_hex_sha256(value: &str) -> bool {
 
 /// LEX-05: a registration may not claim a word from the four keyword
 /// tables nor any name beginning with `core.` (or `core` itself).
-fn is_reserved_block_name(name: &str) -> bool {
+pub(super) fn is_reserved_block_name(name: &str) -> bool {
     crate::lexer::is_reserved_word(name) || name == "core" || name.starts_with("core.")
 }
 
