@@ -73,8 +73,19 @@ jobs:
   coverage:
     name: coverage (measured, non-blocking until M9)
     runs-on: ubuntu-latest
+    env:
+      # M5 made wasmtime a production dependency, so every instrumented
+      # test binary links it statically; with full DWARF the runner's
+      # linker dies with SIGBUS (resource exhaustion). Line coverage needs
+      # the llvm-cov mapping, not debuginfo.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
       - uses: actions/checkout@v4
+
+      # Same exhaustion guard: the stock image ships ~10 GB of unrelated
+      # toolchains; reclaim them before building multi-GB test binaries.
+      - name: free runner disk
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
 
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@stable
