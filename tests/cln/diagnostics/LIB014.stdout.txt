@@ -1,0 +1,7 @@
+error[LIB014]: Library 'alpha' exceeded generated-IR node count: 500001 > 500000
+ --> tests/cln/diagnostics/LIB014.cln:1:1
+  |
+1 | data UserData:
+  | ^^^^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/LIB014

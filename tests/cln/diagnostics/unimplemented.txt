@@ -6,9 +6,6 @@
 # compiler invariant) stays here until a deliberate fault-injection hook
 # exists: no well-formed input can trigger an ICE by design.
 BLD001
-BLOCK004
-BLOCK005
-BLOCK006
 COM001
 COM002
 COM003
@@ -29,11 +26,9 @@ FUNC011
 LIB002
 LIB003
 LIB006
-LIB010
 LIB011
 LIB012
 LIB013
-LIB014
 LIB015
 LIB016
 LIB018

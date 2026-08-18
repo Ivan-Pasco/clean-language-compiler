@@ -91,14 +91,27 @@ fn front(
     }
 
     // Pass [5] — Type Check, against the world-typed boundary (ADR-0002).
-    let typed = crate::typecheck::check(&resolved, &validated.world, sink);
+    // Provisional when the program declares library blocks: user code may
+    // reference symbols a handler emits (companion types are the point of
+    // chapter 21), so pre-expansion findings are held back and pass [6]'s
+    // re-validation of the expanded program is authoritative
+    // (DISCOVERIES-M5).
+    let blocks_declared = !resolved.decls.blocks.is_empty();
+    let mut provisional = DiagnosticSink::new();
+    let pass5_sink: &mut DiagnosticSink = if blocks_declared {
+        &mut provisional
+    } else {
+        &mut *sink
+    };
+    let typed = crate::typecheck::check(&resolved, &validated.world, pass5_sink);
     if sink.has_errors() {
         return Ok((cache, None));
     }
 
     // Pass [6] — Block Handler Expansion (chapter 21, ADR-0004): library
-    // catalog intake, block-name resolution, handler execution.
-    crate::blocks::expand(&resolved, &validated.request, sink);
+    // catalog intake, block-name resolution, handler execution in the
+    // sandbox, IR splice, and re-validation of the expanded program.
+    let (resolved, typed) = crate::blocks::expand(resolved, typed, &validated, sink);
     if sink.has_errors() {
         return Ok((cache, None));
     }
@@ -233,11 +246,20 @@ pub fn emit_hir(request: CompileRequest) -> Result<(String, Vec<Diagnostic>), Co
         if sink.has_errors() {
             break 'front (None, cache);
         }
-        let typed = crate::typecheck::check(&resolved, &validated.world, &mut sink);
+        // Same pass-[5]/[6] discipline as `front`: pre-expansion type
+        // findings are provisional when blocks are declared.
+        let blocks_declared = !resolved.decls.blocks.is_empty();
+        let mut provisional = DiagnosticSink::new();
+        let pass5_sink: &mut DiagnosticSink = if blocks_declared {
+            &mut provisional
+        } else {
+            &mut sink
+        };
+        let typed = crate::typecheck::check(&resolved, &validated.world, pass5_sink);
         if sink.has_errors() {
             break 'front (None, cache);
         }
-        crate::blocks::expand(&resolved, &validated.request, &mut sink);
+        let (_resolved, typed) = crate::blocks::expand(resolved, typed, &validated, &mut sink);
         if sink.has_errors() {
             break 'front (None, cache);
         }

@@ -47,9 +47,11 @@ wasmtime = "47"
 # (provisional schema field, docs/DISCOVERIES-M5.md).
 base64 = "0.22"
 
-# Dev/test.
+# Dev/test. `wat` assembles fixture handler modules for the sandbox and
+# expansion tests; 1.256 is the family already vendored through wasmtime.
 insta = { version = "1", features = ["json"] }
 proptest = "1"
+wat = "1.256"
 
 [profile.release]
 lto = "thin"

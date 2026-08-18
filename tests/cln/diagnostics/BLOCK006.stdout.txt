@@ -1,0 +1,8 @@
+error[BLOCK006]: library 'alpha' attempted a forbidden side effect expanding block `data`: called host import 'clean::now'
+ --> tests/cln/diagnostics/BLOCK006.cln:1:1
+  |
+1 | data UserData:
+  | ^^^^^^^^^^^^^^ forbidden side effect
+  |
+  = note: compile-time code cannot reach the filesystem, network, clock, or randomness (chapter 21 §21.7)
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK006

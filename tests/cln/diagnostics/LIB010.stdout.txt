@@ -1,0 +1,7 @@
+error[LIB010]: [via alpha::data] the field `id` needs a type annotation
+ --> tests/cln/diagnostics/LIB010.cln:2:2
+  |
+2 | 	integer id primary
+  | 	^^^^^^^^^^^^^^^^^^ field-missing-type
+  |
+  = docs: https://errors.cleanlanguage.dev/E/LIB010

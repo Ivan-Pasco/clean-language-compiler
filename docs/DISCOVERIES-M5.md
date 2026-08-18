@@ -117,6 +117,52 @@ enforced in M5; the 128 MiB store cap is the enforced boundary. Becomes
 enforceable if/when handlers are Clean-compiled by this compiler and the
 allocator is ours. Worth a clarifying note in Platform 03.
 
+## 11. LIB010's `{function}` slot cannot be filled from the request
+
+Platform 10 §10.3 formats LIB010 as `[LIB010 via {library}::{function}]`,
+but `library_manifests[]` (Platform 14 §14.1.1) carries no handler
+function names — `handles_blocks` maps block names to one artifact hash.
+The sub-label registry (`library.toml [mcp.diagnostics]`) is equally
+absent from the request, so the "unregistered sub-label warns at library
+load" clause of BLK-03 is unenforceable at the compiler boundary.
+**Local adoption:** attribution is `[via {library}::{block}]`, the
+kebab-case sub-label rides as the primary label, and no
+unregistered-sub-label warning is emitted. Pinned by the LIB010 fixture.
+Needs the same §14.1.1 brief as item 1 (manifest surface).
+
+## 12. Pass [5] must be provisional when the program declares blocks
+
+Platform 14 orders type-check ([5]) before expansion ([6]), yet the point
+of chapter 21 is that handlers emit companions the user's code refers to
+(`class UserData can Persist`, generated functions). A pass [5] that
+hard-fails on symbols a handler is about to provide would make every such
+program uncompilable. **Local adoption:** when `Item::LibraryBlock`s are
+present, pass [5]'s findings are held back (the pass still runs — its
+TypedAST is the pass-[6] input the spec names) and the re-validation of
+the expanded program inside pass [6] is authoritative; a re-validation
+*error* anchored inside an expanded block is reported as `BLOCK004`
+(§21.4's malformed-IR case), while errors anchored in user code keep
+their own codes and spans. Needs a foundation clarification in 14 §14.4.2
+pass [6] (the "TypedAST'" arrow implies this but no text says it).
+
+## 13. Lowerer depth cap (ICE prevention, implementation-defined)
+
+A handler can nest `concat`/`with_span` arbitrarily deep within the
+500 000-node budget; a recursive lowerer overflows the compiler's stack
+(an ICE, breaching CMP-04) long before the budget fires. **Local
+adoption:** IR nesting beyond 128 levels is malformed IR (`BLOCK004`,
+"nesting exceeds the depth limit"). No legitimate §21.4 composition
+approaches this. Worth a sentence in §21.7's budget list.
+
+## 14. The `ir.field` builder has no visibility parameter
+
+§21.4's `ir.field(string name, TypeRef type)` offers no way to declare an
+emitted field public or private, while chapter 14 classes default to
+private with `public:` wrappers. A companion type with all-private fields
+is unusable. **Local adoption:** handler-emitted fields are public;
+emitted functions are module-local (not `public:`-exported). Needs a
+foundation ruling on the builder surface.
+
 ## 10. Registry inconsistency: LIB020 is both registered and reserved
 
 Platform 09 §3.9 registers `LIB020` (`SourceBlockMalformed`, with a rule

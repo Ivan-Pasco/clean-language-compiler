@@ -1,26 +1,16 @@
 //! Block-name resolution behaviors (chapter 21 §21.2, LEX-05) beyond the
 //! DIA-06 fixtures: explicit-import precedence over folder ambiguity,
 //! exact qualified-name lookup (no prefix fallback), the `core.` reserved
-//! prefix, and whole-segment folder matching. In this stage a *successful*
-//! resolution surfaces as the pre-v1 Unsupported note for "library block
-//! expansion" — execution lands with the expansion stage.
+//! prefix, and whole-segment folder matching. Every fixture handler
+//! returns `ir.empty()`, so a successful resolution is simply a clean
+//! check of the expanded program.
 
 mod common;
 
-use clean_compiler::driver::CompileError;
 use clean_compiler_types::request::{CompileRequest, Dependency, LibraryManifest};
 
-const EMPTY_SHA: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
 fn manifest(name: &str, handles: &[&str]) -> LibraryManifest {
-    LibraryManifest {
-        name: name.to_string(),
-        version: "1.0.0".to_string(),
-        wit: String::new(),
-        handles_blocks: handles.iter().map(|s| s.to_string()).collect(),
-        compiletime_wasm_sha256: EMPTY_SHA.to_string(),
-        compiletime_wasm: Some(String::new()),
-    }
+    common::handler_manifest(name, handles, common::EMPTY_ENVELOPE)
 }
 
 fn dependency() -> Dependency {
@@ -64,18 +54,18 @@ fn codes_of(request: CompileRequest) -> Vec<String> {
     }
 }
 
-/// The stage-2 signature of "the block resolved to a handler".
+/// A resolved block expands (here to nothing) and the program checks
+/// clean.
 fn assert_resolves(request: CompileRequest) {
     match clean_compiler::check(request) {
-        Err(CompileError::Unsupported(notes)) => {
-            assert!(
-                notes
-                    .iter()
-                    .any(|n| n.construct == "library block expansion"),
-                "expected the expansion placeholder note, got {notes:?}"
-            );
+        Ok(diagnostics) => {
+            let errors: Vec<_> = diagnostics
+                .iter()
+                .filter(|d| d.level == clean_compiler_types::Level::Error)
+                .collect();
+            assert!(errors.is_empty(), "expected a clean check, got {errors:?}");
         }
-        other => panic!("expected Unsupported(library block expansion), got {other:?}"),
+        Err(err) => panic!("expected a clean check, got {err:?}"),
     }
 }
 

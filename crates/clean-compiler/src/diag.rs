@@ -50,8 +50,17 @@ impl DiagnosticSink {
         self.diagnostics
     }
 
-    /// Records a construct outside the current milestone surface.
+    /// Records a construct outside the current milestone surface. Idempotent
+    /// per `(construct, span)`: pass [6] re-resolves and re-checks the
+    /// expanded program, so the same note can legitimately be reached twice.
     pub fn note_unsupported(&mut self, construct: &'static str, span: clean_compiler_types::Span) {
+        if self
+            .unsupported
+            .iter()
+            .any(|u| u.construct == construct && u.span == span)
+        {
+            return;
+        }
         self.unsupported.push(Unsupported { construct, span });
     }
 

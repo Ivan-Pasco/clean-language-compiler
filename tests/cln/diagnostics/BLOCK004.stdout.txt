@@ -1,0 +1,7 @@
+error[BLOCK004]: library 'alpha' handler for block `data` crashed: wasm trap: wasm `unreachable` instruction executed
+ --> tests/cln/diagnostics/BLOCK004.cln:1:1
+  |
+1 | data UserData:
+  | ^^^^^^^^^^^^^^ handler failed
+  |
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK004
