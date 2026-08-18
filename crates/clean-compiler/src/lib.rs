@@ -26,6 +26,7 @@ pub mod codegen;
 pub mod diag;
 pub mod driver;
 pub mod hir;
+pub mod layout;
 pub mod lexer;
 pub mod mir;
 pub mod parser;

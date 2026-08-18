@@ -98,6 +98,19 @@ pub fn validate(request: CompileRequest, sink: &mut DiagnosticSink) -> Option<Va
         }
     }
 
+    // TIER-01 (Platform 05 §5.1): an explicit `[memory].tier` must name a
+    // table row; absence is legal and resolves by target inference later.
+    if let Some(tier) = &request.build.memory.tier {
+        if crate::layout::tier(tier).is_none() {
+            sink.push(request_error(
+                codes::RQD002,
+                format!(
+                    "invalid compilation request: unknown memory tier '{tier}' (expected one of embedded, minimal, standard, heavy, canvas) at '$.build.memory.tier'"
+                ),
+            ));
+        }
+    }
+
     // ADR-0033: `target_world.world` must name a world present in the WIT;
     // unparseable WIT and a missing world are both RQD002. Parsed here so
     // every later pass receives the world already resolved.

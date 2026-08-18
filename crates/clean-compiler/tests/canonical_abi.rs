@@ -49,6 +49,7 @@ fn compile_to_core(sources: &[(&str, &str)]) -> Vec<u8> {
         &hir,
         &resolved,
         &validated.world.package_version(),
+        clean_compiler::layout::tier("standard").expect("standard tier exists"),
         &mut sink,
     );
     assert!(
@@ -56,7 +57,7 @@ fn compile_to_core(sources: &[(&str, &str)]) -> Vec<u8> {
         "unexpected unsupported constructs: {:#?}",
         sink.unsupported()
     );
-    codegen::core::emit_core(&mir)
+    codegen::core::emit_core(&mir).expect("static data fits below the heap start")
 }
 
 /// One recorded host call: function name plus rendered arguments.

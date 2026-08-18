@@ -1,21 +1,28 @@
 //! Pass [8] — MIR Lowering (Platform 14 §14.4.2): a linear, wasm-shaped IR
-//! for direct emission. Milestone 1 keeps control flow structured (wasm is
-//! structured) and runs no optimizations — `debug` and `release` emit the
-//! same code until the conformance suite exists to prove semantics
-//! preservation (§14.4.2[8]).
+//! for direct emission. Control flow stays structured (wasm is structured)
+//! and no optimizations run — `debug` and `release` emit the same code
+//! until the conformance suite exists to prove semantics preservation
+//! (§14.4.2[8]).
 //!
-//! Value representation (M1 scalars): surface `integer` is `i64`;
-//! width-suffixed boundary integers ≤32 bits, `boolean`, and enum
-//! discriminants are `i32`; `integer:u64` is `i64`. Strings, bytes,
-//! records, and options land with the Canonical ABI work (step 6) and are
-//! reported as unsupported until then.
+//! Value representation: surface `integer` is `i64`; width-suffixed
+//! boundary integers ≤32 bits, `boolean`, and enum discriminants are
+//! `i32`; `integer:u64` is `i64`. A `string`/`bytes` value is a single
+//! `i32` pointer to its `[u32 LE length][payload]` object (MMD-04: the
+//! address of a string is the address of the length field). The **internal
+//! representation** ([`val_types`]) and the **Canonical ABI boundary
+//! flattening** ([`cabi_flat`]) are distinct vocabularies: a boundary
+//! string is `(ptr, len)` with `ptr` pointing at the payload
+//! (`base + 4`); call-site lowering converts between the two.
 
 use crate::diag::DiagnosticSink;
 use crate::hir::{HExpr, HExprKind, HFunction, HIterSource, HStmt, HirProgram};
+use crate::layout::{Tier, DATA_SECTION_START, EMPTY_STRING_ADDR};
 use crate::parser::ast::{BinOp, IntWidth, UnOp};
 use crate::resolver::ResolvedAst;
 use crate::typecheck::tir::HostImport;
 use crate::typecheck::types::Ty;
+
+pub mod runtime;
 
 /// Core-wasm value types MIR speaks in (a subset of `wasm_encoder`'s,
 /// owned here so MIR does not depend on the encoder).
@@ -25,17 +32,23 @@ pub enum Val {
     I64,
 }
 
-/// Linear-memory layout (KNOWLEDGE.md trap #1 from the retired compiler:
-/// the heap pointer is placed *after* static data, never before).
-pub const DATA_OFFSET: u32 = 8;
-
 pub struct MirProgram {
     pub imports: Vec<MirImport>,
     pub functions: Vec<MirFunction>,
-    /// Static data blob, placed at `DATA_OFFSET` in linear memory: interned
-    /// string literals and compile-time-constant aggregates, deduplicated
-    /// in first-use order (deterministic, §14.5).
+    /// Always-emitted runtime helpers (ADR 0004), appended after the user
+    /// functions at emission; [`Inst::CallRuntime`] resolves into this
+    /// vector by [`runtime::RuntimeFn`] discriminant order.
+    pub runtime: Vec<MirFunction>,
+    /// Static data blob, placed at `layout::DATA_SECTION_START` in linear
+    /// memory. Its first 4 bytes are the shared empty-string constant
+    /// (MMD-01); after that, interned string objects and
+    /// compile-time-constant aggregates, deduplicated in first-use order
+    /// (deterministic, §14.5).
     pub data: Vec<u8>,
+    /// The resolved memory tier (TIER-01), fixed at build time; pass [10]
+    /// derives the memory's minimum/maximum from it and the allocator
+    /// embeds its byte limit.
+    pub tier: Tier,
 }
 
 /// A host import with its core-level signature already flattened.
@@ -88,9 +101,14 @@ pub enum Inst {
     I64Const(i64),
     LocalGet(u32),
     LocalSet(u32),
+    LocalTee(u32),
     CallImport(u32),
     Call(u32),
+    /// Call into an always-emitted runtime helper (ADR 0004); resolved to a
+    /// concrete function index at emission.
+    CallRuntime(runtime::RuntimeFn),
     I64Bin(I64Op),
+    I32Bin(I32Op),
     /// i64 comparison producing an i32 boolean.
     I64Cmp(CmpOp),
     /// i32 comparison producing an i32 boolean.
@@ -98,6 +116,8 @@ pub enum Inst {
     I32Eqz,
     I32WrapI64,
     I64ExtendI32U,
+    /// `select(a, b, cond) -> cond ? a : b`.
+    Select,
     /// Pushes the address of the fixed return area (resolved at emission,
     /// after the static data size is final).
     RetAreaPtr,
@@ -105,12 +125,35 @@ pub enum Inst {
     I32Load(u32),
     /// Zero-extending byte load at constant offset from the popped address.
     I32Load8U(u32),
+    /// i32 store at constant offset: pops value, then address.
+    I32Store(u32),
+    /// Byte store at constant offset: pops value, then address.
+    I32Store8(u32),
+    /// Current memory size in pages.
+    MemorySize,
+    /// Grow by the popped page count; pushes the old size or -1.
+    MemoryGrow,
+    /// `memory.copy(dst, src, n)` (bulk memory).
+    MemoryCopy,
+    GlobalGet(u32),
+    GlobalSet(u32),
+    Unreachable,
     /// Structured conditional; `result` is the value it leaves on the stack.
     If {
         result: Option<Val>,
         then: Vec<Inst>,
         els: Vec<Inst>,
     },
+    /// Structured block: `Br(depth)` targeting it jumps past its end.
+    Block {
+        body: Vec<Inst>,
+    },
+    /// Structured loop: `Br(depth)` targeting it jumps back to its start.
+    Loop {
+        body: Vec<Inst>,
+    },
+    Br(u32),
+    BrIf(u32),
     Return,
     Drop,
 }
@@ -125,6 +168,18 @@ pub enum I64Op {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum I32Op {
+    Add,
+    Sub,
+    Mul,
+    DivU,
+    And,
+    Xor,
+    Shl,
+    ShrU,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum CmpOp {
     Eq,
     Ne,
@@ -132,20 +187,28 @@ pub enum CmpOp {
     LeS,
     GtS,
     GeS,
+    LtU,
+    GtU,
 }
 
-/// Flattened core-type shape of a semantic type, per the Canonical ABI
-/// flattening: `string`/`bytes` are `(ptr, len)`, records concatenate their
-/// fields, options prepend an `i32` discriminant. `None` marks a type with
-/// no core lowering yet — `number`, `datetime`, `any`, `matrix` and
-/// `pairs` land with the M6 memory model; `Error` never survives a clean
-/// typecheck, and `Var` never leaves pass [5].
+/// **Internal** core-type shape of a semantic type — how a value lives in
+/// locals and on the operand stack. `string`/`bytes` are a single `i32`
+/// pointer to the `[u32 length][payload]` object (MMD-04); records
+/// concatenate their fields; options prepend an `i32` discriminant.
+/// `None` marks a type with no core lowering yet — `number`, `datetime`,
+/// `any`, `matrix` and `pairs` land with later M6 stages; `Error` never
+/// survives a clean typecheck, and `Var` never leaves pass [5].
+///
+/// Lists are transitionally `(ptr, count)` pointing at a Canonical-ABI-
+/// shaped constant element array; the MMD §3.4.1 header layout arrives
+/// with runtime list construction.
 pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
     Some(match ty {
         Ty::Void => vec![],
         Ty::Integer | Ty::IntegerW(IntWidth::U64) => vec![Val::I64],
         Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => vec![Val::I32],
-        Ty::Str | Ty::Bytes | Ty::List(_, _) => vec![Val::I32, Val::I32],
+        Ty::Str | Ty::Bytes => vec![Val::I32],
+        Ty::List(_, _) => vec![Val::I32, Val::I32],
         Ty::Record { fields, .. } => {
             let mut out = Vec::new();
             for (_, field_ty) in fields {
@@ -167,6 +230,30 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
     })
 }
 
+/// **Boundary** flattening of a semantic type, per the Canonical ABI:
+/// `string`/`bytes`/`list` flatten to `(ptr, len)`, records concatenate
+/// their flattened fields, options prepend an `i32` discriminant. Import
+/// signatures and retptr classification use this vocabulary, never
+/// [`val_types`].
+pub fn cabi_flat(ty: &Ty) -> Option<Vec<Val>> {
+    Some(match ty {
+        Ty::Str | Ty::Bytes | Ty::List(_, _) => vec![Val::I32, Val::I32],
+        Ty::Record { fields, .. } => {
+            let mut out = Vec::new();
+            for (_, field_ty) in fields {
+                out.extend(cabi_flat(field_ty)?);
+            }
+            out
+        }
+        Ty::Option(inner) => {
+            let mut out = vec![Val::I32];
+            out.extend(cabi_flat(inner)?);
+            out
+        }
+        _ => return val_types(ty),
+    })
+}
+
 fn is_i64(ty: &Ty) -> bool {
     matches!(ty, Ty::Integer | Ty::IntegerW(IntWidth::U64))
 }
@@ -175,6 +262,7 @@ pub fn lower(
     program: &HirProgram,
     resolved: &ResolvedAst,
     world_version: &str,
+    tier: Tier,
     sink: &mut DiagnosticSink,
 ) -> MirProgram {
     // Emit only imports that are actually called: an unused declaration
@@ -198,7 +286,7 @@ pub fn lower(
         .iter()
         .map(|&index| lower_import(&program.host_imports[index], world_version, resolved, sink))
         .collect();
-    let mut data = DataPool::default();
+    let mut data = DataPool::new();
     let functions = program
         .functions
         .iter()
@@ -207,7 +295,9 @@ pub fn lower(
     MirProgram {
         imports,
         functions,
+        runtime: runtime::build(tier),
         data: data.blob,
+        tier,
     }
 }
 
@@ -296,19 +386,30 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
 }
 
 /// Interns static byte runs into one deduplicated blob. Offsets are final
-/// linear-memory addresses (blob starts at `DATA_OFFSET`).
-#[derive(Default)]
+/// linear-memory addresses (blob starts at `layout::DATA_SECTION_START`).
+/// The pool is seeded with the 4-byte empty-string constant so every empty
+/// string shares `EMPTY_STRING_ADDR` (MMD-01).
 struct DataPool {
     blob: Vec<u8>,
     seen: std::collections::BTreeMap<Vec<u8>, u32>,
 }
 
 impl DataPool {
+    fn new() -> Self {
+        let mut pool = DataPool {
+            blob: Vec::new(),
+            seen: std::collections::BTreeMap::new(),
+        };
+        let empty = pool.intern(&0u32.to_le_bytes());
+        debug_assert_eq!(empty, EMPTY_STRING_ADDR);
+        pool
+    }
+
     fn intern(&mut self, bytes: &[u8]) -> u32 {
         if let Some(&offset) = self.seen.get(bytes) {
             return offset;
         }
-        let offset = DATA_OFFSET + self.blob.len() as u32;
+        let offset = DATA_SECTION_START + self.blob.len() as u32;
         self.blob.extend_from_slice(bytes);
         // Keep every run 4-aligned so aggregate layouts stay canonical.
         while !self.blob.len().is_multiple_of(4) {
@@ -316,6 +417,15 @@ impl DataPool {
         }
         self.seen.insert(bytes.to_vec(), offset);
         offset
+    }
+
+    /// Interns a string as its in-memory object — `[u32 LE length]
+    /// [payload]` — and returns the object's base address (MMD-04).
+    fn intern_string(&mut self, value: &str) -> u32 {
+        let mut object = Vec::with_capacity(4 + value.len());
+        object.extend_from_slice(&(value.len() as u32).to_le_bytes());
+        object.extend_from_slice(value.as_bytes());
+        self.intern(&object)
     }
 }
 
@@ -327,12 +437,12 @@ fn lower_import(
 ) -> MirImport {
     let mut params = Vec::new();
     for ty in &import.params {
-        match val_types(ty) {
+        match cabi_flat(ty) {
             Some(vals) => params.extend(vals),
             None => note_type_gap(ty, import, resolved, sink),
         }
     }
-    let results = match val_types(&import.ret) {
+    let results = match cabi_flat(&import.ret) {
         Some(vals) if vals.len() <= 1 => vals,
         // Wider results take the Canonical ABI retptr form: a trailing i32
         // pointer parameter, no core results.
@@ -470,8 +580,12 @@ impl<'a> FnLowerer<'a> {
     fn serialize_const(&mut self, expr: &HExpr, blob: &mut Vec<u8>) -> Option<()> {
         match &expr.kind {
             HExprKind::Str(value) => {
-                let ptr = self.data.intern(value.as_bytes());
-                blob.extend_from_slice(&ptr.to_le_bytes());
+                // Constant aggregates serialize in the Canonical ABI
+                // element layout (they only ever cross the boundary), so a
+                // string element is (payload ptr, len) — the payload sits
+                // at `base + 4` inside the interned string object.
+                let base = self.data.intern_string(value);
+                blob.extend_from_slice(&(base + 4).to_le_bytes());
                 blob.extend_from_slice(&(value.len() as u32).to_le_bytes());
                 Some(())
             }
@@ -582,9 +696,8 @@ impl<'a> FnLowerer<'a> {
                 }
             }
             HExprKind::Str(value) => {
-                let offset = self.data.intern(value.as_bytes());
-                out.push(Inst::I32Const(offset as i32));
-                out.push(Inst::I32Const(value.len() as i32));
+                let base = self.data.intern_string(value);
+                out.push(Inst::I32Const(base as i32));
             }
             HExprKind::NoneLit => {
                 // Discriminant 0 plus zeroed payload slots.
@@ -616,7 +729,7 @@ impl<'a> FnLowerer<'a> {
                 match self.serialize_const_list(items) {
                     Some(blob) => {
                         let ptr = if blob.is_empty() {
-                            DATA_OFFSET
+                            DATA_SECTION_START
                         } else {
                             self.data.intern(&blob)
                         };
@@ -629,32 +742,46 @@ impl<'a> FnLowerer<'a> {
             HExprKind::CallHost { import, args } => {
                 let param_tys = self.program.host_imports[*import].params.clone();
                 for (arg, param_ty) in args.iter().zip(&param_tys) {
-                    self.expr(arg, out, sink);
-                    self.boundary_convert(&arg.ty, param_ty, out);
+                    self.lower_boundary_arg(arg, param_ty, out, sink);
                 }
                 let ret = &self.program.host_imports[*import].ret;
-                let needs_retptr = val_types(ret).map(|v| v.len() > 1).unwrap_or(false);
+                let needs_retptr = cabi_flat(ret).map(|v| v.len() > 1).unwrap_or(false);
                 if needs_retptr {
                     out.push(Inst::RetAreaPtr);
                 }
                 out.push(Inst::CallImport(self.remap[import] as u32));
                 if needs_retptr {
-                    // Lift the canonical in-memory result back onto the
-                    // stack in flattened slot order.
+                    // Lift the canonical in-memory result into the internal
+                    // representation. Host-written payloads are copied into
+                    // fresh `[len][payload]` objects (§3.7: values crossing
+                    // the boundary are copies).
                     match ret_lift(ret) {
                         Some(RetLift::PtrLen) => {
                             out.push(Inst::RetAreaPtr);
                             out.push(Inst::I32Load(0));
                             out.push(Inst::RetAreaPtr);
                             out.push(Inst::I32Load(4));
+                            out.push(Inst::CallRuntime(runtime::RuntimeFn::LiftString));
                         }
                         Some(RetLift::OptionPtrLen) => {
+                            // [disc] twice: once as the option's first flat
+                            // slot, once consumed by the payload branch.
+                            let disc = self.alloc_scratch(&[Val::I32]);
                             out.push(Inst::RetAreaPtr);
                             out.push(Inst::I32Load8U(0));
-                            out.push(Inst::RetAreaPtr);
-                            out.push(Inst::I32Load(4));
-                            out.push(Inst::RetAreaPtr);
-                            out.push(Inst::I32Load(8));
+                            out.push(Inst::LocalTee(disc));
+                            out.push(Inst::LocalGet(disc));
+                            out.push(Inst::If {
+                                result: Some(Val::I32),
+                                then: vec![
+                                    Inst::RetAreaPtr,
+                                    Inst::I32Load(4),
+                                    Inst::RetAreaPtr,
+                                    Inst::I32Load(8),
+                                    Inst::CallRuntime(runtime::RuntimeFn::LiftString),
+                                ],
+                                els: vec![Inst::I32Const(0)],
+                            });
                         }
                         None => self.note(sink, "this host result type", expr.span),
                     }
@@ -718,6 +845,90 @@ impl<'a> FnLowerer<'a> {
         }
     }
 
+    /// Lowers one host-call argument into its Canonical ABI boundary
+    /// flattening (`cabi_flat` order). Pointer-shaped values convert from
+    /// the internal single-pointer representation; scalars only adjust
+    /// width.
+    fn lower_boundary_arg(
+        &mut self,
+        arg: &HExpr,
+        param_ty: &Ty,
+        out: &mut Vec<Inst>,
+        sink: &mut DiagnosticSink,
+    ) {
+        match param_ty {
+            Ty::Str | Ty::Bytes => {
+                // base → (payload ptr, len): payload at base + 4, length at
+                // base (MMD-04).
+                let base = self.alloc_scratch(&[Val::I32]);
+                self.expr(arg, out, sink);
+                out.push(Inst::LocalTee(base));
+                out.push(Inst::I32Const(4));
+                out.push(Inst::I32Bin(I32Op::Add));
+                out.push(Inst::LocalGet(base));
+                out.push(Inst::I32Load(0));
+            }
+            Ty::Option(inner) if matches!(**inner, Ty::Str | Ty::Bytes) => {
+                // [disc, base] → [disc, ptr, len]; the payload slots must
+                // not be derived from a none's null base (loads below the
+                // null guard are forbidden), so branch.
+                let disc = self.alloc_scratch(&[Val::I32]);
+                let base = self.alloc_scratch(&[Val::I32]);
+                let ptr = self.alloc_scratch(&[Val::I32]);
+                let len = self.alloc_scratch(&[Val::I32]);
+                self.expr(arg, out, sink);
+                out.push(Inst::LocalSet(base));
+                out.push(Inst::LocalSet(disc));
+                out.push(Inst::LocalGet(disc));
+                out.push(Inst::If {
+                    result: None,
+                    then: vec![
+                        Inst::LocalGet(base),
+                        Inst::I32Const(4),
+                        Inst::I32Bin(I32Op::Add),
+                        Inst::LocalSet(ptr),
+                        Inst::LocalGet(base),
+                        Inst::I32Load(0),
+                        Inst::LocalSet(len),
+                    ],
+                    els: vec![
+                        Inst::I32Const(0),
+                        Inst::LocalSet(ptr),
+                        Inst::I32Const(0),
+                        Inst::LocalSet(len),
+                    ],
+                });
+                out.push(Inst::LocalGet(disc));
+                out.push(Inst::LocalGet(ptr));
+                out.push(Inst::LocalGet(len));
+            }
+            // Record literals expand field by field; each field converts
+            // through this same path.
+            Ty::Record { fields, .. } if matches!(&arg.kind, HExprKind::MakeRecord(_)) => {
+                let HExprKind::MakeRecord(items) = &arg.kind else {
+                    unreachable!()
+                };
+                for (item, (_, field_ty)) in items.iter().zip(fields) {
+                    self.lower_boundary_arg(item, field_ty, out, sink);
+                }
+            }
+            Ty::Record { fields, .. }
+                if fields
+                    .iter()
+                    .any(|(_, t)| val_types(t) != cabi_flat(t) || val_types(t).is_none()) =>
+            {
+                // A non-literal record whose internal and boundary shapes
+                // differ needs a per-field spill; no current world signature
+                // exercises this, so it stays a frontier.
+                self.note(sink, "record values at the host boundary", arg.span);
+            }
+            _ => {
+                self.expr(arg, out, sink);
+                self.boundary_convert(&arg.ty, param_ty, out);
+            }
+        }
+    }
+
     /// Converts a Clean value already on the stack to the boundary width the
     /// host parameter declares. The LBS-02 range check at the boundary is a
     /// step-6 concern, recorded in TESTING.md §7 until then.
@@ -748,12 +959,32 @@ impl<'a> FnLowerer<'a> {
             self.note(sink, "number values in compiled code", expr.span);
             return;
         }
-        if lhs.ty == Ty::Str && matches!(op, Add) {
-            self.note(sink, "string concatenation", expr.span);
-            return;
-        }
-        if lhs.ty == Ty::Str && matches!(op, Eq | NEq) {
-            self.note(sink, "string equality", expr.span);
+        if matches!(lhs.ty, Ty::Str) && matches!(op, Add | Eq | NEq | Lt | LtEq | Gt | GtEq) {
+            self.expr(lhs, out, sink);
+            self.expr(rhs, out, sink);
+            match op {
+                Add => out.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat)),
+                // Both polarities derive from the single convention
+                // "`string_eq` returns 1 iff equal" (ADR 0004; KNOWLEDGE §2:
+                // hand-written polarity at call sites inverts silently).
+                Eq => out.push(Inst::CallRuntime(runtime::RuntimeFn::StringEq)),
+                NEq => {
+                    out.push(Inst::CallRuntime(runtime::RuntimeFn::StringEq));
+                    out.push(Inst::I32Eqz);
+                }
+                // Ordering compares against 0 in the `string_compare`
+                // domain (0 iff equal, lexicographic sign otherwise).
+                _ => {
+                    out.push(Inst::CallRuntime(runtime::RuntimeFn::StringCompare));
+                    out.push(Inst::I32Const(0));
+                    out.push(Inst::I32Cmp(match op {
+                        Lt => CmpOp::LtS,
+                        LtEq => CmpOp::LeS,
+                        Gt => CmpOp::GtS,
+                        _ => CmpOp::GeS,
+                    }));
+                }
+            }
             return;
         }
         if matches!(lhs.ty, Ty::Any | Ty::Matrix(_)) || matches!(rhs.ty, Ty::Any | Ty::Matrix(_)) {

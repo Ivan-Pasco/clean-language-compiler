@@ -189,6 +189,7 @@ fn acceptance_guest_compiles_to_a_conforming_component() {
         &hir,
         &resolved,
         &validated.world.package_version(),
+        clean_compiler::layout::tier("standard").expect("standard tier exists"),
         &mut sink,
     );
     let guest_world = clean_compiler::codegen::component::synthesize_guest_world(

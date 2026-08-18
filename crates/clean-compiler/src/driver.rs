@@ -65,6 +65,15 @@ fn front(
     // Every later drain renders against the request's sources (§4.2).
     let cache = crate::diag::SourceCache::from_sources(&validated.request.sources);
 
+    // §3.6: memory64 guests are shape-compatible but the 32-bit pointer
+    // codegen does not speak them yet.
+    if validated.request.build.memory64 {
+        sink.note_unsupported(
+            "memory64 guest memories",
+            clean_compiler_types::Span::request_document(),
+        );
+    }
+
     // Passes [2]+[3] — Lex and Parse, per file, in `sources[]` order
     // (deterministic reduction, §14.5). Both are error-recovering; every
     // file reports before the pipeline decides to stop.
@@ -122,8 +131,17 @@ fn front(
     // Pass [7] — HIR Lowering.
     let hir = crate::hir::lower(typed);
 
-    // Pass [8] — MIR Lowering (no optimization in M1).
-    let mir = crate::mir::lower(&hir, &resolved, &validated.world.package_version(), sink);
+    // Pass [8] — MIR Lowering (no optimizations run yet). The memory tier
+    // is fixed here (TIER-01): the request's explicit tier — validated in
+    // pass [1] — or the target-derived inference.
+    let tier = resolve_tier(&validated.request);
+    let mir = crate::mir::lower(
+        &hir,
+        &resolved,
+        &validated.world.package_version(),
+        tier,
+        sink,
+    );
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
     }
@@ -158,14 +176,15 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
 
     // Pass [10] — Codegen + Assembly: core module, then the component wrap
     // with the synthesized guest world embedded (Platform 15 §6.1).
-    let core = crate::codegen::core::emit_core(&mir);
     let package_version = validated.world.package_version();
-    let wasm = match crate::codegen::component::assemble(
-        core,
-        &mir,
-        &validated.request.target_world.wit,
-        &package_version,
-    ) {
+    let wasm = match crate::codegen::core::emit_core(&mir).and_then(|core| {
+        crate::codegen::component::assemble(
+            core,
+            &mir,
+            &validated.request.target_world.wit,
+            &package_version,
+        )
+    }) {
         Ok(wasm) => wasm,
         Err(invariant) => {
             // CMP-04: a broken internal invariant is COM013 — a compiler
@@ -277,6 +296,16 @@ pub fn emit_hir(request: CompileRequest) -> Result<(String, Vec<Diagnostic>), Co
 /// hash, and `timings` are zero because CMP-02 requires byte-identical
 /// manifests — wall-clock timings and that rule are in tension in the spec
 /// as written.
+/// TIER-01 resolution: the request's explicit tier (validated in pass [1],
+/// so the lookup cannot miss) or the target-derived inference.
+fn resolve_tier(request: &CompileRequest) -> crate::layout::Tier {
+    match &request.build.memory.tier {
+        Some(name) => crate::layout::tier(name)
+            .unwrap_or_else(|| crate::layout::infer_tier(&request.build.target)),
+        None => crate::layout::infer_tier(&request.build.target),
+    }
+}
+
 fn build_manifest(request: &CompileRequest, wasm: &[u8]) -> BuildManifest {
     use sha2::{Digest, Sha256};
     let sha_hex = |bytes: &[u8]| {
@@ -286,8 +315,12 @@ fn build_manifest(request: &CompileRequest, wasm: &[u8]) -> BuildManifest {
     };
 
     let request_json = serde_json::to_string(request).expect("request serializes");
+    // The resolved config records resolved values, not request echoes: an
+    // absent tier appears as its TIER-01 resolution.
+    let mut resolved_build = request.build.clone();
+    resolved_build.memory.tier = Some(resolve_tier(request).name.to_string());
     let resolved_config = serde_json::json!({
-        "build": request.build,
+        "build": resolved_build,
         "folders": request.folders,
         "dependencies": request.dependencies,
         "compile_limits": request.compile_limits,

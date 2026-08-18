@@ -69,18 +69,14 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Memory {
-    pub tier: String,
-}
-
-impl Default for Memory {
-    fn default() -> Self {
-        Self {
-            tier: "standard".to_string(),
-        }
-    }
+    /// TIER-01: absent means the compiler infers the tier from the target
+    /// (`canvas` is never inferred). The build manifest's resolved config
+    /// records the resolved value.
+    #[serde(default)]
+    pub tier: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
