@@ -30,6 +30,7 @@ pub mod runtime;
 pub enum Val {
     I32,
     I64,
+    F64,
 }
 
 pub struct MirProgram {
@@ -107,15 +108,24 @@ pub enum Inst {
     /// Call into an always-emitted runtime helper (ADR 0004); resolved to a
     /// concrete function index at emission.
     CallRuntime(runtime::RuntimeFn),
+    F64Const(f64),
     I64Bin(I64Op),
     I32Bin(I32Op),
+    F64Bin(F64Op),
+    /// Unary f64 instruction (the wasm-native `math` subset rides here).
+    F64Un(F64Un),
     /// i64 comparison producing an i32 boolean.
     I64Cmp(CmpOp),
     /// i32 comparison producing an i32 boolean.
     I32Cmp(CmpOp),
+    /// f64 comparison producing an i32 boolean (unsigned variants never
+    /// apply).
+    F64Cmp(CmpOp),
     I32Eqz,
     I32WrapI64,
     I64ExtendI32U,
+    /// `f64.convert_i64_s` — surface `integer` widening into `number`.
+    F64ConvertI64S,
     /// `select(a, b, cond) -> cond ? a : b`.
     Select,
     /// Pushes the address of the fixed return area (resolved at emission,
@@ -192,6 +202,27 @@ pub enum CmpOp {
     GtU,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum F64Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Min,
+    Max,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum F64Un {
+    Neg,
+    Abs,
+    Ceil,
+    Floor,
+    Trunc,
+    Nearest,
+    Sqrt,
+}
+
 /// **Internal** core-type shape of a semantic type — how a value lives in
 /// locals and on the operand stack. `string`/`bytes` are a single `i32`
 /// pointer to the `[u32 length][payload]` object (MMD-04); records
@@ -222,7 +253,8 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
             out.extend(val_types(inner)?);
             out
         }
-        Ty::Number | Ty::Datetime | Ty::Any | Ty::Matrix(_) | Ty::Pairs(_, _) => return None,
+        Ty::Number => vec![Val::F64],
+        Ty::Datetime | Ty::Any | Ty::Matrix(_) | Ty::Pairs(_, _) => return None,
         // Nominal class instances and capability-typed values get their
         // memory representation with the M6 memory model; only the
         // structural `Record` boundary projection lowers today.
@@ -846,6 +878,7 @@ impl<'a> FnLowerer<'a> {
                     out.push(match slot {
                         Val::I32 => Inst::I32Const(0),
                         Val::I64 => Inst::I64Const(0),
+                        Val::F64 => Inst::F64Const(0.0),
                     });
                 }
             }
@@ -933,9 +966,14 @@ impl<'a> FnLowerer<'a> {
                     out.push(Inst::I32Eqz);
                 }
                 UnOp::Neg => {
-                    out.push(Inst::I64Const(0));
-                    self.expr(operand, out, sink);
-                    out.push(Inst::I64Bin(I64Op::Sub));
+                    if matches!(operand.ty, Ty::Number) {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::F64Un(F64Un::Neg));
+                    } else {
+                        out.push(Inst::I64Const(0));
+                        self.expr(operand, out, sink);
+                        out.push(Inst::I64Bin(I64Op::Sub));
+                    }
                 }
             },
             // TYP-03: `T` into `T?` — discriminant 1, then the payload
@@ -944,16 +982,21 @@ impl<'a> FnLowerer<'a> {
                 out.push(Inst::I32Const(1));
                 self.expr(operand, out, sink);
             }
+            HExprKind::Num(v) => out.push(Inst::F64Const(*v)),
+            // TYP-06 widening: surface `integer` (i64) into `number`.
+            HExprKind::IntToNumber(operand) => {
+                self.expr(operand, out, sink);
+                if !is_i64(&operand.ty) {
+                    out.push(Inst::I64ExtendI32U);
+                }
+                out.push(Inst::F64ConvertI64S);
+            }
             // The M4 frontier: typed, not yet lowerable to core wasm.
-            HExprKind::Num(_) => self.note(sink, "number values in compiled code", expr.span),
             HExprKind::StrInterp(_) => self.note(sink, "string interpolation", expr.span),
             HExprKind::MakeMatrix(_) => self.note(sink, "matrix values", expr.span),
             HExprKind::Index { .. } => self.note(sink, "index access", expr.span),
             HExprKind::NonNone(_) => self.note(sink, "postfix `!` assertion", expr.span),
             HExprKind::IsNone { .. } => self.note(sink, "is-none checks", expr.span),
-            HExprKind::IntToNumber(_) => {
-                self.note(sink, "number values in compiled code", expr.span)
-            }
             HExprKind::ResultRef => self.note(sink, "contract blocks in compiled code", expr.span),
             HExprKind::This => self.note(sink, "class values in compiled code", expr.span),
             HExprKind::GetState { .. } | HExprKind::GuardValue => {
@@ -1083,13 +1126,56 @@ impl<'a> FnLowerer<'a> {
         sink: &mut DiagnosticSink,
     ) {
         use BinOp::*;
-        // Operand domains codegen cannot speak yet (M6: memory model and
-        // stdlib): report and emit nothing.
-        if matches!(expr.ty, Ty::Number)
-            || matches!(lhs.ty, Ty::Number)
-            || matches!(rhs.ty, Ty::Number)
-        {
-            self.note(sink, "number values in compiled code", expr.span);
+        // The float domain: pass [5] already inserted `IntToNumber`
+        // widenings, so both operands arrive `number`-typed.
+        if matches!(lhs.ty, Ty::Number) || matches!(rhs.ty, Ty::Number) {
+            match op {
+                Add | Sub | Mul | Div => {
+                    self.lower_float_operand(lhs, out, sink);
+                    self.lower_float_operand(rhs, out, sink);
+                    out.push(Inst::F64Bin(match op {
+                        Add => F64Op::Add,
+                        Sub => F64Op::Sub,
+                        Mul => F64Op::Mul,
+                        _ => F64Op::Div,
+                    }));
+                }
+                // fmod: a - trunc(a/b) * b (wasm has no float remainder).
+                Rem => {
+                    let a = self.alloc_scratch(&[Val::F64]);
+                    let b = self.alloc_scratch(&[Val::F64]);
+                    self.lower_float_operand(lhs, out, sink);
+                    out.push(Inst::LocalSet(a));
+                    self.lower_float_operand(rhs, out, sink);
+                    out.push(Inst::LocalSet(b));
+                    out.push(Inst::LocalGet(a));
+                    out.push(Inst::LocalGet(a));
+                    out.push(Inst::LocalGet(b));
+                    out.push(Inst::F64Bin(F64Op::Div));
+                    out.push(Inst::F64Un(F64Un::Trunc));
+                    out.push(Inst::LocalGet(b));
+                    out.push(Inst::F64Bin(F64Op::Mul));
+                    out.push(Inst::F64Bin(F64Op::Sub));
+                }
+                Eq | NEq | Lt | LtEq | Gt | GtEq => {
+                    self.lower_float_operand(lhs, out, sink);
+                    self.lower_float_operand(rhs, out, sink);
+                    out.push(Inst::F64Cmp(match op {
+                        Eq => CmpOp::Eq,
+                        NEq => CmpOp::Ne,
+                        Lt => CmpOp::LtS,
+                        LtEq => CmpOp::LeS,
+                        Gt => CmpOp::GtS,
+                        _ => CmpOp::GeS,
+                    }));
+                }
+                // `^` is a transcendental — blocked with the rest of
+                // clean:bridge/math (DISCOVERIES-M6 item 2).
+                Pow => self.note(sink, "exponentiation in compiled code", expr.span),
+                And | Or | Default | Is | NotIs => {
+                    self.note(sink, "this operand type in compiled code", expr.span)
+                }
+            }
             return;
         }
         if matches!(lhs.ty, Ty::Str) && matches!(op, Add | Eq | NEq | Lt | LtEq | Gt | GtEq) {
@@ -1212,6 +1298,23 @@ impl<'a> FnLowerer<'a> {
             Is | NotIs => {
                 self.note(sink, "identity comparison in compiled code", expr.span);
             }
+        }
+    }
+
+    /// A float-domain operand: integers widen defensively even if pass [5]
+    /// missed an `IntToNumber` insertion.
+    fn lower_float_operand(
+        &mut self,
+        operand: &HExpr,
+        out: &mut Vec<Inst>,
+        sink: &mut DiagnosticSink,
+    ) {
+        self.expr(operand, out, sink);
+        if !matches!(operand.ty, Ty::Number) {
+            if !is_i64(&operand.ty) {
+                out.push(Inst::I64ExtendI32U);
+            }
+            out.push(Inst::F64ConvertI64S);
         }
     }
 

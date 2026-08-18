@@ -23,7 +23,7 @@ use crate::layout::{
     DATA_SECTION_START, HEAP_PTR_GLOBAL, HEAP_START, HEAP_START_GLOBAL, WASM_PAGE_SIZE,
 };
 use crate::mir::runtime::RuntimeFn;
-use crate::mir::{CmpOp, I32Op, I64Op, Inst, MirFunction, MirProgram, Val};
+use crate::mir::{CmpOp, F64Op, F64Un, I32Op, I64Op, Inst, MirFunction, MirProgram, Val};
 
 /// Return-area address and size: after the static data, 8-aligned, below
 /// `HEAP_START` (MMD-01 leaves the region between data and heap to the
@@ -51,6 +51,7 @@ fn val(v: Val) -> ValType {
     match v {
         Val::I32 => ValType::I32,
         Val::I64 => ValType::I64,
+        Val::F64 => ValType::F64,
     }
 }
 
@@ -286,9 +287,36 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
             CmpOp::LtU => I::I32LtU,
             CmpOp::GtU => I::I32GtU,
         }),
+        Inst::F64Const(v) => f.instruction(&I::F64Const((*v).into())),
+        Inst::F64Bin(op) => f.instruction(&match op {
+            F64Op::Add => I::F64Add,
+            F64Op::Sub => I::F64Sub,
+            F64Op::Mul => I::F64Mul,
+            F64Op::Div => I::F64Div,
+            F64Op::Min => I::F64Min,
+            F64Op::Max => I::F64Max,
+        }),
+        Inst::F64Un(op) => f.instruction(&match op {
+            F64Un::Neg => I::F64Neg,
+            F64Un::Abs => I::F64Abs,
+            F64Un::Ceil => I::F64Ceil,
+            F64Un::Floor => I::F64Floor,
+            F64Un::Trunc => I::F64Trunc,
+            F64Un::Nearest => I::F64Nearest,
+            F64Un::Sqrt => I::F64Sqrt,
+        }),
+        Inst::F64Cmp(op) => f.instruction(&match op {
+            CmpOp::Eq => I::F64Eq,
+            CmpOp::Ne => I::F64Ne,
+            CmpOp::LtS | CmpOp::LtU => I::F64Lt,
+            CmpOp::LeS => I::F64Le,
+            CmpOp::GtS | CmpOp::GtU => I::F64Gt,
+            CmpOp::GeS => I::F64Ge,
+        }),
         Inst::I32Eqz => f.instruction(&I::I32Eqz),
         Inst::I32WrapI64 => f.instruction(&I::I32WrapI64),
         Inst::I64ExtendI32U => f.instruction(&I::I64ExtendI32U),
+        Inst::F64ConvertI64S => f.instruction(&I::F64ConvertI64S),
         Inst::Select => f.instruction(&I::Select),
         Inst::RetAreaPtr => f.instruction(&I::I32Const(ctx.ret_area as i32)),
         Inst::I32Load(offset) => f.instruction(&I::I32Load(MemArg {
