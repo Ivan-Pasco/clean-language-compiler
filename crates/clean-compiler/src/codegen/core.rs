@@ -261,6 +261,7 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
             I32Op::Mul => I::I32Mul,
             I32Op::DivU => I::I32DivU,
             I32Op::And => I::I32And,
+            I32Op::Or => I::I32Or,
             I32Op::Xor => I::I32Xor,
             I32Op::Shl => I::I32Shl,
             I32Op::ShrU => I::I32ShrU,

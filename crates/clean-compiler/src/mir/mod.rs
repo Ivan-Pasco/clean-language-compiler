@@ -174,6 +174,7 @@ pub enum I32Op {
     Mul,
     DivU,
     And,
+    Or,
     Xor,
     Shl,
     ShrU,
@@ -526,6 +527,8 @@ fn lower_function(
         next_slot: next,
         scratch: Vec::new(),
         remap,
+        label_depth: 0,
+        loops: Vec::new(),
     };
     if let Some(first) = function.before.first().or(function.after.first()) {
         sink.note_unsupported(
@@ -563,6 +566,25 @@ struct FnLowerer<'a> {
     scratch: Vec<Val>,
     /// Original host-import index → pruned MIR import index.
     remap: &'a std::collections::BTreeMap<usize, usize>,
+    /// Structured-label bookkeeping for `break`/`continue`: the number of
+    /// enclosing labeled blocks (`block`/`loop`/`if`) at the current
+    /// emission site.
+    label_depth: u32,
+    /// Innermost-first loop contexts; branch distances derive from the
+    /// stored absolute label indices (FLW-03: the loop-context stack is
+    /// the one authority for loop control targets — KNOWLEDGE §13.2).
+    loops: Vec<LoopCtx>,
+}
+
+/// Absolute label indices (count of enclosing labels *outside* the target)
+/// for the two control points of one loop.
+struct LoopCtx {
+    /// The wrapping `block` — `break` lands after it.
+    break_abs: u32,
+    /// Where `continue` lands: the `loop` head for `while`, the inner
+    /// body `block` end for `iterate` (so the step still applies —
+    /// FLW-03).
+    continue_abs: u32,
 }
 
 impl<'a> FnLowerer<'a> {
@@ -644,6 +666,9 @@ impl<'a> FnLowerer<'a> {
             }
             HStmt::If { cond, then, els } => {
                 self.expr(cond, out, sink);
+                // An `if` is itself a labeled block; branch distances of any
+                // break/continue inside must account for it.
+                self.label_depth += 1;
                 let mut then_body = Vec::new();
                 for s in then {
                     self.stmt(s, &mut then_body, sink);
@@ -652,27 +677,135 @@ impl<'a> FnLowerer<'a> {
                 for s in els {
                     self.stmt(s, &mut else_body, sink);
                 }
+                self.label_depth -= 1;
                 out.push(Inst::If {
                     result: None,
                     then: then_body,
                     els: else_body,
                 });
             }
-            // The M4 frontier: the type checker accepts these; their core
-            // lowering arrives with later milestones (loops with the
-            // control-flow work, `print`/`assert` with the stdlib).
-            HStmt::While { cond, .. } => {
-                self.note(sink, "while loops", cond.span);
+            // FLW-02 `while`:  block { loop { !cond → br-out; body; br } }.
+            HStmt::While { cond, body } => {
+                let base = self.label_depth;
+                self.loops.push(LoopCtx {
+                    break_abs: base,
+                    // `continue` re-tests the condition: the loop head.
+                    continue_abs: base + 1,
+                });
+                self.label_depth += 2;
+                let mut inner = Vec::new();
+                self.expr(cond, &mut inner, sink);
+                inner.push(Inst::I32Eqz);
+                inner.push(Inst::BrIf(1));
+                for s in body {
+                    self.stmt(s, &mut inner, sink);
+                }
+                inner.push(Inst::Br(0));
+                self.label_depth -= 2;
+                self.loops.pop();
+                out.push(Inst::Block {
+                    body: vec![Inst::Loop { body: inner }],
+                });
+            }
+            // FLW-02 range `iterate`: endpoints inclusive, signed `step`
+            // sets the direction; without one the direction follows the
+            // endpoints (mirroring `list.range`, which descends when
+            // start > to — local adoption, DISCOVERIES-M6). `from`, `to`
+            // and `step` evaluate once, before the first test. The body
+            // sits in an inner block so `continue` still applies the step
+            // (FLW-03).
+            HStmt::Iterate {
+                binder,
+                source: HIterSource::Range { from, to },
+                step,
+                body,
+            } => {
+                let i = self.slots[*binder];
+                let to_s = self.alloc_scratch(&[Val::I64]);
+                let s = self.alloc_scratch(&[Val::I64]);
+                self.expr(from, out, sink);
+                out.push(Inst::LocalSet(i));
+                self.expr(to, out, sink);
+                out.push(Inst::LocalSet(to_s));
+                match step {
+                    Some(e) => self.expr(e, out, sink),
+                    None => {
+                        out.push(Inst::LocalGet(i));
+                        out.push(Inst::LocalGet(to_s));
+                        out.push(Inst::I64Cmp(CmpOp::LeS));
+                        out.push(Inst::If {
+                            result: Some(Val::I64),
+                            then: vec![Inst::I64Const(1)],
+                            els: vec![Inst::I64Const(-1)],
+                        });
+                    }
+                }
+                out.push(Inst::LocalSet(s));
+
+                let base = self.label_depth;
+                self.loops.push(LoopCtx {
+                    break_abs: base,
+                    // The inner body block: falling out of it runs the step.
+                    continue_abs: base + 2,
+                });
+                self.label_depth += 3;
+                let mut inner = Vec::new();
+                for stmt in body {
+                    self.stmt(stmt, &mut inner, sink);
+                }
+                self.label_depth -= 3;
+                self.loops.pop();
+
+                let mut loop_body = vec![
+                    // done = (s >= 0 and i > to) or (s < 0 and i < to)
+                    Inst::LocalGet(s),
+                    Inst::I64Const(0),
+                    Inst::I64Cmp(CmpOp::GeS),
+                    Inst::LocalGet(i),
+                    Inst::LocalGet(to_s),
+                    Inst::I64Cmp(CmpOp::GtS),
+                    Inst::I32Bin(I32Op::And),
+                    Inst::LocalGet(s),
+                    Inst::I64Const(0),
+                    Inst::I64Cmp(CmpOp::LtS),
+                    Inst::LocalGet(i),
+                    Inst::LocalGet(to_s),
+                    Inst::I64Cmp(CmpOp::LtS),
+                    Inst::I32Bin(I32Op::And),
+                    Inst::I32Bin(I32Op::Or),
+                    Inst::BrIf(1),
+                    Inst::Block { body: inner },
+                    Inst::LocalGet(i),
+                    Inst::LocalGet(s),
+                    Inst::I64Bin(I64Op::Add),
+                    Inst::LocalSet(i),
+                ];
+                loop_body.push(Inst::Br(0));
+                out.push(Inst::Block {
+                    body: vec![Inst::Loop { body: loop_body }],
+                });
             }
             HStmt::Iterate { source, .. } => {
-                let span = match source {
-                    HIterSource::List(e) | HIterSource::Chars(e) | HIterSource::Rows(e) => e.span,
-                    HIterSource::Range { from, .. } => from.span,
+                let (construct, span): (&'static str, _) = match source {
+                    HIterSource::List(e) => ("iterate over list values", e.span),
+                    HIterSource::Chars(e) => ("iterate over string characters", e.span),
+                    HIterSource::Rows(e) => ("iterate over matrix rows", e.span),
+                    HIterSource::Range { from, .. } => {
+                        unreachable!("range iterate lowered above: {:?}", from.span)
+                    }
                 };
-                self.note(sink, "iterate loops", span);
+                self.note(sink, construct, span);
             }
-            HStmt::Break { span } => self.note(sink, "break", *span),
-            HStmt::Continue { span } => self.note(sink, "continue", *span),
+            HStmt::Break { span } => match self.loops.last() {
+                Some(ctx) => out.push(Inst::Br(self.label_depth - 1 - ctx.break_abs)),
+                // SEM025 rejects orphans in pass [5]; reaching here is a
+                // compiler bug, kept loud.
+                None => unreachable!("break outside a loop survived typecheck at {span:?}"),
+            },
+            HStmt::Continue { span } => match self.loops.last() {
+                Some(ctx) => out.push(Inst::Br(self.label_depth - 1 - ctx.continue_abs)),
+                None => unreachable!("continue outside a loop survived typecheck at {span:?}"),
+            },
             HStmt::Print { span, .. } => self.note(sink, "print: blocks", *span),
             HStmt::Assert { span, .. } => self.note(sink, "assert statements", *span),
         }

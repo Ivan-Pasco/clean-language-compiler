@@ -53,3 +53,15 @@ from M3–M5 executed since).
    `build.memory64 = true` (pointer width changes every layout in §3).
    **Local adoption:** the flag lands on the Unsupported channel at
    intake.
+6. **Range `iterate` semantics are example-specified only** (chapter 12,
+   FLW-02). The worked examples fix inclusivity and signed steps, but
+   three cases have no normative sentence: (a) the default step when
+   `from > to` — **local adoption:** descend by −1, mirroring
+   `list.range(5, 1)` (pinned by
+   `tests/control_flow.rs::iterate_descending_without_step_mirrors_list_range`);
+   (b) evaluation cardinality of `from`/`to`/`step` — **local adoption:**
+   each evaluates exactly once, before the first test; (c) `step 0` with
+   `from ≠ to` — no text forbids it and the natural semantics never
+   terminate; no code exists to reject it (the M4 brief
+   `2026-08-17-iterate-step-non-range.md` covers step on non-range
+   sources, not this). Extends that brief's questions.
