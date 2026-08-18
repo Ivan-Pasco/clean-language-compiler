@@ -7,10 +7,42 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-Open. The three M3 block briefs and the seven M4 briefs in foundation
-`work/` were re-checked on 2026-08-18: all still **Ready** (none
-executed), so every related M3/M4 adoption stays in force and the new
-adoptions below join them.
+Round-trip closed on 2026-08-18: foundation resolved all 16 items
+(erratum 21 §21.7 `03cf900`, six platform errata `5fb9ac1`, six decision
+briefs `af0e34c`; report received the same day). Per item:
+
+- **Ratified, now normative — adoptions retired as adoptions** — 3
+  (wasmtime only, no wasmtime-wasi; ADR-0006 row corrected), 6-`{path}`
+  (LIB004 boundary note: the compiler validates the lowered entry, fills
+  `{path}` with `name`; fixture ratified), 8 (LBS-04 minted in framework
+  09 §6 + 07 CONF-03 — our match rule verbatim; **new**: non-LBS-04 glob
+  keys are CFG002 framework-side, refused here at intake as RQD002 since
+  the compiler emits no CFG codes per Platform 09 §3.16), 9 (03 §3.8
+  observability note — 128 MiB cap is the enforced boundary for foreign
+  artifacts), 12 (14 §14.4.2 passes [5]/[6] now state the provisional/
+  authoritative split verbatim), 13 (21 §21.7 gained the 128-level IR
+  depth cap).
+- **Resolved by erratum, no compiler impact** — 10 (09 §5 reserved row
+  now LIB021–LIB099).
+- **Briefs Ready in foundation `work/`, local adoptions stay in force** —
+  1 + 11 + 5 + 6-mismatch (`2026-08-18-compiletime-request-surface.md`:
+  `compiletime_wasm` base64 field, `[via lib::block]` attribution,
+  hard-coded per-library limits and heap accounting, wasm-mismatch as a
+  LIB004 reason), 2 (`2026-08-18-handler-wire-abi.md`: ADR local 0003 is
+  the starting proposal; the brief adds an ABI version signal), 4 + 15
+  (`2026-08-18-block-diagnostic-codes-and-templates.md`: BLOCK wordings
+  stay fixture-pinned; SEM019/BLOCK003 legs pending ratification; the
+  arity/return/name-form silent-accept is a recorded conformance hole,
+  probable BLOCK007+), 7 (`2026-08-18-library-import-scope.md`, to run
+  with the M4 import-visibility brief), 14
+  (`2026-08-18-ir-builder-visibility.md`), 16
+  (`2026-08-18-block-pattern-match-syntax.md` — the critical one: no
+  variant-discrimination construct exists, so compiletime function bodies
+  and `test.compiletime` stay on the Unsupported channel until it lands;
+  compiling bodies to the sandbox ABI is declared successor work).
+
+The three M3 block briefs and the seven M4 briefs were re-checked the
+same day: all still **Ready**, so every M3/M4 adoption stays in force.
 
 ## 1. The request schema names the handler wasm by hash but gives its bytes no home
 

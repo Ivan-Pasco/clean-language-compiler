@@ -91,11 +91,11 @@ fn front(
     }
 
     // Pass [5] — Type Check, against the world-typed boundary (ADR-0002).
-    // Provisional when the program declares library blocks: user code may
-    // reference symbols a handler emits (companion types are the point of
-    // chapter 21), so pre-expansion findings are held back and pass [6]'s
-    // re-validation of the expanded program is authoritative
-    // (DISCOVERIES-M5).
+    // Provisional when the program declares library blocks (Platform 14
+    // §14.4.2, normative since the 2026-08-18 erratum): user code may
+    // reference symbols a handler emits, so pre-expansion findings are
+    // held back and pass [6]'s re-validation of the expanded program is
+    // authoritative.
     let blocks_declared = !resolved.decls.blocks.is_empty();
     let mut provisional = DiagnosticSink::new();
     let pass5_sink: &mut DiagnosticSink = if blocks_declared {

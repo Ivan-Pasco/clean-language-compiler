@@ -80,6 +80,24 @@ pub fn validate(request: CompileRequest, sink: &mut DiagnosticSink) -> Option<Va
         }
     }
 
+    // LBS-04 (framework 09 §6): a `[folders]` key is a POSIX path with at
+    // most one trailing `/**`; any other glob metacharacter is a schema
+    // violation. The framework's own rejection is CFG002, which the
+    // compiler never emits (Platform 09 §3.16 — it reads no file from
+    // disk); at this boundary a key that slipped through the caller is a
+    // malformed well-known section, RQD002.
+    for key in request.folders.keys() {
+        let prefix = key.strip_suffix("/**").unwrap_or(key);
+        if prefix.contains(['*', '?', '[', ']', '{', '}']) {
+            sink.push(request_error(
+                codes::RQD002,
+                format!(
+                    "invalid compilation request: folders key '{key}' uses a glob form outside LBS-04 (a POSIX path with at most one trailing '/**') at '$.folders'"
+                ),
+            ));
+        }
+    }
+
     // ADR-0033: `target_world.world` must name a world present in the WIT;
     // unparseable WIT and a missing world are both RQD002. Parsed here so
     // every later pass receives the world already resolved.

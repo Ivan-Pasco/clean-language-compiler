@@ -74,8 +74,9 @@ pub(super) fn is_reserved_block_name(name: &str) -> bool {
 
 fn lib004(sink: &mut DiagnosticSink, name: &str, reason: &str) {
     // Template from Platform 10 §LIB004; `{path}` carries the library's
-    // name — the compiler never sees a manifest path (CMP-01;
-    // DISCOVERIES-M5 item 6).
+    // name — the compiler validates the lowered manifest entry and holds
+    // no library.toml path (CMP-01; boundary note added to Platform 10 by
+    // the 2026-08-18 erratum, ratifying this wording).
     sink.push(build(
         Level::Error,
         codes::LIB004,
@@ -213,10 +214,12 @@ pub fn build_catalog<'r>(request: &'r CompileRequest, sink: &mut DiagnosticSink)
     Catalog { libraries }
 }
 
-/// The libraries a `[folders]` mapping brings into scope for `path`. A key
-/// matches after stripping one trailing `/**` when it path-prefix-matches
-/// on whole segments (DISCOVERIES-M5 item 8). Order: folder-map order,
-/// then the key's own list order; deduplicated.
+/// The libraries a `[folders]` mapping brings into scope for `path`.
+/// LBS-04 (framework 09 §6, ratifying this compiler's adoption): a key
+/// matches after stripping one optional trailing `/**` when it
+/// path-prefix-matches on whole segments, case-sensitive POSIX. Keys with
+/// any other glob form were refused at intake (RQD002). Order: folder-map
+/// order, then the key's own list order; deduplicated.
 pub fn folder_libraries(folders: &IndexMap<String, Vec<String>>, path: &str) -> Vec<String> {
     let mut scope: Vec<String> = Vec::new();
     for (key, libs) in folders {

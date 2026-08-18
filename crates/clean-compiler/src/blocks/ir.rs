@@ -18,11 +18,11 @@ use crate::source::ByteSpan;
 /// Chapter 21 §21.7: IR nodes emitted by a single invocation.
 pub const MAX_IR_NODES: u64 = 500_000;
 
-/// ICE prevention, implementation-defined (DISCOVERIES-M5): the lowerer is
-/// recursive, so a pathologically deep tree would overflow the stack long
-/// before the node budget fires. No legitimate §21.4 composition nests this
-/// deep. Sized so the guard fires within a 2 MiB thread stack even with
-/// debug-build frames.
+/// Chapter 21 §21.7 (normative since the 2026-08-18 erratum, which
+/// ratified this compiler's cap): IR nesting beyond 128 levels is
+/// malformed IR — a recursive lowerer would overflow its stack long before
+/// the node budget fires. Sized so the guard fires within a 2 MiB thread
+/// stack even with debug-build frames.
 pub const MAX_IR_DEPTH: u32 = 128;
 
 /// A BLK-03 diagnostic collected by the handler and returned in the

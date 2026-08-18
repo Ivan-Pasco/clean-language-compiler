@@ -177,3 +177,32 @@ fn request_diagnostics_are_well_formed() {
     let back: clean_compiler_types::Diagnostic = serde_json::from_str(&line).unwrap();
     assert_eq!(&back, d);
 }
+
+#[test]
+fn folders_key_with_non_lbs04_glob_is_rqd002() {
+    // LBS-04: bare key and one trailing `/**` are the whole pattern
+    // language; anything richer is a schema violation. The framework's
+    // clean.toml-side code is CFG002; at the request boundary it is a
+    // malformed well-known section (RQD002).
+    let mut request = common::minimal_valid_request();
+    request
+        .folders
+        .insert("app/*/data".to_string(), vec!["alpha".to_string()]);
+    let mut sink = clean_compiler::diag::DiagnosticSink::new();
+    assert!(clean_compiler::request::validate(request, &mut sink).is_none());
+    let diagnostics = sink.into_diagnostics();
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.code == "RQD002" && d.message.contains("LBS-04")),
+        "expected RQD002 for the glob key, got {diagnostics:?}"
+    );
+}
+
+#[test]
+fn folders_key_with_trailing_glob_is_valid() {
+    let mut request = common::minimal_valid_request();
+    request.folders.insert("app/data/**".to_string(), vec![]);
+    let mut sink = clean_compiler::diag::DiagnosticSink::new();
+    assert!(clean_compiler::request::validate(request, &mut sink).is_some());
+}
