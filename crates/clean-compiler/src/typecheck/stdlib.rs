@@ -97,6 +97,11 @@ pub enum StdFn {
     ListRange,
     ListFill,
     ListJoin,
+    // bytes (§14.14.2 surface, chapter-15 naming: fromText/toText).
+    BytesLength,
+    BytesSlice,
+    BytesFromText,
+    BytesToText,
 }
 
 /// `math.<name>(…)` signatures, verbatim from 15 §Math Module.
@@ -220,6 +225,30 @@ pub fn list_namespace_fn(name: &str, elem: &Ty) -> Option<(StdFn, Vec<Ty>, Ty)> 
         _ => return None,
     };
     Some((func, params, ret))
+}
+
+/// Method-style `bytes` surface (§14.14.2; `length` is property-style
+/// and lives with member access in `check.rs`).
+pub fn bytes_method(name: &str) -> Option<(StdFn, Vec<Ty>, Ty)> {
+    match name {
+        "slice" => Some((StdFn::BytesSlice, vec![Ty::Integer, Ty::Integer], Ty::Bytes)),
+        _ => None,
+    }
+}
+
+/// Namespace-style `bytes.<name>(…)`, chapter-15 naming (`fromText`/
+/// `toText` — the §14.14.2 snake_case sketch is not the surface; there
+/// is no constructor from a list of numbers).
+pub fn bytes_namespace_fn(name: &str) -> Option<(StdFn, Vec<Ty>, Ty)> {
+    match name {
+        "fromText" => Some((StdFn::BytesFromText, vec![Ty::Str], Ty::Bytes)),
+        "toText" => Some((
+            StdFn::BytesToText,
+            vec![Ty::Bytes],
+            Ty::Option(Box::new(Ty::Str)),
+        )),
+        _ => None,
+    }
 }
 
 /// Namespace-style `string.<name>(…)` — exactly one function

@@ -281,4 +281,7 @@ pub enum IndexKind {
     Pairs,
     /// `any[·]` → `any` (TYP-02: checking skipped).
     Any,
+    /// `bytes[integer]` → `integer` (§14.14.2: single-byte read, out of
+    /// range traps).
+    Bytes,
 }

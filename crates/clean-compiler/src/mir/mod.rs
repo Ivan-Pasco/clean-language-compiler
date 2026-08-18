@@ -1759,6 +1759,34 @@ impl<'a> FnLowerer<'a> {
                     let (_, _, addr) = self.emit_list_elem_addr(recv, index, &layout, out, sink);
                     self.load_element(&layout, addr, crate::layout::LIST_ELEMS_OFFSET, out);
                 }
+                // §14.14.2: single-byte read, out of range traps.
+                tir::IndexKind::Bytes => {
+                    let base = self.alloc_scratch(&[Val::I32]);
+                    let idx64 = self.alloc_scratch(&[Val::I64]);
+                    self.expr(recv, out, sink);
+                    out.push(Inst::LocalSet(base));
+                    self.expr(index, out, sink);
+                    if !is_i64(&index.ty) {
+                        out.push(Inst::I64ExtendI32U);
+                    }
+                    out.push(Inst::LocalTee(idx64));
+                    out.push(Inst::LocalGet(base));
+                    out.push(Inst::I32Load(0));
+                    out.push(Inst::I64ExtendI32U);
+                    out.push(Inst::I64Cmp(CmpOp::LtU));
+                    out.push(Inst::I32Eqz);
+                    out.push(Inst::If {
+                        result: None,
+                        then: vec![Inst::Unreachable],
+                        els: vec![],
+                    });
+                    out.push(Inst::LocalGet(base));
+                    out.push(Inst::LocalGet(idx64));
+                    out.push(Inst::I32WrapI64);
+                    out.push(Inst::I32Bin(I32Op::Add));
+                    out.push(Inst::I32Load8U(4));
+                    out.push(Inst::I64ExtendI32U);
+                }
                 tir::IndexKind::Matrix | tir::IndexKind::Pairs | tir::IndexKind::Any => {
                     self.note(sink, "index access", expr.span)
                 }
@@ -1939,6 +1967,18 @@ impl<'a> FnLowerer<'a> {
                     }
                     StdFn::StrConcat => {
                         out.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat))
+                    }
+                    StdFn::BytesLength => {
+                        out.push(Inst::I32Load(0));
+                        out.push(Inst::I64ExtendI32U);
+                    }
+                    // Identical immutable layouts: fromText is the identity.
+                    StdFn::BytesFromText => {}
+                    StdFn::BytesSlice => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::BytesSlice))
+                    }
+                    StdFn::BytesToText => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::BytesToText))
                     }
                     StdFn::MathSqrt => out.push(Inst::F64Un(F64Un::Sqrt)),
                     StdFn::MathAbsNumber => out.push(Inst::F64Un(F64Un::Abs)),
@@ -2246,6 +2286,21 @@ impl<'a> FnLowerer<'a> {
                 Pow => self.note(sink, "exponentiation in compiled code", expr.span),
                 And | Or | Default | Is | NotIs => {
                     self.note(sink, "this operand type in compiled code", expr.span)
+                }
+            }
+            return;
+        }
+        if matches!(lhs.ty, Ty::Bytes) && matches!(op, Add | Eq | NEq) {
+            // §14.14.2: `bytes + bytes` and `==` — the layout is string-
+            // shaped, so the string helpers apply byte-for-byte.
+            self.expr(lhs, out, sink);
+            self.expr(rhs, out, sink);
+            match op {
+                Add => out.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat)),
+                Eq => out.push(Inst::CallRuntime(runtime::RuntimeFn::StringEq)),
+                _ => {
+                    out.push(Inst::CallRuntime(runtime::RuntimeFn::StringEq));
+                    out.push(Inst::I32Eqz);
                 }
             }
             return;

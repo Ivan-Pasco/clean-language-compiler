@@ -126,6 +126,13 @@ pub enum RuntimeFn {
     /// `list_remove_at(list, i: i64, stride: i32)` — shifts the tail left
     /// one element and decrements the length; bounds are the caller's.
     ListRemoveAt = 37,
+    /// `bytes_slice(b, start: i64, end: i64) -> base` — byte indexes,
+    /// clamped like `substring` (local adoption).
+    BytesSlice = 38,
+    /// `bytes_to_text(b) -> (disc: i32, base: i32)` — full RFC 3629
+    /// validation; well-formed input aliases the receiver (both types are
+    /// immutable with identical layouts), otherwise `(0, 0)`.
+    BytesToText = 39,
 }
 
 pub fn build(tier: Tier) -> Vec<MirFunction> {
@@ -141,6 +148,8 @@ pub fn build(tier: Tier) -> Vec<MirFunction> {
     ];
     fns.extend(super::runtime_str::build());
     fns.extend(super::runtime_list::build());
+    fns.push(bytes_slice());
+    fns.push(bytes_to_text());
     fns
 }
 
@@ -936,6 +945,300 @@ fn str_to_num() -> MirFunction {
             Val::I32,
             Val::I32,
         ],
+        body,
+    )
+}
+
+/// Params: b@0, start@1 (i64), end@2 (i64). Locals: len64@3 (i64),
+/// s32@4, e32@5. Clamps both bounds to `[0, len]`; `end <= start` yields
+/// the shared empty constant; otherwise the range lifts into a fresh
+/// object.
+fn bytes_slice() -> MirFunction {
+    use Inst::*;
+    let clamp = |slot: u32, out: &mut Vec<Inst>| {
+        // v = min(max(v, 0), len)
+        out.push(LocalGet(slot));
+        out.push(I64Const(0));
+        out.push(I64Cmp(CmpOp::LtS));
+        out.push(If {
+            result: None,
+            then: vec![I64Const(0), LocalSet(slot)],
+            els: vec![],
+        });
+        out.push(LocalGet(slot));
+        out.push(LocalGet(3));
+        out.push(I64Cmp(CmpOp::GtS));
+        out.push(If {
+            result: None,
+            then: vec![LocalGet(3), LocalSet(slot)],
+            els: vec![],
+        });
+    };
+    let mut body = vec![LocalGet(0), I32Load(0), I64ExtendI32U, LocalSet(3)];
+    clamp(1, &mut body);
+    clamp(2, &mut body);
+    body.extend(vec![
+        LocalGet(2),
+        LocalGet(1),
+        I64Cmp(CmpOp::LeS),
+        If {
+            result: None,
+            then: vec![I32Const(EMPTY_STRING_ADDR as i32), Return],
+            els: vec![],
+        },
+        LocalGet(1),
+        I32WrapI64,
+        LocalSet(4),
+        LocalGet(2),
+        I32WrapI64,
+        LocalSet(5),
+        // LiftString(payload + start, end - start)
+        LocalGet(0),
+        I32Const(4),
+        I32Bin(I32Op::Add),
+        LocalGet(4),
+        I32Bin(I32Op::Add),
+        LocalGet(5),
+        LocalGet(4),
+        I32Bin(I32Op::Sub),
+        CallRuntime(RuntimeFn::LiftString),
+    ]);
+    function(
+        "__clean_bytes_slice",
+        &[Val::I32, Val::I64, Val::I64],
+        &[Val::I32],
+        &[Val::I64, Val::I32, Val::I32],
+        body,
+    )
+}
+
+/// Params: b@0. Locals: len@1, i@2, c@3, need@4, floor@5, ceil@6. Full RFC 3629
+/// validation: continuation structure, overlong forms (C0/C1 leads, E0
+/// and F0 second-byte floors), surrogates (ED with second byte ≥ A0) and
+/// the U+10FFFF ceiling (F4 with second byte ≥ 90, F5..FF leads).
+/// Valid input returns `(1, b)` — an alias, both types being immutable —
+/// and invalid input `(0, 0)`.
+fn bytes_to_text() -> MirFunction {
+    use Inst::*;
+    let fail = || vec![I32Const(0), I32Const(0), Return];
+    let load_at_i = |out: &mut Vec<Inst>| {
+        out.push(LocalGet(0));
+        out.push(LocalGet(2));
+        out.push(I32Bin(I32Op::Add));
+        out.push(I32Load8U(4));
+        out.push(LocalSet(3));
+    };
+    // One continuation byte at i (already bounds-checked): must be
+    // 0x80..=0xBF, and for the first continuation of a 3/4-byte form the
+    // caller narrows the range via `floor`/ceiling checks before calling.
+    let body = vec![
+        LocalGet(0),
+        I32Load(0),
+        LocalSet(1),
+        I32Const(0),
+        LocalSet(2),
+        Block {
+            body: vec![Loop {
+                body: {
+                    let mut b = vec![LocalGet(2), LocalGet(1), I32Cmp(CmpOp::GeS), BrIf(1)];
+                    load_at_i(&mut b);
+                    b.extend(vec![
+                        // ASCII fast path.
+                        LocalGet(3),
+                        I32Const(0x80),
+                        I32Cmp(CmpOp::LtS),
+                        If {
+                            result: None,
+                            then: vec![LocalGet(2), I32Const(1), I32Bin(I32Op::Add), LocalSet(2)],
+                            els: {
+                                let mut e = vec![
+                                    // Continuation or overlong C0/C1 lead.
+                                    LocalGet(3),
+                                    I32Const(0xC2),
+                                    I32Cmp(CmpOp::LtS),
+                                    If {
+                                        result: None,
+                                        then: fail(),
+                                        els: vec![],
+                                    },
+                                    // F5..FF: beyond U+10FFFF.
+                                    LocalGet(3),
+                                    I32Const(0xF5),
+                                    I32Cmp(CmpOp::GeS),
+                                    If {
+                                        result: None,
+                                        then: fail(),
+                                        els: vec![],
+                                    },
+                                    // need = 1/2/3 continuations; floor and
+                                    // ceiling on the SECOND byte encode the
+                                    // overlong/surrogate/max rules:
+                                    //   E0: b1 in A0..BF   ED: b1 in 80..9F
+                                    //   F0: b1 in 90..BF   F4: b1 in 80..8F
+                                    // (defaults: 80..BF).
+                                ];
+                                // need
+                                e.extend(vec![
+                                    LocalGet(3),
+                                    I32Const(0xE0),
+                                    I32Cmp(CmpOp::LtS),
+                                    If {
+                                        result: Some(Val::I32),
+                                        then: vec![I32Const(1)],
+                                        els: vec![
+                                            LocalGet(3),
+                                            I32Const(0xF0),
+                                            I32Cmp(CmpOp::LtS),
+                                            If {
+                                                result: Some(Val::I32),
+                                                then: vec![I32Const(2)],
+                                                els: vec![I32Const(3)],
+                                            },
+                                        ],
+                                    },
+                                    LocalSet(4),
+                                    // truncation check: i + need >= len → fail
+                                    LocalGet(2),
+                                    LocalGet(4),
+                                    I32Bin(I32Op::Add),
+                                    LocalGet(1),
+                                    I32Cmp(CmpOp::GeS),
+                                    If {
+                                        result: None,
+                                        then: fail(),
+                                        els: vec![],
+                                    },
+                                    // second-byte floor/ceiling by lead value
+                                    // floor default 0x80, ceiling default 0xBF
+                                    LocalGet(3),
+                                    I32Const(0xE0),
+                                    I32Cmp(CmpOp::Eq),
+                                    If {
+                                        result: Some(Val::I32),
+                                        then: vec![I32Const(0xA0)],
+                                        els: vec![
+                                            LocalGet(3),
+                                            I32Const(0xF0),
+                                            I32Cmp(CmpOp::Eq),
+                                            If {
+                                                result: Some(Val::I32),
+                                                then: vec![I32Const(0x90)],
+                                                els: vec![I32Const(0x80)],
+                                            },
+                                        ],
+                                    },
+                                    LocalSet(5),
+                                    // ceiling: ED → 0x9F, F4 → 0x8F, else BF
+                                    LocalGet(3),
+                                    I32Const(0xED),
+                                    I32Cmp(CmpOp::Eq),
+                                    If {
+                                        result: Some(Val::I32),
+                                        then: vec![I32Const(0x9F)],
+                                        els: vec![
+                                            LocalGet(3),
+                                            I32Const(0xF4),
+                                            I32Cmp(CmpOp::Eq),
+                                            If {
+                                                result: Some(Val::I32),
+                                                then: vec![I32Const(0x8F)],
+                                                els: vec![I32Const(0xBF)],
+                                            },
+                                        ],
+                                    },
+                                    LocalSet(6),
+                                    // second byte must sit in [floor, ceiling]
+                                    LocalGet(0),
+                                    LocalGet(2),
+                                    I32Bin(I32Op::Add),
+                                    I32Load8U(5),
+                                    LocalTee(3),
+                                    LocalGet(5),
+                                    I32Cmp(CmpOp::LtS),
+                                    If {
+                                        result: None,
+                                        then: fail(),
+                                        els: vec![],
+                                    },
+                                    LocalGet(3),
+                                    LocalGet(6),
+                                    I32Cmp(CmpOp::GtS),
+                                    If {
+                                        result: None,
+                                        then: fail(),
+                                        els: vec![],
+                                    },
+                                    // remaining continuations (need-1 of
+                                    // them) are plain 80..BF
+                                    LocalGet(4),
+                                    I32Const(2),
+                                    I32Cmp(CmpOp::GeS),
+                                    If {
+                                        result: None,
+                                        then: vec![
+                                            LocalGet(0),
+                                            LocalGet(2),
+                                            I32Bin(I32Op::Add),
+                                            I32Load8U(6),
+                                            I32Const(0xC0),
+                                            I32Bin(I32Op::And),
+                                            I32Const(0x80),
+                                            I32Cmp(CmpOp::Ne),
+                                            If {
+                                                result: None,
+                                                then: fail(),
+                                                els: vec![],
+                                            },
+                                        ],
+                                        els: vec![],
+                                    },
+                                    LocalGet(4),
+                                    I32Const(3),
+                                    I32Cmp(CmpOp::Eq),
+                                    If {
+                                        result: None,
+                                        then: vec![
+                                            LocalGet(0),
+                                            LocalGet(2),
+                                            I32Bin(I32Op::Add),
+                                            I32Load8U(7),
+                                            I32Const(0xC0),
+                                            I32Bin(I32Op::And),
+                                            I32Const(0x80),
+                                            I32Cmp(CmpOp::Ne),
+                                            If {
+                                                result: None,
+                                                then: fail(),
+                                                els: vec![],
+                                            },
+                                        ],
+                                        els: vec![],
+                                    },
+                                    // i += 1 + need
+                                    LocalGet(2),
+                                    I32Const(1),
+                                    I32Bin(I32Op::Add),
+                                    LocalGet(4),
+                                    I32Bin(I32Op::Add),
+                                    LocalSet(2),
+                                ]);
+                                e
+                            },
+                        },
+                        Br(0),
+                    ]);
+                    b
+                },
+            }],
+        },
+        I32Const(1),
+        LocalGet(0),
+    ];
+    function(
+        "__clean_bytes_to_text",
+        &[Val::I32],
+        &[Val::I32, Val::I32],
+        &[Val::I32; 6],
         body,
     )
 }

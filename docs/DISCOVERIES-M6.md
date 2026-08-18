@@ -117,6 +117,30 @@ from M3–M5 executed since).
    over `integer`/`number`/`string` elements only (record ordering
    undefined); list search equality is scalar/string only (record
    equality undefined).
+6h. **`b"..."` literals exist in §14.14.2 but not in the grammar.** The
+   compiler contract's lexer row requires `b"..."` and hex-escaped
+   forms; `grammar/03-lexical-structure.ebnf.md` has `bytes` only as a
+   type keyword, with no literal production. DOC-15 makes the EBNF the
+   syntax authority, so **no literal is implemented** — bytes values
+   originate from `bytes.fromText` and host returns until the grammar
+   gains the production.
+6i. **§14.14.2's bytes table conflicts with chapter 15** on naming and
+   shape: `string.to_bytes(encoding)`/`bytes.to_string(encoding) ->
+   result<…>` vs `bytes.fromText(text)`/`bytes.toText(data) -> string?`
+   (no encoding parameter, optional not result). **Adopted: chapter 15**
+   (the stdlib chapter owns the surface; 15's rationale note also
+   explains why `toText` is optional). `bytes.slice` clamps like
+   `substring` (pin in `tests/stdlib_bytes.rs`); `toText` on well-formed
+   input returns the receiver aliased (both types immutable, layouts
+   identical).
+6j. **The host-backed stdlib modules have no import path.** `console`
+   maps to `clean:bridge/console` (blocked, item 1); `file`/`http`/
+   `time` map to `wasi:*` interfaces — but the request delivers exactly
+   one `target_world`, the vendored server world restates no `wasi:*`,
+   pass [9] validates only `clean:host/*` call sites, and no chapter
+   says how a stdlib-originated wasi import appears in the world or
+   which code fires when it cannot. `datetime` additionally has no
+   Platform 03 layout. All four module surfaces stay frontier notes.
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when

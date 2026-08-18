@@ -3329,6 +3329,25 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 (IndexKind::Pairs, result)
             }
             Ty::Any => (IndexKind::Any, Ty::Any),
+            // §14.14.2: `bytes[i]` is a single-byte read (out of range
+            // traps at runtime).
+            Ty::Bytes => {
+                if !self.is_integerish(&index_t.ty) {
+                    // IDX001 (stub rule; local wording).
+                    sink.push(build(
+                        Level::Error,
+                        codes::IDX001,
+                        format!(
+                            "bytes index must be `integer`, found `{}`",
+                            self.infcx.resolve(&index_t.ty).display()
+                        ),
+                        self.diag_span(index_t.span),
+                        Some("expected an integer index".to_string()),
+                    ));
+                    return error_expr(span);
+                }
+                (IndexKind::Bytes, Ty::Integer)
+            }
             Ty::Error => return error_expr(span),
             other => {
                 // IDX004 — template from Platform 10 §7.
@@ -3871,6 +3890,21 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     }
                     return self.undefined_method(&other, method, member_span, span, sink);
                 }
+                // The §14.14.2 bytes method surface.
+                if other == Ty::Bytes {
+                    if let Some((func, params, ret)) = super::stdlib::bytes_method(method) {
+                        let mut checked = self.check_args(method, &params, args, span, false, sink);
+                        let mut all = Vec::with_capacity(checked.len() + 1);
+                        all.push(recv);
+                        all.append(&mut checked);
+                        return TExpr {
+                            ty: ret,
+                            span,
+                            kind: TExprKind::CallStd { func, args: all },
+                        };
+                    }
+                    return self.undefined_method(&Ty::Bytes, method, member_span, span, sink);
+                }
                 // The chapter-15 string method surface (receiver becomes
                 // args[0] of the CallStd node).
                 if other == Ty::Str {
@@ -3906,6 +3940,24 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
+        if module == "bytes" {
+            if let Some((func, params, ret)) = super::stdlib::bytes_namespace_fn(method) {
+                let args = self.check_args(method, &params, args, span, false, sink);
+                return TExpr {
+                    ty: ret,
+                    span,
+                    kind: TExprKind::CallStd { func, args },
+                };
+            }
+            sink.push(build(
+                Level::Error,
+                codes::SEM019,
+                format!("I cannot find a function named `{method}`"),
+                self.diag_span(member_span),
+                Some("no function with this name is in scope".to_string()),
+            ));
+            return error_expr(span);
+        }
         if module == "list" {
             // `concat`/`fill` are element-generic: a fresh inference var
             // unifies with the arguments and resolves in finalize.
@@ -4128,6 +4180,15 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 }
             }
             Ty::Error => error_expr(span),
+            // §14.14.2: `bytes.length` is property-style (no parentheses).
+            Ty::Bytes if name == "length" => TExpr {
+                ty: Ty::Integer,
+                span,
+                kind: TExprKind::CallStd {
+                    func: super::stdlib::StdFn::BytesLength,
+                    args: vec![recv],
+                },
+            },
             _ => {
                 // The chapter-15 property surface (`.length`, …) is M6.
                 sink.note_unsupported("standard-library methods", self.diag_span(span));
@@ -4490,9 +4551,13 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             },
         };
 
-        // String concatenation: `+` on two strings.
+        // String concatenation: `+` on two strings; §14.14.2 gives `bytes`
+        // the same operator.
         if op == Add && lt == Ty::Str && rt == Ty::Str {
             return make(l, r, Ty::Str);
+        }
+        if op == Add && lt == Ty::Bytes && rt == Ty::Bytes {
+            return make(l, r, Ty::Bytes);
         }
         // Matrix operators: `+`/`-` element-wise, `*` multiplication.
         if let (Ty::Matrix(_), Ty::Matrix(_)) = (&lt, &rt) {
@@ -4599,8 +4664,10 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             return (l, r);
         }
-        let comparable = matches!((&lt, &rt), (Ty::Boolean, Ty::Boolean) | (Ty::Str, Ty::Str))
-            || matches!((&lt, &rt), (Ty::Enum { wit_name: a, .. }, Ty::Enum { wit_name: b, .. }) if a == b);
+        let comparable = matches!(
+            (&lt, &rt),
+            (Ty::Boolean, Ty::Boolean) | (Ty::Str, Ty::Str) | (Ty::Bytes, Ty::Bytes)
+        ) || matches!((&lt, &rt), (Ty::Enum { wit_name: a, .. }, Ty::Enum { wit_name: b, .. }) if a == b);
         if !comparable {
             self.invalid_op(sink, op, &lt, span);
         }
