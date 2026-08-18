@@ -23,6 +23,7 @@ use crate::typecheck::tir::{self, HostImport};
 use crate::typecheck::types::Ty;
 
 pub mod runtime;
+pub mod runtime_str;
 
 /// Core-wasm value types MIR speaks in (a subset of `wasm_encoder`'s,
 /// owned here so MIR does not depend on the encoder).
@@ -1559,10 +1560,75 @@ impl<'a> FnLowerer<'a> {
                     self.note(sink, "math transcendental functions", expr.span);
                     return;
                 }
+                if matches!(func, StdFn::StrToUpperCase | StdFn::StrToLowerCase) {
+                    // Unicode case folding is clean:bridge/string territory
+                    // (DISCOVERIES-M6 item 1) — no ASCII approximation.
+                    self.note(sink, "string case conversion", expr.span);
+                    return;
+                }
                 for arg in args {
                     self.expr(arg, out, sink);
                 }
                 match func {
+                    StdFn::StrLength => out.push(Inst::CallRuntime(runtime::RuntimeFn::StrCpLen)),
+                    StdFn::StrIsEmpty => {
+                        out.push(Inst::I32Load(0));
+                        out.push(Inst::I32Eqz);
+                    }
+                    StdFn::StrIsBlank => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrIsBlank))
+                    }
+                    StdFn::StrContains => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrIndexOf));
+                        out.push(Inst::I64Const(0));
+                        out.push(Inst::I64Cmp(CmpOp::GeS));
+                    }
+                    StdFn::StrIndexOf => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrIndexOf))
+                    }
+                    StdFn::StrLastIndexOf => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrLastIndexOf))
+                    }
+                    StdFn::StrStartsWith => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrStartsWith))
+                    }
+                    StdFn::StrEndsWith => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrEndsWith))
+                    }
+                    StdFn::StrCharAt => out.push(Inst::CallRuntime(runtime::RuntimeFn::StrCharAt)),
+                    StdFn::StrCharCodeAt => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrCharCodeAt))
+                    }
+                    StdFn::StrSubstring => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrSubstring))
+                    }
+                    StdFn::StrTrim => {
+                        out.push(Inst::I32Const(0));
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrTrim));
+                    }
+                    StdFn::StrTrimStart => {
+                        out.push(Inst::I32Const(1));
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrTrim));
+                    }
+                    StdFn::StrTrimEnd => {
+                        out.push(Inst::I32Const(2));
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrTrim));
+                    }
+                    StdFn::StrPadStart => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrPadStart))
+                    }
+                    StdFn::StrPadEnd => out.push(Inst::CallRuntime(runtime::RuntimeFn::StrPadEnd)),
+                    StdFn::StrReplace => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrReplace))
+                    }
+                    StdFn::StrSplit => {
+                        let tag = self.tags.tag(&Ty::Str);
+                        out.push(Inst::I32Const(tag as i32));
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrSplit));
+                    }
+                    StdFn::StrConcat => {
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat))
+                    }
                     StdFn::MathSqrt => out.push(Inst::F64Un(F64Un::Sqrt)),
                     StdFn::MathAbsNumber => out.push(Inst::F64Un(F64Un::Abs)),
                     StdFn::MathFloor => out.push(Inst::F64Un(F64Un::Floor)),

@@ -86,6 +86,21 @@ from M3–M5 executed since).
    `math` domain errors (`sqrt(-1)` → NaN?) remain unspecified — wasm
    semantics (NaN) adopted; and `math.max/min` NaN behaviour follows the
    wasm instructions.
+6f. **String indexes and lengths have no unit** (15 §String Module).
+   `length()`, `charAt`, `charCodeAt`, `indexOf`, `lastIndexOf`,
+   `substring`, `padStart/End` all take or return indexes, and the
+   chapter never says whether they count bytes, UTF-16 units (the
+   JS-flavoured `charCodeAt` name suggests them) or code points.
+   **Local adoption: code points**, the only Unicode-coherent choice
+   over MMD-04's UTF-8 layout, pinned throughout
+   `tests/stdlib_string.rs` with multi-byte fixtures. Also adopted with
+   fixture pins, each individually undecided in the spec: `substring`
+   clamps (end < start → `""`), `trim` whitespace is ASCII {space, \t,
+   \n, \r}, `replace("")` and `padStart` with `""` return the receiver,
+   `split("")` yields one element, and `charAt`/`charCodeAt` out of
+   range trap (RUN013's catchable form waits on error lowering).
+   `toUpperCase`/`toLowerCase` are typed but blocked: Unicode case
+   folding is `clean:bridge/string` territory (item 1).
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when

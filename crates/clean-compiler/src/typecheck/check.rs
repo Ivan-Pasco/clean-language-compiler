@@ -3842,6 +3842,23 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         kind: TExprKind::Convert(Box::new(recv)),
                     };
                 }
+                // The chapter-15 string method surface (receiver becomes
+                // args[0] of the CallStd node).
+                if other == Ty::Str {
+                    if let Some((func, params, ret)) = super::stdlib::string_method(method) {
+                        let mut checked = self.check_args(method, &params, args, span, false, sink);
+                        let mut all = Vec::with_capacity(checked.len() + 1);
+                        all.push(recv);
+                        all.append(&mut checked);
+                        return TExpr {
+                            ty: ret,
+                            span,
+                            kind: TExprKind::CallStd { func, args: all },
+                        };
+                    }
+                    // SEM022 — the registered unknown-method code.
+                    return self.undefined_method(&Ty::Str, method, member_span, span, sink);
+                }
                 sink.note_unsupported("standard-library methods", self.diag_span(span));
                 error_expr(span)
             }
@@ -3860,6 +3877,26 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
+        if module == "string" {
+            if let Some((func, params, ret)) = super::stdlib::string_namespace_fn(method) {
+                let args = self.check_args(method, &params, args, span, false, sink);
+                return TExpr {
+                    ty: ret,
+                    span,
+                    kind: TExprKind::CallStd { func, args },
+                };
+            }
+            // `string.join` was retired for `list.join`; unknown names are
+            // the registered missing-name code.
+            sink.push(build(
+                Level::Error,
+                codes::SEM019,
+                format!("I cannot find a function named `{method}`"),
+                self.diag_span(member_span),
+                Some("no function with this name is in scope".to_string()),
+            ));
+            return error_expr(span);
+        }
         if module == "math" {
             let Some((func, params, ret)) = super::stdlib::math_fn(method) else {
                 // Basic arithmetic is operators only (15 §Math: math.add

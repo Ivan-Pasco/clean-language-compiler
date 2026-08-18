@@ -45,10 +45,50 @@ pub enum RuntimeFn {
     /// naive accumulation (rounding contract unresolved — DISCOVERIES-M6);
     /// anything else traps (RUN003 family).
     StrToNum = 7,
+    // Chapter-15 string methods (bodies in `runtime_str.rs`). Indexes and
+    // lengths on the user surface count **code points** (local adoption —
+    // DISCOVERIES-M6); the object layout stays byte-addressed (MMD-04).
+    /// `str_cp_len(s) -> i64` — code-point count.
+    StrCpLen = 8,
+    /// `str_char_at(s, i: i64) -> base` — one-code-point string; out of
+    /// range traps (RUN013 family).
+    StrCharAt = 9,
+    /// `str_char_code_at(s, i: i64) -> i64` — the code point; out of
+    /// range traps.
+    StrCharCodeAt = 10,
+    /// `str_index_of(s, needle) -> i64` — code-point index of the first
+    /// occurrence, or -1.
+    StrIndexOf = 11,
+    /// `str_last_index_of(s, needle) -> i64`.
+    StrLastIndexOf = 12,
+    /// `str_starts_with(s, prefix) -> i32`.
+    StrStartsWith = 13,
+    /// `str_ends_with(s, suffix) -> i32`.
+    StrEndsWith = 14,
+    /// `str_substring(s, start: i64, end: i64) -> base` — code-point
+    /// bounds, clamped to `[0, len]`, `end < start` yields `""` (local
+    /// adoption — DISCOVERIES-M6).
+    StrSubstring = 15,
+    /// `str_trim(s, mode: i32) -> base` — 0 both, 1 start, 2 end; ASCII
+    /// whitespace (space, \t, \n, \r — local adoption).
+    StrTrim = 16,
+    /// `str_pad_start(s, target: i64, pad) -> base` — target in code
+    /// points; an empty pad returns the receiver.
+    StrPadStart = 17,
+    /// `str_pad_end(s, target: i64, pad) -> base`.
+    StrPadEnd = 18,
+    /// `str_replace(s, old, new) -> base` — every occurrence; an empty
+    /// `old` returns the receiver (local adoption).
+    StrReplace = 19,
+    /// `str_split(s, delim, tag: i32) -> list base` — a `list<string>`
+    /// object; an empty delimiter yields one element (local adoption).
+    StrSplit = 20,
+    /// `str_is_blank(s) -> i32` — empty or all ASCII whitespace.
+    StrIsBlank = 21,
 }
 
 pub fn build(tier: Tier) -> Vec<MirFunction> {
-    vec![
+    let mut fns = vec![
         alloc(tier),
         string_concat(),
         string_compare(),
@@ -57,7 +97,9 @@ pub fn build(tier: Tier) -> Vec<MirFunction> {
         int_to_string(),
         str_to_int(),
         str_to_num(),
-    ]
+    ];
+    fns.extend(super::runtime_str::build());
+    fns
 }
 
 fn function(
