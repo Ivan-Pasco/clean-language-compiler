@@ -230,6 +230,45 @@ fn all_three_artifacts_are_byte_deterministic() {
     );
 }
 
+#[test]
+fn artifacts_stay_byte_deterministic_with_block_handlers() {
+    // The M5 leg of CMP-02: handler expansion is inside the determinism
+    // boundary — same request with a `library_manifests` handler ⇒
+    // byte-identical component, manifest, and diagnostics.
+    let handler_request = || {
+        let envelope = r#"{"ir":{"kind":"function","name":"answer","params":[],"return":{"kind":"integer"},"body":{"kind":"return","expression":{"kind":"literal_integer","value":42}}},"diagnostics":[]}"#;
+        let content = "data UserData:\n\tinteger id primary\n\nfunctions:\n\tvoid init()\n\t\tinteger x = answer()\n\t\treturn\n";
+        let mut request = common::minimal_valid_request();
+        request.sources[0].content = content.to_string();
+        request.sources[0].sha256 = common::sha256_hex(content.as_bytes());
+        request.dependencies.insert(
+            "alpha".to_string(),
+            clean_compiler_types::request::Dependency {
+                version: "1.0.0".to_string(),
+                resolved_from: "registry".to_string(),
+            },
+        );
+        request
+            .folders
+            .insert("app".to_string(), vec!["alpha".to_string()]);
+        request.library_manifests = vec![common::handler_manifest("alpha", &["data"], envelope)];
+        request
+    };
+    let a = compile(handler_request()).expect("expanded program compiles");
+    let b = compile(handler_request()).expect("expanded program compiles");
+    assert_eq!(a.wasm, b.wasm, "component.wasm must be byte-identical");
+    assert_eq!(
+        serde_json::to_string(&a.manifest).unwrap(),
+        serde_json::to_string(&b.manifest).unwrap(),
+        "build-manifest.json must be byte-identical"
+    );
+    assert_eq!(
+        serde_json::to_string(&a.diagnostics).unwrap(),
+        serde_json::to_string(&b.diagnostics).unwrap(),
+        "diagnostics.json must be byte-identical"
+    );
+}
+
 fn which_wasm_tools() -> Option<std::path::PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
