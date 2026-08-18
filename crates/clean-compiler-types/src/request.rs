@@ -188,6 +188,14 @@ pub struct LibraryManifest {
     /// SHA-256 of the framework-compiled compile-time handler wasm
     /// (ADR-0004); the sandbox instantiates exactly this artifact.
     pub compiletime_wasm_sha256: String,
+    /// The handler wasm itself, base64-encoded (standard alphabet, padded).
+    /// CMP-01 leaves the compiler nowhere else to obtain the artifact the
+    /// hash above names — Platform 14 §14.1.1 models only the hash, so this
+    /// field is a provisional schema addition recorded in DISCOVERIES-M5.
+    /// Absent when the library registers no `handles_blocks`; a manifest
+    /// that registers blocks but carries no wasm cannot expand them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compiletime_wasm: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

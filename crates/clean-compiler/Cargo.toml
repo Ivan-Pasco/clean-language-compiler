@@ -20,8 +20,12 @@ wasm-encoder = { workspace = true }
 wasmparser = { workspace = true }
 wit-parser = { workspace = true }
 wit-component = { workspace = true }
+# Pass [6] block-handler sandbox (ADR-0004): epoch interruption, StoreLimits,
+# no host imports. Promoted from dev-dependency in M5 per
+# docs/adr/0001-reference-stack.md.
+wasmtime = { workspace = true }
+base64 = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }
 proptest = { workspace = true }
-wasmtime = { workspace = true }

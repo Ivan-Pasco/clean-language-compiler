@@ -39,12 +39,17 @@ wit-component = "0.256"
 clap = { version = "4", features = ["derive"] }
 toml = "0.8"
 
-# Dev/test. wasmtime is a dev-dependency until pass [6] (block handlers, M5)
-# makes it a production dependency; 47 aligns with clean-host-core
-# (docs/adr/0001-reference-stack.md).
+# The pass-[6] handler sandbox (ADR-0004) and the M1 ABI harness; 47 aligns
+# with clean-host-core (docs/adr/0001-reference-stack.md). Production
+# dependency of clean-compiler since M5.
+wasmtime = "47"
+# Decodes `library_manifests[].compiletime_wasm` at request intake
+# (provisional schema field, docs/DISCOVERIES-M5.md).
+base64 = "0.22"
+
+# Dev/test.
 insta = { version = "1", features = ["json"] }
 proptest = "1"
-wasmtime = "47"
 
 [profile.release]
 lto = "thin"
