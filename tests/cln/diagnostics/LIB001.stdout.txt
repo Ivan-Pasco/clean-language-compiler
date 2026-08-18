@@ -1,0 +1,3 @@
+error[LIB001]: Library 'data' not found in any configured source
+ --> <request>:1:1
+  = docs: https://errors.cleanlanguage.dev/E/LIB001

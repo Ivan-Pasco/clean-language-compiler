@@ -1,0 +1,3 @@
+error[LIB004]: Library 'data' has invalid manifest: compiletime_wasm does not match compiletime_wasm_sha256
+ --> <request>:1:1
+  = docs: https://errors.cleanlanguage.dev/E/LIB004

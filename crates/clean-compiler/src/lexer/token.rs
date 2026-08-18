@@ -110,6 +110,37 @@ impl Kw {
     }
 }
 
+/// LEX-05: the reserved set a library may not claim as a block name — the
+/// four keyword tables of chapter 03 (hard, contextual, type, and
+/// reserved-for-future), which that chapter declares the single source of.
+/// The `core.` prefix rule lives with the caller (it is a name-shape rule,
+/// not a word).
+pub fn is_reserved_word(word: &str) -> bool {
+    const CONTEXTUAL: &[&str] = &[
+        "build",
+        "computed",
+        "description",
+        "functions",
+        "guard",
+        "input",
+        "source",
+        "state",
+        "step",
+        "test",
+        "tests",
+        "watch",
+    ];
+    const TYPES: &[&str] = &[
+        "any", "boolean", "bytes", "datetime", "integer", "list", "matrix", "number", "pairs",
+        "string", "void",
+    ];
+    const FUTURE: &[&str] = &["for", "from", "unit"];
+    Kw::from_word(word).is_some()
+        || CONTEXTUAL.contains(&word)
+        || TYPES.contains(&word)
+        || FUTURE.contains(&word)
+}
+
 /// One decoded piece of a single-line string literal (LEX-06 §6): literal
 /// text (escapes decoded) or a `{…}` interpolation whose interior is already
 /// tokenized — 06-expressions §3 makes the body a full Expression, so the

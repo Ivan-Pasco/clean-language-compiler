@@ -1,0 +1,3 @@
+error[LIB017]: Folder scope 'app' maps to library 'ui' which is not a declared dependency
+ --> <request>:1:1
+  = docs: https://errors.cleanlanguage.dev/E/LIB017

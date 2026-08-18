@@ -79,7 +79,13 @@ fn front(
     }
 
     // Pass [4] — Resolve (single compilation unit in M1).
-    let resolved = crate::resolver::resolve(files, sink);
+    let library_names: Vec<String> = validated
+        .request
+        .library_manifests
+        .iter()
+        .map(|m| m.name.clone())
+        .collect();
+    let resolved = crate::resolver::resolve(files, &library_names, sink);
     if sink.has_errors() {
         return Ok((cache, None));
     }
@@ -89,12 +95,16 @@ fn front(
     if sink.has_errors() {
         return Ok((cache, None));
     }
+
+    // Pass [6] — Block Handler Expansion (chapter 21, ADR-0004): library
+    // catalog intake, block-name resolution, handler execution.
+    crate::blocks::expand(&resolved, &validated.request, sink);
+    if sink.has_errors() {
+        return Ok((cache, None));
+    }
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
     }
-
-    // Pass [6] — Block Handler Expansion: a typed pass-through until M5;
-    // M1 programs declare no library blocks.
 
     // Pass [7] — HIR Lowering.
     let hir = crate::hir::lower(typed);
@@ -213,11 +223,21 @@ pub fn emit_hir(request: CompileRequest) -> Result<(String, Vec<Diagnostic>), Co
         if sink.has_errors() {
             break 'front (None, cache);
         }
-        let resolved = crate::resolver::resolve(files, &mut sink);
+        let library_names: Vec<String> = validated
+            .request
+            .library_manifests
+            .iter()
+            .map(|m| m.name.clone())
+            .collect();
+        let resolved = crate::resolver::resolve(files, &library_names, &mut sink);
         if sink.has_errors() {
             break 'front (None, cache);
         }
         let typed = crate::typecheck::check(&resolved, &validated.world, &mut sink);
+        if sink.has_errors() {
+            break 'front (None, cache);
+        }
+        crate::blocks::expand(&resolved, &validated.request, &mut sink);
         if sink.has_errors() {
             break 'front (None, cache);
         }

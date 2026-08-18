@@ -52,7 +52,7 @@ fn render(path: &str, source: &str) -> String {
     };
     let world = clean_compiler::codegen::world::parse(&target, &mut sink)
         .expect("the embedded empty world parses");
-    let resolved = resolve(vec![ParsedFile { ast, stream }], &mut sink);
+    let resolved = resolve(vec![ParsedFile { ast, stream }], &[], &mut sink);
     clean_compiler::typecheck::check(&resolved, &world, &mut sink);
 
     let unsupported: Vec<String> = sink

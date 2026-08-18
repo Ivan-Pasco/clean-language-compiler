@@ -1,0 +1,7 @@
+error[BLOCK002]: no library in scope registers a handler for block `data`
+ --> tests/cln/diagnostics/BLOCK002.cln:1:1
+  |
+1 | data UserData:
+  | ^^^^^^^^^^^^^^ unknown block name
+  |
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK002

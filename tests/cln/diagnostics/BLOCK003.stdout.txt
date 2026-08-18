@@ -1,0 +1,3 @@
+error[BLOCK003]: library 'ui' registers reserved block name `state`
+ --> <request>:1:1
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK003

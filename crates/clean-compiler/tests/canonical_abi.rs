@@ -37,7 +37,7 @@ fn compile_to_core(sources: &[(&str, &str)]) -> Vec<u8> {
             resolver::ParsedFile { ast, stream }
         })
         .collect();
-    let resolved = resolver::resolve(files, &mut sink);
+    let resolved = resolver::resolve(files, &[], &mut sink);
     let typed = typecheck::check(&resolved, &validated.world, &mut sink);
     assert!(
         !sink.has_errors(),

@@ -1,0 +1,8 @@
+error[BLOCK001]: block name `data` is ambiguous: libraries 'alpha' and 'beta' both register a handler for it
+ --> app/BLOCK001.cln:1:1
+  |
+1 | data UserData:
+  | ^^^^^^^^^^^^^^ ambiguous block name
+  |
+  = help: narrow the `[folders]` mapping in clean.toml or add an explicit `import` to disambiguate
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK001

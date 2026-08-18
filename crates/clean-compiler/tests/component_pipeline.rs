@@ -182,7 +182,7 @@ fn acceptance_guest_compiles_to_a_conforming_component() {
             clean_compiler::resolver::ParsedFile { ast, stream }
         })
         .collect();
-    let resolved = clean_compiler::resolver::resolve(files, &mut sink);
+    let resolved = clean_compiler::resolver::resolve(files, &[], &mut sink);
     let typed = clean_compiler::typecheck::check(&resolved, &validated.world, &mut sink);
     let hir = clean_compiler::hir::lower(typed);
     let mir = clean_compiler::mir::lower(

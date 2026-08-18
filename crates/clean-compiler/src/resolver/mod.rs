@@ -75,6 +75,9 @@ pub struct Declarations {
     pub watches: Vec<(usize, usize)>,
     /// `tests:` sections (TST-01), `(file, item)`.
     pub tests: Vec<(usize, usize)>,
+    /// `Item::LibraryBlock` sites in `sources[]` then item order —
+    /// pass [6]'s work list (chapter 21).
+    pub blocks: Vec<(usize, usize)>,
     /// Visibility scope per module; index = file index.
     pub modules: Vec<ModuleScope>,
 }
@@ -116,6 +119,11 @@ pub struct ModuleScope {
     /// `utils as u` module aliases → file index (namespace-style access
     /// is chapter-16 dispatch, M4 stage 3).
     pub module_aliases: IndexMap<String, usize>,
+    /// Library names this file imported explicitly — §21.2 rule 1 block
+    /// scope (adoption: an import path or dotted prefix matching a
+    /// `library_manifests[].name`, DISCOVERIES-M5 item 7). Insertion
+    /// order, deduplicated.
+    pub library_imports: Vec<String>,
 }
 
 /// The filename stem (`app/data/models.cln` → `models`).
@@ -163,7 +171,14 @@ struct ImportEdge {
     span: ByteSpan,
 }
 
-pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst {
+/// `libraries` are the `library_manifests[].name`s from the request; an
+/// import path matching one is a §21.2 explicit library import, not an
+/// IMPORT002 (adoption, DISCOVERIES-M5 item 7).
+pub fn resolve(
+    files: Vec<ParsedFile>,
+    libraries: &[String],
+    sink: &mut DiagnosticSink,
+) -> ResolvedAst {
     let mut decls = Declarations::default();
     for file in &files {
         decls.modules.push(ModuleScope {
@@ -291,8 +306,8 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                 ast::Item::Watch(_) => {
                     decls.watches.push((file_index, item_index));
                 }
-                ast::Item::LibraryBlock(block) => {
-                    unsupported(sink, &file.stream, "library blocks", block.span);
+                ast::Item::LibraryBlock(_) => {
+                    decls.blocks.push((file_index, item_index));
                 }
                 ast::Item::Tests(_) => {
                     decls.tests.push((file_index, item_index));
@@ -313,7 +328,14 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
                 ast::Item::Imports(entries) => {
                     for entry in entries {
                         resolve_module_entry(
-                            entry, file_index, &files, &mut edges, &mut seen, sink,
+                            entry,
+                            file_index,
+                            &files,
+                            libraries,
+                            &mut decls.modules[file_index].library_imports,
+                            &mut edges,
+                            &mut seen,
+                            sink,
                         );
                     }
                 }
@@ -447,10 +469,13 @@ pub fn resolve(files: Vec<ParsedFile>, sink: &mut DiagnosticSink) -> ResolvedAst
 /// Resolves one `import:` block entry (MOD-01): whole module, single
 /// symbol, or either with an alias; built-ins pass through as a frontier
 /// note (their surfaces are M6).
+#[allow(clippy::too_many_arguments)]
 fn resolve_module_entry(
     entry: &ast::ImportEntry,
     file_index: usize,
     files: &[ParsedFile],
+    libraries: &[String],
+    library_imports: &mut Vec<String>,
     edges: &mut Vec<ImportEdge>,
     seen: &mut Vec<(usize, Option<String>)>,
     sink: &mut DiagnosticSink,
@@ -514,6 +539,20 @@ fn resolve_module_entry(
             file.stream.diag_span(entry.span),
         );
         return;
+    }
+    // §21.2 rule 1: an import path (or dotted prefix, longest first)
+    // matching a library manifest's name is an explicit library import —
+    // it brings the library's block handlers into scope for this file.
+    // Sources-module resolution was tried first, so a module/library name
+    // collision resolves in the module's favor (DISCOVERIES-M5 item 7).
+    for end in (1..=parts.len()).rev() {
+        let candidate = parts[..end].join(".");
+        if libraries.contains(&candidate) {
+            if !library_imports.contains(&candidate) {
+                library_imports.push(candidate);
+            }
+            return;
+        }
     }
     // IMPORT002 (stub rule; local wording).
     sink.push(build(

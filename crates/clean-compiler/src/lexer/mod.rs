@@ -8,4 +8,4 @@ mod scan;
 mod token;
 
 pub use scan::lex;
-pub use token::{plain_text, Kw, StrPart, Token, TokenKind, TokenStream};
+pub use token::{is_reserved_word, plain_text, Kw, StrPart, Token, TokenKind, TokenStream};
