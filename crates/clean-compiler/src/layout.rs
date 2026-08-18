@@ -34,6 +34,15 @@ pub const WASM_PAGE_SIZE: u32 = 65_536;
 /// All heap allocations are 8-byte aligned (MMD-01).
 pub const ALIGNMENT: u32 = 8;
 
+/// `list<T>` header layout (MMD §3.4.1): length, capacity, compiler-local
+/// element-type tag, padding; elements start at +16 so 8-byte leaves stay
+/// aligned. The tag is NOT part of the ABI — stable within one compilation
+/// only.
+pub const LIST_LEN_OFFSET: u32 = 0;
+pub const LIST_CAP_OFFSET: u32 = 4;
+pub const LIST_TAG_OFFSET: u32 = 8;
+pub const LIST_ELEMS_OFFSET: u32 = 16;
+
 /// Global indices in the emitted core module. `__heap_start` is immutable
 /// and `__heap_ptr` is the mutable bump pointer; both are exported under
 /// those names (MMD-01: "guest-visible").

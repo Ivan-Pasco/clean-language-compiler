@@ -53,7 +53,24 @@ from M3–M5 executed since).
    `build.memory64 = true` (pointer width changes every layout in §3).
    **Local adoption:** the flag lands on the Unsupported channel at
    intake.
-6. **Range `iterate` semantics are example-specified only** (chapter 12,
+6a. **No `sizeof(T)` table exists.** MMD §3.4.1 sizes elements by
+   `sizeof(T)` but no chapter tabulates widths. **Local adoption**
+   (pinned in `mir::elem_layout` and the `tests/lists.rs` layout probe):
+   `integer`/`integer:u64` and `number` are 8 bytes; narrower boundary
+   integers, `boolean` and enum discriminants are 4; `string`/`bytes`/
+   `list` element slots are 4-byte pointers.
+6b. **No record/class layout exists anywhere.** Platform 14 (line 257)
+   and chapter 14 both delegate object layout to Platform 03, which
+   defines only `list`/`pairs`/`bytes`; the class chapter's changelog
+   even records removing its 4-byte class-id header *in favour of* §03 —
+   which never received it. Blocks object codegen. **Local adoption for
+   record-valued list elements only:** fields packed in declaration
+   order at natural alignment, element stride rounded to the widest
+   leaf.
+6c. **RUN013 is specified as catchable (`onError`) but error lowering
+   does not exist yet** — an out-of-range index currently traps
+   (`unreachable`). To revisit with the error-handling stage.
+7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when
    `from > to` — **local adoption:** descend by −1, mirroring

@@ -19,7 +19,7 @@ use crate::hir::{HExpr, HExprKind, HFunction, HIterSource, HStmt, HirProgram};
 use crate::layout::{Tier, DATA_SECTION_START, EMPTY_STRING_ADDR};
 use crate::parser::ast::{BinOp, IntWidth, UnOp};
 use crate::resolver::ResolvedAst;
-use crate::typecheck::tir::HostImport;
+use crate::typecheck::tir::{self, HostImport};
 use crate::typecheck::types::Ty;
 
 pub mod runtime;
@@ -135,10 +135,14 @@ pub enum Inst {
     I32Load(u32),
     /// Zero-extending byte load at constant offset from the popped address.
     I32Load8U(u32),
+    I64Load(u32),
+    F64Load(u32),
     /// i32 store at constant offset: pops value, then address.
     I32Store(u32),
     /// Byte store at constant offset: pops value, then address.
     I32Store8(u32),
+    I64Store(u32),
+    F64Store(u32),
     /// Current memory size in pages.
     MemorySize,
     /// Grow by the popped page count; pushes the old size or -1.
@@ -227,20 +231,16 @@ pub enum F64Un {
 /// locals and on the operand stack. `string`/`bytes` are a single `i32`
 /// pointer to the `[u32 length][payload]` object (MMD-04); records
 /// concatenate their fields; options prepend an `i32` discriminant.
-/// `None` marks a type with no core lowering yet — `number`, `datetime`,
-/// `any`, `matrix` and `pairs` land with later M6 stages; `Error` never
-/// survives a clean typecheck, and `Var` never leaves pass [5].
-///
-/// Lists are transitionally `(ptr, count)` pointing at a Canonical-ABI-
-/// shaped constant element array; the MMD §3.4.1 header layout arrives
-/// with runtime list construction.
+/// `None` marks a type with no core lowering yet — `datetime`, `any`,
+/// `matrix` and `pairs` land with later M6 stages; `Error` never survives
+/// a clean typecheck, and `Var` never leaves pass [5]. A `list<T>` is a
+/// single pointer to its MMD §3.4.1 header.
 pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
     Some(match ty {
         Ty::Void => vec![],
         Ty::Integer | Ty::IntegerW(IntWidth::U64) => vec![Val::I64],
         Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => vec![Val::I32],
-        Ty::Str | Ty::Bytes => vec![Val::I32],
-        Ty::List(_, _) => vec![Val::I32, Val::I32],
+        Ty::Str | Ty::Bytes | Ty::List(_, _) => vec![Val::I32],
         Ty::Record { fields, .. } => {
             let mut out = Vec::new();
             for (_, field_ty) in fields {
@@ -261,6 +261,170 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
         Ty::Class { .. } | Ty::Cap { .. } => return None,
         Ty::Var(_) | Ty::Error => return None,
     })
+}
+
+/// How one leaf scalar of a list element is stored and loaded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scalar {
+    /// 8 bytes: `integer`, `integer:u64`.
+    I64,
+    /// 8 bytes: `number`.
+    F64,
+    /// 4 bytes: narrower boundary integers, `boolean`, enum discriminants.
+    I32,
+    /// 4 bytes: a pointer to a `string`/`bytes`/`list` object.
+    Ptr(PtrTo),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PtrTo {
+    Text,
+    List,
+}
+
+impl Scalar {
+    fn size(self) -> u32 {
+        match self {
+            Scalar::I64 | Scalar::F64 => 8,
+            Scalar::I32 | Scalar::Ptr(_) => 4,
+        }
+    }
+}
+
+/// Packed in-memory layout of one list element: the flattened leaves as
+/// `(byte offset, scalar)` in field order, plus the element stride.
+///
+/// MMD §3.4.1 gives lists their header but no chapter tabulates element
+/// sizes or record packing (DISCOVERIES-M6 items 7–8). Local adoption:
+/// natural alignment, fields in declaration order, stride rounded up to
+/// the widest leaf's alignment.
+#[derive(Debug, Clone)]
+pub struct ElemLayout {
+    pub leaves: Vec<(u32, Scalar)>,
+    pub stride: u32,
+    pub align: u32,
+}
+
+pub fn elem_layout(ty: &Ty) -> Option<ElemLayout> {
+    let mut leaves = Vec::new();
+    let mut align = 4u32;
+    let mut end = 0u32;
+    collect_leaves(ty, &mut leaves, &mut align, &mut end)?;
+    let stride = end.div_ceil(align) * align;
+    Some(ElemLayout {
+        leaves,
+        stride,
+        align,
+    })
+}
+
+fn collect_leaves(
+    ty: &Ty,
+    leaves: &mut Vec<(u32, Scalar)>,
+    align: &mut u32,
+    end: &mut u32,
+) -> Option<()> {
+    let mut place = |scalar: Scalar, end: &mut u32, leaves: &mut Vec<(u32, Scalar)>| {
+        let size = scalar.size();
+        let offset = end.div_ceil(size) * size;
+        leaves.push((offset, scalar));
+        *align = (*align).max(size);
+        *end = offset + size;
+    };
+    match ty {
+        Ty::Integer | Ty::IntegerW(IntWidth::U64) => place(Scalar::I64, end, leaves),
+        Ty::Number => place(Scalar::F64, end, leaves),
+        Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => place(Scalar::I32, end, leaves),
+        Ty::Str | Ty::Bytes => place(Scalar::Ptr(PtrTo::Text), end, leaves),
+        Ty::List(_, _) => place(Scalar::Ptr(PtrTo::List), end, leaves),
+        Ty::Record { fields, .. } => {
+            for (_, field_ty) in fields {
+                collect_leaves(field_ty, leaves, align, end)?;
+            }
+        }
+        _ => return None,
+    }
+    Some(())
+}
+
+/// One copy step when serializing an internal list element into its
+/// Canonical ABI form at the boundary.
+#[derive(Debug, Clone, Copy)]
+enum CabiCopy {
+    /// 8-byte scalar: internal offset → CABI offset.
+    Copy64 { src: u32, dst: u32, float: bool },
+    /// 4-byte scalar.
+    Copy32 { src: u32, dst: u32 },
+    /// A `string`/`bytes` pointer expands to `(payload ptr, len)`.
+    Text { src: u32, dst: u32 },
+}
+
+/// The per-element copy plan for lowering `list<T>` to the Canonical ABI:
+/// `None` when `T` has no CABI serialization here yet (nested lists,
+/// sub-4-byte scalars like `boolean`/enums/narrow widths — their canonical
+/// sizes are 1–2 bytes and wait for a real need).
+fn cabi_elem_plan(ty: &Ty) -> Option<(Vec<CabiCopy>, u32)> {
+    fn walk(
+        ty: &Ty,
+        internal_end: &mut u32,
+        cabi_end: &mut u32,
+        align: &mut u32,
+        plan: &mut Vec<CabiCopy>,
+    ) -> Option<()> {
+        let src_at = |size: u32, internal_end: &mut u32| {
+            let offset = internal_end.div_ceil(size) * size;
+            *internal_end = offset + size;
+            offset
+        };
+        let dst_at = |size: u32, align_to: u32, cabi_end: &mut u32, align: &mut u32| {
+            let offset = cabi_end.div_ceil(align_to) * align_to;
+            *cabi_end = offset + size;
+            *align = (*align).max(align_to);
+            offset
+        };
+        match ty {
+            Ty::Integer | Ty::IntegerW(IntWidth::U64) => {
+                let src = src_at(8, internal_end);
+                let dst = dst_at(8, 8, cabi_end, align);
+                plan.push(CabiCopy::Copy64 {
+                    src,
+                    dst,
+                    float: false,
+                });
+            }
+            Ty::Number => {
+                let src = src_at(8, internal_end);
+                let dst = dst_at(8, 8, cabi_end, align);
+                plan.push(CabiCopy::Copy64 {
+                    src,
+                    dst,
+                    float: true,
+                });
+            }
+            Ty::IntegerW(IntWidth::U32 | IntWidth::S32) => {
+                let src = src_at(4, internal_end);
+                let dst = dst_at(4, 4, cabi_end, align);
+                plan.push(CabiCopy::Copy32 { src, dst });
+            }
+            Ty::Str | Ty::Bytes => {
+                let src = src_at(4, internal_end);
+                let dst = dst_at(8, 4, cabi_end, align);
+                plan.push(CabiCopy::Text { src, dst });
+            }
+            Ty::Record { fields, .. } => {
+                for (_, field_ty) in fields {
+                    walk(field_ty, internal_end, cabi_end, align, plan)?;
+                }
+            }
+            _ => return None,
+        }
+        Some(())
+    }
+    let mut plan = Vec::new();
+    let (mut internal_end, mut cabi_end, mut align) = (0u32, 0u32, 4u32);
+    walk(ty, &mut internal_end, &mut cabi_end, &mut align, &mut plan)?;
+    let stride = cabi_end.div_ceil(align) * align;
+    Some((plan, stride))
 }
 
 /// **Boundary** flattening of a semantic type, per the Canonical ABI:
@@ -320,10 +484,11 @@ pub fn lower(
         .map(|&index| lower_import(&program.host_imports[index], world_version, resolved, sink))
         .collect();
     let mut data = DataPool::new();
+    let mut tags = TagRegistry::default();
     let functions = program
         .functions
         .iter()
-        .map(|f| lower_function(f, program, resolved, &remap, &mut data, sink))
+        .map(|f| lower_function(f, program, resolved, &remap, &mut data, &mut tags, sink))
         .collect();
     MirProgram {
         imports,
@@ -418,6 +583,22 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
     }
 }
 
+/// Compiler-local element-type tags for list headers (MMD §3.4.1: not part
+/// of the ABI, stable within a single compilation). Assigned in first-use
+/// order over the deterministic lowering walk.
+#[derive(Default)]
+struct TagRegistry {
+    ids: std::collections::BTreeMap<String, u32>,
+}
+
+impl TagRegistry {
+    fn tag(&mut self, ty: &Ty) -> u32 {
+        let key = ty.display();
+        let next = self.ids.len() as u32;
+        *self.ids.entry(key).or_insert(next)
+    }
+}
+
 /// Interns static byte runs into one deduplicated blob. Offsets are final
 /// linear-memory addresses (blob starts at `layout::DATA_SECTION_START`).
 /// The pool is seeded with the 4-byte empty-string constant so every empty
@@ -439,12 +620,23 @@ impl DataPool {
     }
 
     fn intern(&mut self, bytes: &[u8]) -> u32 {
+        self.intern_aligned(bytes, 4)
+    }
+
+    /// Interns with the run's base address aligned to `align` (list objects
+    /// holding 8-byte leaves need an 8-aligned base).
+    fn intern_aligned(&mut self, bytes: &[u8], align: u32) -> u32 {
         if let Some(&offset) = self.seen.get(bytes) {
-            return offset;
+            if offset.is_multiple_of(align) {
+                return offset;
+            }
+        }
+        while !(DATA_SECTION_START + self.blob.len() as u32).is_multiple_of(align) {
+            self.blob.push(0);
         }
         let offset = DATA_SECTION_START + self.blob.len() as u32;
         self.blob.extend_from_slice(bytes);
-        // Keep every run 4-aligned so aggregate layouts stay canonical.
+        // Keep every run 4-aligned so the next base stays canonical.
         while !self.blob.len().is_multiple_of(4) {
             self.blob.push(0);
         }
@@ -525,6 +717,7 @@ fn lower_function(
     resolved: &ResolvedAst,
     remap: &std::collections::BTreeMap<usize, usize>,
     data: &mut DataPool,
+    tags: &mut TagRegistry,
     sink: &mut DiagnosticSink,
 ) -> MirFunction {
     // LocalId → first wasm slot; flattened types occupy consecutive slots.
@@ -561,6 +754,7 @@ fn lower_function(
         remap,
         label_depth: 0,
         loops: Vec::new(),
+        tags,
     };
     if let Some(first) = function.before.first().or(function.after.first()) {
         sink.note_unsupported(
@@ -606,6 +800,8 @@ struct FnLowerer<'a> {
     /// stored absolute label indices (FLW-03: the loop-context stack is
     /// the one authority for loop control targets — KNOWLEDGE §13.2).
     loops: Vec<LoopCtx>,
+    /// Program-wide element-type tags for list headers.
+    tags: &'a mut TagRegistry,
 }
 
 /// Absolute label indices (count of enclosing labels *outside* the target)
@@ -620,37 +816,133 @@ struct LoopCtx {
 }
 
 impl<'a> FnLowerer<'a> {
-    /// Serializes a list of compile-time-constant elements into the
-    /// canonical contiguous layout. Supported constant shapes in M1:
-    /// strings and records whose fields are themselves constant.
-    fn serialize_const_list(&mut self, items: &[HExpr]) -> Option<Vec<u8>> {
+    /// Serializes a fully-constant list into its static MMD §3.4.1 object:
+    /// header, then elements packed per [`ElemLayout`]. Returns `None` when
+    /// any element is not a serializable constant (the runtime path takes
+    /// over).
+    fn serialize_const_list(
+        &mut self,
+        items: &[HExpr],
+        layout: &ElemLayout,
+        tag: u32,
+    ) -> Option<Vec<u8>> {
         let mut blob = Vec::new();
+        blob.extend_from_slice(&(items.len() as u32).to_le_bytes());
+        blob.extend_from_slice(&(items.len() as u32).to_le_bytes());
+        blob.extend_from_slice(&tag.to_le_bytes());
+        blob.extend_from_slice(&0u32.to_le_bytes());
         for item in items {
-            self.serialize_const(item, &mut blob)?;
+            let start = blob.len();
+            blob.resize(start + layout.stride as usize, 0);
+            let mut leaf = 0usize;
+            self.serialize_const_elem(item, layout, &mut leaf, start, &mut blob)?;
         }
         Some(blob)
     }
 
-    fn serialize_const(&mut self, expr: &HExpr, blob: &mut Vec<u8>) -> Option<()> {
+    fn serialize_const_elem(
+        &mut self,
+        expr: &HExpr,
+        layout: &ElemLayout,
+        leaf: &mut usize,
+        elem_start: usize,
+        blob: &mut Vec<u8>,
+    ) -> Option<()> {
+        let mut write = |leaf: &mut usize, bytes: &[u8]| {
+            let (offset, scalar) = layout.leaves[*leaf];
+            debug_assert_eq!(bytes.len() as u32, scalar.size());
+            let at = elem_start + offset as usize;
+            blob[at..at + bytes.len()].copy_from_slice(bytes);
+            *leaf += 1;
+        };
         match &expr.kind {
             HExprKind::Str(value) => {
-                // Constant aggregates serialize in the Canonical ABI
-                // element layout (they only ever cross the boundary), so a
-                // string element is (payload ptr, len) — the payload sits
-                // at `base + 4` inside the interned string object.
                 let base = self.data.intern_string(value);
-                blob.extend_from_slice(&(base + 4).to_le_bytes());
-                blob.extend_from_slice(&(value.len() as u32).to_le_bytes());
+                write(leaf, &base.to_le_bytes());
+                Some(())
+            }
+            HExprKind::Int(v) => {
+                match layout.leaves[*leaf].1 {
+                    Scalar::I64 => write(leaf, &(*v as i64).to_le_bytes()),
+                    _ => write(leaf, &(*v as i32).to_le_bytes()),
+                }
+                Some(())
+            }
+            HExprKind::Num(v) => {
+                write(leaf, &v.to_le_bytes());
+                Some(())
+            }
+            HExprKind::Bool(v) => {
+                write(leaf, &(*v as i32).to_le_bytes());
+                Some(())
+            }
+            HExprKind::EnumCase(i) => {
+                write(leaf, &i.to_le_bytes());
                 Some(())
             }
             HExprKind::MakeRecord(fields) => {
                 for field in fields {
-                    self.serialize_const(field, blob)?;
+                    self.serialize_const_elem(field, layout, leaf, elem_start, blob)?;
                 }
                 Some(())
             }
             _ => None,
         }
+    }
+
+    /// Emits stores for one element already evaluated into consecutive
+    /// scratch slots: `base_slot` holds the element's base address (header
+    /// excluded — callers fold `LIST_ELEMS_OFFSET` into `extra_offset`).
+    fn store_element_from_scratch(
+        &mut self,
+        layout: &ElemLayout,
+        addr_slot: u32,
+        value_base_slot: u32,
+        extra_offset: u32,
+        out: &mut Vec<Inst>,
+    ) {
+        for (index, (offset, scalar)) in layout.leaves.iter().enumerate() {
+            out.push(Inst::LocalGet(addr_slot));
+            out.push(Inst::LocalGet(value_base_slot + index as u32));
+            out.push(match scalar {
+                Scalar::I64 => Inst::I64Store(extra_offset + offset),
+                Scalar::F64 => Inst::F64Store(extra_offset + offset),
+                Scalar::I32 | Scalar::Ptr(_) => Inst::I32Store(extra_offset + offset),
+            });
+        }
+    }
+
+    /// Emits loads pushing one element's flattened slots; `addr_slot` holds
+    /// the element's address minus `extra_offset`.
+    fn load_element(
+        &mut self,
+        layout: &ElemLayout,
+        addr_slot: u32,
+        extra_offset: u32,
+        out: &mut Vec<Inst>,
+    ) {
+        for (offset, scalar) in &layout.leaves {
+            out.push(Inst::LocalGet(addr_slot));
+            out.push(match scalar {
+                Scalar::I64 => Inst::I64Load(extra_offset + offset),
+                Scalar::F64 => Inst::F64Load(extra_offset + offset),
+                Scalar::I32 | Scalar::Ptr(_) => Inst::I32Load(extra_offset + offset),
+            });
+        }
+    }
+
+    /// Scratch slots matching one element's flattened internal shape.
+    fn elem_scratch(&mut self, layout: &ElemLayout) -> u32 {
+        let vals: Vec<Val> = layout
+            .leaves
+            .iter()
+            .map(|(_, scalar)| match scalar {
+                Scalar::I64 => Val::I64,
+                Scalar::F64 => Val::F64,
+                Scalar::I32 | Scalar::Ptr(_) => Val::I32,
+            })
+            .collect();
+        self.alloc_scratch(&vals)
     }
 
     /// Reserves consecutive scratch slots and returns the base slot index.
@@ -817,6 +1109,81 @@ impl<'a> FnLowerer<'a> {
                     body: vec![Inst::Loop { body: loop_body }],
                 });
             }
+            // FLW-02 list iterate: index-driven walk over the §3.4.1
+            // object; the element binds before the body's inner block so
+            // `continue` still advances (FLW-03).
+            HStmt::Iterate {
+                binder,
+                source: HIterSource::List(source),
+                step,
+                body,
+            } if matches!(&source.ty, Ty::List(elem, _) if elem_layout(elem).is_some()) => {
+                let Ty::List(elem, _) = &source.ty else {
+                    unreachable!("guard checked the source is a list");
+                };
+                let layout = elem_layout(elem).expect("guard checked the layout");
+                if let Some(step) = step {
+                    // The M4 brief 2026-08-17-iterate-step-non-range.md
+                    // owns step-on-list semantics; until it lands, the
+                    // checker types it and codegen declines.
+                    self.note(sink, "iterate step over list sources", step.span);
+                    return;
+                }
+                let base = self.alloc_scratch(&[Val::I32]);
+                let len = self.alloc_scratch(&[Val::I32]);
+                let idx = self.alloc_scratch(&[Val::I32]);
+                let addr = self.alloc_scratch(&[Val::I32]);
+                self.expr(source, out, sink);
+                out.push(Inst::LocalTee(base));
+                out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
+                out.push(Inst::LocalSet(len));
+                out.push(Inst::I32Const(0));
+                out.push(Inst::LocalSet(idx));
+
+                let label_base = self.label_depth;
+                self.loops.push(LoopCtx {
+                    break_abs: label_base,
+                    continue_abs: label_base + 2,
+                });
+                // Exit test and binder loads sit at the loop's own label
+                // depth, before the inner block.
+                let mut bind = vec![
+                    Inst::LocalGet(idx),
+                    Inst::LocalGet(len),
+                    Inst::I32Cmp(CmpOp::GeS),
+                    Inst::BrIf(1),
+                    Inst::LocalGet(base),
+                    Inst::LocalGet(idx),
+                    Inst::I32Const(layout.stride as i32),
+                    Inst::I32Bin(I32Op::Mul),
+                    Inst::I32Bin(I32Op::Add),
+                    Inst::LocalSet(addr),
+                ];
+                self.load_element(&layout, addr, crate::layout::LIST_ELEMS_OFFSET, &mut bind);
+                let binder_base = self.slots[*binder];
+                for offset in (0..self.slot_widths[*binder]).rev() {
+                    bind.push(Inst::LocalSet(binder_base + offset));
+                }
+
+                self.label_depth += 3;
+                let mut inner = Vec::new();
+                for stmt in body {
+                    self.stmt(stmt, &mut inner, sink);
+                }
+                self.label_depth -= 3;
+                self.loops.pop();
+
+                let mut loop_body = bind;
+                loop_body.push(Inst::Block { body: inner });
+                loop_body.push(Inst::LocalGet(idx));
+                loop_body.push(Inst::I32Const(1));
+                loop_body.push(Inst::I32Bin(I32Op::Add));
+                loop_body.push(Inst::LocalSet(idx));
+                loop_body.push(Inst::Br(0));
+                out.push(Inst::Block {
+                    body: vec![Inst::Loop { body: loop_body }],
+                });
+            }
             HStmt::Iterate { source, .. } => {
                 let (construct, span): (&'static str, _) = match source {
                     HIterSource::List(e) => ("iterate over list values", e.span),
@@ -889,21 +1256,55 @@ impl<'a> FnLowerer<'a> {
                 }
             }
             HExprKind::MakeList(items) => {
-                // Compile-time-constant lists serialize to static data in
-                // the canonical element layout; runtime list construction
-                // needs the allocator story of M6.
-                match self.serialize_const_list(items) {
-                    Some(blob) => {
-                        let ptr = if blob.is_empty() {
-                            DATA_SECTION_START
-                        } else {
-                            self.data.intern(&blob)
-                        };
-                        out.push(Inst::I32Const(ptr as i32));
-                        out.push(Inst::I32Const(items.len() as i32));
-                    }
-                    None => self.note(sink, "runtime-constructed list values", expr.span),
+                let elem_ty = match &expr.ty {
+                    Ty::List(elem, _) => (**elem).clone(),
+                    _ => Ty::Error,
+                };
+                let Some(layout) = elem_layout(&elem_ty) else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return;
+                };
+                let tag = self.tags.tag(&elem_ty);
+                // Fully-constant lists live in static data.
+                if let Some(blob) = self.serialize_const_list(items, &layout, tag) {
+                    let base = self.data.intern_aligned(&blob, 8);
+                    out.push(Inst::I32Const(base as i32));
+                    return;
                 }
+                // Runtime construction: allocate, fill the header, store
+                // each element.
+                let base = self.alloc_scratch(&[Val::I32]);
+                let size = crate::layout::LIST_ELEMS_OFFSET + items.len() as u32 * layout.stride;
+                out.push(Inst::I32Const(size as i32));
+                out.push(Inst::I32Const(crate::layout::ALIGNMENT as i32));
+                out.push(Inst::CallRuntime(runtime::RuntimeFn::Alloc));
+                out.push(Inst::LocalTee(base));
+                out.push(Inst::I32Const(items.len() as i32));
+                out.push(Inst::I32Store(crate::layout::LIST_LEN_OFFSET));
+                out.push(Inst::LocalGet(base));
+                out.push(Inst::I32Const(items.len() as i32));
+                out.push(Inst::I32Store(crate::layout::LIST_CAP_OFFSET));
+                out.push(Inst::LocalGet(base));
+                out.push(Inst::I32Const(tag as i32));
+                out.push(Inst::I32Store(crate::layout::LIST_TAG_OFFSET));
+                out.push(Inst::LocalGet(base));
+                out.push(Inst::I32Const(0));
+                out.push(Inst::I32Store(crate::layout::LIST_TAG_OFFSET + 4));
+                let scratch = self.elem_scratch(&layout);
+                for (i, item) in items.iter().enumerate() {
+                    self.expr(item, out, sink);
+                    for slot in (0..layout.leaves.len() as u32).rev() {
+                        out.push(Inst::LocalSet(scratch + slot));
+                    }
+                    self.store_element_from_scratch(
+                        &layout,
+                        base,
+                        scratch,
+                        crate::layout::LIST_ELEMS_OFFSET + i as u32 * layout.stride,
+                        out,
+                    );
+                }
+                out.push(Inst::LocalGet(base));
             }
             HExprKind::CallHost { import, args } => {
                 let param_tys = self.program.host_imports[*import].params.clone();
@@ -994,7 +1395,56 @@ impl<'a> FnLowerer<'a> {
             // The M4 frontier: typed, not yet lowerable to core wasm.
             HExprKind::StrInterp(_) => self.note(sink, "string interpolation", expr.span),
             HExprKind::MakeMatrix(_) => self.note(sink, "matrix values", expr.span),
-            HExprKind::Index { .. } => self.note(sink, "index access", expr.span),
+            HExprKind::Index { recv, index, kind } => match kind {
+                tir::IndexKind::List => {
+                    let Ty::List(elem, _) = &recv.ty else {
+                        self.note(sink, "index access", expr.span);
+                        return;
+                    };
+                    let Some(layout) = elem_layout(elem) else {
+                        self.note(sink, "list values of this element type", expr.span);
+                        return;
+                    };
+                    let base = self.alloc_scratch(&[Val::I32]);
+                    let idx64 = self.alloc_scratch(&[Val::I64]);
+                    let addr = self.alloc_scratch(&[Val::I32]);
+                    self.expr(recv, out, sink);
+                    out.push(Inst::LocalSet(base));
+                    self.expr(index, out, sink);
+                    if !is_i64(&index.ty) {
+                        out.push(Inst::I64ExtendI32U);
+                    }
+                    out.push(Inst::LocalSet(idx64));
+                    // Bounds check in the i64 domain (a negative index is a
+                    // huge unsigned value). Out of range traps — RUN013's
+                    // catchable form needs the error-handling lowering
+                    // (DISCOVERIES-M6).
+                    out.push(Inst::LocalGet(idx64));
+                    out.push(Inst::LocalGet(base));
+                    out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
+                    out.push(Inst::I64ExtendI32U);
+                    out.push(Inst::I64Cmp(CmpOp::LtU));
+                    out.push(Inst::I32Eqz);
+                    out.push(Inst::If {
+                        result: None,
+                        then: vec![Inst::Unreachable],
+                        els: vec![],
+                    });
+                    // addr = base + idx * stride; leaves load at
+                    // LIST_ELEMS_OFFSET + leaf offset.
+                    out.push(Inst::LocalGet(base));
+                    out.push(Inst::LocalGet(idx64));
+                    out.push(Inst::I32WrapI64);
+                    out.push(Inst::I32Const(layout.stride as i32));
+                    out.push(Inst::I32Bin(I32Op::Mul));
+                    out.push(Inst::I32Bin(I32Op::Add));
+                    out.push(Inst::LocalSet(addr));
+                    self.load_element(&layout, addr, crate::layout::LIST_ELEMS_OFFSET, out);
+                }
+                tir::IndexKind::Matrix | tir::IndexKind::Pairs | tir::IndexKind::Any => {
+                    self.note(sink, "index access", expr.span)
+                }
+            },
             HExprKind::NonNone(_) => self.note(sink, "postfix `!` assertion", expr.span),
             HExprKind::IsNone { .. } => self.note(sink, "is-none checks", expr.span),
             HExprKind::ResultRef => self.note(sink, "contract blocks in compiled code", expr.span),
@@ -1076,6 +1526,111 @@ impl<'a> FnLowerer<'a> {
                 });
                 out.push(Inst::LocalGet(disc));
                 out.push(Inst::LocalGet(ptr));
+                out.push(Inst::LocalGet(len));
+            }
+            // Lists serialize element by element into a fresh Canonical
+            // ABI buffer (§3.7: the host sees copies, never the §3.4.1
+            // object), then lower as (buffer, count).
+            Ty::List(elem, _) => {
+                let (Some(layout), Some((plan, cabi_stride))) =
+                    (elem_layout(elem), cabi_elem_plan(elem))
+                else {
+                    self.note(
+                        sink,
+                        "list values of this element type at the host boundary",
+                        arg.span,
+                    );
+                    return;
+                };
+                let src = self.alloc_scratch(&[Val::I32]);
+                let len = self.alloc_scratch(&[Val::I32]);
+                let buf = self.alloc_scratch(&[Val::I32]);
+                let idx = self.alloc_scratch(&[Val::I32]);
+                let saddr = self.alloc_scratch(&[Val::I32]);
+                let daddr = self.alloc_scratch(&[Val::I32]);
+                self.expr(arg, out, sink);
+                out.push(Inst::LocalTee(src));
+                out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
+                out.push(Inst::LocalSet(len));
+                out.push(Inst::LocalGet(len));
+                out.push(Inst::I32Const(cabi_stride as i32));
+                out.push(Inst::I32Bin(I32Op::Mul));
+                out.push(Inst::I32Const(crate::layout::ALIGNMENT as i32));
+                out.push(Inst::CallRuntime(runtime::RuntimeFn::Alloc));
+                out.push(Inst::LocalSet(buf));
+                out.push(Inst::I32Const(0));
+                out.push(Inst::LocalSet(idx));
+                let mut copy = vec![
+                    Inst::LocalGet(idx),
+                    Inst::LocalGet(len),
+                    Inst::I32Cmp(CmpOp::GeS),
+                    Inst::BrIf(1),
+                    Inst::LocalGet(src),
+                    Inst::LocalGet(idx),
+                    Inst::I32Const(layout.stride as i32),
+                    Inst::I32Bin(I32Op::Mul),
+                    Inst::I32Bin(I32Op::Add),
+                    Inst::LocalSet(saddr),
+                    Inst::LocalGet(buf),
+                    Inst::LocalGet(idx),
+                    Inst::I32Const(cabi_stride as i32),
+                    Inst::I32Bin(I32Op::Mul),
+                    Inst::I32Bin(I32Op::Add),
+                    Inst::LocalSet(daddr),
+                ];
+                let elems = crate::layout::LIST_ELEMS_OFFSET;
+                for step in &plan {
+                    match *step {
+                        CabiCopy::Copy64 {
+                            src: s,
+                            dst: d,
+                            float,
+                        } => {
+                            copy.push(Inst::LocalGet(daddr));
+                            copy.push(Inst::LocalGet(saddr));
+                            copy.push(if float {
+                                Inst::F64Load(elems + s)
+                            } else {
+                                Inst::I64Load(elems + s)
+                            });
+                            copy.push(if float {
+                                Inst::F64Store(d)
+                            } else {
+                                Inst::I64Store(d)
+                            });
+                        }
+                        CabiCopy::Copy32 { src: s, dst: d } => {
+                            copy.push(Inst::LocalGet(daddr));
+                            copy.push(Inst::LocalGet(saddr));
+                            copy.push(Inst::I32Load(elems + s));
+                            copy.push(Inst::I32Store(d));
+                        }
+                        CabiCopy::Text { src: s, dst: d } => {
+                            // (payload ptr, byte length) from the string
+                            // object's base.
+                            copy.push(Inst::LocalGet(daddr));
+                            copy.push(Inst::LocalGet(saddr));
+                            copy.push(Inst::I32Load(elems + s));
+                            copy.push(Inst::I32Const(4));
+                            copy.push(Inst::I32Bin(I32Op::Add));
+                            copy.push(Inst::I32Store(d));
+                            copy.push(Inst::LocalGet(daddr));
+                            copy.push(Inst::LocalGet(saddr));
+                            copy.push(Inst::I32Load(elems + s));
+                            copy.push(Inst::I32Load(0));
+                            copy.push(Inst::I32Store(d + 4));
+                        }
+                    }
+                }
+                copy.push(Inst::LocalGet(idx));
+                copy.push(Inst::I32Const(1));
+                copy.push(Inst::I32Bin(I32Op::Add));
+                copy.push(Inst::LocalSet(idx));
+                copy.push(Inst::Br(0));
+                out.push(Inst::Block {
+                    body: vec![Inst::Loop { body: copy }],
+                });
+                out.push(Inst::LocalGet(buf));
                 out.push(Inst::LocalGet(len));
             }
             // Record literals expand field by field; each field converts

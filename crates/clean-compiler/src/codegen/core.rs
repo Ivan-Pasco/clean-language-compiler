@@ -329,6 +329,16 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
             align: 0,
             memory_index: 0,
         })),
+        Inst::I64Load(offset) => f.instruction(&I::I64Load(MemArg {
+            offset: *offset as u64,
+            align: 3,
+            memory_index: 0,
+        })),
+        Inst::F64Load(offset) => f.instruction(&I::F64Load(MemArg {
+            offset: *offset as u64,
+            align: 3,
+            memory_index: 0,
+        })),
         Inst::I32Store(offset) => f.instruction(&I::I32Store(MemArg {
             offset: *offset as u64,
             align: 2,
@@ -337,6 +347,16 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
         Inst::I32Store8(offset) => f.instruction(&I::I32Store8(MemArg {
             offset: *offset as u64,
             align: 0,
+            memory_index: 0,
+        })),
+        Inst::I64Store(offset) => f.instruction(&I::I64Store(MemArg {
+            offset: *offset as u64,
+            align: 3,
+            memory_index: 0,
+        })),
+        Inst::F64Store(offset) => f.instruction(&I::F64Store(MemArg {
+            offset: *offset as u64,
+            align: 3,
             memory_index: 0,
         })),
         Inst::MemorySize => f.instruction(&I::MemorySize(0)),
