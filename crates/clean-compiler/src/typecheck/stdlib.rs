@@ -68,6 +68,35 @@ pub enum StdFn {
     StrToLowerCase,
     // string — namespace style.
     StrConcat,
+    // list — method style (receiver is args[0]).
+    ListLength,
+    ListIsEmpty,
+    ListIsNotEmpty,
+    ListGet,
+    ListSet,
+    /// `add`/`insert` are typed but blocked in codegen: §3.4.1 inline
+    /// elements + growth relocation break aliasing (DISCOVERIES-M6).
+    ListAdd,
+    ListInsert,
+    ListRemoveAt,
+    ListRemoveLast,
+    /// Behavior-dependent `remove()` — front of a `.line`, top of a
+    /// `.pile`.
+    ListRemoveBehavior,
+    ListPeek,
+    ListContains,
+    ListIndexOf,
+    ListLastIndexOf,
+    ListSlice,
+    ListReverse,
+    ListSort,
+    ListFirst,
+    ListLast,
+    // list — namespace style.
+    ListConcat,
+    ListRange,
+    ListFill,
+    ListJoin,
 }
 
 /// `math.<name>(…)` signatures, verbatim from 15 §Math Module.
@@ -133,6 +162,61 @@ pub fn string_method(name: &str) -> Option<(StdFn, Vec<Ty>, Ty)> {
         "split" => (StrSplit, vec![Ty::Str], Ty::list(Ty::Str)),
         "toUpperCase" => (StrToUpperCase, vec![], Ty::Str),
         "toLowerCase" => (StrToLowerCase, vec![], Ty::Str),
+        _ => return None,
+    };
+    Some((func, params, ret))
+}
+
+/// Method-style `list<T>` surface, verbatim from 15 §List Module.
+/// `remove` dispatches on arity (`remove(index)` vs the behavior-
+/// dependent `remove()`); `remove()`/`peek()` legality against the
+/// receiver's declared behavior is the caller's check (SEM004).
+pub fn list_method(name: &str, elem: &Ty, arg_count: usize) -> Option<(StdFn, Vec<Ty>, Ty)> {
+    use StdFn::*;
+    let elem = elem.clone();
+    let list = || Ty::list(elem.clone());
+    let (func, params, ret) = match name {
+        "length" => (ListLength, vec![], Ty::Integer),
+        "isEmpty" => (ListIsEmpty, vec![], Ty::Boolean),
+        "isNotEmpty" => (ListIsNotEmpty, vec![], Ty::Boolean),
+        "get" => (ListGet, vec![Ty::Integer], elem.clone()),
+        "set" => (ListSet, vec![Ty::Integer, elem.clone()], Ty::Void),
+        "add" => (ListAdd, vec![elem.clone()], Ty::Void),
+        "insert" => (ListInsert, vec![Ty::Integer, elem.clone()], Ty::Void),
+        "remove" if arg_count == 1 => (ListRemoveAt, vec![Ty::Integer], elem.clone()),
+        "remove" => (ListRemoveBehavior, vec![], elem.clone()),
+        "removeLast" => (ListRemoveLast, vec![], elem.clone()),
+        "peek" => (ListPeek, vec![], elem.clone()),
+        "contains" => (ListContains, vec![elem.clone()], Ty::Boolean),
+        "indexOf" => (ListIndexOf, vec![elem.clone()], Ty::Integer),
+        "lastIndexOf" => (ListLastIndexOf, vec![elem.clone()], Ty::Integer),
+        "slice" => (ListSlice, vec![Ty::Integer, Ty::Integer], list()),
+        "reverse" => (ListReverse, vec![], list()),
+        "sort" => (ListSort, vec![], list()),
+        "first" => (ListFirst, vec![], elem.clone()),
+        "last" => (ListLast, vec![], elem.clone()),
+        _ => return None,
+    };
+    Some((func, params, ret))
+}
+
+/// Namespace-style `list.<name>(…)`, verbatim from 15 §List Module. The
+/// element type of `concat`/`fill` is inferred from the arguments by the
+/// caller; `range` is always `list<integer>` and `join` takes
+/// `list<string>`.
+pub fn list_namespace_fn(name: &str, elem: &Ty) -> Option<(StdFn, Vec<Ty>, Ty)> {
+    use StdFn::*;
+    let elem = elem.clone();
+    let list = || Ty::list(elem.clone());
+    let (func, params, ret) = match name {
+        "concat" => (ListConcat, vec![list(), list()], list()),
+        "range" => (
+            ListRange,
+            vec![Ty::Integer, Ty::Integer],
+            Ty::list(Ty::Integer),
+        ),
+        "fill" => (ListFill, vec![Ty::Integer, elem.clone()], list()),
+        "join" => (ListJoin, vec![Ty::list(Ty::Str), Ty::Str], Ty::Str),
         _ => return None,
     };
     Some((func, params, ret))

@@ -101,6 +101,22 @@ from M3–M5 executed since).
    range trap (RUN013's catchable form waits on error lowering).
    `toUpperCase`/`toLowerCase` are typed but blocked: Unicode case
    folding is `clean:bridge/string` territory (item 1).
+6g. **`list.add`/`insert` are jointly incoherent with §3.4.1 and
+   aliasing.** The layout stores elements inline in one object; `add` on
+   a full list must relocate it; and nothing in chapter 4 defines
+   assignment semantics for lists (value copy vs reference), so after
+   `b = a; a.add(x)` a relocating `add` leaves `b` pointing at the stale
+   object — silently wrong data, not even a trap. Pick two of {inline
+   layout, in-place growth, reference aliasing}. **Local state:**
+   `add`/`insert` are typed but decline to lower; every other mutation
+   (`set`, `remove(i)`, `removeLast`, behavior `remove()`) is in-place
+   and relocation-free, hence aliasing-safe. Blocks: growable
+   collections in user code (compiler-internal growth is unaffected —
+   fresh unaliased objects can relocate freely). Also adopted with
+   fixture pins: `slice` clamps like `substring`; `sort` is ascending
+   over `integer`/`number`/`string` elements only (record ordering
+   undefined); list search equality is scalar/string only (record
+   equality undefined).
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when

@@ -23,6 +23,7 @@ use crate::typecheck::tir::{self, HostImport};
 use crate::typecheck::types::Ty;
 
 pub mod runtime;
+pub mod runtime_list;
 pub mod runtime_str;
 
 /// Core-wasm value types MIR speaks in (a subset of `wasm_encoder`'s,
@@ -941,6 +942,346 @@ impl<'a> FnLowerer<'a> {
         }
     }
 
+    /// Evaluates a list receiver and an index expression, bounds-checks in
+    /// the i64 domain (a negative index is a huge unsigned value; out of
+    /// range traps — RUN013's catchable form needs error lowering), and
+    /// computes the element address. Returns `(base, idx64, addr)` slots;
+    /// leaves load/store at `LIST_ELEMS_OFFSET` + leaf offset from `addr`.
+    fn emit_list_elem_addr(
+        &mut self,
+        recv: &HExpr,
+        index: &HExpr,
+        layout: &ElemLayout,
+        out: &mut Vec<Inst>,
+        sink: &mut DiagnosticSink,
+    ) -> (u32, u32, u32) {
+        let base = self.alloc_scratch(&[Val::I32]);
+        let idx64 = self.alloc_scratch(&[Val::I64]);
+        let addr = self.alloc_scratch(&[Val::I32]);
+        self.expr(recv, out, sink);
+        out.push(Inst::LocalSet(base));
+        self.expr(index, out, sink);
+        if !is_i64(&index.ty) {
+            out.push(Inst::I64ExtendI32U);
+        }
+        out.push(Inst::LocalSet(idx64));
+        out.push(Inst::LocalGet(idx64));
+        out.push(Inst::LocalGet(base));
+        out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
+        out.push(Inst::I64ExtendI32U);
+        out.push(Inst::I64Cmp(CmpOp::LtU));
+        out.push(Inst::I32Eqz);
+        out.push(Inst::If {
+            result: None,
+            then: vec![Inst::Unreachable],
+            els: vec![],
+        });
+        out.push(Inst::LocalGet(base));
+        out.push(Inst::LocalGet(idx64));
+        out.push(Inst::I32WrapI64);
+        out.push(Inst::I32Const(layout.stride as i32));
+        out.push(Inst::I32Bin(I32Op::Mul));
+        out.push(Inst::I32Bin(I32Op::Add));
+        out.push(Inst::LocalSet(addr));
+        (base, idx64, addr)
+    }
+
+    /// Evaluates a list receiver into a scratch slot and traps when it is
+    /// empty (`first()`/`last()`/`remove()`/`peek()` on an empty
+    /// collection — RUN013 family).
+    fn emit_list_recv_nonempty(
+        &mut self,
+        recv: &HExpr,
+        out: &mut Vec<Inst>,
+        sink: &mut DiagnosticSink,
+    ) -> u32 {
+        let base = self.alloc_scratch(&[Val::I32]);
+        self.expr(recv, out, sink);
+        out.push(Inst::LocalTee(base));
+        out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
+        out.push(Inst::I32Eqz);
+        out.push(Inst::If {
+            result: None,
+            then: vec![Inst::Unreachable],
+            els: vec![],
+        });
+        base
+    }
+
+    /// Pushes the address of the last element: `base + (len-1) * stride`.
+    fn emit_list_last_addr(&mut self, base: u32, stride: u32, out: &mut Vec<Inst>) -> u32 {
+        let addr = self.alloc_scratch(&[Val::I32]);
+        out.push(Inst::LocalGet(base));
+        out.push(Inst::LocalGet(base));
+        out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
+        out.push(Inst::I32Const(1));
+        out.push(Inst::I32Bin(I32Op::Sub));
+        out.push(Inst::I32Const(stride as i32));
+        out.push(Inst::I32Bin(I32Op::Mul));
+        out.push(Inst::I32Bin(I32Op::Add));
+        out.push(Inst::LocalSet(addr));
+        addr
+    }
+
+    /// The chapter-15 list operations (all `CallStd` variants prefixed
+    /// `List`); returns true when `func` was one of them.
+    fn lower_list_std(
+        &mut self,
+        func: crate::typecheck::stdlib::StdFn,
+        args: &[HExpr],
+        expr: &HExpr,
+        out: &mut Vec<Inst>,
+        sink: &mut DiagnosticSink,
+    ) -> bool {
+        use crate::typecheck::stdlib::StdFn::*;
+        use runtime::RuntimeFn;
+        const LEN: u32 = crate::layout::LIST_LEN_OFFSET;
+        const ELEMS: u32 = crate::layout::LIST_ELEMS_OFFSET;
+
+        // The receiver's element layout, where there is a list receiver.
+        let recv_elem = || match args.first().map(|a| &a.ty) {
+            Some(Ty::List(elem, _)) => Some((**elem).clone()),
+            _ => None,
+        };
+        // The single-leaf search/sort kind of an element type.
+        enum Kind {
+            I64,
+            F64,
+            Str,
+            I32,
+        }
+        let scalar_kind = |elem: &Ty| -> Option<Kind> {
+            let layout = elem_layout(elem)?;
+            match layout.leaves.as_slice() {
+                [(_, Scalar::I64)] => Some(Kind::I64),
+                [(_, Scalar::F64)] => Some(Kind::F64),
+                [(_, Scalar::Ptr(PtrTo::Text))] => Some(Kind::Str),
+                [(_, Scalar::I32)] => Some(Kind::I32),
+                _ => None,
+            }
+        };
+
+        match func {
+            // §3.4.1 inline elements + growth relocation break aliasing;
+            // blocked on a foundation ruling (DISCOVERIES-M6).
+            ListAdd | ListInsert => {
+                self.note(sink, "growing list methods", expr.span);
+            }
+            ListLength => {
+                self.expr(&args[0], out, sink);
+                out.push(Inst::I32Load(LEN));
+                out.push(Inst::I64ExtendI32U);
+            }
+            ListIsEmpty => {
+                self.expr(&args[0], out, sink);
+                out.push(Inst::I32Load(LEN));
+                out.push(Inst::I32Eqz);
+            }
+            ListIsNotEmpty => {
+                self.expr(&args[0], out, sink);
+                out.push(Inst::I32Load(LEN));
+                out.push(Inst::I32Const(0));
+                out.push(Inst::I32Cmp(CmpOp::Ne));
+            }
+            ListGet | ListSet | ListRemoveAt => {
+                let Some(elem) = recv_elem() else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let Some(layout) = elem_layout(&elem) else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let (base, idx64, addr) =
+                    self.emit_list_elem_addr(&args[0], &args[1], &layout, out, sink);
+                match func {
+                    ListGet => self.load_element(&layout, addr, ELEMS, out),
+                    ListSet => {
+                        self.expr(&args[2], out, sink);
+                        let scratch = self.elem_scratch(&layout);
+                        for slot in (0..layout.leaves.len() as u32).rev() {
+                            out.push(Inst::LocalSet(scratch + slot));
+                        }
+                        self.store_element_from_scratch(&layout, addr, scratch, ELEMS, out);
+                    }
+                    _ => {
+                        // remove(index): the removed element, then shift.
+                        self.load_element(&layout, addr, ELEMS, out);
+                        let scratch = self.elem_scratch(&layout);
+                        for slot in (0..layout.leaves.len() as u32).rev() {
+                            out.push(Inst::LocalSet(scratch + slot));
+                        }
+                        out.push(Inst::LocalGet(base));
+                        out.push(Inst::LocalGet(idx64));
+                        out.push(Inst::I32Const(layout.stride as i32));
+                        out.push(Inst::CallRuntime(RuntimeFn::ListRemoveAt));
+                        for slot in 0..layout.leaves.len() as u32 {
+                            out.push(Inst::LocalGet(scratch + slot));
+                        }
+                    }
+                }
+            }
+            ListFirst | ListLast | ListPeek | ListRemoveBehavior | ListRemoveLast => {
+                let Some(elem) = recv_elem() else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let Some(layout) = elem_layout(&elem) else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                // Behavior resolution: front of a `.line`, top of a
+                // `.pile` (pass [5] already rejected the undeclared case).
+                let front = match (&func, &args[0].ty) {
+                    (ListFirst, _) => true,
+                    (ListLast | ListRemoveLast, _) => false,
+                    // remove()/peek(): front of a `.line`, top of a `.pile`.
+                    (_, Ty::List(_, behavior)) => {
+                        matches!(
+                            behavior.removal,
+                            Some(crate::typecheck::types::Removal::Line)
+                        )
+                    }
+                    _ => true,
+                };
+                let base = self.emit_list_recv_nonempty(&args[0], out, sink);
+                let addr = if front {
+                    base
+                } else {
+                    self.emit_list_last_addr(base, layout.stride, out)
+                };
+                self.load_element(&layout, addr, ELEMS, out);
+                match func {
+                    ListRemoveLast | ListRemoveBehavior if !front => {
+                        // Drop the last element: len -= 1.
+                        out.push(Inst::LocalGet(base));
+                        out.push(Inst::LocalGet(base));
+                        out.push(Inst::I32Load(LEN));
+                        out.push(Inst::I32Const(1));
+                        out.push(Inst::I32Bin(I32Op::Sub));
+                        out.push(Inst::I32Store(LEN));
+                    }
+                    ListRemoveBehavior => {
+                        // Front removal shifts the tail (in place, no
+                        // relocation — aliasing-safe).
+                        let scratch = self.elem_scratch(&layout);
+                        for slot in (0..layout.leaves.len() as u32).rev() {
+                            out.push(Inst::LocalSet(scratch + slot));
+                        }
+                        out.push(Inst::LocalGet(base));
+                        out.push(Inst::I64Const(0));
+                        out.push(Inst::I32Const(layout.stride as i32));
+                        out.push(Inst::CallRuntime(RuntimeFn::ListRemoveAt));
+                        for slot in 0..layout.leaves.len() as u32 {
+                            out.push(Inst::LocalGet(scratch + slot));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            ListContains | ListIndexOf | ListLastIndexOf => {
+                let Some(elem) = recv_elem() else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let Some(kind) = scalar_kind(&elem) else {
+                    self.note(sink, "list search over this element type", expr.span);
+                    return true;
+                };
+                self.expr(&args[0], out, sink);
+                self.expr(&args[1], out, sink);
+                out.push(Inst::I32Const(matches!(func, ListLastIndexOf) as i32));
+                out.push(Inst::CallRuntime(match kind {
+                    Kind::I64 => RuntimeFn::ListIndexOfI64,
+                    Kind::F64 => RuntimeFn::ListIndexOfF64,
+                    Kind::Str => RuntimeFn::ListIndexOfStr,
+                    Kind::I32 => RuntimeFn::ListIndexOf32,
+                }));
+                if matches!(func, ListContains) {
+                    out.push(Inst::I64Const(0));
+                    out.push(Inst::I64Cmp(CmpOp::GeS));
+                }
+            }
+            ListSlice | ListReverse | ListConcat => {
+                let Some(elem) = recv_elem() else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let Some(layout) = elem_layout(&elem) else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let tag = self.tags.tag(&elem);
+                for arg in args {
+                    self.expr(arg, out, sink);
+                }
+                out.push(Inst::I32Const(layout.stride as i32));
+                out.push(Inst::I32Const(tag as i32));
+                out.push(Inst::CallRuntime(match func {
+                    ListSlice => RuntimeFn::ListSlice,
+                    ListReverse => RuntimeFn::ListReverse,
+                    _ => RuntimeFn::ListConcat,
+                }));
+            }
+            ListSort => {
+                let Some(elem) = recv_elem() else {
+                    self.note(sink, "list values of this element type", expr.span);
+                    return true;
+                };
+                let Some(kind) = scalar_kind(&elem) else {
+                    self.note(sink, "list sort over this element type", expr.span);
+                    return true;
+                };
+                let helper = match kind {
+                    Kind::I64 => RuntimeFn::ListSortI64,
+                    Kind::F64 => RuntimeFn::ListSortF64,
+                    Kind::Str => RuntimeFn::ListSortStr,
+                    Kind::I32 => {
+                        // 4-byte scalars sort as their i32 payloads only
+                        // when signedness is coherent; deferred until a
+                        // need appears.
+                        self.note(sink, "list sort over this element type", expr.span);
+                        return true;
+                    }
+                };
+                let tag = self.tags.tag(&elem);
+                self.expr(&args[0], out, sink);
+                out.push(Inst::I32Const(tag as i32));
+                out.push(Inst::CallRuntime(helper));
+            }
+            ListRange => {
+                self.expr(&args[0], out, sink);
+                self.expr(&args[1], out, sink);
+                let tag = self.tags.tag(&Ty::Integer);
+                out.push(Inst::I32Const(tag as i32));
+                out.push(Inst::CallRuntime(RuntimeFn::ListRange));
+            }
+            ListFill => {
+                let elem = args[1].ty.clone();
+                let Some(kind) = scalar_kind(&elem) else {
+                    self.note(sink, "list fill over this element type", expr.span);
+                    return true;
+                };
+                let tag = self.tags.tag(&elem);
+                self.expr(&args[0], out, sink);
+                self.expr(&args[1], out, sink);
+                out.push(Inst::I32Const(tag as i32));
+                out.push(Inst::CallRuntime(match kind {
+                    Kind::I64 => RuntimeFn::ListFill64,
+                    Kind::F64 => RuntimeFn::ListFillF64,
+                    Kind::Str | Kind::I32 => RuntimeFn::ListFill32,
+                }));
+            }
+            ListJoin => {
+                self.expr(&args[0], out, sink);
+                self.expr(&args[1], out, sink);
+                out.push(Inst::CallRuntime(RuntimeFn::ListJoin));
+            }
+            _ => return false,
+        }
+        true
+    }
+
     /// Scratch slots matching one element's flattened internal shape.
     fn elem_scratch(&mut self, layout: &ElemLayout) -> u32 {
         let vals: Vec<Val> = layout
@@ -1415,40 +1756,7 @@ impl<'a> FnLowerer<'a> {
                         self.note(sink, "list values of this element type", expr.span);
                         return;
                     };
-                    let base = self.alloc_scratch(&[Val::I32]);
-                    let idx64 = self.alloc_scratch(&[Val::I64]);
-                    let addr = self.alloc_scratch(&[Val::I32]);
-                    self.expr(recv, out, sink);
-                    out.push(Inst::LocalSet(base));
-                    self.expr(index, out, sink);
-                    if !is_i64(&index.ty) {
-                        out.push(Inst::I64ExtendI32U);
-                    }
-                    out.push(Inst::LocalSet(idx64));
-                    // Bounds check in the i64 domain (a negative index is a
-                    // huge unsigned value). Out of range traps — RUN013's
-                    // catchable form needs the error-handling lowering
-                    // (DISCOVERIES-M6).
-                    out.push(Inst::LocalGet(idx64));
-                    out.push(Inst::LocalGet(base));
-                    out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
-                    out.push(Inst::I64ExtendI32U);
-                    out.push(Inst::I64Cmp(CmpOp::LtU));
-                    out.push(Inst::I32Eqz);
-                    out.push(Inst::If {
-                        result: None,
-                        then: vec![Inst::Unreachable],
-                        els: vec![],
-                    });
-                    // addr = base + idx * stride; leaves load at
-                    // LIST_ELEMS_OFFSET + leaf offset.
-                    out.push(Inst::LocalGet(base));
-                    out.push(Inst::LocalGet(idx64));
-                    out.push(Inst::I32WrapI64);
-                    out.push(Inst::I32Const(layout.stride as i32));
-                    out.push(Inst::I32Bin(I32Op::Mul));
-                    out.push(Inst::I32Bin(I32Op::Add));
-                    out.push(Inst::LocalSet(addr));
+                    let (_, _, addr) = self.emit_list_elem_addr(recv, index, &layout, out, sink);
                     self.load_element(&layout, addr, crate::layout::LIST_ELEMS_OFFSET, out);
                 }
                 tir::IndexKind::Matrix | tir::IndexKind::Pairs | tir::IndexKind::Any => {
@@ -1564,6 +1872,9 @@ impl<'a> FnLowerer<'a> {
                     // Unicode case folding is clean:bridge/string territory
                     // (DISCOVERIES-M6 item 1) — no ASCII approximation.
                     self.note(sink, "string case conversion", expr.span);
+                    return;
+                }
+                if self.lower_list_std(*func, args, expr, out, sink) {
                     return;
                 }
                 for arg in args {

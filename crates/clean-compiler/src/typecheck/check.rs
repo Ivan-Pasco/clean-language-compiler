@@ -3842,6 +3842,35 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                         kind: TExprKind::Convert(Box::new(recv)),
                     };
                 }
+                // The chapter-15 list method surface (receiver becomes
+                // args[0] of the CallStd node). `remove()`/`peek()` need a
+                // declared removal discipline (15 §List Behaviors).
+                if let Ty::List(elem, behavior) = &other {
+                    let elem = self.infcx.resolve(elem);
+                    if let Some((func, params, ret)) =
+                        super::stdlib::list_method(method, &elem, args.len())
+                    {
+                        use super::stdlib::StdFn;
+                        if matches!(func, StdFn::ListRemoveBehavior | StdFn::ListPeek)
+                            && behavior.removal.is_none()
+                        {
+                            // SEM004 (stub rule; local wording via the
+                            // registered template shape).
+                            self.invalid_op(sink, method, &other, span);
+                            return error_expr(span);
+                        }
+                        let mut checked = self.check_args(method, &params, args, span, false, sink);
+                        let mut all = Vec::with_capacity(checked.len() + 1);
+                        all.push(recv);
+                        all.append(&mut checked);
+                        return TExpr {
+                            ty: ret,
+                            span,
+                            kind: TExprKind::CallStd { func, args: all },
+                        };
+                    }
+                    return self.undefined_method(&other, method, member_span, span, sink);
+                }
                 // The chapter-15 string method surface (receiver becomes
                 // args[0] of the CallStd node).
                 if other == Ty::Str {
@@ -3877,6 +3906,27 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
+        if module == "list" {
+            // `concat`/`fill` are element-generic: a fresh inference var
+            // unifies with the arguments and resolves in finalize.
+            let elem = self.infcx.fresh();
+            if let Some((func, params, ret)) = super::stdlib::list_namespace_fn(method, &elem) {
+                let args = self.check_args(method, &params, args, span, false, sink);
+                return TExpr {
+                    ty: ret,
+                    span,
+                    kind: TExprKind::CallStd { func, args },
+                };
+            }
+            sink.push(build(
+                Level::Error,
+                codes::SEM019,
+                format!("I cannot find a function named `{method}`"),
+                self.diag_span(member_span),
+                Some("no function with this name is in scope".to_string()),
+            ));
+            return error_expr(span);
+        }
         if module == "string" {
             if let Some((func, params, ret)) = super::stdlib::string_namespace_fn(method) {
                 let args = self.check_args(method, &params, args, span, false, sink);

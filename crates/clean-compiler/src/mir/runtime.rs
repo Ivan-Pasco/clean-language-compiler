@@ -85,6 +85,47 @@ pub enum RuntimeFn {
     StrSplit = 20,
     /// `str_is_blank(s) -> i32` — empty or all ASCII whitespace.
     StrIsBlank = 21,
+    // Chapter-15 list methods (bodies in `runtime_list.rs`). All produce
+    // fresh §3.4.1 objects except `list_remove_at`, which mutates in
+    // place (no relocation — safe under aliasing).
+    /// `list_slice(src, start: i64, end: i64, stride: i32, tag: i32) ->
+    /// base` — code follows the substring clamp adoption.
+    ListSlice = 22,
+    /// `list_reverse(src, stride: i32, tag: i32) -> base`.
+    ListReverse = 23,
+    /// `list_concat(a, b, stride: i32, tag: i32) -> base`.
+    ListConcat = 24,
+    /// `list_range(start: i64, end: i64, tag: i32) -> base` — inclusive,
+    /// descending when start > end (15 §List).
+    ListRange = 25,
+    /// `list_fill_64(size: i64, value: i64, tag: i32) -> base`.
+    ListFill64 = 26,
+    /// `list_fill_f64(size: i64, value: f64, tag: i32) -> base`.
+    ListFillF64 = 27,
+    /// `list_fill_32(size: i64, value: i32, tag: i32) -> base` — 4-byte
+    /// elements (pointers, narrow integers, booleans, enums).
+    ListFill32 = 28,
+    /// `list_join(items, sep) -> string base` — `list<string>` only.
+    ListJoin = 29,
+    /// `list_sort_i64(src, tag) -> base` — ascending, fresh list.
+    ListSortI64 = 30,
+    /// `list_sort_f64(src, tag) -> base`.
+    ListSortF64 = 31,
+    /// `list_sort_str(src, tag) -> base` — string_compare order.
+    ListSortStr = 32,
+    /// `list_index_of_i64(list, v: i64, backward: i32) -> i64` — element
+    /// index or -1.
+    ListIndexOfI64 = 33,
+    /// `list_index_of_f64(list, v: f64, backward: i32) -> i64`.
+    ListIndexOfF64 = 34,
+    /// `list_index_of_str(list, v, backward: i32) -> i64` — string_eq.
+    ListIndexOfStr = 35,
+    /// `list_index_of_32(list, v: i32, backward: i32) -> i64` — 4-byte
+    /// scalar elements.
+    ListIndexOf32 = 36,
+    /// `list_remove_at(list, i: i64, stride: i32)` — shifts the tail left
+    /// one element and decrements the length; bounds are the caller's.
+    ListRemoveAt = 37,
 }
 
 pub fn build(tier: Tier) -> Vec<MirFunction> {
@@ -99,6 +140,7 @@ pub fn build(tier: Tier) -> Vec<MirFunction> {
         str_to_num(),
     ];
     fns.extend(super::runtime_str::build());
+    fns.extend(super::runtime_list::build());
     fns
 }
 
