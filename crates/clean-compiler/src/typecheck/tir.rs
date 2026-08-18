@@ -254,6 +254,11 @@ pub enum TExprKind {
     /// Explicit conversion method (TYP-06: `.toInteger()`, `.toNumber()`,
     /// `.toString()`, `.toBoolean()`); the node's `ty` is the target.
     Convert(Box<TExpr>),
+    /// A chapter-15 standard-library operation (typecheck/stdlib.rs).
+    CallStd {
+        func: crate::typecheck::stdlib::StdFn,
+        args: Vec<TExpr>,
+    },
     /// A subexpression whose type failed; absorbs downstream checks.
     Error,
 }

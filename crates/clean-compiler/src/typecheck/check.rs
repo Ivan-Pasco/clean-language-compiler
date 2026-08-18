@@ -1644,6 +1644,10 @@ fn finalize_expr(infcx: &mut InferCtx, class_records: &[Ty], expr: &mut TExpr) {
             finalize_expr(infcx, class_records, recv);
             finalize_expr(infcx, class_records, index);
         }
+        TExprKind::CallStd { args, .. } => {
+            args.iter_mut()
+                .for_each(|a| finalize_expr(infcx, class_records, a));
+        }
         TExprKind::StrInterp(segs) => {
             for seg in segs {
                 if let TInterpSeg::Expr(e) = seg {
@@ -2127,6 +2131,9 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             TExprKind::Index { recv, index, .. } => {
                 self.check_purity(recv, sink);
                 self.check_purity(index, sink);
+            }
+            TExprKind::CallStd { args, .. } => {
+                args.iter().for_each(|a| self.check_purity(a, sink));
             }
             TExprKind::StrInterp(segs) => {
                 for seg in segs {
@@ -3645,8 +3652,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     );
                 }
                 if crate::resolver::BUILTIN_MODULES.contains(&name.as_str()) {
-                    sink.note_unsupported("standard-library calls", self.diag_span(span));
-                    return error_expr(span);
+                    return self.check_stdlib_call(name, method, member_span, args, span, sink);
                 }
                 if self.module_scope().functions.contains_key(name)
                     || self
@@ -3842,6 +3848,43 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         }
     }
 
+    /// A call on a chapter-15 built-in module (STD-01). `math` is typed
+    /// from the stdlib registry; the other module surfaces are still
+    /// frontier notes until their M6 stages land.
+    fn check_stdlib_call(
+        &mut self,
+        module: &str,
+        method: &str,
+        member_span: ByteSpan,
+        args: &[ast::Expr],
+        span: ByteSpan,
+        sink: &mut DiagnosticSink,
+    ) -> TExpr {
+        if module == "math" {
+            let Some((func, params, ret)) = super::stdlib::math_fn(method) else {
+                // Basic arithmetic is operators only (15 §Math: math.add
+                // MUST NOT exist), and unknown names resolve to nothing;
+                // both are the registered missing-name code.
+                sink.push(build(
+                    Level::Error,
+                    codes::SEM019,
+                    format!("I cannot find a function named `{method}`"),
+                    self.diag_span(member_span),
+                    Some("no function with this name is in scope".to_string()),
+                ));
+                return error_expr(span);
+            };
+            let args = self.check_args(method, params, args, span, false, sink);
+            return TExpr {
+                ty: ret,
+                span,
+                kind: TExprKind::CallStd { func, args },
+            };
+        }
+        sink.note_unsupported("standard-library calls", self.diag_span(span));
+        error_expr(span)
+    }
+
     /// Member access without a call (CLS-04 field access; chapter 16
     /// leaves `module.symbol` and companion bare-access to their owners:
     /// SYN010/SEM021/CLASS012).
@@ -3904,6 +3947,26 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     return error_expr(span);
                 }
                 if crate::resolver::BUILTIN_MODULES.contains(&recv_name.as_str()) {
+                    // 15 §Math: constants read without parentheses.
+                    if recv_name == "math" {
+                        if let Some(value) = super::stdlib::math_constant(name) {
+                            return TExpr {
+                                ty: Ty::Number,
+                                span,
+                                kind: TExprKind::Num(value),
+                            };
+                        }
+                        // SEM019 — the registered missing-name code; the
+                        // module resolved, the member does not exist.
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM019,
+                            format!("I cannot find a function named `{name}`"),
+                            self.diag_span(member_span),
+                            Some("no function with this name is in scope".to_string()),
+                        ));
+                        return error_expr(span);
+                    }
                     sink.note_unsupported("standard-library constants", self.diag_span(span));
                     return error_expr(span);
                 }

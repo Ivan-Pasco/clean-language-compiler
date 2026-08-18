@@ -39,9 +39,11 @@ pub struct ResolvedAst {
     pub decls: Declarations,
 }
 
-/// The chapter-15 built-in modules: available without import, valid as
-/// import targets. Their surfaces land in M6.
-pub const BUILTIN_MODULES: [&str; 8] = [
+/// The chapter-15 built-in modules (STD-01: eleven, including `time`,
+/// `bytes` and `matrix` from ADR-0021): available without import, valid
+/// as import targets. A user module of the same name wins (resolution
+/// precedence: sources first).
+pub const BUILTIN_MODULES: [&str; 11] = [
     "console",
     "math",
     "string",
@@ -50,6 +52,9 @@ pub const BUILTIN_MODULES: [&str; 8] = [
     "http",
     "json",
     "validator",
+    "time",
+    "bytes",
+    "matrix",
 ];
 
 #[derive(Default)]

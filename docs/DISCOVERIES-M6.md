@@ -70,6 +70,22 @@ from M3–M5 executed since).
 6c. **RUN013 is specified as catchable (`onError`) but error lowering
    does not exist yet** — an out-of-range index currently traps
    (`unreachable`). To revisit with the error-handling stage.
+6d. **Conversion semantics under-specified in 15 §Conversions.** (a)
+   `number.toString()` — "literal form" names no formatting contract
+   (shortest round-trip vs fixed precision); lowering declines until a
+   ruling. (b) `string.toBoolean()` is accepted by the M4 checker but the
+   table defines `toBoolean` only from `integer`/`number`; lowering
+   declines. (c) `toInteger`/`toNumber` failures are RUN003, specified
+   catchable — they trap until error lowering (same shape as 6c). (d)
+   `string.toNumber` parses by naive f64 accumulation; the spec names no
+   rounding contract for decimal parsing (matters for RUN007/L5 later).
+6e. **`math.round` rounding mode unstated.** 15 says "round nearest";
+   wasm `f64.nearest` ties to even (2.5 → 2.0), most languages' `round`
+   ties away from zero. **Local adoption:** ties-to-even (the wasm
+   instruction), pinned in `tests/stdlib_math_conversions.rs`. Also:
+   `math` domain errors (`sqrt(-1)` → NaN?) remain unspecified — wasm
+   semantics (NaN) adopted; and `math.max/min` NaN behaviour follows the
+   wasm instructions.
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when

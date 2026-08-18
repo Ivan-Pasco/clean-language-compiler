@@ -126,6 +126,11 @@ pub enum Inst {
     I64ExtendI32U,
     /// `f64.convert_i64_s` — surface `integer` widening into `number`.
     F64ConvertI64S,
+    F64ConvertI32S,
+    I64ExtendI32S,
+    /// `i64.trunc_f64_s` — truncate toward zero; traps on NaN or out of
+    /// range (the RUN003 family surfaces as a trap until error lowering).
+    I64TruncF64S,
     /// `select(a, b, cond) -> cond ? a : b`.
     Select,
     /// Pushes the address of the fixed return area (resolved at emission,
@@ -179,6 +184,8 @@ pub enum I64Op {
     Mul,
     DivS,
     RemS,
+    DivU,
+    RemU,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -506,7 +513,9 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
                 used.push(*import);
                 args.iter().for_each(|a| expr(a, used));
             }
-            HExprKind::CallFn { args, .. } => args.iter().for_each(|a| expr(a, used)),
+            HExprKind::CallFn { args, .. } | HExprKind::CallStd { args, .. } => {
+                args.iter().for_each(|a| expr(a, used))
+            }
             HExprKind::MakeRecord(items)
             | HExprKind::MakeList(items)
             | HExprKind::MakeMatrix(items) => items.iter().for_each(|i| expr(i, used)),
@@ -1465,8 +1474,139 @@ impl<'a> FnLowerer<'a> {
             | HExprKind::GetField { .. } => {
                 self.note(sink, "class values in compiled code", expr.span)
             }
-            HExprKind::Convert(_) => {
-                self.note(sink, "conversion methods in compiled code", expr.span)
+            // TYP-06 / 15 §Conversions: dispatch on (source, target).
+            HExprKind::Convert(operand) => {
+                let source = operand.ty.clone();
+                let target = expr.ty.clone();
+                match (&source, &target) {
+                    // Identity.
+                    (Ty::Integer, Ty::Integer)
+                    | (Ty::Number, Ty::Number)
+                    | (Ty::Str, Ty::Str)
+                    | (Ty::Boolean, Ty::Boolean) => self.expr(operand, out, sink),
+                    // Widen into number.
+                    (Ty::Integer | Ty::IntegerW(_), Ty::Number) => {
+                        self.expr(operand, out, sink);
+                        if !is_i64(&source) {
+                            out.push(Inst::I64ExtendI32U);
+                        }
+                        out.push(Inst::F64ConvertI64S);
+                    }
+                    (Ty::Boolean, Ty::Number) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::F64ConvertI32S);
+                    }
+                    // Truncate toward zero; NaN or out-of-range traps
+                    // (RUN003 family until error lowering).
+                    (Ty::Number, Ty::Integer) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::I64TruncF64S);
+                    }
+                    (Ty::Boolean | Ty::IntegerW(_), Ty::Integer) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::I64ExtendI32U);
+                    }
+                    // Zero → false, anything else (NaN included) → true.
+                    (Ty::Integer, Ty::Boolean) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::I64Const(0));
+                        out.push(Inst::I64Cmp(CmpOp::Ne));
+                    }
+                    (Ty::Number, Ty::Boolean) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::F64Const(0.0));
+                        out.push(Inst::F64Cmp(CmpOp::Ne));
+                    }
+                    // Renderings.
+                    (Ty::Integer | Ty::IntegerW(_), Ty::Str) => {
+                        self.expr(operand, out, sink);
+                        if !is_i64(&source) {
+                            out.push(Inst::I64ExtendI32U);
+                        }
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::IntToString));
+                    }
+                    (Ty::Boolean, Ty::Str) => {
+                        let t = self.data.intern_string("true");
+                        let f = self.data.intern_string("false");
+                        self.expr(operand, out, sink);
+                        out.push(Inst::If {
+                            result: Some(Val::I32),
+                            then: vec![Inst::I32Const(t as i32)],
+                            els: vec![Inst::I32Const(f as i32)],
+                        });
+                    }
+                    // Parses; non-literals trap (RUN003 family).
+                    (Ty::Str, Ty::Integer) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrToInt));
+                    }
+                    (Ty::Str, Ty::Number) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrToNum));
+                    }
+                    // number.toString needs a formatting contract the spec
+                    // does not state (shortest round-trip vs fixed) —
+                    // DISCOVERIES-M6. string.toBoolean is not in the 15
+                    // §Conversions table at all.
+                    _ => self.note(sink, "conversion methods in compiled code", expr.span),
+                }
+            }
+            HExprKind::CallStd { func, args } => {
+                use crate::typecheck::stdlib::{is_transcendental, StdFn};
+                if is_transcendental(*func) {
+                    // Blocked on the guest-vs-clean:bridge/math ruling
+                    // (DISCOVERIES-M6 item 2, ADR 0004).
+                    self.note(sink, "math transcendental functions", expr.span);
+                    return;
+                }
+                for arg in args {
+                    self.expr(arg, out, sink);
+                }
+                match func {
+                    StdFn::MathSqrt => out.push(Inst::F64Un(F64Un::Sqrt)),
+                    StdFn::MathAbsNumber => out.push(Inst::F64Un(F64Un::Abs)),
+                    StdFn::MathFloor => out.push(Inst::F64Un(F64Un::Floor)),
+                    StdFn::MathCeil => out.push(Inst::F64Un(F64Un::Ceil)),
+                    // 15 §Math "round nearest": wasm f64.nearest rounds
+                    // half-to-even; whether the spec means half-away-from-
+                    // zero is undecided (DISCOVERIES-M6).
+                    StdFn::MathRound => out.push(Inst::F64Un(F64Un::Nearest)),
+                    StdFn::MathTrunc => out.push(Inst::F64Un(F64Un::Trunc)),
+                    StdFn::MathMax => out.push(Inst::F64Bin(F64Op::Max)),
+                    StdFn::MathMin => out.push(Inst::F64Bin(F64Op::Min)),
+                    // sign(x): (x > 0) - (x < 0) as number.
+                    StdFn::MathSign => {
+                        let x = self.alloc_scratch(&[Val::F64]);
+                        out.push(Inst::LocalSet(x));
+                        out.push(Inst::LocalGet(x));
+                        out.push(Inst::F64Const(0.0));
+                        out.push(Inst::F64Cmp(CmpOp::GtS));
+                        out.push(Inst::LocalGet(x));
+                        out.push(Inst::F64Const(0.0));
+                        out.push(Inst::F64Cmp(CmpOp::LtS));
+                        out.push(Inst::I32Bin(I32Op::Sub));
+                        out.push(Inst::F64ConvertI32S);
+                    }
+                    // |n|: n < 0 ? 0 - n : n.
+                    StdFn::MathAbsInteger => {
+                        let n = self.alloc_scratch(&[Val::I64]);
+                        out.push(Inst::LocalTee(n));
+                        out.push(Inst::I64Const(0));
+                        out.push(Inst::I64Cmp(CmpOp::LtS));
+                        out.push(Inst::If {
+                            result: Some(Val::I64),
+                            then: vec![
+                                Inst::I64Const(0),
+                                Inst::LocalGet(n),
+                                Inst::I64Bin(I64Op::Sub),
+                            ],
+                            els: vec![Inst::LocalGet(n)],
+                        });
+                    }
+                    transcendental => {
+                        unreachable!("transcendental {transcendental:?} filtered above")
+                    }
+                }
             }
         }
     }

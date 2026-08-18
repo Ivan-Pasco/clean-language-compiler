@@ -4,6 +4,7 @@
 
 mod check;
 pub mod infer;
+pub mod stdlib;
 pub mod tir;
 pub mod types;
 

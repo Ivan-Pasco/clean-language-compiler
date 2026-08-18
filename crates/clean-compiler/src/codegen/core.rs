@@ -255,6 +255,8 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
             I64Op::Mul => I::I64Mul,
             I64Op::DivS => I::I64DivS,
             I64Op::RemS => I::I64RemS,
+            I64Op::DivU => I::I64DivU,
+            I64Op::RemU => I::I64RemU,
         }),
         Inst::I32Bin(op) => f.instruction(&match op {
             I32Op::Add => I::I32Add,
@@ -317,6 +319,9 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
         Inst::I32WrapI64 => f.instruction(&I::I32WrapI64),
         Inst::I64ExtendI32U => f.instruction(&I::I64ExtendI32U),
         Inst::F64ConvertI64S => f.instruction(&I::F64ConvertI64S),
+        Inst::F64ConvertI32S => f.instruction(&I::F64ConvertI32S),
+        Inst::I64ExtendI32S => f.instruction(&I::I64ExtendI32S),
+        Inst::I64TruncF64S => f.instruction(&I::I64TruncF64S),
         Inst::Select => f.instruction(&I::Select),
         Inst::RetAreaPtr => f.instruction(&I::I32Const(ctx.ret_area as i32)),
         Inst::I32Load(offset) => f.instruction(&I::I32Load(MemArg {

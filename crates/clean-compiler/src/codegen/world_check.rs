@@ -164,7 +164,7 @@ fn walk_expr(
                 walk_expr(arg, verdicts, world_name, resolved, file, sink);
             }
         }
-        HExprKind::CallFn { args, .. } => {
+        HExprKind::CallFn { args, .. } | HExprKind::CallStd { args, .. } => {
             for arg in args {
                 walk_expr(arg, verdicts, world_name, resolved, file, sink);
             }

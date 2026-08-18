@@ -183,6 +183,10 @@ pub enum HExprKind {
         recv: Box<HExpr>,
     },
     Convert(Box<HExpr>),
+    CallStd {
+        func: crate::typecheck::stdlib::StdFn,
+        args: Vec<HExpr>,
+    },
 }
 
 #[derive(serde::Serialize)]
@@ -407,6 +411,10 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
             recv: Box::new(lower_expr(*recv)),
         },
         tir::TExprKind::Convert(operand) => HExprKind::Convert(Box::new(lower_expr(*operand))),
+        tir::TExprKind::CallStd { func, args } => HExprKind::CallStd {
+            func,
+            args: args.into_iter().map(lower_expr).collect(),
+        },
         tir::TExprKind::Error => {
             unreachable!("error expressions never survive a clean typecheck")
         }
