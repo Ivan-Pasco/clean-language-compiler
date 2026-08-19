@@ -116,6 +116,9 @@ fn walk_stmt(
             }
         }
         HStmt::Expr(expr) => walk_expr(expr, verdicts, world_name, resolved, file, sink),
+        HStmt::SetState { value, .. } => {
+            walk_expr(value, verdicts, world_name, resolved, file, sink)
+        }
         HStmt::If { cond, then, els } => {
             walk_expr(cond, verdicts, world_name, resolved, file, sink);
             for s in then.iter().chain(els) {

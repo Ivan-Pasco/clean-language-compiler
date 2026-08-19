@@ -188,6 +188,27 @@ pub fn emit_core(program: &MirProgram) -> Result<Vec<u8>, String> {
     exports.export("__heap_start", ExportKind::Global, HEAP_START_GLOBAL);
     exports.export("__heap_ptr", ExportKind::Global, HEAP_PTR_GLOBAL);
 
+    // State variables (SMG-01): one mutable global per internal slot, in
+    // declaration order, right after the heap globals.
+    for (val_ty, init) in &program.state_globals {
+        let (val_type, init) = match (val_ty, init) {
+            (Val::I32, crate::mir::StateInit::I32(v)) => (ValType::I32, ConstExpr::i32_const(*v)),
+            (Val::I64, crate::mir::StateInit::I64(v)) => (ValType::I64, ConstExpr::i64_const(*v)),
+            (Val::F64, crate::mir::StateInit::F64(v)) => {
+                (ValType::F64, ConstExpr::f64_const((*v).into()))
+            }
+            mismatch => unreachable!("state global slot/init mismatch: {mismatch:?}"),
+        };
+        globals.global(
+            GlobalType {
+                val_type,
+                mutable: true,
+                shared: false,
+            },
+            &init,
+        );
+    }
+
     // TIER-01: the tier fixes initial/maximum; the active data segment must
     // fit inside the initial commitment. Never `shared` (MMD-05: a shared
     // guest memory is a build error, so one is never emitted).

@@ -1,0 +1,9 @@
+warning[MEM002]: value allocated in the per-request arena is stored in 'last', which outlives the arena reset
+ --> tests/cln/diagnostics/MEM002.cln:6:10
+  |
+2 | 	string last = ""
+  | 	---------------- 'last' is persistent
+6 | 		last = "a" + "b"
+  | 		       ^^^^^^^^^ this value does not survive the next per-request reset
+  |
+  = docs: https://errors.cleanlanguage.dev/E/MEM002

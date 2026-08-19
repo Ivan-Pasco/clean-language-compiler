@@ -15,6 +15,18 @@ pub struct TypedProgram {
     /// emit (pass [10]).
     pub host_imports: Vec<HostImport>,
     pub functions: Vec<TFunction>,
+    /// Non-computed `state:` variables (SMG-01), in declaration order;
+    /// pass [8] lowers them onto wasm globals.
+    pub state_vars: Vec<StateVar>,
+}
+
+/// One module-level state variable with its typed initializer.
+pub struct StateVar {
+    pub module: usize,
+    pub name: String,
+    pub ty: Ty,
+    pub init: TExpr,
+    pub span: ByteSpan,
 }
 
 #[derive(serde::Serialize)]
@@ -61,6 +73,12 @@ pub type LocalId = usize;
 // to the tree shape (same rationale as `hir::HStmt`).
 #[allow(clippy::large_enum_variant)]
 pub enum TStmt {
+    /// Assignment to a module state variable (SMG-01).
+    SetState {
+        module: usize,
+        name: String,
+        value: TExpr,
+    },
     Let {
         local: LocalId,
         init: Option<TExpr>,

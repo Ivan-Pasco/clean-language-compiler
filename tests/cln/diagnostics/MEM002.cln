@@ -1,0 +1,6 @@
+state:
+	string last = ""
+
+functions:
+	void handle(integer handlerId)
+		last = "a" + "b"

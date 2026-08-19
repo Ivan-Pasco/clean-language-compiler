@@ -54,6 +54,17 @@ pub struct MirProgram {
     /// derives the memory's minimum/maximum from it and the allocator
     /// embeds its byte limit.
     pub tier: Tier,
+    /// Module state variables (SMG-01) lowered onto wasm globals, emitted
+    /// after the two MMD-01 heap globals in declaration order.
+    pub state_globals: Vec<(Val, StateInit)>,
+}
+
+/// A state global's constant initializer.
+#[derive(Debug, Clone, Copy)]
+pub enum StateInit {
+    I32(i32),
+    I64(i64),
+    F64(f64),
 }
 
 /// A host import with its core-level signature already flattened.
@@ -592,12 +603,38 @@ pub fn lower(
     let imports: Vec<MirImport> = imports;
     let mut data = DataPool::new();
     let mut tags = TagRegistry::default();
+
+    // State variables → wasm globals (SMG-01). Initializers must be
+    // constant-representable; anything else stays a frontier note.
+    let mut state_globals: Vec<(Val, StateInit)> = Vec::new();
+    let mut states: std::collections::BTreeMap<(usize, String), (u32, Ty)> =
+        std::collections::BTreeMap::new();
+    for var in &program.state_vars {
+        let Some(vals) = val_types(&var.ty) else {
+            sink.note_unsupported(
+                "state variables of this type",
+                resolved.span(var.module, var.span),
+            );
+            continue;
+        };
+        let Some(inits) = const_state_init(&var.init, &var.ty, &vals, &mut data) else {
+            sink.note_unsupported(
+                "state initialisers beyond constants",
+                resolved.span(var.module, var.init.span),
+            );
+            continue;
+        };
+        let base = crate::layout::HEAP_PTR_GLOBAL + 1 + state_globals.len() as u32;
+        states.insert((var.module, var.name.clone()), (base, var.ty.clone()));
+        state_globals.extend(vals.iter().copied().zip(inits));
+    }
+
     let functions = program
         .functions
         .iter()
         .map(|f| {
             lower_function(
-                f, program, resolved, &remap, &imports, &mut data, &mut tags, sink,
+                f, program, resolved, &remap, &imports, &states, &mut data, &mut tags, sink,
             )
         })
         .collect();
@@ -607,6 +644,38 @@ pub fn lower(
         runtime: runtime::build(tier),
         data: data.blob,
         tier,
+        state_globals,
+    }
+}
+
+/// Constant per-slot initializers for a state variable, or `None` when the
+/// initializer is not constant-representable.
+fn const_state_init(
+    init: &HExpr,
+    ty: &Ty,
+    vals: &[Val],
+    data: &mut DataPool,
+) -> Option<Vec<StateInit>> {
+    match (&init.kind, ty) {
+        (HExprKind::Int(v), _) => Some(match vals {
+            [Val::I64] => vec![StateInit::I64(*v as i64)],
+            [Val::I32] => vec![StateInit::I32(*v as i32)],
+            _ => return None,
+        }),
+        (HExprKind::Bool(v), _) => Some(vec![StateInit::I32(*v as i32)]),
+        (HExprKind::Num(v), _) => Some(vec![StateInit::F64(*v)]),
+        (HExprKind::EnumCase(i), _) => Some(vec![StateInit::I32(*i as i32)]),
+        (HExprKind::Str(v), _) => Some(vec![StateInit::I32(data.intern_string(v) as i32)]),
+        (HExprKind::NoneLit, Ty::Option(_)) => Some(
+            vals.iter()
+                .map(|v| match v {
+                    Val::I32 => StateInit::I32(0),
+                    Val::I64 => StateInit::I64(0),
+                    Val::F64 => StateInit::F64(0.0),
+                })
+                .collect(),
+        ),
+        _ => None,
     }
 }
 
@@ -668,6 +737,7 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
             }
         }
         HStmt::Expr(e) => expr(e, used),
+        HStmt::SetState { value, .. } => expr(value, used),
         HStmt::If { cond, then, els } => {
             expr(cond, used);
             then.iter()
@@ -850,6 +920,7 @@ fn lower_function(
     resolved: &ResolvedAst,
     remap: &std::collections::BTreeMap<usize, usize>,
     imports: &[MirImport],
+    states: &std::collections::BTreeMap<(usize, String), (u32, Ty)>,
     data: &mut DataPool,
     tags: &mut TagRegistry,
     sink: &mut DiagnosticSink,
@@ -890,6 +961,7 @@ fn lower_function(
         scratch: Vec::new(),
         remap,
         imports,
+        states,
         label_depth: 0,
         loops: Vec::new(),
         tags,
@@ -934,6 +1006,8 @@ struct FnLowerer<'a> {
     remap: &'a std::collections::BTreeMap<usize, usize>,
     /// The lowered imports (world-enriched: qualified module, fallibility).
     imports: &'a [MirImport],
+    /// State variables lowered to globals: (module, name) → (base, Ty).
+    states: &'a std::collections::BTreeMap<(usize, String), (u32, Ty)>,
     /// Structured-label bookkeeping for `break`/`continue`: the number of
     /// enclosing labeled blocks (`block`/`loop`/`if`) at the current
     /// emission site.
@@ -1710,6 +1784,51 @@ impl<'a> FnLowerer<'a> {
                 };
                 self.note(sink, construct, span);
             }
+            // SMG-01: state writes hit the lowered globals, with the same
+            // TYP-02 box/unbox coercions as local stores.
+            HStmt::SetState {
+                module,
+                name,
+                value,
+            } => {
+                let Some((base, declared)) = self.states.get(&(*module, name.clone())).cloned()
+                else {
+                    self.note(sink, "state assignment", value.span);
+                    return;
+                };
+                self.expr(value, out, sink);
+                if matches!(declared, Ty::Any)
+                    && !matches!(value.ty, Ty::Any)
+                    && !self.emit_any_box(&value.ty, out)
+                {
+                    self.note(sink, "boxing this type into `any`", value.span);
+                    return;
+                }
+                if matches!(value.ty, Ty::Any)
+                    && !matches!(declared, Ty::Any)
+                    && !self.emit_any_unbox(&declared, out)
+                {
+                    self.note(sink, "unboxing `any` into this type", value.span);
+                    return;
+                }
+                match (is_i64(&value.ty), is_i64(&declared)) {
+                    (false, true) if value.ty.is_integer() => {
+                        out.push(if matches!(value.ty, Ty::IntegerW(IntWidth::S32)) {
+                            Inst::I64ExtendI32S
+                        } else {
+                            Inst::I64ExtendI32U
+                        });
+                    }
+                    (true, false) if declared.is_integer() => {
+                        out.push(Inst::I32WrapI64);
+                    }
+                    _ => {}
+                }
+                let width = val_types(&declared).map(|v| v.len()).unwrap_or(1) as u32;
+                for offset in (0..width).rev() {
+                    out.push(Inst::GlobalSet(base + offset));
+                }
+            }
             HStmt::Break { span } => match self.loops.last() {
                 Some(ctx) => out.push(Inst::Br(self.label_depth - 1 - ctx.break_abs)),
                 // SEM025 rejects orphans in pass [5]; reaching here is a
@@ -1997,9 +2116,19 @@ impl<'a> FnLowerer<'a> {
             HExprKind::IsNone { .. } => self.note(sink, "is-none checks", expr.span),
             HExprKind::ResultRef => self.note(sink, "contract blocks in compiled code", expr.span),
             HExprKind::This => self.note(sink, "class values in compiled code", expr.span),
-            HExprKind::GetState { .. } | HExprKind::GuardValue => {
-                self.note(sink, "state access in compiled code", expr.span)
+            HExprKind::GetState { module, name } => {
+                match self.states.get(&(*module, name.clone())) {
+                    Some((base, ty)) => {
+                        let width = val_types(ty).map(|v| v.len()).unwrap_or(1) as u32;
+                        for offset in 0..width {
+                            out.push(Inst::GlobalGet(base + offset));
+                        }
+                    }
+                    // Computed state derives on read; its lowering waits.
+                    None => self.note(sink, "computed state in compiled code", expr.span),
+                }
             }
+            HExprKind::GuardValue => self.note(sink, "state access in compiled code", expr.span),
             // `value onError fallback` over a fallible host call: branch
             // on the result discriminant, fallback on the error arm (the
             // expression form binds no error value).

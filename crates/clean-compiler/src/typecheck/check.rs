@@ -47,10 +47,11 @@ pub fn check(
     checker.build_state_table(sink);
     checker.check_default_values(sink);
     let functions = checker.check_functions(sink);
-    checker.check_state_watch_tests(sink);
+    let state_vars = checker.check_state_watch_tests(sink);
     TypedProgram {
         host_imports: checker.host_imports,
         functions,
+        state_vars,
     }
 }
 
@@ -885,7 +886,8 @@ impl<'a> Checker<'a> {
     /// tests sections (SEM023 assertions, SEM024 expected values,
     /// SCOPE006 via the in_tests gate). Bodies type-check and are
     /// discarded — their lowering is a later milestone.
-    fn check_state_watch_tests(&mut self, sink: &mut DiagnosticSink) {
+    fn check_state_watch_tests(&mut self, sink: &mut DiagnosticSink) -> Vec<super::tir::StateVar> {
+        let mut state_vars = Vec::new();
         for i in 0..self.resolved.decls.states.len() {
             let coords = self.resolved.decls.states[i];
             let (section, file) = self.resolved.state(coords);
@@ -898,7 +900,20 @@ impl<'a> Checker<'a> {
                         let mut bc =
                             self.section_checker(file, format!("state.{}", var.name), Ty::Void);
                         let value = bc.check_expr(&var.init, Some(&ty), sink);
-                        if let Err(value) = bc.coerce(value, &ty, sink) {
+                        let value = match bc.coerce(value, &ty, sink) {
+                            Ok(value) => {
+                                state_vars.push(super::tir::StateVar {
+                                    module: file,
+                                    name: var.name.clone(),
+                                    ty: ty.clone(),
+                                    init: value.clone(),
+                                    span: var.span,
+                                });
+                                Ok(value)
+                            }
+                            Err(value) => Err(value),
+                        };
+                        if let Err(value) = value {
                             // SEM017 — templates from Platform 10 §3.
                             let actual = bc.infcx.resolve(&value.ty).display();
                             let mut d = build(
@@ -1039,6 +1054,7 @@ impl<'a> Checker<'a> {
                 }
             }
         }
+        state_vars
     }
 
     /// STATE003 — computed-state dependency cycles (SMG-05: static
@@ -1554,6 +1570,7 @@ fn finalize_stmt(infcx: &mut InferCtx, class_records: &[Ty], stmt: &mut TStmt) {
             }
         }
         TStmt::Assign { value, .. } => finalize_expr(infcx, class_records, value),
+        TStmt::SetState { value, .. } => finalize_expr(infcx, class_records, value),
         TStmt::Return { value, .. } => {
             if let Some(value) = value {
                 finalize_expr(infcx, class_records, value);
@@ -2274,12 +2291,49 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                                     return None;
                                 }
                                 let value = self.check_expr(value, Some(&ty), sink);
-                                self.coerce_assign(value, &ty, name, *name_span, sink);
-                                sink.note_unsupported(
-                                    "state assignment",
-                                    self.diag_span(*name_span),
+                                // MEM002 (TIER-05) — template from Platform
+                                // 10 §14, verbatim. Detection scope (local
+                                // adoption): direct stores inside `handle`,
+                                // the per-request arena boundary (§3.2.3);
+                                // string literals are static data and never
+                                // arena-allocated, so they are exempt.
+                                let heap_shaped = matches!(
+                                    self.infcx.resolve(&ty),
+                                    Ty::Str
+                                        | Ty::Bytes
+                                        | Ty::List(_, _)
+                                        | Ty::Any
+                                        | Ty::Pairs(_, _)
                                 );
-                                return None;
+                                let static_value = matches!(value.kind, TExprKind::Str(_));
+                                if self.fn_name == "handle" && heap_shaped && !static_value {
+                                    let decl_span = self.state_decl_span(name);
+                                    let mut d = build(
+                                        Level::Warning,
+                                        codes::MEM002,
+                                        format!(
+                                            "value allocated in the per-request arena is stored in '{name}', which outlives the arena reset"
+                                        ),
+                                        self.diag_span(value.span),
+                                        Some(
+                                            "this value does not survive the next per-request reset"
+                                                .to_string(),
+                                        ),
+                                    );
+                                    if let Some(decl_span) = decl_span {
+                                        d.secondary.push(Annotation {
+                                            span: self.diag_span(decl_span),
+                                            label: format!("'{name}' is persistent"),
+                                        });
+                                    }
+                                    self.push_rich(sink, d);
+                                }
+                                let value = self.coerce_assign(value, &ty, name, *name_span, sink);
+                                return Some(TStmt::SetState {
+                                    module: self.file,
+                                    name: name.clone(),
+                                    value,
+                                });
                             }
                             // A bare field name inside a class body is a
                             // legal assignment target (CLS-02); its
@@ -3926,6 +3980,25 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 error_expr(span)
             }
         }
+    }
+
+    /// The declaration span of a `state:` variable in the current file
+    /// (for MEM002's persistent-side label).
+    fn state_decl_span(&self, name: &str) -> Option<ByteSpan> {
+        for coords in &self.outer.resolved.decls.states {
+            if coords.0 != self.file {
+                continue;
+            }
+            let (section, _) = self.outer.resolved.state(*coords);
+            for member in &section.members {
+                if let ast::StateMember::Var(var) = member {
+                    if var.name == name {
+                        return Some(var.span);
+                    }
+                }
+            }
+        }
+        None
     }
 
     /// A call on a chapter-15 built-in module (STD-01). `math` is typed

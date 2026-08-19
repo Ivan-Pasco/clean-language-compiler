@@ -18,6 +18,17 @@ use crate::typecheck::types::Ty;
 pub struct HirProgram {
     pub host_imports: Vec<tir::HostImport>,
     pub functions: Vec<HFunction>,
+    /// Non-computed `state:` variables (SMG-01) for the global lowering.
+    pub state_vars: Vec<HStateVar>,
+}
+
+#[derive(serde::Serialize)]
+pub struct HStateVar {
+    pub module: usize,
+    pub name: String,
+    pub ty: Ty,
+    pub init: HExpr,
+    pub span: crate::source::ByteSpan,
 }
 
 #[derive(serde::Serialize)]
@@ -42,6 +53,11 @@ pub struct HFunction {
 #[allow(clippy::large_enum_variant)]
 #[derive(serde::Serialize)]
 pub enum HStmt {
+    SetState {
+        module: usize,
+        name: String,
+        value: HExpr,
+    },
     Set {
         local: usize,
         value: HExpr,
@@ -196,8 +212,20 @@ pub enum HInterpSeg {
 }
 
 pub fn lower(program: tir::TypedProgram) -> HirProgram {
+    let state_vars = program
+        .state_vars
+        .into_iter()
+        .map(|v| HStateVar {
+            module: v.module,
+            name: v.name,
+            ty: v.ty,
+            init: lower_expr(v.init),
+            span: v.span,
+        })
+        .collect();
     HirProgram {
         host_imports: program.host_imports,
+        state_vars,
         functions: program
             .functions
             .into_iter()
@@ -235,6 +263,15 @@ fn lower_stmt(stmt: tir::TStmt) -> Option<HStmt> {
         }),
         tir::TStmt::Assign { local, value } => Some(HStmt::Set {
             local,
+            value: lower_expr(value),
+        }),
+        tir::TStmt::SetState {
+            module,
+            name,
+            value,
+        } => Some(HStmt::SetState {
+            module,
+            name,
             value: lower_expr(value),
         }),
         tir::TStmt::Return { value, .. } => Some(HStmt::Return {

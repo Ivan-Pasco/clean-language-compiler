@@ -365,3 +365,43 @@ functions:
     assert_eq!(store.data()[0].0, "grow across");
     assert!(memory.size(&store) >= 17, "grew past HEAP_START");
 }
+
+/// SMG-01: state lives in wasm globals — it survives the per-request
+/// arena reset that reclaims the heap.
+#[test]
+fn state_persists_across_handle_calls_while_heap_resets() {
+    let sources = [
+        ("app/host_bridge.cln", PROBE),
+        (
+            "app/main.cln",
+            "\
+state:
+\tinteger count = 0
+
+functions:
+\tvoid handle(integer handlerId)
+\t\tcount = count + 1
+\t\temitText(\"x\" + \"y\")
+",
+        ),
+    ];
+    let wasm = compile(&sources);
+    let (mut store, instance) = instantiate(&wasm);
+    let handle = instance
+        .get_typed_func::<i32, ()>(&mut store, "handle")
+        .expect("handle export");
+    let before = global_i32(&mut store, &instance, "__heap_ptr");
+    handle.call(&mut store, 1).expect("first");
+    handle.call(&mut store, 2).expect("second");
+    handle.call(&mut store, 3).expect("third");
+    let after = global_i32(&mut store, &instance, "__heap_ptr");
+    assert_eq!(before, after, "heap resets per request");
+    assert_eq!(
+        store
+            .data()
+            .iter()
+            .map(|(v, _)| v.as_str())
+            .collect::<Vec<_>>(),
+        ["xy", "xy", "xy"]
+    );
+}
