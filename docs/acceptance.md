@@ -61,3 +61,18 @@ The milestone is Done when that curl answers from a component this
 compiler produced (brief: "not before, and not with the WAT fixture in
 place"). Routes `/events` (SSE), `/ws`, and `/counter` are the 9b set,
 deferred to M6 with `result`/`variant` support.
+
+## Check 6 rerun — M6 (9b) ✅ PASSED 2026-08-19
+
+Same rig, with the guest extended by the 9b `/ws` route. Observed: init
+registered all 6 routes; the five 9a routes answered as in M1; and a real
+WebSocket handshake against `/ws` returned **HTTP 101 Switching
+Protocols** — the guest accepted the upgrade through the fallible
+`accept() onError 0` import (`result<u64, socket-error>` at the wire) and
+queued its greeting via `sendText`.
+
+Of the full 8-route set: `/events` is **spec-blocked** (`sse.start`
+collides with the reserved `start` keyword and LBS-02 has no escape —
+DISCOVERIES-M6 item 6k), and `/counter` waits on a fixture that composes
+the fake-bridge (the qualified-package import path it needs is
+implemented and pinned by `tests/fallible_calls.rs`).

@@ -8,6 +8,7 @@ functions:
 		register("post", "/echo", 4, Options(true))
 		register("post", "/hook", 7, Options(false))
 		register("get", "/log", 6, Options(true))
+		register("get", "/ws", 3, Options(true))
 
 	void handle(integer handlerId)
 		if handlerId == 0
@@ -25,6 +26,9 @@ functions:
 		else if handlerId == 7
 			setStatus(200)
 			setBody("hook received")
+		else if handlerId == 3
+			integer sock = accept() onError 0
+			sendText(sock, "hello from a cln guest")
 		else if handlerId == 6
 			emit("info", "hello from the guest", [Field("route", "log-demo")])
 			setStatus(200)

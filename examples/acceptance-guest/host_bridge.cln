@@ -33,3 +33,12 @@ host interface log version "0.1.0":
 
 	host function emit(l: level, message: string, fields: list<Field>)
 		description "Emit a structured record."
+
+host interface websocket version "0.1.0":
+	requires host worlds ["server"]
+
+	host function accept() returns integer:u64
+		description "Accept the pending upgrade."
+
+	host function sendText(socket: integer:u64, message: string)
+		description "Queue a text message."
