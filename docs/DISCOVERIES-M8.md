@@ -9,7 +9,9 @@ adoption that stays in force until foundation resolves it.
 
 In progress. Stage 1 (`cln why` re-projection, §14.14.1) landed with its
 contract suite (`tests/why_operation.rs` at corpus scale, plus the adapter
-half in `clean-compiler-bin/tests/cli.rs`).
+half in `clean-compiler-bin/tests/cli.rs`). Stage 2 (watch-mode rebuild,
+§14.14.3) landed as a contract without an API
+(`clean-compiler-bin/tests/watch_rebuild.rs`).
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
@@ -49,3 +51,23 @@ naming the NDJSON of the build to re-project — "most recent build" is the
 caller's knowledge (Manager owns build history), never a compiler-side
 search. No diagnostic at the location is an empty report with exit 0,
 not a failure.
+
+## 3. §14.14.3 names `[dev] watch` config the request document cannot carry
+
+§14.14.3 says "watch-mode rebuilds respect `[dev] watch = true` and
+`[dev] watch-exclude = […]` from §07" — but the §14.1.1 request schema
+mirrors only `build`, `memory`, `folders`, `dependencies`,
+`compile_limits`, and `telemetry`. There is no `[dev]` projection, and
+watching files is filesystem discovery the compiler must not do (CMP-01):
+both halves of that sentence describe the *caller* (Clean Framework reads
+`clean.toml`, watches the tree, and lowers a fresh request per edit).
+
+**Local adoption (in force):** the compiler ships no watch API, no watch
+mode, and no `[dev]` request section. The compiler-side §14.14.3 contract
+is exactly the sentence that is about the compiler — "a watch-mode
+rebuild produces the same `component.wasm` bytes as a full `debug`
+build" — pinned by `watch_rebuild.rs`: the warm in-process rebuild is
+byte-identical to a cold process-adapter build (component and manifest),
+and the loop leaves no state behind (cycling back to an earlier request
+reproduces its earlier bytes). The rebuild-latency target is informative
+(§14.9) and belongs to M9 measurement.
