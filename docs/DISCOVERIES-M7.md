@@ -7,7 +7,17 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-Open — M7 in progress. No items carried to foundation yet.
+M7 complete (2026-08-19, 5 stages). The milestone gate — LSP diagnostics
+≡ `cln check` diagnostics: same list, same codes, same spans, over the
+same request document — holds as a contract test on hand-written cases
+(`tests/parity.rs`) and over the full DIA-06 fixture corpus
+(`tests/parity_corpus.rs`). Diagnostics push, hover, and go-to-definition
+serve from one pipeline run per edit (`check_with`).
+
+Items 1 (editor-mode request construction) and 2 (request-level
+diagnostic placement) are candidate foundation briefs; 3–7 are local
+pinnings or milestone scoping that dissolve as the surface grows. None
+carried to foundation yet.
 
 ## 1. Editor-mode request construction is unspecified
 

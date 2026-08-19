@@ -29,7 +29,7 @@ Local decisions that deviate from or refine an ADR live in `docs/adr/`.
 
 ## Layout
 
-Three crates (ADR-0006): `crates/clean-compiler-types` (stable value types: spans, diagnostics, request, manifest), `crates/clean-compiler` (the pipeline behind `compile()`; one module per pass, one IR owned by exactly one module), `crates/clean-compiler-bin` (thin process adapter; the only place clap/toml exist).
+Four crates: `crates/clean-compiler-types` (stable value types: spans, diagnostics, request, manifest), `crates/clean-compiler` (the pipeline behind `compile()`; one module per pass, one IR owned by exactly one module), `crates/clean-compiler-bin` (thin process adapter; the only place clap/toml exist) — the ADR-0006 trio — plus `crates/clean-language-server` (the LSP surface over the same pipeline, CCMP-25/26; local ADR 0006). The language server owns no language knowledge: diagnostics come from `check`, hover/definition from a `check_with` observer, and the contract test `tests/parity*.rs` keeps LSP diagnostics ≡ `cln check` over the DIA-06 corpus.
 
 The binary is **not** a user-facing command (CCMP-04): every developer verb belongs to `cln` (Clean Manager). Do not document `clean-compiler` invocations as UX.
 
