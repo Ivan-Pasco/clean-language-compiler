@@ -174,6 +174,20 @@ from M3–M5 executed since).
    (`pairs<string, any>`); the §3.4.2 by-pointer layout leaves scalar
    keys/values unrepresentable without boxing, which is its own spec
    question.
+6n. **L5 conformance findings.** (a) The playbook's "y_* MUST be
+   accepted" collides with RUN009's Accepted duplicate-key rejection:
+   two upstream y_ files must fail here, recorded as expected
+   divergences in `tests/conformance/json/SOURCE.md`. (b)
+   `json.tryTextToData` cannot distinguish parsing the valid document
+   `null` from a parse failure — both return `none`; chapter 15's
+   wording defines them identically. Needs a ruling (a distinct sentinel
+   or an errata acknowledging the conflation). (c) The L5 gate can cover
+   only JSON in M6: chapter 15 specifies no TOML/URL/YAML/regex parser
+   modules, so the master plan's JSON→TOML→URL→YAML→regex chain has one
+   implementable link; the corpus registry rows for the others remain
+   dormant (and that registry doc is itself stale post-ADR-0010,
+   naming retired decisions-files and `json.parse`/`json.stringify`
+   instead of the specified names).
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when
