@@ -7,9 +7,18 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-Open — milestone in progress (started 2026-08-18). Foundation HEAD at
-start: `af0e34c` (the M5 round-trip closure; none of the 16 open briefs
-from M3–M5 executed since).
+Implementation complete (2026-08-19), round-trip to foundation pending.
+Foundation HEAD at start: `af0e34c`; none of the 16 open M3–M5 briefs
+executed during M6. Twelve stages landed: memory model (MMD-01..04,
+TIER-01/02/04/05), control flow (FLW-02/03), number, lists, the
+chapter-15 math/string/list/bytes/json modules with conversions, fallible
+imports (framework 09 §8), state-to-globals (SMG-01), BLD001 + MEM002
+emitting with DIA-06 triples, the L5 JSONTestSuite gate (318 cases,
+pinned i_ verdicts), and the bi-repo acceptance rerun — clean-server
+served the guest including the 9b /ws route (101 Switching Protocols).
+Blocked by spec, needing foundation rulings before the surface can
+close: /events (item 6k), list.add/insert (6g), transcendentals +
+BRG-05 (1/2), record/class layout (6b), b"..." literals (6h).
 
 ## Items
 
