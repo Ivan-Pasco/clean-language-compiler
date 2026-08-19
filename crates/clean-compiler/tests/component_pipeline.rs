@@ -44,6 +44,15 @@ host interface log version \"0.1.0\":
 
 \thost function emit(l: level, message: string, fields: list<Field>)
 \t\tdescription \"Emit a structured record.\"
+
+host interface websocket version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function accept() returns integer:u64
+\t\tdescription \"Accept the pending upgrade.\"
+
+\thost function sendText(socket: integer:u64, message: string)
+\t\tdescription \"Queue a text message.\"
 ";
 
 const CLASSES: &str = "\
@@ -55,7 +64,11 @@ class Field
 \tstring value
 ";
 
-/// The 9a routes of the acceptance guest (SSE/WS/counter are 9b, M6).
+/// The acceptance guest: the 9a routes plus the 9b `/ws` (fallible
+/// websocket imports). `/events` is spec-blocked — `sse.start` collides
+/// with the reserved `start` keyword and LBS-02 has no escape
+/// (DISCOVERIES-M6); `/counter` needs the composed fake-bridge world and
+/// rides the bi-repo check.
 const MAIN: &str = "\
 import:
 \tclasses
@@ -67,6 +80,7 @@ functions:
 \t\tregister(\"post\", \"/echo\", 4, Options(true))
 \t\tregister(\"post\", \"/hook\", 7, Options(false))
 \t\tregister(\"get\", \"/log\", 6, Options(true))
+\t\tregister(\"get\", \"/ws\", 3, Options(true))
 
 \tvoid handle(integer handlerId)
 \t\tif handlerId == 0
@@ -88,6 +102,9 @@ functions:
 \t\t\temit(\"info\", \"hello from the guest\", [Field(\"route\", \"log-demo\")])
 \t\t\tsetStatus(200)
 \t\t\tsetBody(\"logged\")
+\t\telse if handlerId == 3
+\t\t\tinteger sock = accept() onError 0
+\t\t\tsendText(sock, \"hello from a cln guest\")
 \t\telse
 \t\t\tsetStatus(404)
 ";
@@ -188,6 +205,7 @@ fn acceptance_guest_compiles_to_a_conforming_component() {
     let mir = clean_compiler::mir::lower(
         &hir,
         &resolved,
+        &validated.world,
         &validated.world.package_version(),
         clean_compiler::layout::tier("standard").expect("standard tier exists"),
         &mut sink,

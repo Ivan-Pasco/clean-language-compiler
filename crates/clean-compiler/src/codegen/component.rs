@@ -28,18 +28,19 @@ pub fn emit_empty_component() -> Vec<u8> {
 /// program actually calls (in first-use order), plus the two entry points
 /// the host world imports (ADR-0002 §1). Mirrors the shape of
 /// clean-server's own acceptance fixture (`clean:guest/app`).
-pub fn synthesize_guest_world(program: &MirProgram, package_version: &str) -> String {
-    let mut interfaces: Vec<&str> = Vec::new();
+pub fn synthesize_guest_world(program: &MirProgram, _package_version: &str) -> String {
+    // One import line per interface, by its world-qualified module path
+    // (`clean:host/...` or a composed bridge like `clean:fake-bridge/...`),
+    // in first-use order.
+    let mut modules: Vec<&str> = Vec::new();
     for import in &program.imports {
-        if !interfaces.contains(&import.interface.as_str()) {
-            interfaces.push(&import.interface);
+        if !modules.contains(&import.module.as_str()) {
+            modules.push(&import.module);
         }
     }
     let mut wit = String::from("package clean:guest@0.1.0;\n\nworld app {\n");
-    for interface in interfaces {
-        wit.push_str(&format!(
-            "    import clean:host/{interface}@{package_version};\n"
-        ));
+    for module in modules {
+        wit.push_str(&format!("    import {module};\n"));
     }
     // Export exactly the entry points the program defines (ADR-0002 §1);
     // whether the set satisfies the host is the host's Moment 3 decision.

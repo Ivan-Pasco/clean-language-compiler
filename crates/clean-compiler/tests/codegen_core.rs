@@ -70,6 +70,7 @@ fn compile_to_core(sources: &[(&str, &str)]) -> Vec<u8> {
     let mir = mir::lower(
         &hir,
         &resolved,
+        &validated.world,
         &validated.world.package_version(),
         clean_compiler::layout::tier("standard").expect("standard tier exists"),
         &mut sink,

@@ -47,6 +47,7 @@ fn compile_with_tier(sources: &[(&str, &str)], tier: &str) -> Vec<u8> {
     let mir = mir::lower(
         &hir,
         &resolved,
+        &validated.world,
         &validated.world.package_version(),
         clean_compiler::layout::tier(tier).expect("known tier"),
         &mut sink,

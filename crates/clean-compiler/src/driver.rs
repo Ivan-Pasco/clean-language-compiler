@@ -138,6 +138,7 @@ fn front(
     let mir = crate::mir::lower(
         &hir,
         &resolved,
+        &validated.world,
         &validated.world.package_version(),
         tier,
         sink,

@@ -141,6 +141,26 @@ from M3–M5 executed since).
    says how a stdlib-originated wasi import appears in the world or
    which code fires when it cannot. `datetime` additionally has no
    Platform 03 layout. All four module surfaces stay frontier notes.
+6k. **`sse.start` is undeclarable from Clean.** LBS-02's name
+   projection is mechanical camelCase→kebab, `start` is a reserved
+   keyword (chapter 18 async), and the `host function` grammar has no
+   explicit-WIT-name clause — so no Clean declaration can reach the
+   `start` function of the vendored `sse` interface, and the `/events`
+   acceptance route is **blocked by spec**. Needs either a wit-name
+   escape in the declaration grammar or keyword-lenient identifiers
+   after `host function` (both grammar changes, DOC-15). Same hazard for
+   any WIT function whose kebab name round-trips to a Clean keyword.
+6l. **Fallible-import adoptions** (framework 09 §8 round-trip). Ratified
+   text says declarations carry the ok type and the compiler owns the
+   `result<T, E>` reading; adopted mechanics, all fixture-pinned in
+   `tests/fallible_calls.rs`: the world (not the declaration) decides
+   fallibility; expression `onError` binds no error value and the error
+   payload is never read (only payload-less enum/variant errors are
+   supported — others decline); a bare fallible call traps on the error
+   arm (RUN018's shape until error lowering); composed-bridge interfaces
+   resolve their qualified package from the world (the `/counter`
+   shape), which also fixes how a multi-package `target_world.wit` is
+   delivered — main package unbraced, nested packages braced.
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when

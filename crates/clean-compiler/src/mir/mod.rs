@@ -65,6 +65,10 @@ pub struct MirImport {
     pub name: String,
     pub params: Vec<Val>,
     pub results: Vec<Val>,
+    /// `Some(ok)` when the world return is `result<ok, err>` (framework
+    /// 09 §8): the call takes the retptr form with the result's memory
+    /// layout, and call sites branch on the discriminant.
+    pub fallible_ok: Option<Ty>,
 }
 
 /// How a host result wider than one core value comes back: through a
@@ -464,9 +468,93 @@ fn is_i64(ty: &Ty) -> bool {
     matches!(ty, Ty::Integer | Ty::IntegerW(IntWidth::U64))
 }
 
+/// What the target world knows about one host import beyond its Clean
+/// declaration: the interface's qualified package path, and — when the
+/// WIT return is `result<T, E>` — the fallibility the Clean surface never
+/// writes (framework 09 §8: fallible functions declare the ok type;
+/// `onError` is the error channel).
+pub struct WorldFacts {
+    /// e.g. `clean:fake-bridge/store@0.1.0`; `None` falls back to the
+    /// `clean:host/{interface}@{version}` convention.
+    pub module: Option<String>,
+    /// `Some(ok)` when the world return is `result<ok, err>`; the err
+    /// side's payload is never read (expression `onError` binds no error
+    /// value).
+    pub fallible_ok: Option<Ty>,
+}
+
+/// Looks a declared import up in the target world (by interface name and
+/// kebab function name). Absence is not an error here — pass [9] owns
+/// COM012 — it only means no enrichment.
+fn world_facts(world: &crate::codegen::world::ParsedWorld, import: &HostImport) -> WorldFacts {
+    use wit_parser::{TypeDefKind, WorldItem, WorldKey};
+    let resolve = &world.resolve;
+    let world_def = &resolve.worlds[world.world];
+    for (key, item) in &world_def.exports {
+        let WorldItem::Interface { id, .. } = item else {
+            continue;
+        };
+        let name = match key {
+            WorldKey::Name(n) => n.clone(),
+            WorldKey::Interface(i) => resolve.interfaces[*i].name.clone().unwrap_or_default(),
+        };
+        if name != import.interface {
+            continue;
+        }
+        let iface = &resolve.interfaces[*id];
+        let module = iface.package.map(|pkg| {
+            let pkg = &resolve.packages[pkg];
+            let version = pkg
+                .name
+                .version
+                .as_ref()
+                .map(|v| format!("@{v}"))
+                .unwrap_or_default();
+            format!("{}:{}/{}{version}", pkg.name.namespace, pkg.name.name, name)
+        });
+        let fallible_ok = iface.functions.get(&import.wit_name).and_then(|function| {
+            let wit_parser::Type::Id(id) = function.result.as_ref()? else {
+                return None;
+            };
+            let TypeDefKind::Result(r) = &resolve.types[*id].kind else {
+                return None;
+            };
+            // The error side is never read, but its alignment must not
+            // move the ok payload: only payload-less enums/variants are
+            // supported (Ty::Error marks an unsupported shape and the
+            // call site declines).
+            let err_supported = match r.err {
+                None => true,
+                Some(wit_parser::Type::Id(err_id)) => match &resolve.types[err_id].kind {
+                    TypeDefKind::Enum(_) => true,
+                    TypeDefKind::Variant(v) => v.cases.iter().all(|c| c.ty.is_none()),
+                    _ => false,
+                },
+                Some(_) => false,
+            };
+            if !err_supported {
+                return Some(Ty::Error);
+            }
+            Some(match r.ok {
+                Some(ok) => crate::typecheck::types::project_wit(resolve, &ok).unwrap_or(Ty::Error),
+                None => Ty::Void,
+            })
+        });
+        return WorldFacts {
+            module,
+            fallible_ok,
+        };
+    }
+    WorldFacts {
+        module: None,
+        fallible_ok: None,
+    }
+}
+
 pub fn lower(
     program: &HirProgram,
     resolved: &ResolvedAst,
+    world: &crate::codegen::world::ParsedWorld,
     world_version: &str,
     tier: Tier,
     sink: &mut DiagnosticSink,
@@ -490,14 +578,23 @@ pub fn lower(
 
     let imports = used
         .iter()
-        .map(|&index| lower_import(&program.host_imports[index], world_version, resolved, sink))
+        .map(|&index| {
+            let import = &program.host_imports[index];
+            let facts = world_facts(world, import);
+            lower_import(import, facts, world_version, resolved, sink)
+        })
         .collect();
+    let imports: Vec<MirImport> = imports;
     let mut data = DataPool::new();
     let mut tags = TagRegistry::default();
     let functions = program
         .functions
         .iter()
-        .map(|f| lower_function(f, program, resolved, &remap, &mut data, &mut tags, sink))
+        .map(|f| {
+            lower_function(
+                f, program, resolved, &remap, &imports, &mut data, &mut tags, sink,
+            )
+        })
         .collect();
     MirProgram {
         imports,
@@ -518,6 +615,11 @@ fn collect_used_imports(stmt: &HStmt, used: &mut Vec<usize>) {
             HExprKind::CallFn { args, .. } | HExprKind::CallStd { args, .. } => {
                 args.iter().for_each(|a| expr(a, used))
             }
+            HExprKind::OnError { value, fallback } => {
+                expr(value, used);
+                expr(fallback, used);
+            }
+            HExprKind::Raise(operand) => expr(operand, used),
             HExprKind::MakeRecord(items)
             | HExprKind::MakeList(items)
             | HExprKind::MakeMatrix(items) => items.iter().for_each(|i| expr(i, used)),
@@ -667,6 +769,7 @@ impl DataPool {
 
 fn lower_import(
     import: &HostImport,
+    facts: WorldFacts,
     world_version: &str,
     resolved: &ResolvedAst,
     sink: &mut DiagnosticSink,
@@ -678,27 +781,37 @@ fn lower_import(
             None => note_type_gap(ty, import, resolved, sink),
         }
     }
-    let results = match cabi_flat(&import.ret) {
-        Some(vals) if vals.len() <= 1 => vals,
-        // Wider results take the Canonical ABI retptr form: a trailing i32
-        // pointer parameter, no core results.
-        _ => match ret_lift(&import.ret) {
-            Some(_) => {
-                params.push(Val::I32);
-                vec![]
-            }
-            None => {
-                note_type_gap(&import.ret, import, resolved, sink);
-                vec![]
-            }
-        },
+    let results = if facts.fallible_ok.is_some() {
+        // result<T, E> flattens past one core value for every supported
+        // shape, so the call always takes the retptr form.
+        params.push(Val::I32);
+        vec![]
+    } else {
+        match cabi_flat(&import.ret) {
+            Some(vals) if vals.len() <= 1 => vals,
+            // Wider results take the Canonical ABI retptr form: a trailing
+            // i32 pointer parameter, no core results.
+            _ => match ret_lift(&import.ret) {
+                Some(_) => {
+                    params.push(Val::I32);
+                    vec![]
+                }
+                None => {
+                    note_type_gap(&import.ret, import, resolved, sink);
+                    vec![]
+                }
+            },
+        }
     };
     MirImport {
-        module: format!("clean:host/{}@{}", import.interface, world_version),
+        module: facts
+            .module
+            .unwrap_or_else(|| format!("clean:host/{}@{}", import.interface, world_version)),
         interface: import.interface.clone(),
         name: import.wit_name.clone(),
         params,
         results,
+        fallible_ok: facts.fallible_ok,
     }
 }
 
@@ -722,11 +835,13 @@ fn note_type_gap(ty: &Ty, import: &HostImport, resolved: &ResolvedAst, sink: &mu
     sink.note_unsupported(construct, resolved.span(file, import.span));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lower_function(
     function: &HFunction,
     program: &HirProgram,
     resolved: &ResolvedAst,
     remap: &std::collections::BTreeMap<usize, usize>,
+    imports: &[MirImport],
     data: &mut DataPool,
     tags: &mut TagRegistry,
     sink: &mut DiagnosticSink,
@@ -753,16 +868,20 @@ fn lower_function(
     }
     let results = val_types(&function.ret).unwrap_or_default();
 
+    let mut local_tys: Vec<Ty> = function.params.clone();
+    local_tys.extend(function.locals.iter().cloned());
     let mut lowerer = FnLowerer {
         program,
         resolved,
         slots,
         slot_widths,
+        local_tys,
         file: function.file,
         data,
         next_slot: next,
         scratch: Vec::new(),
         remap,
+        imports,
         label_depth: 0,
         loops: Vec::new(),
         tags,
@@ -795,6 +914,8 @@ struct FnLowerer<'a> {
     slots: Vec<u32>,
     /// LocalId → number of consecutive slots the value occupies.
     slot_widths: Vec<u32>,
+    /// LocalId → declared semantic type (params then locals).
+    local_tys: Vec<Ty>,
     file: usize,
     data: &'a mut DataPool,
     /// Next free wasm slot (scratch allocations continue the local space).
@@ -803,6 +924,8 @@ struct FnLowerer<'a> {
     scratch: Vec<Val>,
     /// Original host-import index → pruned MIR import index.
     remap: &'a std::collections::BTreeMap<usize, usize>,
+    /// The lowered imports (world-enriched: qualified module, fallibility).
+    imports: &'a [MirImport],
     /// Structured-label bookkeeping for `break`/`continue`: the number of
     /// enclosing labeled blocks (`block`/`loop`/`if`) at the current
     /// emission site.
@@ -1317,6 +1440,23 @@ impl<'a> FnLowerer<'a> {
         match stmt {
             HStmt::Set { local, value } => {
                 self.expr(value, out, sink);
+                // A narrower boundary integer widens into an `integer`
+                // local (and vice versa) — the checker accepts the fit,
+                // the store adjusts the width.
+                let declared = self.local_tys[*local].clone();
+                match (is_i64(&value.ty), is_i64(&declared)) {
+                    (false, true) if value.ty.is_integer() => {
+                        out.push(if matches!(value.ty, Ty::IntegerW(IntWidth::S32)) {
+                            Inst::I64ExtendI32S
+                        } else {
+                            Inst::I64ExtendI32U
+                        });
+                    }
+                    (true, false) if declared.is_integer() => {
+                        out.push(Inst::I32WrapI64);
+                    }
+                    _ => {}
+                }
                 // Flattened values sit on the stack in slot order; stores
                 // pop in reverse.
                 let base = self.slots[*local];
@@ -1658,6 +1798,14 @@ impl<'a> FnLowerer<'a> {
                 out.push(Inst::LocalGet(base));
             }
             HExprKind::CallHost { import, args } => {
+                // Fallible imports (world return result<T, E> — framework
+                // 09 §8): a bare call traps on the error arm (RUN018's
+                // shape until error lowering; `onError` is the handled
+                // form, lowered by the OnError arm below).
+                if self.imports[self.remap[import]].fallible_ok.is_some() {
+                    self.lower_fallible_call(*import, args, None, expr.span, out, sink);
+                    return;
+                }
                 let param_tys = self.program.host_imports[*import].params.clone();
                 for (arg, param_ty) in args.iter().zip(&param_tys) {
                     self.lower_boundary_arg(arg, param_ty, out, sink);
@@ -1797,6 +1945,25 @@ impl<'a> FnLowerer<'a> {
             HExprKind::This => self.note(sink, "class values in compiled code", expr.span),
             HExprKind::GetState { .. } | HExprKind::GuardValue => {
                 self.note(sink, "state access in compiled code", expr.span)
+            }
+            // `value onError fallback` over a fallible host call: branch
+            // on the result discriminant, fallback on the error arm (the
+            // expression form binds no error value).
+            HExprKind::OnError { value, fallback }
+                if matches!(&value.kind, HExprKind::CallHost { import, .. }
+                    if self.imports[self.remap[import]].fallible_ok.is_some()) =>
+            {
+                let HExprKind::CallHost { import, args } = &value.kind else {
+                    unreachable!("guard matched CallHost");
+                };
+                self.lower_fallible_call(*import, args, Some(fallback), expr.span, out, sink);
+            }
+            // An infallible value cannot fail: `onError` is inert and the
+            // fallback is dead (M4 typing already coerced it).
+            HExprKind::OnError { value, fallback: _ }
+                if matches!(&value.kind, HExprKind::CallHost { .. }) =>
+            {
+                self.expr(value, out, sink);
             }
             HExprKind::Raise(_) | HExprKind::OnError { .. } | HExprKind::ErrorBinding => {
                 self.note(sink, "error handling in compiled code", expr.span)
@@ -2024,6 +2191,83 @@ impl<'a> FnLowerer<'a> {
                         unreachable!("transcendental {transcendental:?} filtered above")
                     }
                 }
+            }
+        }
+    }
+
+    /// Lowers a call to a fallible import (world return `result<ok, err>`).
+    /// The retptr area holds the canonical result: discriminant byte at
+    /// +0, ok payload at its natural alignment. The error payload is never
+    /// read (expression `onError` binds no error value); a bare call traps
+    /// on the error arm.
+    fn lower_fallible_call(
+        &mut self,
+        import: usize,
+        args: &[HExpr],
+        fallback: Option<&HExpr>,
+        span: crate::source::ByteSpan,
+        out: &mut Vec<Inst>,
+        sink: &mut DiagnosticSink,
+    ) {
+        let ok_ty = self.imports[self.remap[&import]]
+            .fallible_ok
+            .clone()
+            .expect("caller checked fallibility");
+        let param_tys = self.program.host_imports[import].params.clone();
+        for (arg, param_ty) in args.iter().zip(&param_tys) {
+            self.lower_boundary_arg(arg, param_ty, out, sink);
+        }
+        out.push(Inst::RetAreaPtr);
+        out.push(Inst::CallImport(self.remap[&import] as u32));
+
+        // The ok payload's loads, at its canonical offset.
+        let ok_loads: Option<Vec<Inst>> = match &ok_ty {
+            Ty::Void => Some(vec![]),
+            Ty::Integer | Ty::IntegerW(IntWidth::U64) => {
+                Some(vec![Inst::RetAreaPtr, Inst::I64Load(8)])
+            }
+            Ty::Number => Some(vec![Inst::RetAreaPtr, Inst::F64Load(8)]),
+            Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => {
+                Some(vec![Inst::RetAreaPtr, Inst::I32Load(4)])
+            }
+            Ty::Str | Ty::Bytes => Some(vec![
+                Inst::RetAreaPtr,
+                Inst::I32Load(4),
+                Inst::RetAreaPtr,
+                Inst::I32Load(8),
+                Inst::CallRuntime(runtime::RuntimeFn::LiftString),
+            ]),
+            _ => None,
+        };
+        let Some(ok_loads) = ok_loads else {
+            self.note(sink, "this host result type", span);
+            return;
+        };
+        let result_val = val_types(&ok_ty).and_then(|v| v.first().copied());
+
+        out.push(Inst::RetAreaPtr);
+        out.push(Inst::I32Load8U(0));
+        match fallback {
+            None => {
+                // Error arm: trap (RUN018's unhandled-error shape until
+                // error lowering — DISCOVERIES-M6).
+                out.push(Inst::If {
+                    result: None,
+                    then: vec![Inst::Unreachable],
+                    els: vec![],
+                });
+                out.extend(ok_loads);
+            }
+            Some(fb) => {
+                let mut err_arm = Vec::new();
+                self.label_depth += 1;
+                self.expr(fb, &mut err_arm, sink);
+                self.label_depth -= 1;
+                out.push(Inst::If {
+                    result: result_val,
+                    then: err_arm,
+                    els: ok_loads,
+                });
             }
         }
     }

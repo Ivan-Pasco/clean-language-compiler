@@ -74,10 +74,22 @@ fn verify_import(import: &HostImport, world: &ParsedWorld) -> Option<String> {
             Ty::Void => None,
             other => Some(other.clone()),
         };
-        let world_result = function
-            .result
-            .as_ref()
-            .and_then(|ty| project_wit(resolve, ty));
+        // Framework 09 §8: a fallible function declares its ok type; the
+        // compiler owns the result<T, E> reading. Unwrap one result layer
+        // before comparing.
+        let world_ret = function.result.as_ref().map(|ty| {
+            if let wit_parser::Type::Id(id) = ty {
+                if let wit_parser::TypeDefKind::Result(r) = &resolve.types[*id].kind {
+                    return r.ok;
+                }
+            }
+            Some(*ty)
+        });
+        let world_result = match world_ret {
+            None => None,
+            Some(None) => None,
+            Some(Some(ty)) => project_wit(resolve, &ty),
+        };
         if declared_result != world_result
             && !(function.result.is_none() && declared_result.is_none())
         {
@@ -168,6 +180,13 @@ fn walk_expr(
             for arg in args {
                 walk_expr(arg, verdicts, world_name, resolved, file, sink);
             }
+        }
+        HExprKind::OnError { value, fallback } => {
+            walk_expr(value, verdicts, world_name, resolved, file, sink);
+            walk_expr(fallback, verdicts, world_name, resolved, file, sink);
+        }
+        HExprKind::Raise(operand) => {
+            walk_expr(operand, verdicts, world_name, resolved, file, sink);
         }
         HExprKind::MakeRecord(items) | HExprKind::MakeList(items) => {
             for item in items {
