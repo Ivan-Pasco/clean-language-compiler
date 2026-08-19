@@ -35,6 +35,7 @@ pub mod repro;
 pub mod request;
 pub mod resolver;
 pub mod source;
+pub mod stub;
 pub mod typecheck;
 pub mod why;
 

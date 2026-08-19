@@ -16,7 +16,10 @@ reproduction, §14.14.6 first half) landed as `repro::repro_build` with a
 pluggable `InputResolver` (`tests/repro_build.rs`,
 `clean-compiler-bin/tests/repro_cli.rs`, local ADR 0007). Stage 4
 (request replay, §14.14.6 second half) landed as `replay::replay` over a
-provisional trace schema (`tests/replay_operation.rs`).
+provisional trace schema (`tests/replay_operation.rs`). Stage 5 (bridge
+stubs, §14.14.5) landed as the `stub::generate_stub` generator
+(`tests/bridge_stubs.rs`) — the normative WIT catalog it will feed on
+does not exist yet (§7).
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
@@ -142,3 +145,36 @@ this; inventing one would violate DIA-01.
 Foundation brief candidate: give the request trace a normative home
 (clean-server spec per §14.14.6's own pointer), taking this pinned shape
 as the draft.
+
+## 7. The bridge WIT catalog §14.14.5 stubs depend on does not exist
+
+§14.14.5 requires a stub component per `clean:bridge/*` interface, living
+"in the same repository as the interface WIT so drift is impossible" and
+shipping in the compiler tarball at `dist/bridges/stubs/`. Platform 02
+§2.2 says "the full WIT source of each interface lives in the `wit/`
+directory at the root of this repository" — but the foundation repository
+has no `wit/` directory: the seven-interface L2 catalog (console, db,
+crypto, mem, math, string, files) exists only as a table. No stub can be
+generated against WIT sources that do not exist, and authoring them here
+would be exactly the drift §14.14.5 forbids.
+
+**Local adoption (in force, `stub.rs`):** the *generator* — WIT interface
+in, stub component out — with the three §14.14.5 semantics pinned by
+`tests/bridge_stubs.rs` (recorded-call log, fixture-driven canned
+responses, non-fixture calls trap), exercised against the informative
+`clean:bridge/console` shape of Platform 02 §2.1. The catalog feeds the
+generator when foundation lands the WITs. Two provisional choices:
+
+- **Fixture at generation time, not instantiation.** "Handed to the stub
+  at instantiation" would force a JSON parser into every stub component
+  or a host-side fixture import that `cln test` must wire; baking at
+  generation keeps stubs dependency-free and the test loop identical
+  (regenerating is milliseconds). Brief candidate alongside the catalog.
+- **Fixture values reuse the replay trace's typed encoding**
+  (`replay::TraceValue`), so §14.14.6 traces and §14.14.5 fixtures speak
+  one value language. v1 shape subset: scalars, strings, enums /
+  payload-less variants; records/lists/options are typed `Unsupported`
+  refusals until the real catalog fixes the needed shapes.
+
+Adapter surface: `--bridge-stub <interface> --wit <path> --fixture
+<path>`, writing the dist-layout name `clean-bridge-<interface>-stub.wasm`.

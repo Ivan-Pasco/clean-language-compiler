@@ -71,6 +71,20 @@ struct Args {
     /// hash). Only read by `--replay`.
     #[arg(long)]
     component: Option<PathBuf>,
+    /// Bridge stub generation (Platform 14 §14.14.5): name of the interface
+    /// to stub, declared in `--wit`. Writes
+    /// `clean-bridge-<interface>-stub.wasm` to `--out`, with the `--fixture`
+    /// JSON baked in.
+    #[arg(long, requires = "wit", requires = "fixture", conflicts_with_all = ["check", "emit", "why", "repro_build", "replay"])]
+    bridge_stub: Option<String>,
+    /// The bridge package WIT declaring the interface. Only read by
+    /// `--bridge-stub`.
+    #[arg(long)]
+    wit: Option<PathBuf>,
+    /// The stub fixture JSON: per function, the canned responses in call
+    /// order. Only read by `--bridge-stub`.
+    #[arg(long)]
+    fixture: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
@@ -94,6 +108,15 @@ fn main() -> ExitCode {
         eprintln!("clean-compiler: --out is required for this operation");
         return ExitCode::from(2);
     };
+
+    if let Some(interface) = &args.bridge_stub {
+        return run_bridge_stub(
+            interface,
+            args.wit.as_deref().expect("clap requires"),
+            args.fixture.as_deref().expect("clap requires"),
+            &out,
+        );
+    }
 
     let json = match read_request(&args.request) {
         Ok(json) => json,
@@ -274,6 +297,54 @@ fn run_repro(
 /// the caller-named diagnostics NDJSON, re-project, print the report JSON.
 /// Exit 0 even when no diagnostic covers the location — an empty `entries`
 /// list is the answer, not a failure; exit 2 is transport failure only.
+/// The `--bridge-stub` operation (Platform 14 §14.14.5): generate the stub
+/// component for one bridge interface with the fixture baked in, and write
+/// it under its dist-layout name. Exit 2 on any refusal — every failure
+/// here is the caller's input, not a compilation.
+fn run_bridge_stub(
+    interface: &str,
+    wit_path: &std::path::Path,
+    fixture_path: &std::path::Path,
+    out: &PathBuf,
+) -> ExitCode {
+    let wit = match std::fs::read_to_string(wit_path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("clean-compiler: cannot read {}: {err}", wit_path.display());
+            return ExitCode::from(2);
+        }
+    };
+    let fixture: clean_compiler::stub::StubFixture = match std::fs::read_to_string(fixture_path)
+        .map_err(|e| e.to_string())
+        .and_then(|text| serde_json::from_str(&text).map_err(|e| e.to_string()))
+    {
+        Ok(fixture) => fixture,
+        Err(err) => {
+            eprintln!(
+                "clean-compiler: cannot read fixture {}: {err}",
+                fixture_path.display()
+            );
+            return ExitCode::from(2);
+        }
+    };
+    match clean_compiler::stub::generate_stub(&wit, interface, &fixture) {
+        Ok(wasm) => {
+            let name = clean_compiler::stub::stub_artifact_name(interface);
+            if let Err(err) =
+                std::fs::create_dir_all(out).and_then(|()| std::fs::write(out.join(&name), &wasm))
+            {
+                eprintln!("clean-compiler: cannot write {name}: {err}");
+                return ExitCode::from(2);
+            }
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("clean-compiler: {err}");
+            ExitCode::from(2)
+        }
+    }
+}
+
 /// The `--replay` operation (Platform 14 §14.14.6): parse and validate the
 /// trace, re-run it against the component, print the report JSON. Exit 0
 /// on a byte-for-byte match, 1 on divergence or mismatch (a Clean runtime
