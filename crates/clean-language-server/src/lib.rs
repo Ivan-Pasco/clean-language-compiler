@@ -11,6 +11,7 @@
 //! `run` drives a [`lsp_server::Connection`], so the same loop serves stdio
 //! in production and an in-memory pair in tests.
 
+mod analysis;
 mod convert;
 mod server;
 mod session;

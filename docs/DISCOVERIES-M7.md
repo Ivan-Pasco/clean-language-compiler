@@ -80,7 +80,25 @@ immediately after the handshake returns, not in an `initialized` handler —
 observable only as "diagnostics arrive without waiting for an edit", which
 is what Platform 04 §4.1 wants anyway. Implementation note, not a spec gap.
 
-## 6. Binary name
+## 6. Hover answers only from an authoritative typed program
+
+Platform 04 §4.1 wants hover on "the type of the expression under the
+cursor" but does not say what hover shows while the program is ill-typed.
+The typed program the pipeline produces is authoritative only after pass
+[6] re-validation (§14.4.2) — before that there is nothing the type
+checker stands behind.
+
+**Local adoption (in force, `driver.rs::check_with` + `analysis.rs`):**
+the hover/definition index is captured by an observer that runs once,
+immediately after pass [6], inside the same `check` run that produced the
+diagnostics — one pipeline, one request, one answer (CCMP-25). When the
+run stops earlier (parse or type errors), hover returns null rather than
+a stale or guessed answer (LSP-04's rationale). The index does survive a
+*later*-stage stop (pre-v1 `Unsupported`, COM003), where the typed
+program is valid. Call and host-call expressions hover as the callee's
+Clean-surface signature; every other expression hovers as `Ty::display()`.
+
+## 7. Binary name
 
 No spec names the language-server binary (Platform 04 says "the language
 server binary"; Manager resolves it at the pin). **Local adoption (ADR

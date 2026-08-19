@@ -35,6 +35,60 @@ pub fn range(content: &str, span: &Span) -> lsp_types::Range {
     }
 }
 
+/// Byte offset in `content` for an LSP position (0-based line, UTF-16
+/// column), clamped to the line's end and the content's end.
+pub fn byte_offset(content: &str, position: lsp_types::Position) -> u32 {
+    let mut offset = 0u32;
+    for (index, line) in content.split('\n').enumerate() {
+        if index as u32 == position.line {
+            let mut units = 0u32;
+            for c in line.chars() {
+                if units >= position.character {
+                    break;
+                }
+                units += c.len_utf16() as u32;
+                offset += c.len_utf8() as u32;
+            }
+            return offset;
+        }
+        offset += line.len() as u32 + 1;
+    }
+    content.len() as u32
+}
+
+/// LSP position (0-based, UTF-16) for a byte offset in `content`.
+fn offset_position(content: &str, offset: u32) -> lsp_types::Position {
+    let mut line_start = 0u32;
+    let mut line_index = 0u32;
+    for (index, line) in content.split('\n').enumerate() {
+        let line_end = line_start + line.len() as u32;
+        if offset <= line_end {
+            let character = content[line_start as usize..offset.min(line_end) as usize]
+                .chars()
+                .map(|c| c.len_utf16() as u32)
+                .sum();
+            return lsp_types::Position {
+                line: index as u32,
+                character,
+            };
+        }
+        line_start = line_end + 1;
+        line_index = index as u32 + 1;
+    }
+    lsp_types::Position {
+        line: line_index,
+        character: 0,
+    }
+}
+
+/// LSP range for a byte span into `content`.
+pub fn byte_range(content: &str, span: clean_compiler::source::ByteSpan) -> lsp_types::Range {
+    lsp_types::Range {
+        start: offset_position(content, span.start),
+        end: offset_position(content, span.end),
+    }
+}
+
 fn severity(level: Level) -> DiagnosticSeverity {
     match level {
         Level::Error => DiagnosticSeverity::ERROR,

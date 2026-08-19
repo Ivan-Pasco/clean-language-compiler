@@ -54,6 +54,7 @@ struct FrontArtifacts {
 fn front(
     request: CompileRequest,
     sink: &mut DiagnosticSink,
+    observe: &mut dyn FnMut(&crate::resolver::ResolvedAst, &crate::typecheck::tir::TypedProgram),
 ) -> Result<(crate::diag::SourceCache, Option<FrontArtifacts>), CompileError> {
     // Pass [1] — Request Validation (→ ValidatedRequest). Request-level
     // diagnostics quote no source (Platform 10 §16).
@@ -134,6 +135,11 @@ fn front(
     if sink.has_errors() {
         return Ok((cache, None));
     }
+    // The expanded program is the authoritative typed surface (§14.4.2);
+    // the editor observer reads it here, before pre-v1 lowering gaps can
+    // cut the run short — hover stays useful on a program the milestone
+    // cannot lower yet.
+    observe(&resolved, &typed);
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
     }
@@ -202,7 +208,7 @@ fn front(
 /// process adapter, JSON-RPC/MCP — wraps this function.
 pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError> {
     let mut sink = DiagnosticSink::new();
-    let (cache, artifacts) = front(request, &mut sink)?;
+    let (cache, artifacts) = front(request, &mut sink, &mut |_, _| {})?;
     let Some(FrontArtifacts { validated, mir }) = artifacts else {
         return Err(CompileError::Rejected(crate::diag::finalize(
             sink.into_diagnostics(),
@@ -261,9 +267,31 @@ pub fn compile(request: CompileRequest) -> Result<CompileArtifact, CompileError>
 /// included; the caller fails the operation iff any is `level = error`.
 /// `Err` is only the pre-v1 `Unsupported` channel.
 pub fn check(request: CompileRequest) -> Result<Vec<Diagnostic>, CompileError> {
+    check_with(request, |_, _| ()).0
+}
+
+/// `check`, with a window onto the typed program: `observe` runs once,
+/// right after pass [6] (the authoritative typed surface), and its return
+/// value comes back alongside the diagnostics. The language server builds
+/// its hover/definition index here — same passes, same diagnostics, one
+/// run (CCMP-25). `None` when the pipeline stopped before pass [6].
+pub fn check_with<T>(
+    request: CompileRequest,
+    observe: impl FnOnce(&crate::resolver::ResolvedAst, &crate::typecheck::tir::TypedProgram) -> T,
+) -> (Result<Vec<Diagnostic>, CompileError>, Option<T>) {
     let mut sink = DiagnosticSink::new();
-    let (cache, _artifacts) = front(request, &mut sink)?;
-    Ok(crate::diag::finalize(sink.into_diagnostics(), &cache))
+    let mut slot = None;
+    let mut observe = Some(observe);
+    let result = front(request, &mut sink, &mut |resolved, typed| {
+        if let Some(observe) = observe.take() {
+            slot = Some(observe(resolved, typed));
+        }
+    });
+    let diagnostics = match result {
+        Ok((cache, _artifacts)) => Ok(crate::diag::finalize(sink.into_diagnostics(), &cache)),
+        Err(err) => Err(err),
+    };
+    (diagnostics, slot)
 }
 
 /// `--emit=hir-json` (M4, the AI-review precondition): passes [1]–[7]

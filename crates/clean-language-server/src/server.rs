@@ -38,6 +38,9 @@ fn capabilities() -> ServerCapabilities {
         // client must support; the compiler's character columns (Platform 13
         // §2) are converted at the emission boundary (Platform 13 §7).
         position_encoding: Some(PositionEncodingKind::UTF16),
+        // Platform 04 §4.1: type of the expression under the cursor and
+        // function signatures, from the pipeline's own typed program.
+        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
         ..ServerCapabilities::default()
     }
 }
@@ -124,7 +127,7 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
     // document arrived complete at `initialize`, and Platform 04 §4.1 wants
     // diagnostics streaming without waiting for an edit.
     let mut state = State::from_initialize(params);
-    match &state {
+    match &mut state {
         State::Session(session) => publish_check(&connection, session)?,
         State::Rejected { uri, diagnostics } => {
             publish(&connection, uri.clone(), diagnostics.clone());
@@ -146,7 +149,7 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
                 if connection.handle_shutdown(&request)? {
                     return Ok(());
                 }
-                respond_method_not_found(&connection, request);
+                handle_request(&connection, &state, request);
             }
             Message::Notification(notification) => {
                 handle_notification(&connection, &mut state, notification)?;
@@ -224,7 +227,7 @@ fn document_changed(
 /// Re-checks the session's effective request and pushes the result: every
 /// bucket, every round (stale diagnostics clear), pre-v1 unsupported notes as
 /// log messages — the LSP face of the batch adapter's stderr/exit-3 split.
-fn publish_check(connection: &Connection, session: &Session) -> Result<(), ServerError> {
+fn publish_check(connection: &Connection, session: &mut Session) -> Result<(), ServerError> {
     let outcome = session.check();
     for message in outcome.logs {
         log(connection, message);
@@ -264,6 +267,52 @@ fn log(connection: &Connection, message: String) {
         .sender
         .send(Message::Notification(notification))
         .ok();
+}
+
+/// Dispatches the request surface. Each handler answers from the session's
+/// latest pipeline run; a request that arrives without a session (no request
+/// document) gets its capability's empty answer, never an invented one.
+fn handle_request(connection: &Connection, state: &State, request: Request) {
+    match request.method.as_str() {
+        "textDocument/hover" => {
+            let id = request.id.clone();
+            let params: lsp_types::HoverParams = match serde_json::from_value(request.params) {
+                Ok(params) => params,
+                Err(err) => return respond_invalid_params(connection, id, err),
+            };
+            let result = match state {
+                State::Session(session) => session.hover(
+                    params
+                        .text_document_position_params
+                        .text_document
+                        .uri
+                        .as_str(),
+                    params.text_document_position_params.position,
+                ),
+                _ => None,
+            };
+            respond_ok(connection, id, result);
+        }
+        _ => respond_method_not_found(connection, request),
+    }
+}
+
+fn respond_ok(connection: &Connection, id: lsp_server::RequestId, result: impl serde::Serialize) {
+    let response = Response::new_ok(id, result);
+    connection.sender.send(Message::Response(response)).ok();
+}
+
+fn respond_invalid_params(
+    connection: &Connection,
+    id: lsp_server::RequestId,
+    err: serde_json::Error,
+) {
+    let response = Response::new_err(
+        id,
+        ErrorCode::InvalidParams as i32,
+        format!("invalid params: {err}"),
+    );
+    connection.sender.send(Message::Response(response)).ok();
 }
 
 /// Every request without a handler gets the protocol's MethodNotFound error —

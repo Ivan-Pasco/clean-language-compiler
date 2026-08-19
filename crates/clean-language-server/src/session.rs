@@ -37,6 +37,10 @@ pub struct Session {
     root: Option<String>,
     /// Where request-level diagnostics publish.
     request_uri: String,
+    /// Hover index from the latest `check` run's typed program; `None`
+    /// until a run reaches pass [6] (an ill-typed program has no
+    /// authoritative types to show).
+    index: Option<crate::analysis::Index>,
 }
 
 /// One `textDocument/publishDiagnostics` payload.
@@ -61,6 +65,7 @@ impl Session {
             overlays: BTreeMap::new(),
             root: root.map(|r| r.trim_end_matches('/').to_string()),
             request_uri: request_uri.unwrap_or_else(|| REQUEST_URI_FALLBACK.to_string()),
+            index: None,
         }
     }
 
@@ -140,9 +145,13 @@ impl Session {
     /// and buckets the resulting diagnostics per file. The parity gate rests
     /// here: one entry point, one diagnostic list, converted — never
     /// re-derived.
-    pub fn check(&self) -> CheckOutcome {
+    pub fn check(&mut self) -> CheckOutcome {
         let request = self.effective_request();
-        let (diagnostics, logs) = match clean_compiler::check(request) {
+        let (result, index) = clean_compiler::check_with(request, crate::analysis::build);
+        // `None` means the run stopped before the typed program existed;
+        // stale hover data from a prior run would be wrong, so it drops.
+        self.index = index;
+        let (diagnostics, logs) = match result {
             Ok(diagnostics) => (diagnostics, Vec::new()),
             Err(CompileError::Rejected(diagnostics)) => (diagnostics, Vec::new()),
             Err(CompileError::Unsupported(unsupported)) => (
@@ -163,6 +172,24 @@ impl Session {
             publishes: self.bucket(&diagnostics),
             logs,
         }
+    }
+
+    /// Hover at an editor position: the narrowest typed region under the
+    /// cursor, rendered as Clean surface text (Platform 04 §4.1 — the type
+    /// checker's answer, at the pipeline's spans).
+    pub fn hover(&self, uri: &str, position: lsp_types::Position) -> Option<lsp_types::Hover> {
+        let path = self.source_path(uri)?;
+        let file = self.base.sources.iter().position(|s| s.path == path)?;
+        let content = self.content_for(&path);
+        let offset = crate::convert::byte_offset(&content, position);
+        let (text, span) = self.index.as_ref()?.hover(file, offset)?;
+        Some(lsp_types::Hover {
+            contents: lsp_types::HoverContents::Markup(lsp_types::MarkupContent {
+                kind: lsp_types::MarkupKind::Markdown,
+                value: format!("```clean\n{text}\n```"),
+            }),
+            range: Some(crate::convert::byte_range(&content, span)),
+        })
     }
 
     /// Intake failures precede any source (Platform 10 §16): every span is

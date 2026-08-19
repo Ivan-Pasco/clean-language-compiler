@@ -305,3 +305,164 @@ pub enum IndexKind {
     /// range traps).
     Bytes,
 }
+
+impl TypedProgram {
+    /// Visits every typed expression with the file that owns it — state
+    /// initializers first, then functions in declaration order (contracts,
+    /// then body), nested subexpressions included. The editor surface
+    /// (CCMP-25) reads types and spans through this; lowering never does.
+    pub fn for_each_expr<'a>(&'a self, f: &mut dyn FnMut(usize, &'a TExpr)) {
+        for var in &self.state_vars {
+            visit_expr(var.module, &var.init, f);
+        }
+        for func in &self.functions {
+            for expr in func.before.iter().chain(&func.after) {
+                visit_expr(func.file, expr, f);
+            }
+            for stmt in &func.body {
+                visit_stmt(func.file, stmt, f);
+            }
+        }
+    }
+}
+
+fn visit_stmt<'a>(file: usize, stmt: &'a TStmt, f: &mut dyn FnMut(usize, &'a TExpr)) {
+    match stmt {
+        TStmt::SetState { value, .. } => visit_expr(file, value, f),
+        TStmt::Let { init, .. } => {
+            if let Some(init) = init {
+                visit_expr(file, init, f);
+            }
+        }
+        TStmt::Assign { value, .. } => visit_expr(file, value, f),
+        TStmt::Return { value, .. } => {
+            if let Some(value) = value {
+                visit_expr(file, value, f);
+            }
+        }
+        TStmt::Expr(expr) => visit_expr(file, expr, f),
+        TStmt::If {
+            cond,
+            then,
+            else_ifs,
+            els,
+        } => {
+            visit_expr(file, cond, f);
+            for stmt in then {
+                visit_stmt(file, stmt, f);
+            }
+            for (cond, body) in else_ifs {
+                visit_expr(file, cond, f);
+                for stmt in body {
+                    visit_stmt(file, stmt, f);
+                }
+            }
+            for stmt in els.iter().flatten() {
+                visit_stmt(file, stmt, f);
+            }
+        }
+        TStmt::While { cond, body } => {
+            visit_expr(file, cond, f);
+            for stmt in body {
+                visit_stmt(file, stmt, f);
+            }
+        }
+        TStmt::Iterate {
+            source, step, body, ..
+        } => {
+            match source {
+                TIterSource::List(expr) | TIterSource::Chars(expr) | TIterSource::Rows(expr) => {
+                    visit_expr(file, expr, f)
+                }
+                TIterSource::Range { from, to } => {
+                    visit_expr(file, from, f);
+                    visit_expr(file, to, f);
+                }
+            }
+            if let Some(step) = step {
+                visit_expr(file, step, f);
+            }
+            for stmt in body {
+                visit_stmt(file, stmt, f);
+            }
+        }
+        TStmt::Break { .. } | TStmt::Continue { .. } => {}
+        TStmt::Print { items, .. } => {
+            for expr in items {
+                visit_expr(file, expr, f);
+            }
+        }
+        TStmt::Assert { cond, .. } => visit_expr(file, cond, f),
+    }
+}
+
+fn visit_expr<'a>(file: usize, expr: &'a TExpr, f: &mut dyn FnMut(usize, &'a TExpr)) {
+    f(file, expr);
+    match &expr.kind {
+        TExprKind::Int(_)
+        | TExprKind::Num(_)
+        | TExprKind::BytesLit(_)
+        | TExprKind::Bool(_)
+        | TExprKind::Str(_)
+        | TExprKind::NoneLit
+        | TExprKind::EnumCase(_)
+        | TExprKind::Local(_)
+        | TExprKind::ResultRef
+        | TExprKind::This
+        | TExprKind::GetState { .. }
+        | TExprKind::GuardValue
+        | TExprKind::ErrorBinding
+        | TExprKind::Error => {}
+        TExprKind::StrInterp(segments) => {
+            for segment in segments {
+                if let TInterpSeg::Expr(expr) = segment {
+                    visit_expr(file, expr, f);
+                }
+            }
+        }
+        TExprKind::MakeRecord(items)
+        | TExprKind::MakeList(items)
+        | TExprKind::MakeMatrix(items) => {
+            for expr in items {
+                visit_expr(file, expr, f);
+            }
+        }
+        TExprKind::CallHost { args, .. }
+        | TExprKind::CallFn { args, .. }
+        | TExprKind::CallCtor { args, .. }
+        | TExprKind::CallStatic { args, .. }
+        | TExprKind::CallStd { args, .. } => {
+            for expr in args {
+                visit_expr(file, expr, f);
+            }
+        }
+        TExprKind::Binary { lhs, rhs, .. } => {
+            visit_expr(file, lhs, f);
+            visit_expr(file, rhs, f);
+        }
+        TExprKind::Index { recv, index, .. } => {
+            visit_expr(file, recv, f);
+            visit_expr(file, index, f);
+        }
+        TExprKind::OnError { value, fallback } => {
+            visit_expr(file, value, f);
+            visit_expr(file, fallback, f);
+        }
+        TExprKind::Unary { operand, .. }
+        | TExprKind::NonNone(operand)
+        | TExprKind::IsNone { operand, .. }
+        | TExprKind::IntToNumber(operand)
+        | TExprKind::WrapSome(operand)
+        | TExprKind::Raise(operand)
+        | TExprKind::Convert(operand) => visit_expr(file, operand, f),
+        TExprKind::GetRecordField { recv, .. } | TExprKind::GetField { recv, .. } => {
+            visit_expr(file, recv, f)
+        }
+        TExprKind::CallMethod { recv, args, .. } | TExprKind::CallDyn { recv, args, .. } => {
+            visit_expr(file, recv, f);
+            for expr in args {
+                visit_expr(file, expr, f);
+            }
+        }
+    }
+}
