@@ -186,6 +186,8 @@ impl<'src> Scanner<'src> {
                     self.block_comment(sink);
                 }
                 b'"' => self.string(sink),
+                // LEX-06 `BytesLiteral`: the prefix is glued to the quote.
+                b'b' if self.bytes.get(self.pos + 1) == Some(&b'"') => self.bytes_literal(sink),
                 b'0'..=b'9' => self.number(sink),
                 b'.' if matches!(self.bytes.get(self.pos + 1), Some(b'0'..=b'9')) => {
                     self.number(sink)
@@ -516,6 +518,112 @@ impl<'src> Scanner<'src> {
             span: ByteSpan::new(end as u32, end as u32),
         });
         (ByteSpan::new(start as u32, end as u32), tokens, closed)
+    }
+
+    /// `b"…"` (grammar §7 `BytesLiteral`): the string shape without
+    /// interpolation, with `SimpleEscape` plus `\xNN` and no `\u`.
+    fn bytes_literal(&mut self, sink: &mut DiagnosticSink) {
+        let start = self.pos;
+        self.pos += 2; // b"
+        let mut value: Vec<u8> = Vec::new();
+        loop {
+            match self.bytes.get(self.pos) {
+                None | Some(b'\n') | Some(b'\r') => {
+                    self.error(
+                        sink,
+                        codes::SYN004,
+                        "bytes literal is not closed before the end of the line".to_string(),
+                        ByteSpan::new(start as u32, self.pos as u32),
+                    );
+                    break;
+                }
+                Some(b'"') => {
+                    self.pos += 1;
+                    break;
+                }
+                Some(b'\\') => {
+                    let esc_start = self.pos;
+                    self.pos += 1;
+                    match self.bytes.get(self.pos) {
+                        Some(b'"') => {
+                            value.push(b'"');
+                            self.pos += 1;
+                        }
+                        Some(b'\\') => {
+                            value.push(b'\\');
+                            self.pos += 1;
+                        }
+                        Some(b'n') => {
+                            value.push(b'\n');
+                            self.pos += 1;
+                        }
+                        Some(b't') => {
+                            value.push(b'\t');
+                            self.pos += 1;
+                        }
+                        Some(b'r') => {
+                            value.push(b'\r');
+                            self.pos += 1;
+                        }
+                        Some(b'{') => {
+                            value.push(b'{');
+                            self.pos += 1;
+                        }
+                        Some(b'}') => {
+                            value.push(b'}');
+                            self.pos += 1;
+                        }
+                        Some(b'0') => {
+                            value.push(0);
+                            self.pos += 1;
+                        }
+                        Some(b'x') => {
+                            self.pos += 1;
+                            let hex_start = self.pos;
+                            for _ in 0..2 {
+                                if matches!(self.bytes.get(self.pos), Some(b) if b.is_ascii_hexdigit())
+                                {
+                                    self.pos += 1;
+                                }
+                            }
+                            let hex = &self.content[hex_start..self.pos];
+                            match (hex.len() == 2)
+                                .then(|| u8::from_str_radix(hex, 16).ok())
+                                .flatten()
+                            {
+                                Some(byte) => value.push(byte),
+                                None => self.error(
+                                    sink,
+                                    codes::SYN005,
+                                    "`\\x` expects exactly two hex digits".to_string(),
+                                    ByteSpan::new(esc_start as u32, self.pos as u32),
+                                ),
+                            }
+                        }
+                        _ => {
+                            // `\u` deliberately excluded (grammar §7).
+                            self.error(
+                                sink,
+                                codes::SYN005,
+                                "unknown escape in bytes literal".to_string(),
+                                ByteSpan::new(esc_start as u32, (self.pos + 1) as u32),
+                            );
+                            self.pos += 1;
+                        }
+                    }
+                }
+                Some(_) => {
+                    let ch = self.content[self.pos..].chars().next().expect("in bounds");
+                    let mut buf = [0u8; 4];
+                    value.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+                    self.pos += ch.len_utf8();
+                }
+            }
+        }
+        self.tokens.push(Token {
+            kind: TokenKind::Bytes(value),
+            span: ByteSpan::new(start as u32, self.pos as u32),
+        });
     }
 
     fn escape(&mut self, sink: &mut DiagnosticSink, value: &mut String) {

@@ -182,6 +182,10 @@ pub enum TokenKind {
     Str {
         parts: Vec<StrPart>,
     },
+    /// `b"…"` bytes literal (LEX-06, grammar §7 `BytesLiteral`): string
+    /// escapes plus `\xNN`, no `\u`, no interpolation, single-line;
+    /// payload already decoded.
+    Bytes(Vec<u8>),
     // Punctuation (§8).
     LParen,
     RParen,

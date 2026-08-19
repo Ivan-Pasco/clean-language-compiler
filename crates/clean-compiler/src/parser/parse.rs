@@ -2753,6 +2753,10 @@ impl<'a> Parser<'a> {
                 }
                 Expr::Str { segments, span }
             }
+            TokenKind::Bytes(value) => {
+                self.bump();
+                Expr::BytesLit { value, span }
+            }
             TokenKind::Keyword(Kw::True) => {
                 self.bump();
                 Expr::Bool { value: true, span }

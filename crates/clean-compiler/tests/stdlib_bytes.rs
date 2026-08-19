@@ -304,3 +304,60 @@ fn round_trip_through_the_host() {
 ");
     assert_eq!(out, [Logged::Int(5), Logged::Data(b"caf\xC3\xA9".to_vec())]);
 }
+
+/// LEX-06 `BytesLiteral` (bbdf483): the string shape with `\xNN`, no
+/// `\u`, no interpolation.
+#[test]
+fn bytes_literals_lex_and_compare() {
+    let out = run("\
+\t\tbytes b = b\"caf\\xC3\\xA9\"
+\t\temitInt(b.length)
+\t\temitBool(b == bytes.fromText(\"café\"))
+\t\temitInt(b\"\\x00\\xFF\"[1])
+\t\temitData(b\"a{b}\" + b\"\\t\")
+\t\temitInt(b\"\".length)
+");
+    assert_eq!(
+        out,
+        [
+            Logged::Int(5),
+            Logged::Bool(1),
+            Logged::Int(0xFF),
+            Logged::Data(b"a{b}\t".to_vec()),
+            Logged::Int(0),
+        ]
+    );
+}
+
+#[test]
+fn bytes_literal_rejects_unicode_escape() {
+    let main = "functions:\n\tvoid init()\n\t\tbytes b = b\"\\u00e9\"\n\t\temitInt(b.length)\n"
+        .to_string();
+    let request = {
+        let mut request = common::minimal_valid_request();
+        request.sources = vec![
+            clean_compiler_types::request::SourceFile {
+                path: "app/host_bridge.cln".into(),
+                sha256: common::sha256_hex(PROBE.as_bytes()),
+                content: PROBE.into(),
+            },
+            clean_compiler_types::request::SourceFile {
+                path: "app/main.cln".into(),
+                sha256: common::sha256_hex(main.as_bytes()),
+                content: main.clone(),
+            },
+        ];
+        request
+    };
+    let mut sink = DiagnosticSink::new();
+    let validated =
+        clean_compiler::request::validate(request, &mut sink).expect("request validates");
+    for s in &validated.request.sources {
+        clean_compiler::lexer::lex(&s.path, &s.content, &mut sink);
+    }
+    let diagnostics = sink.into_diagnostics();
+    assert!(
+        diagnostics.iter().any(|d| d.code == "SYN005"),
+        "expected SYN005 for \\u in a bytes literal, got: {diagnostics:#?}"
+    );
+}

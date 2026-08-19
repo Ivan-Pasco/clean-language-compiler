@@ -155,6 +155,8 @@ pub enum TExprKind {
     Int(i128),
     /// `number` literal (TYP-01: IEEE-754 binary64).
     Num(f64),
+    /// `b"…"` literal payload (LEX-06).
+    BytesLit(Vec<u8>),
     Bool(bool),
     Str(String),
     /// A string literal with `{expr}` interpolations, in source order.

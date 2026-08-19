@@ -116,6 +116,7 @@ pub struct HExpr {
 pub enum HExprKind {
     Int(i128),
     Num(f64),
+    BytesLit(Vec<u8>),
     Bool(bool),
     Str(String),
     StrInterp(Vec<HInterpSeg>),
@@ -339,6 +340,7 @@ fn lower_expr(expr: tir::TExpr) -> HExpr {
     let kind = match expr.kind {
         tir::TExprKind::Int(v) => HExprKind::Int(v),
         tir::TExprKind::Num(v) => HExprKind::Num(v),
+        tir::TExprKind::BytesLit(v) => HExprKind::BytesLit(v),
         tir::TExprKind::Bool(v) => HExprKind::Bool(v),
         tir::TExprKind::Str(v) => HExprKind::Str(v),
         tir::TExprKind::StrInterp(segs) => HExprKind::StrInterp(

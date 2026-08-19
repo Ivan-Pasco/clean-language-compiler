@@ -1674,6 +1674,7 @@ fn finalize_expr(infcx: &mut InferCtx, class_records: &[Ty], expr: &mut TExpr) {
         }
         TExprKind::Int(_)
         | TExprKind::Num(_)
+        | TExprKind::BytesLit(_)
         | TExprKind::Bool(_)
         | TExprKind::Str(_)
         | TExprKind::NoneLit
@@ -2793,6 +2794,11 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 }
             }
             ast::Expr::Str { segments, .. } => self.check_str(segments, expected, span, sink),
+            ast::Expr::BytesLit { value, .. } => TExpr {
+                ty: Ty::Bytes,
+                span,
+                kind: TExprKind::BytesLit(value.clone()),
+            },
             ast::Expr::List { items, .. } => self.check_list(items, expected, span, sink),
             ast::Expr::Ident { name, .. } => match self.lookup(name) {
                 Some(local) => TExpr {

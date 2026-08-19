@@ -514,6 +514,11 @@ pub enum Expr {
         segments: Vec<StrSeg>,
         span: ByteSpan,
     },
+    /// `b"…"` bytes literal (LEX-06), payload decoded by the lexer.
+    BytesLit {
+        value: Vec<u8>,
+        span: ByteSpan,
+    },
     Bool {
         value: bool,
         span: ByteSpan,
@@ -594,6 +599,7 @@ impl Expr {
             Expr::Int { span, .. }
             | Expr::Number { span, .. }
             | Expr::Str { span, .. }
+            | Expr::BytesLit { span, .. }
             | Expr::Bool { span, .. }
             | Expr::NoneLit { span }
             | Expr::Ident { span, .. }

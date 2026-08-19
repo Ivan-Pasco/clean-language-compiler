@@ -838,9 +838,15 @@ impl DataPool {
     /// Interns a string as its in-memory object — `[u32 LE length]
     /// [payload]` — and returns the object's base address (MMD-04).
     fn intern_string(&mut self, value: &str) -> u32 {
+        self.intern_bytes(value.as_bytes())
+    }
+
+    /// Interns a bytes payload as its `[u32 LE length][payload]` object
+    /// (§3.4.3: string-shaped, no UTF-8 constraint).
+    fn intern_bytes(&mut self, value: &[u8]) -> u32 {
         let mut object = Vec::with_capacity(4 + value.len());
         object.extend_from_slice(&(value.len() as u32).to_le_bytes());
-        object.extend_from_slice(value.as_bytes());
+        object.extend_from_slice(value);
         self.intern(&object)
     }
 }
@@ -2026,6 +2032,13 @@ impl<'a> FnLowerer<'a> {
                 self.expr(operand, out, sink);
             }
             HExprKind::Num(v) => out.push(Inst::F64Const(*v)),
+            // LEX-06 `b"…"`: an interned `[len][payload]` object — the
+            // layout is string-shaped without the UTF-8 constraint
+            // (§3.4.3).
+            HExprKind::BytesLit(value) => {
+                let base = self.data.intern_bytes(value);
+                out.push(Inst::I32Const(base as i32));
+            }
             // TYP-06 widening: surface `integer` (i64) into `number`.
             HExprKind::IntToNumber(operand) => {
                 self.expr(operand, out, sink);
