@@ -14,7 +14,9 @@ half in `clean-compiler-bin/tests/cli.rs`). Stage 2 (watch-mode rebuild,
 (`clean-compiler-bin/tests/watch_rebuild.rs`). Stage 3 (build
 reproduction, §14.14.6 first half) landed as `repro::repro_build` with a
 pluggable `InputResolver` (`tests/repro_build.rs`,
-`clean-compiler-bin/tests/repro_cli.rs`, local ADR 0007).
+`clean-compiler-bin/tests/repro_cli.rs`, local ADR 0007). Stage 4
+(request replay, §14.14.6 second half) landed as `replay::replay` over a
+provisional trace schema (`tests/replay_operation.rs`).
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
@@ -107,3 +109,36 @@ is detected before any rebuild as corruption. Divergence and corruption
 present as COM013 per §14.14.6 ("a compiler bug or a manifest
 corruption") — note this COM013 path lives outside the DIA-06 check
 harness, whose ledger tracks the build/check surface only.
+
+## 6. The request-trace format §14.14.6 relies on is defined nowhere
+
+§14.14.6 says the trace format "is defined in the clean-server spec
+(compiler ships the schema for validation but does not define capture
+semantics)" and §07 points `[dev] capture-traces`' behavior home back at
+Platform 14. The clean-server spec defines no request-trace schema (its
+`schema/` holds only the reload channel and the server block; the trap
+snapshot of hosts/01 §Trap is a different artifact). The reference is
+circular and the format does not exist.
+
+**Local adoption (in force, `replay.rs`):** a provisional trace schema,
+pinned byte-for-byte by `replay_operation::trace_schema_validation_is_strict`:
+`spec_version` ("1", mirroring §14.1.1), `component_sha256`, `entry`
+(world-level export plus arguments), `host_calls` (each
+`<instance>#<function>` with captured arguments and results, in call
+order), `response` (the entry's results). Values are a typed JSON
+encoding of `component::Val` covering the kinds the vendored host
+contract uses; anything else is a typed `UnsupportedValue` failure.
+Unknown fields are refused like the request document's own intake.
+
+The replay host composes with the component runtime (wasmtime, the
+sandbox stack of local ADR 0001): every imported host function is wired
+to serve the next recorded call — same function, same arguments — and
+anything else (wrong call, wrong arguments, extra or leftover recorded
+calls, response mismatch) is a typed divergence, presented per §14.14.6
+as "a Clean runtime bug or a trace corruption", deliberately without a
+diagnostic code: the runtime codes are host-emitted and none covers
+this; inventing one would violate DIA-01.
+
+Foundation brief candidate: give the request trace a normative home
+(clean-server spec per §14.14.6's own pointer), taking this pinned shape
+as the draft.

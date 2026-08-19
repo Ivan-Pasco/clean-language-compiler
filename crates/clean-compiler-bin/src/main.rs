@@ -60,6 +60,17 @@ struct Args {
     /// records the artifact only by hash).
     #[arg(long, requires = "repro_build")]
     original: Option<PathBuf>,
+    /// Request replay (Platform 14 §14.14.6, the replay half of `cln
+    /// repro`): path to the request-trace JSON. Re-runs the captured
+    /// request against `--component` with every host import served from
+    /// the trace; prints the replay report to stdout. No request document,
+    /// no output directory.
+    #[arg(long, requires = "component", conflicts_with_all = ["check", "emit", "why", "repro_build"])]
+    replay: Option<PathBuf>,
+    /// The `component.wasm` the trace was captured against (verified by
+    /// hash). Only read by `--replay`.
+    #[arg(long)]
+    component: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
@@ -69,6 +80,13 @@ fn main() -> ExitCode {
         return run_why(
             location,
             args.diagnostics.as_deref().expect("clap requires"),
+        );
+    }
+
+    if let Some(trace_path) = &args.replay {
+        return run_replay(
+            trace_path,
+            args.component.as_deref().expect("clap requires"),
         );
     }
 
@@ -256,6 +274,50 @@ fn run_repro(
 /// the caller-named diagnostics NDJSON, re-project, print the report JSON.
 /// Exit 0 even when no diagnostic covers the location — an empty `entries`
 /// list is the answer, not a failure; exit 2 is transport failure only.
+/// The `--replay` operation (Platform 14 §14.14.6): parse and validate the
+/// trace, re-run it against the component, print the report JSON. Exit 0
+/// on a byte-for-byte match, 1 on divergence or mismatch (a Clean runtime
+/// bug or a trace corruption — never "close enough"), 2 on transport
+/// failure.
+fn run_replay(trace_path: &std::path::Path, component_path: &std::path::Path) -> ExitCode {
+    let trace = match std::fs::read_to_string(trace_path)
+        .map_err(|e| e.to_string())
+        .and_then(|text| clean_compiler::replay::trace_from_json(&text))
+    {
+        Ok(trace) => trace,
+        Err(err) => {
+            eprintln!(
+                "clean-compiler: cannot read trace {}: {err}",
+                trace_path.display()
+            );
+            return ExitCode::from(2);
+        }
+    };
+    let component = match std::fs::read(component_path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!(
+                "clean-compiler: cannot read {}: {err}",
+                component_path.display()
+            );
+            return ExitCode::from(2);
+        }
+    };
+    match clean_compiler::replay::replay(&trace, &component) {
+        Ok(report) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).expect("report serializes")
+            );
+            ExitCode::SUCCESS
+        }
+        Err(failure) => {
+            eprintln!("clean-compiler: {failure}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn run_why(location: &str, diagnostics_path: &std::path::Path) -> ExitCode {
     let query = match parse_location(location) {
         Ok(query) => query,

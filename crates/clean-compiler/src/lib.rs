@@ -30,6 +30,7 @@ pub mod layout;
 pub mod lexer;
 pub mod mir;
 pub mod parser;
+pub mod replay;
 pub mod repro;
 pub mod request;
 pub mod resolver;
