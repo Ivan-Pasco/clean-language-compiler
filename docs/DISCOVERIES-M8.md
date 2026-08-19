@@ -32,14 +32,35 @@ one document, asserting every surface names the same build:
 spec_version stayed frozen at "1": the request schema is untouched; the
 one output-schema deviation (build manifest) is local ADR 0007.
 
-Brief candidates for foundation (to carry from a foundation session):
-§1 (pass provenance vs the §13 Diagnostic value), §3 (the `[dev] watch`
-sentence describes the caller), §4 (§14.8 manifest cannot name its
-request — ADR 0007 shape as draft), §5 (first-divergent-byte needs the
-artifact), §6 (request-trace schema has no home — pinned shape as
-draft), §7 (the Platform 02 §2.2 `wit/` catalog does not exist; fixture
-timing question), §8 (RPC protocol surface pinning, informational).
-§2 (why location addressing) is minor and can ride §1.
+**Round-trip CLOSED** (2026-08-19, foundation HEAD e2afcb9; report
+received the same day). No local adoption was invalidated; no change to
+§14.8, to the §13 Diagnostic value, or to the trace schema;
+`spec_version` stays "1". Per item:
+
+- §1 + §2 → brief `work/2026-08-19-diagnostic-pass-provenance.md`
+  (registry derivation vs an optional `pass` field on §13 — pending).
+- §3 → **erratum applied** to Platform 14 §14.14.3 (foundation 19e2ae9):
+  watching and `[dev]` config attributed to Clean Framework; the
+  compiler-side obligations (no watch API, no `[dev]` request section,
+  observationally stateless warm loop) now normative — the
+  `watch_rebuild.rs` adoption is **ratified verbatim**. Foundation also
+  noted `[dev] watch-exclude` is absent even from Platform 07 §7.2.
+- §4 + §5 → brief `work/2026-08-19-repro-manifest-request-identity.md`,
+  taking local ADR 0007 verbatim as the draft shape. ADR 0007 in force.
+- §6 → brief `work/2026-08-19-request-trace-schema-home.md`; proposed
+  home `clean-server spec schema/request-trace.json.md`, with the
+  `replay.rs` pinned schema as the draft. Adoption in force.
+- §7 → brief `work/2026-08-19-bridge-wit-catalog-and-stub-fixtures.md`.
+  **Correction of fact** to this file's §7: foundation *does* have a
+  `wit/` directory, but as an unpopulated placeholder at
+  `03 platform/wit/` (README only) — not at the repo root Platform 02
+  §2.2 names. WIT authoring is sequenced behind the open M6 brief
+  `2026-08-19-bridge-runtime-and-import-architecture.md` (which may
+  redraw math/string signatures for determinism); expect the catalog
+  only after that resolves. Generator, generation-time fixtures, and the
+  TraceValue fixture encoding stay in force.
+- §8 → brief `work/2026-08-19-rpc-protocol-surface.md` (informational,
+  low urgency). The `--serve` surface stays in force.
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
