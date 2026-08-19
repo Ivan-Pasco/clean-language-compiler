@@ -1,0 +1,5 @@
+error[COM005]: target `wasm32-server` does not support `memory64`
+ --> <request>:1:1
+  = this construct requires `memory64`
+  = help: no V2 target emits memory64 pointers; the flag is reserved for a later revision
+  = docs: https://errors.cleanlanguage.dev/E/COM005

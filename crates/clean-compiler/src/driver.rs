@@ -65,13 +65,23 @@ fn front(
     // Every later drain renders against the request's sources (§4.2).
     let cache = crate::diag::SourceCache::from_sources(&validated.request.sources);
 
-    // §3.6: memory64 guests are shape-compatible but the 32-bit pointer
-    // codegen does not speak them yet.
+    // §3.6 (a4249dc): V2 emits 32-bit only; `build.memory64 = true` is
+    // reserved and rejected. COM005 — template from Platform 10 §11.
     if validated.request.build.memory64 {
-        sink.note_unsupported(
-            "memory64 guest memories",
+        let target = &validated.request.build.target;
+        let mut d = crate::diag::build(
+            clean_compiler_types::Level::Error,
+            clean_compiler_types::codes::COM005,
+            format!("target `{target}` does not support `memory64`"),
             clean_compiler_types::Span::request_document(),
+            Some("this construct requires `memory64`".to_string()),
         );
+        d.helps.push(
+            "no V2 target emits memory64 pointers; the flag is reserved for a later revision"
+                .to_string(),
+        );
+        sink.push(d);
+        return Ok((cache, None));
     }
 
     // Passes [2]+[3] — Lex and Parse, per file, in `sources[]` order
@@ -145,6 +155,31 @@ fn front(
     );
     if !sink.unsupported().is_empty() {
         return Err(CompileError::Unsupported(sink.unsupported().to_vec()));
+    }
+
+    // COM003 (a4249dc): static data must fit MMD-01's fixed data region —
+    // a user-program condition, rejected here so `check` sees it too.
+    // Attribution of the largest contributor needs per-datum spans the
+    // pool does not track yet, so the diagnostic is program-level (the
+    // registered entry sanctions that shape).
+    let emitted = mir.data.len() as u64;
+    let available = crate::codegen::core::STATIC_DATA_CAPACITY as u64;
+    if emitted > available {
+        let mut d = crate::diag::build(
+            clean_compiler_types::Level::Error,
+            clean_compiler_types::codes::COM003,
+            format!(
+                "static data ({emitted} bytes) exceeds the data region ({available} bytes below HEAP_START)"
+            ),
+            clean_compiler_types::Span::request_document(),
+            None,
+        );
+        d.helps.push(
+            "move large literal payloads out of the source — load them at runtime (`file.read`, a host function) or split the program; HEAP_START is fixed by MMD-01 and does not grow with data"
+                .to_string(),
+        );
+        sink.push(d);
+        return Ok((cache, None));
     }
 
     // Pass [9] — World Import Check (CMP-03): abort before codegen on any

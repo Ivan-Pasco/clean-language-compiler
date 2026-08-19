@@ -1,0 +1,4 @@
+error[COM003]: static data (1050028 bytes) exceeds the data region (1047488 bytes below HEAP_START)
+ --> <request>:1:1
+  = help: move large literal payloads out of the source — load them at runtime (`file.read`, a host function) or split the program; HEAP_START is fixed by MMD-01 and does not grow with data
+  = docs: https://errors.cleanlanguage.dev/E/COM003

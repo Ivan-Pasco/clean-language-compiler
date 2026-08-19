@@ -380,7 +380,8 @@ pub const REGISTRY: &[CodeInfo] = &[
     // Moment 3 (Platform 16 §16.4).
     c(COM001, "WasmGenerationError", Error, Compiler),
     c(COM002, "OptimizationError", Error, Compiler),
-    c(COM003, "MemoryLayoutError", Error, Compiler),
+    t(COM003, "MemoryLayoutError", Error, Compiler,
+      "static data (<emitted> bytes) exceeds the data region (<available> bytes below HEAP_START)"),
     c(COM004, "ModuleResolutionError", Error, Compiler),
     t(COM005, "TargetFeatureUnsupported", Error, Compiler,
       "target `<target>` does not support `<feature>`"),

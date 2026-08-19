@@ -7,9 +7,7 @@
 # exists: no well-formed input can trigger an ICE by design.
 COM001
 COM002
-COM003
 COM004
-COM005
 COM006
 COM007
 COM008

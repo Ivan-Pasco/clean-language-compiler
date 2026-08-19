@@ -30,17 +30,22 @@ use crate::mir::{CmpOp, F64Op, F64Un, I32Op, I64Op, Inst, MirFunction, MirProgra
 /// compiler).
 const RET_AREA_SIZE: u32 = 64;
 
+/// The exact static-data capacity of MMD-01's data region: the largest
+/// blob for which `align8(DATA_SECTION_START + len) + RET_AREA_SIZE`
+/// still fits below `HEAP_START`. Programs past it are COM003 (a4249dc:
+/// a user-program condition, never a COM013 invariant).
+pub const STATIC_DATA_CAPACITY: u32 = ((HEAP_START - RET_AREA_SIZE) & !7) - DATA_SECTION_START;
+
 fn memory_map(program: &MirProgram) -> Result<(u32, u32), String> {
     let data_end = DATA_SECTION_START + program.data.len() as u32;
     let ret_area = (data_end + 7) & !7;
     let static_end = ret_area + RET_AREA_SIZE;
     // HEAP_START is fixed (MMD-01); static data cannot spill into the heap.
-    // What a conforming compiler does with >1 MiB of static data is a spec
-    // gap (DISCOVERIES-M6); until resolved this is an internal capacity
-    // invariant surfaced as COM013 by the driver.
+    // The driver rejects this as COM003 after pass [8]; reaching it here
+    // is a compiler bug (COM013).
     if static_end > HEAP_START {
         return Err(format!(
-            "static data ({} bytes) exceeds the fixed heap start boundary at {HEAP_START}",
+            "static data ({} bytes) passed pass [8] but exceeds the data region",
             program.data.len()
         ));
     }
