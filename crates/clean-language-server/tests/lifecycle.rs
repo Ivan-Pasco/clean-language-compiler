@@ -14,6 +14,19 @@ fn start() -> (
     (client, handle)
 }
 
+/// Next response, skipping server-initiated notifications (this suite runs
+/// without a request document, so a `window/logMessage` saying exactly that
+/// arrives after the handshake).
+fn next_response(client: &Connection) -> lsp_server::Response {
+    loop {
+        match client.receiver.recv().unwrap() {
+            Message::Response(response) => return response,
+            Message::Notification(_) => continue,
+            other => panic!("expected response, got {other:?}"),
+        }
+    }
+}
+
 #[test]
 fn initialize_negotiates_and_shutdown_terminates() {
     let (client, handle) = start();
@@ -61,10 +74,7 @@ fn initialize_negotiates_and_shutdown_terminates() {
             serde_json::json!({}),
         )))
         .unwrap();
-    let response = match client.receiver.recv().unwrap() {
-        Message::Response(response) => response,
-        other => panic!("expected error response, got {other:?}"),
-    };
+    let response = next_response(&client);
     let error = response
         .response_result
         .expect_err("unhandled method is an error");
@@ -78,10 +88,7 @@ fn initialize_negotiates_and_shutdown_terminates() {
             serde_json::Value::Null,
         )))
         .unwrap();
-    let response = match client.receiver.recv().unwrap() {
-        Message::Response(response) => response,
-        other => panic!("expected shutdown response, got {other:?}"),
-    };
+    let response = next_response(&client);
     assert!(response.response_result.is_ok());
 
     client

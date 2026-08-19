@@ -7,12 +7,15 @@
 //! advertises what it cannot serve (LSP-04's rationale: wrong information is
 //! worse than none).
 
-use lsp_server::{Connection, ErrorCode, Message, Request, Response};
+use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::{
-    InitializeParams, PositionEncodingKind, ServerCapabilities, TextDocumentSyncCapability,
-    TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    InitializeParams, LogMessageParams, MessageType, PositionEncodingKind,
+    PublishDiagnosticsParams, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use thiserror::Error;
+
+use crate::session::Session;
 
 #[derive(Debug, Error)]
 pub enum ServerError {
@@ -39,10 +42,74 @@ fn capabilities() -> ServerCapabilities {
     }
 }
 
+/// What `initialize` produced: a live session, or the intake diagnostics
+/// explaining why the request document was rejected (published once, right
+/// after the handshake, under the request-document URI).
+// One State exists per process; the variant size spread is irrelevant.
+#[allow(clippy::large_enum_variant)]
+enum State {
+    Session(Session),
+    Rejected {
+        uri: lsp_types::Uri,
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
+    /// The caller sent no request document. Under CMP-01 that is the
+    /// caller's defect, not a prompt to go discover files; the server says
+    /// so once and serves protocol lifecycle only.
+    NoRequest,
+}
+
+impl State {
+    #[allow(deprecated)] // `root_uri` is deprecated in LSP but still the common field.
+    fn from_initialize(params: InitializeParams) -> Self {
+        let root = params
+            .root_uri
+            .as_ref()
+            .map(|uri| uri.as_str().to_string())
+            .or_else(|| {
+                params
+                    .workspace_folders
+                    .as_ref()
+                    .and_then(|folders| folders.first())
+                    .map(|folder| folder.uri.as_str().to_string())
+            });
+        let options = params.initialization_options.unwrap_or_default();
+        let request_uri = options
+            .get("requestDocumentUri")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let Some(document) = options.get("requestDocument") else {
+            return State::NoRequest;
+        };
+        // The document goes through the same intake as the batch adapter
+        // (`request::from_json`), so a malformed payload yields the same
+        // RQD diagnostics `cln check` would report.
+        let json = document.to_string();
+        let mut intake = clean_compiler::diag::DiagnosticSink::new();
+        match clean_compiler::request::from_json(&json, &mut intake) {
+            Some(request) if !intake.has_errors() => {
+                State::Session(Session::new(request, root, request_uri))
+            }
+            _ => {
+                let diagnostics = clean_compiler::diag::finalize(
+                    intake.into_diagnostics(),
+                    &clean_compiler::diag::SourceCache::empty(),
+                );
+                let placeholder = Session::new(empty_request_placeholder(), root, request_uri);
+                let publishes = placeholder.bucket_for_intake(&diagnostics);
+                State::Rejected {
+                    uri: publishes.0,
+                    diagnostics: publishes.1,
+                }
+            }
+        }
+    }
+}
+
 /// Drives one editor session over `connection` until `exit`.
 pub fn run(connection: Connection) -> Result<(), ServerError> {
     let (initialize_id, initialize_params) = connection.initialize_start()?;
-    let _params: InitializeParams = serde_json::from_value(initialize_params)?;
+    let params: InitializeParams = serde_json::from_value(initialize_params)?;
     let initialize_result = serde_json::json!({
         "capabilities": capabilities(),
         "serverInfo": {
@@ -52,18 +119,38 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
     });
     connection.initialize_finish(initialize_id, initialize_result)?;
 
+    // `initialize_finish` has already consumed the `initialized`
+    // notification, so the first diagnostics push happens here: the request
+    // document arrived complete at `initialize`, and Platform 04 §4.1 wants
+    // diagnostics streaming without waiting for an edit.
+    let mut state = State::from_initialize(params);
+    match &state {
+        State::Session(session) => publish_check(&connection, session)?,
+        State::Rejected { uri, diagnostics } => {
+            publish(&connection, uri.clone(), diagnostics.clone());
+        }
+        State::NoRequest => {
+            log(
+                &connection,
+                "no `requestDocument` in initializationOptions; \
+                 the request document is the compilation unit (CMP-01) and \
+                 diagnostics are unavailable without one"
+                    .to_string(),
+            );
+        }
+    }
+
     for message in &connection.receiver {
         match message {
             Message::Request(request) => {
                 if connection.handle_shutdown(&request)? {
                     return Ok(());
                 }
-                respond_method_not_found(&connection, request)?;
+                respond_method_not_found(&connection, request);
             }
-            // Unknown notifications are dropped by protocol rule; the
-            // document-lifecycle notifications get handlers in the session
-            // stage.
-            Message::Notification(_) => {}
+            Message::Notification(notification) => {
+                handle_notification(&connection, &mut state, notification)?;
+            }
             // The server sends no requests yet, so no response is expected.
             Message::Response(_) => {}
         }
@@ -71,14 +158,134 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
     Ok(())
 }
 
+fn handle_notification(
+    connection: &Connection,
+    state: &mut State,
+    notification: Notification,
+) -> Result<(), ServerError> {
+    match notification.method.as_str() {
+        "textDocument/didOpen" => {
+            let params: DidOpenTextDocumentParams = serde_json::from_value(notification.params)?;
+            document_changed(
+                connection,
+                state,
+                params.text_document.uri.as_str(),
+                params.text_document.text,
+            )
+        }
+        "textDocument/didChange" => {
+            let mut params: DidChangeTextDocumentParams =
+                serde_json::from_value(notification.params)?;
+            // Full sync (declared capability): the last change carries the
+            // whole document.
+            let Some(change) = params.content_changes.pop() else {
+                return Ok(());
+            };
+            document_changed(
+                connection,
+                state,
+                params.text_document.uri.as_str(),
+                change.text,
+            )
+        }
+        "textDocument/didClose" => {
+            let params: DidCloseTextDocumentParams = serde_json::from_value(notification.params)?;
+            if let State::Session(session) = state {
+                session.close(params.text_document.uri.as_str());
+                return publish_check(connection, session);
+            }
+            Ok(())
+        }
+        // Unknown notifications are dropped, per protocol rule.
+        _ => Ok(()),
+    }
+}
+
+fn document_changed(
+    connection: &Connection,
+    state: &mut State,
+    uri: &str,
+    text: String,
+) -> Result<(), ServerError> {
+    let State::Session(session) = state else {
+        return Ok(());
+    };
+    if session.open_or_change(uri, text) {
+        publish_check(connection, session)?;
+    } else {
+        log(
+            connection,
+            format!("document is not a request source; not compiled: {uri}"),
+        );
+    }
+    Ok(())
+}
+
+/// Re-checks the session's effective request and pushes the result: every
+/// bucket, every round (stale diagnostics clear), pre-v1 unsupported notes as
+/// log messages — the LSP face of the batch adapter's stderr/exit-3 split.
+fn publish_check(connection: &Connection, session: &Session) -> Result<(), ServerError> {
+    let outcome = session.check();
+    for message in outcome.logs {
+        log(connection, message);
+    }
+    for entry in outcome.publishes {
+        publish(connection, entry.uri, entry.diagnostics);
+    }
+    Ok(())
+}
+
+fn publish(connection: &Connection, uri: lsp_types::Uri, diagnostics: Vec<lsp_types::Diagnostic>) {
+    let params = PublishDiagnosticsParams {
+        uri,
+        diagnostics,
+        version: None,
+    };
+    let notification = Notification::new(
+        "textDocument/publishDiagnostics".to_string(),
+        serde_json::to_value(params).expect("params serialize"),
+    );
+    connection
+        .sender
+        .send(Message::Notification(notification))
+        .ok();
+}
+
+fn log(connection: &Connection, message: String) {
+    let params = LogMessageParams {
+        typ: MessageType::WARNING,
+        message,
+    };
+    let notification = Notification::new(
+        "window/logMessage".to_string(),
+        serde_json::to_value(params).expect("params serialize"),
+    );
+    connection
+        .sender
+        .send(Message::Notification(notification))
+        .ok();
+}
+
 /// Every request without a handler gets the protocol's MethodNotFound error —
 /// never a fabricated empty result, which would misreport a capability.
-fn respond_method_not_found(connection: &Connection, request: Request) -> Result<(), ServerError> {
+fn respond_method_not_found(connection: &Connection, request: Request) {
     let response = Response::new_err(
         request.id,
         ErrorCode::MethodNotFound as i32,
         format!("method not implemented: {}", request.method),
     );
     connection.sender.send(Message::Response(response)).ok();
-    Ok(())
+}
+
+/// Placeholder for the rejected-intake path: `Session` only needs the URI
+/// plumbing, and there is no valid request to hold.
+fn empty_request_placeholder() -> clean_compiler_types::request::CompileRequest {
+    serde_json::from_value(serde_json::json!({
+        "spec_version": "1",
+        "project": { "name": "", "version": "" },
+        "build": { "target": "", "optimization": "" },
+        "target_world": { "host": "", "version": "", "world": "", "sha256": "", "wit": "" },
+        "sources": [],
+    }))
+    .expect("placeholder matches the request schema")
 }

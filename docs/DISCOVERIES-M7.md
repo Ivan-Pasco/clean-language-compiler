@@ -1,0 +1,88 @@
+# Discoveries — Milestone 7 (language server)
+
+Spec gaps and under-specifications found while implementing M7. Each item
+either becomes a task brief in foundation `work/` (written from a
+foundation session — this repo never writes there) or records a local
+adoption that stays in force until foundation resolves it.
+
+## Status
+
+Open — M7 in progress. No items carried to foundation yet.
+
+## 1. Editor-mode request construction is unspecified
+
+Platform 14 §14.1 names the LSP as one of the compiler's callers — driven
+through the same request document, "without any of them having to touch the
+filesystem in an ambient way" — and Platform 04 owns the protocol. Neither
+says how the language server *obtains* a request document in editor mode:
+`didOpen`/`didChange` deliver file contents, but the request also carries
+`target_world`, dependencies, limits, and the full source list.
+
+**Local adoption (in force, `session.rs`):**
+
+- `initializationOptions.requestDocument` carries the request document
+  verbatim — the same JSON `cln` would hand `clean-compiler --check`. The
+  extension (or `cln` acting for it) composes it; the server composes
+  nothing and discovers nothing (CMP-01).
+- `didOpen`/`didChange` (full sync) overlay `sources[].content` for the
+  matching path; the server recomputes that entry's `sha256` because the
+  overlaid request is one the server is composing as a caller. RQD001
+  keeps guarding the base document exactly as delivered.
+- `didClose` drops the overlay, reverting to the base document content —
+  never to the filesystem.
+- A document whose URI does not resolve (against the workspace root) to a
+  `sources[]` path is not compiled; the server says so via
+  `window/logMessage`. The request decides the compilation unit.
+- Missing `requestDocument` entirely is the caller's defect: the server
+  serves protocol lifecycle only and logs why once.
+
+Candidate foundation brief: where the editor-mode request document comes
+from (extension? `cln` daemon? watch operation), and whether
+`initializationOptions` is the normative channel.
+
+## 2. Where request-level diagnostics publish
+
+Diagnostics with `primary_span.file == "<request>"` (RQD codes, COM005,
+COM003's request-shaped cases) have no source file to publish under, and
+LSP has no file-less diagnostics channel.
+
+**Local adoption (in force):** they publish under
+`initializationOptions.requestDocumentUri` when the caller names one, else
+under the synthetic URI `clean:request`. Spans convert to the zero range.
+A span naming a file that is neither `<request>` nor a `sources[]` entry
+joins the same bucket rather than vanish (parity over placement); no such
+span is currently emitted.
+
+## 3. Notes/helps append format on the wire
+
+Platform 13 §7: `notes`/`helps` are "appended to `message` when the editor
+does not fetch code actions", with no format given. This server does not
+yet advertise `codeAction`, so appending is the only delivery.
+
+**Local adoption (in force, `convert.rs`):** each note appends as
+`"\nnote: {note}"`, each help as `"\nhelp: {help}"` — the CLI renderer's
+prefixes. When `codeAction` lands, appending becomes conditional on the
+client's declared capability, per §7's reading.
+
+## 4. Pre-v1 `Unsupported` in the editor
+
+`CompileError::Unsupported` entries carry no registered code (DIA-01
+forbids publishing them as diagnostics), mirroring the batch adapter's
+stderr + exit 3. **Local adoption:** they surface as `window/logMessage`
+warnings naming construct and location, and every diagnostics bucket
+publishes empty. Pre-v1 only; dissolves when the surface completes.
+
+## 5. `initialized` is consumed by the transport
+
+`lsp-server`'s `initialize_finish` consumes the client's `initialized`
+notification internally. The first diagnostics push therefore happens
+immediately after the handshake returns, not in an `initialized` handler —
+observable only as "diagnostics arrive without waiting for an edit", which
+is what Platform 04 §4.1 wants anyway. Implementation note, not a spec gap.
+
+## 6. Binary name
+
+No spec names the language-server binary (Platform 04 says "the language
+server binary"; Manager resolves it at the pin). **Local adoption (ADR
+0006):** crate and binary are `clean-language-server`; not a user-facing
+command (CCMP-04) — editors reach it through Clean Manager (LSP-05).
