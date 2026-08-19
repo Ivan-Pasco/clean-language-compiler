@@ -7,20 +7,39 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-In progress. Stage 1 (`cln why` re-projection, §14.14.1) landed with its
-contract suite (`tests/why_operation.rs` at corpus scale, plus the adapter
-half in `clean-compiler-bin/tests/cli.rs`). Stage 2 (watch-mode rebuild,
-§14.14.3) landed as a contract without an API
-(`clean-compiler-bin/tests/watch_rebuild.rs`). Stage 3 (build
-reproduction, §14.14.6 first half) landed as `repro::repro_build` with a
-pluggable `InputResolver` (`tests/repro_build.rs`,
-`clean-compiler-bin/tests/repro_cli.rs`, local ADR 0007). Stage 4
-(request replay, §14.14.6 second half) landed as `replay::replay` over a
-provisional trace schema (`tests/replay_operation.rs`). Stage 5 (bridge
-stubs, §14.14.5) landed as the `stub::generate_stub` generator
-(`tests/bridge_stubs.rs`) — the normative WIT catalog it will feed on
-does not exist yet (§7). Stage 6 (JSON-RPC / MCP adapter, §14.2.3)
-landed as the bin's `--serve` mode (`serve_rpc.rs`).
+M8 complete (2026-08-19, 7 stages). Every Platform 14 v1 API operation
+ships with a contract test over the same request document (the M7 parity
+model), and the milestone gate
+(`clean-compiler-bin/tests/operations_gate.rs`) runs the full circle —
+build → check → why → repro build → replay → bridge stub → JSON-RPC — on
+one document, asserting every surface names the same build:
+
+- **§14.14.1 `cln why`** — `why::why`, corpus-scale contract
+  (`tests/why_operation.rs`), adapter `--why` (`cli.rs`).
+- **§14.14.3 watch-mode** — a contract without an API
+  (`watch_rebuild.rs`): warm rebuild ≡ cold full build, stateless loop.
+- **§14.14.4 `cln check`** — shipped in M4; its contract rides the DIA-06
+  harness and the M7 parity gate.
+- **§14.14.6 repro build** — `repro::repro_build` + `InputResolver`
+  (`tests/repro_build.rs`, `repro_cli.rs`, local ADR 0007).
+- **§14.14.6 replay** — `replay::replay` + replay host over the component
+  runtime (`tests/replay_operation.rs`), provisional trace schema.
+- **§14.14.5 bridge stubs** — `stub::generate_stub`
+  (`tests/bridge_stubs.rs`); the normative WIT catalog is missing (§7).
+- **§14.2.3 JSON-RPC / MCP** — the bin's `--serve` (`serve_rpc.rs`), MCP
+  tools wrapping the identical handlers.
+
+spec_version stayed frozen at "1": the request schema is untouched; the
+one output-schema deviation (build manifest) is local ADR 0007.
+
+Brief candidates for foundation (to carry from a foundation session):
+§1 (pass provenance vs the §13 Diagnostic value), §3 (the `[dev] watch`
+sentence describes the caller), §4 (§14.8 manifest cannot name its
+request — ADR 0007 shape as draft), §5 (first-divergent-byte needs the
+artifact), §6 (request-trace schema has no home — pinned shape as
+draft), §7 (the Platform 02 §2.2 `wit/` catalog does not exist; fixture
+timing question), §8 (RPC protocol surface pinning, informational).
+§2 (why location addressing) is minor and can ride §1.
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
