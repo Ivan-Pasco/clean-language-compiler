@@ -7,18 +7,42 @@ adoption that stays in force until foundation resolves it.
 
 ## Status
 
-Implementation complete (2026-08-19), round-trip to foundation pending.
-Foundation HEAD at start: `af0e34c`; none of the 16 open M3–M5 briefs
-executed during M6. Twelve stages landed: memory model (MMD-01..04,
-TIER-01/02/04/05), control flow (FLW-02/03), number, lists, the
-chapter-15 math/string/list/bytes/json modules with conversions, fallible
-imports (framework 09 §8), state-to-globals (SMG-01), BLD001 + MEM002
-emitting with DIA-06 triples, the L5 JSONTestSuite gate (318 cases,
-pinned i_ verdicts), and the bi-repo acceptance rerun — clean-server
-served the guest including the 9b /ws route (101 Switching Protocols).
-Blocked by spec, needing foundation rulings before the surface can
-close: /events (item 6k), list.add/insert (6g), transcendentals +
-BRG-05 (1/2), record/class layout (6b), b"..." literals (6h).
+Round-trip closed on 2026-08-19: foundation resolved all items
+(platform errata `a4249dc`, language errata `bbdf483`, components
+erratum `37cda47`, four decision briefs `4e99b17`; report received the
+same day). Per item:
+
+- **Ratified, now normative — adoptions retired as adoptions** — 3
+  (TIER-01 coherence rule; embedded row provisional), 4 (COM003 owns the
+  static-data overflow with a full entry — the interim COM013 superseded
+  and migrated, stage 13), 5 (memory64 rejected as COM005, stage 13),
+  6a (the sizeof table is 03 §3.4.1, our `elem_layout` verbatim), 6e
+  (round ties-to-even; domain errors → NaN), 6f (code points + every
+  string edge pin), 6g periphery (slice clamp, sort/search domains;
+  OOB = RUN013), 6i (chapter-15 bytes surface; 14 §14.14.2 corrected),
+  6l (fallibility at the boundary: world decides, no error binding,
+  payload discarded — lowering widened to payload errors, stage 16;
+  multi-package target_world normative), 6n(a) (expected-divergence rule:
+  our SOURCE.md is the mechanism), 6n(b) (null/failure conflation
+  deliberate and documented), 6n(c) (corpus registry refreshed;
+  JSON-only L5 is the expected state), 7 (range iterate semantics
+  normative: inclusive, directional default step, once-evaluation).
+- **Resolved with compiler-side changes landed** — 6d(a) number.toString
+  = shortest round-trip (specified; implementation pending as backlog),
+  6d(b) string.toBoolean was an M4 checker bug — fixed, SEM022 (stage
+  14), 6d(d) toNumber correctly rounded — Clinger fast path (stage 14),
+  6h (BytesLiteral minted in the EBNF — implemented, stage 15).
+- **Briefs Ready in foundation `work/`, local adoptions stay in force** —
+  1 + 2 + 6j (`2026-08-19-bridge-runtime-and-import-architecture.md`:
+  ADR-0004 is the proposal of record; runtime stays guest functions,
+  transcendentals/^/case-folding stay Unsupported), 6g core
+  (`2026-08-19-list-growth-and-aliasing.md`: add/insert keep declining),
+  6b + 6m (`2026-08-19-composite-layouts-record-any-datetime.md`:
+  ADR-0005 cited whole; pairs stays <string, any>), 6k
+  (`2026-08-19-host-function-wit-name-escape.md`: /events stays blocked),
+  7c step-0 (extends `2026-08-17-iterate-step-non-range.md`).
+- **Compiler backlog, no spec change** — 6c and 6d(c): RUN003/RUN013
+  catchable shapes wait on the error-lowering stage.
 
 ## Items
 

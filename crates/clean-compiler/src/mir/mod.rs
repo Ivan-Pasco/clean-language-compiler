@@ -82,6 +82,8 @@ pub struct MirImport {
     /// 09 §8): the call takes the retptr form with the result's memory
     /// layout, and call sites branch on the discriminant.
     pub fallible_ok: Option<Ty>,
+    /// Canonical offset of the ok payload in the result's memory form.
+    pub fallible_payload_offset: u32,
 }
 
 /// How a host result wider than one core value comes back: through a
@@ -495,8 +497,56 @@ pub struct WorldFacts {
     pub module: Option<String>,
     /// `Some(ok)` when the world return is `result<ok, err>`; the err
     /// side's payload is never read (expression `onError` binds no error
-    /// value).
+    /// value) but its alignment still positions the ok payload.
     pub fallible_ok: Option<Ty>,
+    /// Canonical offset of the ok payload inside the result's memory
+    /// form: `align_to(1, max(align(ok), align(err)))`.
+    pub fallible_payload_offset: u32,
+}
+
+/// Canonical ABI alignment of a WIT type (the subset our worlds use).
+fn cabi_align(resolve: &wit_parser::Resolve, ty: &wit_parser::Type) -> u32 {
+    use wit_parser::{Type as W, TypeDefKind};
+    match ty {
+        W::Bool | W::U8 | W::S8 => 1,
+        W::U16 | W::S16 => 2,
+        W::U32 | W::S32 | W::F32 | W::Char | W::String => 4,
+        W::U64 | W::S64 | W::F64 => 8,
+        W::Id(id) => match &resolve.types[*id].kind {
+            TypeDefKind::Enum(_) | TypeDefKind::Flags(_) => 4,
+            TypeDefKind::List(_) => 4,
+            TypeDefKind::Record(r) => r
+                .fields
+                .iter()
+                .map(|f| cabi_align(resolve, &f.ty))
+                .max()
+                .unwrap_or(1),
+            TypeDefKind::Tuple(t) => t
+                .types
+                .iter()
+                .map(|ty| cabi_align(resolve, ty))
+                .max()
+                .unwrap_or(1),
+            TypeDefKind::Option(inner) => cabi_align(resolve, inner).max(1),
+            TypeDefKind::Variant(v) => v
+                .cases
+                .iter()
+                .filter_map(|c| c.ty.as_ref())
+                .map(|ty| cabi_align(resolve, ty))
+                .max()
+                .unwrap_or(1),
+            TypeDefKind::Result(r) => {
+                r.ok.iter()
+                    .chain(r.err.iter())
+                    .map(|ty| cabi_align(resolve, ty))
+                    .max()
+                    .unwrap_or(1)
+            }
+            TypeDefKind::Type(inner) => cabi_align(resolve, inner),
+            _ => 8,
+        },
+        _ => 8,
+    }
 }
 
 /// Looks a declared import up in the target world (by interface name and
@@ -528,6 +578,7 @@ fn world_facts(world: &crate::codegen::world::ParsedWorld, import: &HostImport) 
                 .unwrap_or_default();
             format!("{}:{}/{}{version}", pkg.name.namespace, pkg.name.name, name)
         });
+        let mut fallible_payload_offset = 0;
         let fallible_ok = iface.functions.get(&import.wit_name).and_then(|function| {
             let wit_parser::Type::Id(id) = function.result.as_ref()? else {
                 return None;
@@ -535,22 +586,15 @@ fn world_facts(world: &crate::codegen::world::ParsedWorld, import: &HostImport) 
             let TypeDefKind::Result(r) = &resolve.types[*id].kind else {
                 return None;
             };
-            // The error side is never read, but its alignment must not
-            // move the ok payload: only payload-less enums/variants are
-            // supported (Ty::Error marks an unsupported shape and the
-            // call site declines).
-            let err_supported = match r.err {
-                None => true,
-                Some(wit_parser::Type::Id(err_id)) => match &resolve.types[err_id].kind {
-                    TypeDefKind::Enum(_) => true,
-                    TypeDefKind::Variant(v) => v.cases.iter().all(|c| c.ty.is_none()),
-                    _ => false,
-                },
-                Some(_) => false,
-            };
-            if !err_supported {
-                return Some(Ty::Error);
-            }
+            // 37cda47: the error payload is discarded, never read — every
+            // err shape lowers; its alignment still positions the ok
+            // payload after the 1-byte discriminant.
+            fallible_payload_offset =
+                r.ok.iter()
+                    .chain(r.err.iter())
+                    .map(|ty| cabi_align(resolve, ty))
+                    .max()
+                    .unwrap_or(1);
             Some(match r.ok {
                 Some(ok) => crate::typecheck::types::project_wit(resolve, &ok).unwrap_or(Ty::Error),
                 None => Ty::Void,
@@ -559,11 +603,13 @@ fn world_facts(world: &crate::codegen::world::ParsedWorld, import: &HostImport) 
         return WorldFacts {
             module,
             fallible_ok,
+            fallible_payload_offset,
         };
     }
     WorldFacts {
         module: None,
         fallible_ok: None,
+        fallible_payload_offset: 0,
     }
 }
 
@@ -896,6 +942,7 @@ fn lower_import(
         params,
         results,
         fallible_ok: facts.fallible_ok,
+        fallible_payload_offset: facts.fallible_payload_offset,
     }
 }
 
@@ -2480,10 +2527,12 @@ impl<'a> FnLowerer<'a> {
         out: &mut Vec<Inst>,
         sink: &mut DiagnosticSink,
     ) {
-        let ok_ty = self.imports[self.remap[&import]]
+        let mir_import = &self.imports[self.remap[&import]];
+        let ok_ty = mir_import
             .fallible_ok
             .clone()
             .expect("caller checked fallibility");
+        let off = mir_import.fallible_payload_offset;
         let param_tys = self.program.host_imports[import].params.clone();
         for (arg, param_ty) in args.iter().zip(&param_tys) {
             self.lower_boundary_arg(arg, param_ty, out, sink);
@@ -2495,17 +2544,17 @@ impl<'a> FnLowerer<'a> {
         let ok_loads: Option<Vec<Inst>> = match &ok_ty {
             Ty::Void => Some(vec![]),
             Ty::Integer | Ty::IntegerW(IntWidth::U64) => {
-                Some(vec![Inst::RetAreaPtr, Inst::I64Load(8)])
+                Some(vec![Inst::RetAreaPtr, Inst::I64Load(off)])
             }
-            Ty::Number => Some(vec![Inst::RetAreaPtr, Inst::F64Load(8)]),
+            Ty::Number => Some(vec![Inst::RetAreaPtr, Inst::F64Load(off)]),
             Ty::IntegerW(_) | Ty::Boolean | Ty::Enum { .. } => {
-                Some(vec![Inst::RetAreaPtr, Inst::I32Load(4)])
+                Some(vec![Inst::RetAreaPtr, Inst::I32Load(off)])
             }
             Ty::Str | Ty::Bytes => Some(vec![
                 Inst::RetAreaPtr,
-                Inst::I32Load(4),
+                Inst::I32Load(off),
                 Inst::RetAreaPtr,
-                Inst::I32Load(8),
+                Inst::I32Load(off + 4),
                 Inst::CallRuntime(runtime::RuntimeFn::LiftString),
             ]),
             _ => None,
