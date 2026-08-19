@@ -4,6 +4,7 @@ members = [
     "crates/clean-compiler-types",
     "crates/clean-compiler",
     "crates/clean-compiler-bin",
+    "crates/clean-language-server",
 ]
 
 [workspace.package]
@@ -38,6 +39,12 @@ wit-component = "0.256"
 # Binary adapter only — the compiler library never sees TOML or argv (ADR-0006).
 clap = { version = "4", features = ["derive"] }
 toml = "0.8"
+
+# Language server transport and protocol types (local ADR 0006): the
+# rust-analyzer scaffold — synchronous stdio loop, in-memory transport for
+# tests — and LSP 3.17 structs. Confined to crates/clean-language-server.
+lsp-server = "0.10"
+lsp-types = "0.97"
 
 # The pass-[6] handler sandbox (ADR-0004) and the M1 ABI harness; 47 aligns
 # with clean-host-core (docs/adr/0001-reference-stack.md). Production

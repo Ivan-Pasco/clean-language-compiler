@@ -1,0 +1,22 @@
+[package]
+name = "clean-language-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The Clean language server: the compiler pipeline behind LSP (CCMP-25/26, Platform 04)"
+
+[[bin]]
+name = "clean-language-server"
+path = "src/main.rs"
+
+[dependencies]
+clean-compiler.workspace = true
+clean-compiler-types.workspace = true
+lsp-server.workspace = true
+lsp-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
