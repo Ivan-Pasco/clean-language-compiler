@@ -3940,6 +3940,24 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
         span: ByteSpan,
         sink: &mut DiagnosticSink,
     ) -> TExpr {
+        if module == "json" {
+            if let Some((func, params, ret)) = super::stdlib::json_namespace_fn(method) {
+                let args = self.check_args(method, &params, args, span, false, sink);
+                return TExpr {
+                    ty: ret,
+                    span,
+                    kind: TExprKind::CallStd { func, args },
+                };
+            }
+            sink.push(build(
+                Level::Error,
+                codes::SEM019,
+                format!("I cannot find a function named `{method}`"),
+                self.diag_span(member_span),
+                Some("no function with this name is in scope".to_string()),
+            ));
+            return error_expr(span);
+        }
         if module == "bytes" {
             if let Some((func, params, ret)) = super::stdlib::bytes_namespace_fn(method) {
                 let args = self.check_args(method, &params, args, span, false, sink);
@@ -4161,10 +4179,6 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 // pass): the field-side counterpart of SEM022.
                 self.undefined_field(&recv.ty, name, member_span, span, sink)
             }
-            Ty::Any => {
-                sink.note_unsupported("member access on `any` values", self.diag_span(span));
-                error_expr(span)
-            }
             Ty::Record { fields, .. } => {
                 let Some(index) = fields.iter().position(|(n, _)| n == name) else {
                     return self.undefined_field(&recv.ty, name, member_span, span, sink);
@@ -4180,6 +4194,22 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 }
             }
             Ty::Error => error_expr(span),
+            // 15 §Accessing JSON Data: `data.name` and `data["name"]` are
+            // equivalent — type member access on `any` as the string
+            // index.
+            Ty::Any => TExpr {
+                ty: Ty::Any,
+                span,
+                kind: TExprKind::Index {
+                    recv: Box::new(recv),
+                    index: Box::new(TExpr {
+                        ty: Ty::Str,
+                        span,
+                        kind: TExprKind::Str(name.to_string()),
+                    }),
+                    kind: super::tir::IndexKind::Any,
+                },
+            },
             // §14.14.2: `bytes.length` is property-style (no parentheses).
             Ty::Bytes if name == "length" => TExpr {
                 ty: Ty::Integer,

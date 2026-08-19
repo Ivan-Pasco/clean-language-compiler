@@ -185,9 +185,11 @@ functions:
     run_init(&mut store, &instance);
     let log = store.data().clone();
     assert_eq!(log[0].0, "hi");
-    // "hi" is the first string interned after the seeded empty constant:
-    // object at 1028, payload at 1032 (MMD-04: address = length field).
-    assert_eq!(log[0].1, EMPTY_STRING_ADDR as i32 + 8);
+    // "hi" is the first string interned after the two seeded constants —
+    // the empty string (4 bytes + pad) and the shared none box (16 bytes
+    // at 1032, ADR 0005): object at 1048, payload at 1052 (MMD-04:
+    // address = length field).
+    assert_eq!(log[0].1, EMPTY_STRING_ADDR as i32 + 28);
     assert_eq!(log[1].0, "");
     // Every empty string shares EMPTY_STRING_ADDR; its payload is +4.
     assert_eq!(log[1].1, EMPTY_STRING_ADDR as i32 + 4);

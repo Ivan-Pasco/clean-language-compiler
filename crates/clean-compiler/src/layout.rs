@@ -43,6 +43,29 @@ pub const LIST_CAP_OFFSET: u32 = 4;
 pub const LIST_TAG_OFFSET: u32 = 8;
 pub const LIST_ELEMS_OFFSET: u32 = 16;
 
+/// The `any` box (ADR 0005): `[tag u32 @0][pad @4][payload @8]`, 16
+/// bytes, 8-aligned; tag 8 extends to 24 bytes with the source text
+/// pointer at +16.
+pub const ANY_TAG_NONE: u32 = 0;
+pub const ANY_TAG_BOOL: u32 = 1;
+pub const ANY_TAG_INT: u32 = 2;
+pub const ANY_TAG_NUM: u32 = 3;
+pub const ANY_TAG_STR: u32 = 4;
+pub const ANY_TAG_BYTES: u32 = 5;
+pub const ANY_TAG_LIST: u32 = 6;
+pub const ANY_TAG_PAIRS: u32 = 7;
+pub const ANY_TAG_NUM_SRC: u32 = 8;
+
+/// The shared static `none` box, seeded after the empty-string constant
+/// (8-aligned).
+pub const NONE_BOX_ADDR: u32 = 1032;
+
+/// `pairs<K, V>` header (MMD §3.4.2): count, capacity, then 8-byte
+/// entries of (key ptr, value ptr).
+pub const PAIRS_COUNT_OFFSET: u32 = 0;
+pub const PAIRS_CAP_OFFSET: u32 = 4;
+pub const PAIRS_ENTRIES_OFFSET: u32 = 8;
+
 /// Global indices in the emitted core module. `__heap_start` is immutable
 /// and `__heap_ptr` is the mutable bump pointer; both are exported under
 /// those names (MMD-01: "guest-visible").

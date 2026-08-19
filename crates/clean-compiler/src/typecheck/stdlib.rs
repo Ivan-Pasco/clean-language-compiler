@@ -102,6 +102,11 @@ pub enum StdFn {
     BytesSlice,
     BytesFromText,
     BytesToText,
+    // json (15 §JSON Module — pure guest computation, no host bridge).
+    JsonTextToData,
+    JsonTryTextToData,
+    JsonDataToText,
+    JsonPrettyDataToText,
 }
 
 /// `math.<name>(…)` signatures, verbatim from 15 §Math Module.
@@ -234,6 +239,19 @@ pub fn bytes_method(name: &str) -> Option<(StdFn, Vec<Ty>, Ty)> {
         "slice" => Some((StdFn::BytesSlice, vec![Ty::Integer, Ty::Integer], Ty::Bytes)),
         _ => None,
     }
+}
+
+/// Namespace-style `json.<name>(…)`, verbatim from 15 §JSON Module.
+pub fn json_namespace_fn(name: &str) -> Option<(StdFn, Vec<Ty>, Ty)> {
+    use StdFn::*;
+    let (func, params, ret) = match name {
+        "textToData" => (JsonTextToData, vec![Ty::Str], Ty::Any),
+        "tryTextToData" => (JsonTryTextToData, vec![Ty::Str], Ty::Any),
+        "dataToText" => (JsonDataToText, vec![Ty::Any], Ty::Str),
+        "prettyDataToText" => (JsonPrettyDataToText, vec![Ty::Any], Ty::Str),
+        _ => return None,
+    };
+    Some((func, params, ret))
 }
 
 /// Namespace-style `bytes.<name>(…)`, chapter-15 naming (`fromText`/

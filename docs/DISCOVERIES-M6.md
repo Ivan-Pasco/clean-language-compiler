@@ -161,6 +161,19 @@ from M3–M5 executed since).
    resolve their qualified package from the world (the `/counter`
    shape), which also fixes how a multi-package `target_world.wit` is
    delivered — main package unbraced, nested packages braced.
+6m. **`any` has no runtime representation anywhere** — chapter 15's JSON
+   mapping requires `any`-held scalars, `list<any>` and
+   `pairs<string, any>`, and TYP-02 fixes the checking semantics, but no
+   chapter gives `any` a layout (the §3.4 family gap again). **Local
+   adoption: ADR 0005** — the 16-byte tagged box, the shared static
+   `none` box, box/unbox coercions at TYP-02 fit sites (mismatched
+   unboxing traps — the RUN005 family until error lowering), and JSON
+   number fidelity via source-text-carrying boxes (which also sidesteps
+   the unspecified number-formatting contract of 6d(a) for round-trip
+   purposes). `pairs<K, V>` is implemented only as the JSON object shape
+   (`pairs<string, any>`); the §3.4.2 by-pointer layout leaves scalar
+   keys/values unrepresentable without boxing, which is its own spec
+   question.
 7. **Range `iterate` semantics are example-specified only** (chapter 12,
    FLW-02). The worked examples fix inclusivity and signed steps, but
    three cases have no normative sentence: (a) the default step when

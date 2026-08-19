@@ -23,6 +23,8 @@ use crate::typecheck::tir::{self, HostImport};
 use crate::typecheck::types::Ty;
 
 pub mod runtime;
+pub mod runtime_any;
+pub mod runtime_json;
 pub mod runtime_list;
 pub mod runtime_str;
 
@@ -267,7 +269,10 @@ pub fn val_types(ty: &Ty) -> Option<Vec<Val>> {
             out
         }
         Ty::Number => vec![Val::F64],
-        Ty::Datetime | Ty::Any | Ty::Matrix(_) | Ty::Pairs(_, _) => return None,
+        // An `any` is a single pointer to its box (ADR 0005); `pairs`
+        // stays representable only inside `any` for now.
+        Ty::Any => vec![Val::I32],
+        Ty::Datetime | Ty::Matrix(_) | Ty::Pairs(_, _) => return None,
         // Nominal class instances and capability-typed values get their
         // memory representation with the M6 memory model; only the
         // structural `Record` boundary projection lowers today.
@@ -729,6 +734,9 @@ impl DataPool {
         };
         let empty = pool.intern(&0u32.to_le_bytes());
         debug_assert_eq!(empty, EMPTY_STRING_ADDR);
+        // The shared `none` box (ADR 0005): 16 zero bytes, 8-aligned.
+        let none = pool.intern_aligned(&[0u8; 16], 8);
+        debug_assert_eq!(none, crate::layout::NONE_BOX_ADDR);
         pool
     }
 
@@ -1440,10 +1448,26 @@ impl<'a> FnLowerer<'a> {
         match stmt {
             HStmt::Set { local, value } => {
                 self.expr(value, out, sink);
+                let declared = self.local_tys[*local].clone();
+                // TYP-02 coercions at the store: box into `any`, unbox out
+                // of it (ADR 0005).
+                if matches!(declared, Ty::Any)
+                    && !matches!(value.ty, Ty::Any)
+                    && !self.emit_any_box(&value.ty, out)
+                {
+                    self.note(sink, "boxing this type into `any`", value.span);
+                    return;
+                }
+                if matches!(value.ty, Ty::Any)
+                    && !matches!(declared, Ty::Any)
+                    && !self.emit_any_unbox(&declared, out)
+                {
+                    self.note(sink, "unboxing `any` into this type", value.span);
+                    return;
+                }
                 // A narrower boundary integer widens into an `integer`
                 // local (and vice versa) — the checker accepts the fit,
                 // the store adjusts the width.
-                let declared = self.local_tys[*local].clone();
                 match (is_i64(&value.ty), is_i64(&declared)) {
                     (false, true) if value.ty.is_integer() => {
                         out.push(if matches!(value.ty, Ty::IntegerW(IntWidth::S32)) {
@@ -1935,11 +1959,41 @@ impl<'a> FnLowerer<'a> {
                     out.push(Inst::I32Load8U(4));
                     out.push(Inst::I64ExtendI32U);
                 }
-                tir::IndexKind::Matrix | tir::IndexKind::Pairs | tir::IndexKind::Any => {
+                // 15 §Accessing JSON Data: lookups yield `none` for a
+                // missing key, an out-of-range index, or a non-container
+                // box — never a trap.
+                tir::IndexKind::Any => {
+                    self.expr(recv, out, sink);
+                    match &index.ty {
+                        Ty::Integer | Ty::IntegerW(_) => {
+                            self.expr(index, out, sink);
+                            if !is_i64(&index.ty) {
+                                out.push(Inst::I64ExtendI32U);
+                            }
+                            out.push(Inst::CallRuntime(runtime::RuntimeFn::AnyIndexInt));
+                        }
+                        Ty::Str => {
+                            self.expr(index, out, sink);
+                            out.push(Inst::CallRuntime(runtime::RuntimeFn::AnyIndexStr));
+                        }
+                        _ => {
+                            out.push(Inst::Drop);
+                            self.note(sink, "index access", expr.span);
+                        }
+                    }
+                }
+                tir::IndexKind::Matrix | tir::IndexKind::Pairs => {
                     self.note(sink, "index access", expr.span)
                 }
             },
             HExprKind::NonNone(_) => self.note(sink, "postfix `!` assertion", expr.span),
+            HExprKind::IsNone { operand, negated } if matches!(operand.ty, Ty::Any) => {
+                self.expr(operand, out, sink);
+                out.push(Inst::CallRuntime(runtime::RuntimeFn::AnyIsNone));
+                if *negated {
+                    out.push(Inst::I32Eqz);
+                }
+            }
             HExprKind::IsNone { .. } => self.note(sink, "is-none checks", expr.span),
             HExprKind::ResultRef => self.note(sink, "contract blocks in compiled code", expr.span),
             HExprKind::This => self.note(sink, "class values in compiled code", expr.span),
@@ -2072,6 +2126,36 @@ impl<'a> FnLowerer<'a> {
                 if self.lower_list_std(*func, args, expr, out, sink) {
                     return;
                 }
+                match func {
+                    StdFn::JsonTextToData | StdFn::JsonTryTextToData => {
+                        self.expr(&args[0], out, sink);
+                        out.push(Inst::CallRuntime(
+                            if matches!(func, StdFn::JsonTextToData) {
+                                runtime::RuntimeFn::JsonParse
+                            } else {
+                                runtime::RuntimeFn::JsonTryParse
+                            },
+                        ));
+                        return;
+                    }
+                    StdFn::JsonDataToText | StdFn::JsonPrettyDataToText => {
+                        let arg = &args[0];
+                        self.expr(arg, out, sink);
+                        if !matches!(arg.ty, Ty::Any) && !self.emit_any_box(&arg.ty, out) {
+                            self.note(sink, "boxing this type into `any`", arg.span);
+                            return;
+                        }
+                        out.push(Inst::CallRuntime(
+                            if matches!(func, StdFn::JsonDataToText) {
+                                runtime::RuntimeFn::JsonSerialize
+                            } else {
+                                runtime::RuntimeFn::JsonSerializePretty
+                            },
+                        ));
+                        return;
+                    }
+                    _ => {}
+                }
                 for arg in args {
                     self.expr(arg, out, sink);
                 }
@@ -2195,6 +2279,51 @@ impl<'a> FnLowerer<'a> {
         }
     }
 
+    /// Boxes the concrete value on the stack into an `any` box (ADR
+    /// 0005); false when the type has no boxing yet.
+    fn emit_any_box(&mut self, from: &Ty, out: &mut Vec<Inst>) -> bool {
+        use runtime::RuntimeFn;
+        match from {
+            Ty::Str => out.push(Inst::CallRuntime(RuntimeFn::AnyBoxStr)),
+            Ty::Bytes => out.push(Inst::CallRuntime(RuntimeFn::AnyBoxStr)),
+            Ty::Boolean => out.push(Inst::CallRuntime(RuntimeFn::AnyBoxBool)),
+            Ty::Number => out.push(Inst::CallRuntime(RuntimeFn::AnyBoxNum)),
+            Ty::Integer | Ty::IntegerW(IntWidth::U64) => {
+                out.push(Inst::CallRuntime(RuntimeFn::AnyBoxInt))
+            }
+            Ty::IntegerW(IntWidth::S32) => {
+                out.push(Inst::I64ExtendI32S);
+                out.push(Inst::CallRuntime(RuntimeFn::AnyBoxInt));
+            }
+            Ty::IntegerW(_) | Ty::Enum { .. } => {
+                out.push(Inst::I64ExtendI32U);
+                out.push(Inst::CallRuntime(RuntimeFn::AnyBoxInt));
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// Unboxes the `any` box on the stack into a concrete value, trapping
+    /// on a tag mismatch (RUN005 family until error lowering); false when
+    /// the target has no unboxing yet.
+    fn emit_any_unbox(&mut self, to: &Ty, out: &mut Vec<Inst>) -> bool {
+        use runtime::RuntimeFn;
+        match to {
+            Ty::Str => out.push(Inst::CallRuntime(RuntimeFn::AnyUnboxStr)),
+            Ty::Boolean => out.push(Inst::CallRuntime(RuntimeFn::AnyUnboxBool)),
+            Ty::Number => out.push(Inst::CallRuntime(RuntimeFn::AnyUnboxNum)),
+            Ty::Integer => out.push(Inst::CallRuntime(RuntimeFn::AnyUnboxInt)),
+            Ty::IntegerW(IntWidth::U64) => out.push(Inst::CallRuntime(RuntimeFn::AnyUnboxInt)),
+            Ty::IntegerW(_) => {
+                out.push(Inst::CallRuntime(RuntimeFn::AnyUnboxInt));
+                out.push(Inst::I32WrapI64);
+            }
+            _ => return false,
+        }
+        true
+    }
+
     /// Lowers a call to a fallible import (world return `result<ok, err>`).
     /// The retptr area holds the canonical result: discriminant byte at
     /// +0, ok payload at its natural alignment. The error payload is never
@@ -2286,9 +2415,12 @@ impl<'a> FnLowerer<'a> {
         match param_ty {
             Ty::Str | Ty::Bytes => {
                 // base → (payload ptr, len): payload at base + 4, length at
-                // base (MMD-04).
+                // base (MMD-04). An `any` argument unboxes first.
                 let base = self.alloc_scratch(&[Val::I32]);
                 self.expr(arg, out, sink);
+                if matches!(arg.ty, Ty::Any) {
+                    out.push(Inst::CallRuntime(runtime::RuntimeFn::AnyUnboxStr));
+                }
                 out.push(Inst::LocalTee(base));
                 out.push(Inst::I32Const(4));
                 out.push(Inst::I32Bin(I32Op::Add));
@@ -2456,6 +2588,15 @@ impl<'a> FnLowerer<'a> {
             }
             _ => {
                 self.expr(arg, out, sink);
+                // TYP-02: an `any` value meeting a concrete parameter
+                // unboxes at the boundary (trap on tag mismatch).
+                if matches!(arg.ty, Ty::Any) && !matches!(param_ty, Ty::Any) {
+                    if !self.emit_any_unbox(param_ty, out) {
+                        self.note(sink, "unboxing `any` into this type", arg.span);
+                        return;
+                    }
+                    return;
+                }
                 self.boundary_convert(&arg.ty, param_ty, out);
             }
         }

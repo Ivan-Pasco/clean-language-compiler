@@ -133,6 +133,50 @@ pub enum RuntimeFn {
     /// validation; well-formed input aliases the receiver (both types are
     /// immutable with identical layouts), otherwise `(0, 0)`.
     BytesToText = 39,
+    // The `any` box (ADR 0005; bodies in `runtime_any.rs`). Box layout:
+    // [tag u32 @0][pad][payload @8]; tag 8 adds a source-text ptr @16.
+    /// `any_box_int(v: i64) -> box` (tag 2).
+    AnyBoxInt = 40,
+    /// `any_box_num(v: f64) -> box` (tag 3).
+    AnyBoxNum = 41,
+    /// `any_box_bool(v: i32) -> box` (tag 1).
+    AnyBoxBool = 42,
+    /// `any_box_str(s) -> box` (tag 4).
+    AnyBoxStr = 43,
+    /// `any_box_list(l) -> box` (tag 6).
+    AnyBoxList = 44,
+    /// `any_box_pairs(p) -> box` (tag 7).
+    AnyBoxPairs = 45,
+    /// `any_unbox_int(box) -> i64` — tag 2 verbatim; tags 3/8 truncate
+    /// toward zero; anything else traps (RUN005 family).
+    AnyUnboxInt = 46,
+    /// `any_unbox_num(box) -> f64` — tags 3/8 verbatim; tag 2 widens;
+    /// anything else traps.
+    AnyUnboxNum = 47,
+    /// `any_unbox_bool(box) -> i32` — tag 1 or trap.
+    AnyUnboxBool = 48,
+    /// `any_unbox_str(box) -> base` — tag 4 or trap.
+    AnyUnboxStr = 49,
+    /// `any_is_none(box) -> i32`.
+    AnyIsNone = 50,
+    /// `any_index_int(box, i: i64) -> box` — list element; none for out
+    /// of range or a non-list box (never a trap — chapter 15 access
+    /// semantics).
+    AnyIndexInt = 51,
+    /// `any_index_str(box, key) -> box` — pairs lookup by string key;
+    /// none when missing or not a pairs box.
+    AnyIndexStr = 52,
+    // JSON (chapter 15 §JSON Module; bodies in `runtime_json.rs`).
+    /// `json_parse(s) -> box` — RUN006–RUN010 conditions trap.
+    JsonParse = 53,
+    /// `json_try_parse(s) -> box` — none in exactly the RUN006–RUN010
+    /// conditions.
+    JsonTryParse = 54,
+    /// `json_serialize(box) -> s` — compact.
+    JsonSerialize = 55,
+    /// `json_serialize_pretty(box) -> s` — tab-indented, one member per
+    /// line.
+    JsonSerializePretty = 56,
 }
 
 pub fn build(tier: Tier) -> Vec<MirFunction> {
@@ -150,6 +194,8 @@ pub fn build(tier: Tier) -> Vec<MirFunction> {
     fns.extend(super::runtime_list::build());
     fns.push(bytes_slice());
     fns.push(bytes_to_text());
+    fns.extend(super::runtime_any::build());
+    fns.extend(super::runtime_json::build());
     fns
 }
 
