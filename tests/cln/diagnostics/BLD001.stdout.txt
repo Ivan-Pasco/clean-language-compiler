@@ -1,0 +1,4 @@
+error[BLD001]: build limit 'max-file-size-mb' exceeded: 33 > 0
+ --> tests/cln/diagnostics/BLD001.cln:1:1
+  = this file/import exceeds 'max-file-size-mb'
+  = docs: https://errors.cleanlanguage.dev/E/BLD001

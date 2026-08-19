@@ -98,6 +98,31 @@ pub fn validate(request: CompileRequest, sink: &mut DiagnosticSink) -> Option<Va
         }
     }
 
+    // BLD001 (Platform 10 §12): `[compile.limits]` caps are hard. The
+    // per-file size cap is checked here where the sources arrive; the
+    // import-depth leg lands with a deeper module graph, and the whole-
+    // build timeout belongs to the process adapter (no wall clock inside
+    // the pipeline — CMP-02).
+    let max_file_bytes = validated_max_file_bytes(&request);
+    for source in &request.sources {
+        let actual = source.content.len() as u64;
+        if actual > max_file_bytes {
+            let mut diagnostic = request_error(
+                codes::BLD001,
+                format!("build limit 'max-file-size-mb' exceeded: {actual} > {max_file_bytes}"),
+            );
+            diagnostic.primary_span = Span {
+                file: source.path.clone(),
+                start: clean_compiler_types::Position { line: 1, column: 1 },
+                end: clean_compiler_types::Position { line: 1, column: 1 },
+            };
+            diagnostic.primary_label =
+                Some("this file/import exceeds 'max-file-size-mb'".to_string());
+            diagnostic.rendered = render_cli(&diagnostic, &crate::diag::SourceCache::empty());
+            sink.push(diagnostic);
+        }
+    }
+
     // TIER-01 (Platform 05 §5.1): an explicit `[memory].tier` must name a
     // table row; absence is legal and resolves by target inference later.
     if let Some(tier) = &request.build.memory.tier {
@@ -162,4 +187,9 @@ fn request_error(code: &str, message: String) -> Diagnostic {
     };
     diagnostic.rendered = render_cli(&diagnostic, &crate::diag::SourceCache::empty());
     diagnostic
+}
+
+/// The `[compile.limits] max-file-size-mb` cap in bytes.
+fn validated_max_file_bytes(request: &CompileRequest) -> u64 {
+    request.compile_limits.max_file_size_mb * 1024 * 1024
 }

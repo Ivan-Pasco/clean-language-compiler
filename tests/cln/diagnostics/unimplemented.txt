@@ -5,7 +5,6 @@
 # a code that has a fixture is rejected by the harness. COM013 (internal
 # compiler invariant) stays here until a deliberate fault-injection hook
 # exists: no well-formed input can trigger an ICE by design.
-BLD001
 COM001
 COM002
 COM003
