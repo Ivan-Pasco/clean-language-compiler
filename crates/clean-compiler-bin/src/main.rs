@@ -23,9 +23,10 @@ struct Args {
     #[arg(long, default_value = "-")]
     request: String,
     /// Directory the artifact set is written into (CMP-05: nothing is
-    /// written anywhere else).
+    /// written anywhere else). Required by every operation except `--why`,
+    /// which writes nothing.
     #[arg(long)]
-    out: PathBuf,
+    out: Option<PathBuf>,
     /// Diagnostics-only build (Platform 14 §14.14.4, the operation behind
     /// `cln check`): run passes 1–9 and write `diagnostics.json` only —
     /// never `component.wasm`. Exit 0 when no diagnostic is an error.
@@ -36,10 +37,33 @@ struct Args {
     /// plus `diagnostics.json` — never `component.wasm`.
     #[arg(long)]
     emit: Option<String>,
+    /// Diagnostic re-projection (Platform 14 §14.14.1, the operation behind
+    /// `cln why`): `<file>:<line>[:<column>]`. Re-presents the diagnostics
+    /// at that location from `--diagnostics` — no compilation, no request
+    /// document. Prints the report JSON to stdout.
+    #[arg(long, requires = "diagnostics", conflicts_with_all = ["check", "emit"])]
+    why: Option<String>,
+    /// The `diagnostics.json` (NDJSON) of the most recent build, as the
+    /// caller recorded it. Only read by `--why` (CMP-01: the compiler
+    /// discovers nothing — the caller says exactly which file).
+    #[arg(long)]
+    diagnostics: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
     let args = Args::parse();
+
+    if let Some(location) = &args.why {
+        return run_why(
+            location,
+            args.diagnostics.as_deref().expect("clap requires"),
+        );
+    }
+
+    let Some(out) = args.out.clone() else {
+        eprintln!("clean-compiler: --out is required for this operation");
+        return ExitCode::from(2);
+    };
 
     let json = match read_request(&args.request) {
         Ok(json) => json,
@@ -57,7 +81,7 @@ fn main() -> ExitCode {
             intake.into_diagnostics(),
             &clean_compiler::diag::SourceCache::empty(),
         );
-        return finish_rejected(&args.out, diagnostics);
+        return finish_rejected(&out, diagnostics);
     }
     let request = request.expect("intake produced no request yet raised no error");
 
@@ -68,7 +92,7 @@ fn main() -> ExitCode {
         }
         return match clean_compiler::emit_hir(request) {
             Ok((json, diagnostics)) => {
-                if let Err(err) = write_diagnostics(&args.out, &diagnostics) {
+                if let Err(err) = write_diagnostics(&out, &diagnostics) {
                     eprintln!("clean-compiler: cannot write diagnostics: {err}");
                     return ExitCode::from(2);
                 }
@@ -78,7 +102,7 @@ fn main() -> ExitCode {
                 if failed {
                     return ExitCode::FAILURE;
                 }
-                if let Err(err) = std::fs::write(args.out.join("hir.json"), json) {
+                if let Err(err) = std::fs::write(out.join("hir.json"), json) {
                     eprintln!("clean-compiler: cannot write hir.json: {err}");
                     return ExitCode::from(2);
                 }
@@ -94,7 +118,7 @@ fn main() -> ExitCode {
     if args.check {
         return match clean_compiler::check(request) {
             Ok(diagnostics) => {
-                if let Err(err) = write_diagnostics(&args.out, &diagnostics) {
+                if let Err(err) = write_diagnostics(&out, &diagnostics) {
                     eprintln!("clean-compiler: cannot write diagnostics: {err}");
                     return ExitCode::from(2);
                 }
@@ -118,13 +142,13 @@ fn main() -> ExitCode {
 
     match compile(request) {
         Ok(artifact) => {
-            if let Err(err) = write_artifacts(&args.out, &artifact) {
+            if let Err(err) = write_artifacts(&out, &artifact) {
                 eprintln!("clean-compiler: cannot write outputs: {err}");
                 return ExitCode::from(2);
             }
             ExitCode::SUCCESS
         }
-        Err(CompileError::Rejected(diagnostics)) => finish_rejected(&args.out, diagnostics),
+        Err(CompileError::Rejected(diagnostics)) => finish_rejected(&out, diagnostics),
         Err(err @ CompileError::Unsupported(_)) => {
             // Pre-v1 state: valid program, construct outside the milestone
             // surface. Same non-rejection exit as an incomplete pipeline.
@@ -139,6 +163,78 @@ fn main() -> ExitCode {
             ExitCode::from(3)
         }
     }
+}
+
+/// The `--why` operation (Platform 14 §14.14.1): parse the location, read
+/// the caller-named diagnostics NDJSON, re-project, print the report JSON.
+/// Exit 0 even when no diagnostic covers the location — an empty `entries`
+/// list is the answer, not a failure; exit 2 is transport failure only.
+fn run_why(location: &str, diagnostics_path: &std::path::Path) -> ExitCode {
+    let query = match parse_location(location) {
+        Ok(query) => query,
+        Err(err) => {
+            eprintln!("clean-compiler: invalid --why location `{location}`: {err}");
+            return ExitCode::from(2);
+        }
+    };
+    let text = match std::fs::read_to_string(diagnostics_path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!(
+                "clean-compiler: cannot read {}: {err}",
+                diagnostics_path.display()
+            );
+            return ExitCode::from(2);
+        }
+    };
+    let diagnostics = match clean_compiler::why::diagnostics_from_ndjson(&text) {
+        Ok(diagnostics) => diagnostics,
+        Err(err) => {
+            eprintln!(
+                "clean-compiler: {} is not diagnostics NDJSON: {err}",
+                diagnostics_path.display()
+            );
+            return ExitCode::from(2);
+        }
+    };
+    let report = clean_compiler::why(&diagnostics, &query);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).expect("report serializes")
+    );
+    ExitCode::SUCCESS
+}
+
+/// `<file>:<line>[:<column>]`. The file part may itself contain `:` (never
+/// in practice — request paths are forward-slashed and relative — but the
+/// parse is right-anchored so it costs nothing to be correct).
+fn parse_location(location: &str) -> Result<clean_compiler::WhyQuery, String> {
+    let mut parts = location.rsplitn(3, ':');
+    let last = parts.next().ok_or("empty location")?;
+    let middle = parts.next().ok_or("expected <file>:<line>[:<column>]")?;
+    let (file, line, column) = match parts.next() {
+        Some(file) => (
+            file,
+            middle.parse::<u32>().map_err(|_| "line is not a number")?,
+            Some(last.parse::<u32>().map_err(|_| "column is not a number")?),
+        ),
+        None => (
+            middle,
+            last.parse::<u32>().map_err(|_| "line is not a number")?,
+            None,
+        ),
+    };
+    if file.is_empty() {
+        return Err("file part is empty".to_string());
+    }
+    if line == 0 || column == Some(0) {
+        return Err("lines and columns are 1-based".to_string());
+    }
+    Ok(clean_compiler::WhyQuery {
+        file: file.to_string(),
+        line,
+        column,
+    })
 }
 
 fn read_request(source: &str) -> std::io::Result<String> {

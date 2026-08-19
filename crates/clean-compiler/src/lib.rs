@@ -34,6 +34,8 @@ pub mod request;
 pub mod resolver;
 pub mod source;
 pub mod typecheck;
+pub mod why;
 
 pub use clean_compiler_types as types;
 pub use driver::{check, check_with, compile, emit_hir, CompileArtifact, CompileError};
+pub use why::{why, WhyQuery, WhyReport};
