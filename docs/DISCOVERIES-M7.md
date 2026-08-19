@@ -98,7 +98,19 @@ a stale or guessed answer (LSP-04's rationale). The index does survive a
 program is valid. Call and host-call expressions hover as the callee's
 Clean-surface signature; every other expression hovers as `Ty::display()`.
 
-## 7. Binary name
+## 7. Definition coverage in M7
+
+Platform 04 §4.1 wants definition "across files and into libraries".
+What the typed program resolves directly is covered: user-function calls
+(cross-file included), locals and parameters (the TIR's `Local` gained a
+declaration span for this), state variables, and host-function calls.
+Methods, fields, constructors, and class names index the resolver's
+`Declarations`, which does not surface their declaration spans yet —
+they return null, never a guess. Library jumps wait for the library
+system's IR spans (§21.5). Milestone scoping, not a spec gap; the
+remainder lands with the resolver surfacing declaration spans.
+
+## 8. Binary name
 
 No spec names the language-server binary (Platform 04 says "the language
 server binary"; Manager resolves it at the pin). **Local adoption (ADR

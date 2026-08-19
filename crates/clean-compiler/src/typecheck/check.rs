@@ -515,6 +515,7 @@ impl<'a> Checker<'a> {
                 .map(|p| Local {
                     name: p.name.clone(),
                     ty: self.project_type(&p.ty, TyPos::Surface, file, sink),
+                    span: p.span,
                 })
                 .collect();
             let ret = self.project_type(&f.ret, TyPos::Surface, file, sink);
@@ -1279,6 +1280,7 @@ impl<'a> Checker<'a> {
                     .map(|(p, ty)| Local {
                         name: p.name.clone(),
                         ty: ty.clone(),
+                        span: p.span,
                     })
                     .collect();
                 let scope: IndexMap<String, LocalId> = named_params
@@ -1343,6 +1345,7 @@ impl<'a> Checker<'a> {
                     .map(|(p, ty)| Local {
                         name: p.name.clone(),
                         ty: ty.clone(),
+                        span: p.span,
                     })
                     .collect();
                 let scope: IndexMap<String, LocalId> = named_params
@@ -2258,6 +2261,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 self.locals.push(Local {
                     name: name.clone(),
                     ty: declared,
+                    span: *name_span,
                 });
                 self.scopes.last_mut().unwrap().insert(name.clone(), id);
                 Some(TStmt::Let { local: id, init })
@@ -2470,7 +2474,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             }
             ast::Stmt::Iterate {
                 binder,
-                binder_span: _,
+                binder_span,
                 source,
                 step,
                 body,
@@ -2489,6 +2493,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 self.locals.push(Local {
                     name: binder.clone(),
                     ty: binder_ty,
+                    span: *binder_span,
                 });
                 let body = self.check_loop_body(Some((binder.clone(), id)), body, sink);
                 Some(TStmt::Iterate {
@@ -2528,7 +2533,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
             ast::Stmt::Later {
                 ty,
                 name,
-                name_span: _,
+                name_span,
                 span,
                 ..
             } => {
@@ -2541,6 +2546,7 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 self.locals.push(Local {
                     name: name.clone(),
                     ty: declared,
+                    span: *name_span,
                 });
                 self.scopes.last_mut().unwrap().insert(name.clone(), id);
                 None

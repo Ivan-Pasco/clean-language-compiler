@@ -192,6 +192,27 @@ impl Session {
         })
     }
 
+    /// Go-to-definition at an editor position: the declaration site the
+    /// resolver bound the use to — the pipeline's byte-exact spans, never a
+    /// textual search.
+    pub fn definition(
+        &self,
+        uri: &str,
+        position: lsp_types::Position,
+    ) -> Option<lsp_types::Location> {
+        let path = self.source_path(uri)?;
+        let file = self.base.sources.iter().position(|s| s.path == path)?;
+        let content = self.content_for(&path);
+        let offset = crate::convert::byte_offset(&content, position);
+        let (target_file, target_span) = self.index.as_ref()?.definition(file, offset)?;
+        let target_path = &self.base.sources.get(target_file)?.path;
+        let target_content = self.content_for(target_path);
+        Some(lsp_types::Location {
+            uri: self.uri_for(target_path),
+            range: crate::convert::byte_range(&target_content, target_span),
+        })
+    }
+
     /// Intake failures precede any source (Platform 10 §16): every span is
     /// `<request>`, and everything publishes under the request-document URI.
     pub fn bucket_for_intake(

@@ -41,6 +41,8 @@ fn capabilities() -> ServerCapabilities {
         // Platform 04 §4.1: type of the expression under the cursor and
         // function signatures, from the pipeline's own typed program.
         hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+        // Platform 04 §4.1: jump to definition, at the resolver's spans.
+        definition_provider: Some(lsp_types::OneOf::Left(true)),
         ..ServerCapabilities::default()
     }
 }
@@ -282,6 +284,26 @@ fn handle_request(connection: &Connection, state: &State, request: Request) {
             };
             let result = match state {
                 State::Session(session) => session.hover(
+                    params
+                        .text_document_position_params
+                        .text_document
+                        .uri
+                        .as_str(),
+                    params.text_document_position_params.position,
+                ),
+                _ => None,
+            };
+            respond_ok(connection, id, result);
+        }
+        "textDocument/definition" => {
+            let id = request.id.clone();
+            let params: lsp_types::GotoDefinitionParams =
+                match serde_json::from_value(request.params) {
+                    Ok(params) => params,
+                    Err(err) => return respond_invalid_params(connection, id, err),
+                };
+            let result = match state {
+                State::Session(session) => session.definition(
                     params
                         .text_document_position_params
                         .text_document

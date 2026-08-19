@@ -63,6 +63,9 @@ pub struct TFunction {
 pub struct Local {
     pub name: String,
     pub ty: Ty,
+    /// Where the name is declared (parameter, `let`, or binder position) —
+    /// the definition target the editor surface jumps to.
+    pub span: ByteSpan,
 }
 
 /// Index into a function's combined local space: parameters first, then
@@ -307,64 +310,82 @@ pub enum IndexKind {
 }
 
 impl TypedProgram {
-    /// Visits every typed expression with the file that owns it — state
-    /// initializers first, then functions in declaration order (contracts,
-    /// then body), nested subexpressions included. The editor surface
-    /// (CCMP-25) reads types and spans through this; lowering never does.
-    pub fn for_each_expr<'a>(&'a self, f: &mut dyn FnMut(usize, &'a TExpr)) {
+    /// Visits every typed expression with the file that owns it and, when
+    /// inside a function, that function's index (local resolution needs
+    /// it) — state initializers first, then functions in declaration order
+    /// (contracts, then body), nested subexpressions included. The editor
+    /// surface (CCMP-25) reads types and spans through this; lowering
+    /// never does.
+    pub fn for_each_expr<'a>(&'a self, f: &mut dyn FnMut(usize, Option<usize>, &'a TExpr)) {
         for var in &self.state_vars {
-            visit_expr(var.module, &var.init, f);
+            visit_expr(var.module, None, &var.init, f);
         }
-        for func in &self.functions {
+        for (index, func) in self.functions.iter().enumerate() {
             for expr in func.before.iter().chain(&func.after) {
-                visit_expr(func.file, expr, f);
+                visit_expr(func.file, Some(index), expr, f);
             }
             for stmt in &func.body {
-                visit_stmt(func.file, stmt, f);
+                visit_stmt(func.file, Some(index), stmt, f);
             }
+        }
+    }
+
+    /// The declaration of `local` in `function`'s combined local space:
+    /// parameters first, then declared locals.
+    pub fn local(&self, function: usize, local: LocalId) -> &Local {
+        let func = &self.functions[function];
+        if local < func.params.len() {
+            &func.params[local]
+        } else {
+            &func.locals[local - func.params.len()]
         }
     }
 }
 
-fn visit_stmt<'a>(file: usize, stmt: &'a TStmt, f: &mut dyn FnMut(usize, &'a TExpr)) {
+fn visit_stmt<'a>(
+    file: usize,
+    func: Option<usize>,
+    stmt: &'a TStmt,
+    f: &mut dyn FnMut(usize, Option<usize>, &'a TExpr),
+) {
     match stmt {
-        TStmt::SetState { value, .. } => visit_expr(file, value, f),
+        TStmt::SetState { value, .. } => visit_expr(file, func, value, f),
         TStmt::Let { init, .. } => {
             if let Some(init) = init {
-                visit_expr(file, init, f);
+                visit_expr(file, func, init, f);
             }
         }
-        TStmt::Assign { value, .. } => visit_expr(file, value, f),
+        TStmt::Assign { value, .. } => visit_expr(file, func, value, f),
         TStmt::Return { value, .. } => {
             if let Some(value) = value {
-                visit_expr(file, value, f);
+                visit_expr(file, func, value, f);
             }
         }
-        TStmt::Expr(expr) => visit_expr(file, expr, f),
+        TStmt::Expr(expr) => visit_expr(file, func, expr, f),
         TStmt::If {
             cond,
             then,
             else_ifs,
             els,
         } => {
-            visit_expr(file, cond, f);
+            visit_expr(file, func, cond, f);
             for stmt in then {
-                visit_stmt(file, stmt, f);
+                visit_stmt(file, func, stmt, f);
             }
             for (cond, body) in else_ifs {
-                visit_expr(file, cond, f);
+                visit_expr(file, func, cond, f);
                 for stmt in body {
-                    visit_stmt(file, stmt, f);
+                    visit_stmt(file, func, stmt, f);
                 }
             }
             for stmt in els.iter().flatten() {
-                visit_stmt(file, stmt, f);
+                visit_stmt(file, func, stmt, f);
             }
         }
         TStmt::While { cond, body } => {
-            visit_expr(file, cond, f);
+            visit_expr(file, func, cond, f);
             for stmt in body {
-                visit_stmt(file, stmt, f);
+                visit_stmt(file, func, stmt, f);
             }
         }
         TStmt::Iterate {
@@ -372,32 +393,37 @@ fn visit_stmt<'a>(file: usize, stmt: &'a TStmt, f: &mut dyn FnMut(usize, &'a TEx
         } => {
             match source {
                 TIterSource::List(expr) | TIterSource::Chars(expr) | TIterSource::Rows(expr) => {
-                    visit_expr(file, expr, f)
+                    visit_expr(file, func, expr, f)
                 }
                 TIterSource::Range { from, to } => {
-                    visit_expr(file, from, f);
-                    visit_expr(file, to, f);
+                    visit_expr(file, func, from, f);
+                    visit_expr(file, func, to, f);
                 }
             }
             if let Some(step) = step {
-                visit_expr(file, step, f);
+                visit_expr(file, func, step, f);
             }
             for stmt in body {
-                visit_stmt(file, stmt, f);
+                visit_stmt(file, func, stmt, f);
             }
         }
         TStmt::Break { .. } | TStmt::Continue { .. } => {}
         TStmt::Print { items, .. } => {
             for expr in items {
-                visit_expr(file, expr, f);
+                visit_expr(file, func, expr, f);
             }
         }
-        TStmt::Assert { cond, .. } => visit_expr(file, cond, f),
+        TStmt::Assert { cond, .. } => visit_expr(file, func, cond, f),
     }
 }
 
-fn visit_expr<'a>(file: usize, expr: &'a TExpr, f: &mut dyn FnMut(usize, &'a TExpr)) {
-    f(file, expr);
+fn visit_expr<'a>(
+    file: usize,
+    func: Option<usize>,
+    expr: &'a TExpr,
+    f: &mut dyn FnMut(usize, Option<usize>, &'a TExpr),
+) {
+    f(file, func, expr);
     match &expr.kind {
         TExprKind::Int(_)
         | TExprKind::Num(_)
@@ -416,7 +442,7 @@ fn visit_expr<'a>(file: usize, expr: &'a TExpr, f: &mut dyn FnMut(usize, &'a TEx
         TExprKind::StrInterp(segments) => {
             for segment in segments {
                 if let TInterpSeg::Expr(expr) = segment {
-                    visit_expr(file, expr, f);
+                    visit_expr(file, func, expr, f);
                 }
             }
         }
@@ -424,7 +450,7 @@ fn visit_expr<'a>(file: usize, expr: &'a TExpr, f: &mut dyn FnMut(usize, &'a TEx
         | TExprKind::MakeList(items)
         | TExprKind::MakeMatrix(items) => {
             for expr in items {
-                visit_expr(file, expr, f);
+                visit_expr(file, func, expr, f);
             }
         }
         TExprKind::CallHost { args, .. }
@@ -433,20 +459,20 @@ fn visit_expr<'a>(file: usize, expr: &'a TExpr, f: &mut dyn FnMut(usize, &'a TEx
         | TExprKind::CallStatic { args, .. }
         | TExprKind::CallStd { args, .. } => {
             for expr in args {
-                visit_expr(file, expr, f);
+                visit_expr(file, func, expr, f);
             }
         }
         TExprKind::Binary { lhs, rhs, .. } => {
-            visit_expr(file, lhs, f);
-            visit_expr(file, rhs, f);
+            visit_expr(file, func, lhs, f);
+            visit_expr(file, func, rhs, f);
         }
         TExprKind::Index { recv, index, .. } => {
-            visit_expr(file, recv, f);
-            visit_expr(file, index, f);
+            visit_expr(file, func, recv, f);
+            visit_expr(file, func, index, f);
         }
         TExprKind::OnError { value, fallback } => {
-            visit_expr(file, value, f);
-            visit_expr(file, fallback, f);
+            visit_expr(file, func, value, f);
+            visit_expr(file, func, fallback, f);
         }
         TExprKind::Unary { operand, .. }
         | TExprKind::NonNone(operand)
@@ -454,14 +480,14 @@ fn visit_expr<'a>(file: usize, expr: &'a TExpr, f: &mut dyn FnMut(usize, &'a TEx
         | TExprKind::IntToNumber(operand)
         | TExprKind::WrapSome(operand)
         | TExprKind::Raise(operand)
-        | TExprKind::Convert(operand) => visit_expr(file, operand, f),
+        | TExprKind::Convert(operand) => visit_expr(file, func, operand, f),
         TExprKind::GetRecordField { recv, .. } | TExprKind::GetField { recv, .. } => {
-            visit_expr(file, recv, f)
+            visit_expr(file, func, recv, f)
         }
         TExprKind::CallMethod { recv, args, .. } | TExprKind::CallDyn { recv, args, .. } => {
-            visit_expr(file, recv, f);
+            visit_expr(file, func, recv, f);
             for expr in args {
-                visit_expr(file, expr, f);
+                visit_expr(file, func, expr, f);
             }
         }
     }

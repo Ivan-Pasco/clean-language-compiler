@@ -51,10 +51,10 @@ fn initialize_negotiates_and_shutdown_terminates() {
     );
     assert_eq!(result["capabilities"]["positionEncoding"], "utf-16");
     assert_eq!(result["serverInfo"]["name"], "clean-language-server");
-    // Capabilities are declared only once their handler exists: hover is
-    // served; definition is not advertised until its handler lands.
+    // Capabilities are declared only once their handler exists; hover and
+    // definition both are, as of their stages.
     assert_eq!(result["capabilities"]["hoverProvider"], true);
-    assert!(result["capabilities"].get("definitionProvider").is_none());
+    assert_eq!(result["capabilities"]["definitionProvider"], true);
 
     client
         .sender
