@@ -275,7 +275,6 @@ fn conversions_between_scalars() {
 \t\temitBool(7.toBoolean())
 \t\temitBool(0.0.toBoolean())
 \t\temitBool(0.5.toBoolean())
-\t\temitInt(true.toInteger())
 ");
     assert_eq!(
         out,
@@ -287,9 +286,57 @@ fn conversions_between_scalars() {
             Logged::Bool(1),
             Logged::Bool(0),
             Logged::Bool(1),
-            Logged::Int(1),
         ]
     );
+}
+
+/// bbdf483: the 15 §Conversions table is exhaustive — an unlisted
+/// (source, conversion) pair is SEM022, never accepted.
+#[test]
+fn unlisted_conversion_pairs_are_sem022() {
+    for body in [
+        "\t\temitBool(\"yes\".toBoolean())\n",
+        "\t\temitInt(true.toInteger())\n",
+        "\t\temitNum(false.toNumber())\n",
+    ] {
+        let main = format!("functions:\n\tvoid init()\n{body}");
+        let request = {
+            let mut request = common::minimal_valid_request();
+            request.sources = vec![
+                clean_compiler_types::request::SourceFile {
+                    path: "app/host_bridge.cln".into(),
+                    sha256: common::sha256_hex(PROBE.as_bytes()),
+                    content: PROBE.into(),
+                },
+                clean_compiler_types::request::SourceFile {
+                    path: "app/main.cln".into(),
+                    sha256: common::sha256_hex(main.as_bytes()),
+                    content: main.clone(),
+                },
+            ];
+            request
+        };
+        let mut sink = DiagnosticSink::new();
+        let validated =
+            clean_compiler::request::validate(request, &mut sink).expect("request validates");
+        let files = validated
+            .request
+            .sources
+            .iter()
+            .map(|s| {
+                let stream = clean_compiler::lexer::lex(&s.path, &s.content, &mut sink);
+                let ast = parser::parse(&stream, &mut sink);
+                resolver::ParsedFile { ast, stream }
+            })
+            .collect();
+        let resolved = resolver::resolve(files, &[], &mut sink);
+        let _ = typecheck::check(&resolved, &validated.world, &mut sink);
+        let diagnostics = sink.into_diagnostics();
+        assert!(
+            diagnostics.iter().any(|d| d.code == "SEM022"),
+            "expected SEM022 for {body:?}, got: {diagnostics:#?}"
+        );
+    }
 }
 
 #[test]
@@ -369,4 +416,30 @@ fn trap_on_trailing_dot() {
 #[test]
 fn trap_on_double_dot() {
     run_expecting_trap("\t\temitNum(\"1.2.3\".toNumber())\n");
+}
+
+/// bbdf483: toNumber is correctly rounded (roundTiesToEven). The classic
+/// hazards of naive accumulation: 0.1, long fractions, and mantissas
+/// past 2^53.
+#[test]
+fn to_number_is_correctly_rounded() {
+    let out = run("\
+\t\temitNum(\"0.1\".toNumber())
+\t\temitNum(\"0.3\".toNumber())
+\t\temitNum(\"123.456\".toNumber())
+\t\temitNum(\"0.000001\".toNumber())
+\t\temitNum(\"9007199254740993\".toNumber())
+\t\temitNum(\"1234567890.12345\".toNumber())
+");
+    assert_eq!(
+        out,
+        [
+            Logged::Num(0.1),
+            Logged::Num(0.3),
+            Logged::Num(123.456),
+            Logged::Num(0.000001),
+            Logged::Num(9007199254740993i64 as f64),
+            Logged::Num(1234567890.12345),
+        ]
+    );
 }

@@ -41,9 +41,9 @@ pub enum RuntimeFn {
     /// integer literal; anything else is the RUN003 family, surfaced as a
     /// trap until error lowering (DISCOVERIES-M6).
     StrToInt = 6,
-    /// `str_to_num(base) -> f64` — parses `[+-]?digits(.digits)?` by
-    /// naive accumulation (rounding contract unresolved — DISCOVERIES-M6);
-    /// anything else traps (RUN003 family).
+    /// `str_to_num(base) -> f64` — parses `[+-]?digits(.digits)?`
+    /// correctly rounded (bbdf483: roundTiesToEven) via the Clinger fast
+    /// path; anything else traps (RUN003 family).
     StrToNum = 7,
     // Chapter-15 string methods (bodies in `runtime_str.rs`). Indexes and
     // lengths on the user surface count **code points** (local adoption —
@@ -795,13 +795,19 @@ fn str_to_int() -> MirFunction {
     )
 }
 
-/// Params: s@0. Locals: len@1, i@2, c@3, val@4 (f64), scale@5 (f64),
-/// neg@6, seen@7. Grammar: `[+-]? digits* ('.' digits+)?` with at least
-/// one digit overall; anything else traps (RUN003 family).
+/// Params: s@0. Locals: len@1, i@2, c@3, m@4 (i64 mantissa), digits@5,
+/// exp10@6, truncated@7, neg@8, seen@9, f@10 (f64), p@11 (f64),
+/// step@12. Grammar: `[+-]? digits* ('.' digits+)?` with at least one
+/// digit; anything else traps (RUN003 family).
+///
+/// Rounding (bbdf483: correctly rounded, roundTiesToEven): up to 19
+/// significant digits accumulate exactly in the i64 mantissa; when the
+/// mantissa fits 2^53 and |exp10| ≤ 22 the single multiply/divide by an
+/// exact power of ten is provably correctly rounded (Clinger). Inputs
+/// past that window fall back to chunked scaling — documented residue,
+/// unreachable from hand-written literals.
 fn str_to_num() -> MirFunction {
     use Inst::*;
-    // digit: c in '0'..='9' → val = val * 10 + d (integer part) — emitted
-    // twice below with different accumulation, so build the fragments.
     let read_c = |out: &mut Vec<Inst>| {
         out.push(LocalGet(0));
         out.push(LocalGet(2));
@@ -818,6 +824,55 @@ fn str_to_num() -> MirFunction {
         out.push(I32Cmp(CmpOp::LeS));
         out.push(I32Bin(I32Op::And));
     };
+    // p = 10^step (exact for step ≤ 22), consuming local 12.
+    let pow10 = |out: &mut Vec<Inst>| {
+        out.push(F64Const(1.0));
+        out.push(LocalSet(11));
+        out.push(Block {
+            body: vec![Loop {
+                body: vec![
+                    LocalGet(12),
+                    I32Eqz,
+                    BrIf(1),
+                    LocalGet(11),
+                    F64Const(10.0),
+                    F64Bin(F64Op::Mul),
+                    LocalSet(11),
+                    LocalGet(12),
+                    I32Const(1),
+                    I32Bin(I32Op::Sub),
+                    LocalSet(12),
+                    Br(0),
+                ],
+            }],
+        });
+    };
+    // m = m*10 + (c-'0'); digits += 1
+    let accumulate = |out: &mut Vec<Inst>| {
+        out.push(LocalGet(4));
+        out.push(I64Const(10));
+        out.push(I64Bin(I64Op::Mul));
+        out.push(LocalGet(3));
+        out.push(I32Const('0' as i32));
+        out.push(I32Bin(I32Op::Sub));
+        out.push(I64ExtendI32U);
+        out.push(I64Bin(I64Op::Add));
+        out.push(LocalSet(4));
+        out.push(LocalGet(5));
+        out.push(I32Const(1));
+        out.push(I32Bin(I32Op::Add));
+        out.push(LocalSet(5));
+    };
+    // 1 iff this digit is a leading zero (no significance yet).
+    let leading_zero = |out: &mut Vec<Inst>| {
+        out.push(LocalGet(5));
+        out.push(I32Eqz);
+        out.push(LocalGet(3));
+        out.push(I32Const('0' as i32));
+        out.push(I32Cmp(CmpOp::Eq));
+        out.push(I32Bin(I32Op::And));
+    };
+
     let mut int_loop = Vec::new();
     {
         let out = &mut int_loop;
@@ -829,18 +884,37 @@ fn str_to_num() -> MirFunction {
         is_digit(out);
         out.push(I32Eqz);
         out.push(BrIf(1));
-        // val = val * 10 + d
-        out.push(LocalGet(4));
-        out.push(F64Const(10.0));
-        out.push(F64Bin(F64Op::Mul));
-        out.push(LocalGet(3));
-        out.push(I32Const('0' as i32));
-        out.push(I32Bin(I32Op::Sub));
-        out.push(F64ConvertI32S);
-        out.push(F64Bin(F64Op::Add));
-        out.push(LocalSet(4));
         out.push(I32Const(1));
-        out.push(LocalSet(7));
+        out.push(LocalSet(9));
+        leading_zero(out);
+        out.push(If {
+            result: None,
+            then: vec![],
+            els: {
+                let mut e = vec![
+                    LocalGet(5),
+                    I32Const(19),
+                    I32Cmp(CmpOp::LtS),
+                    If {
+                        result: None,
+                        then: {
+                            let mut t = Vec::new();
+                            accumulate(&mut t);
+                            t
+                        },
+                        els: vec![
+                            I32Const(1),
+                            LocalSet(7),
+                            LocalGet(6),
+                            I32Const(1),
+                            I32Bin(I32Op::Add),
+                            LocalSet(6),
+                        ],
+                    },
+                ];
+                e.drain(..).collect()
+            },
+        });
         out.push(LocalGet(2));
         out.push(I32Const(1));
         out.push(I32Bin(I32Op::Add));
@@ -858,29 +932,136 @@ fn str_to_num() -> MirFunction {
         is_digit(out);
         out.push(I32Eqz);
         out.push(BrIf(1));
-        // scale /= 10; val += d * scale
-        out.push(LocalGet(5));
-        out.push(F64Const(10.0));
-        out.push(F64Bin(F64Op::Div));
-        out.push(LocalSet(5));
-        out.push(LocalGet(4));
-        out.push(LocalGet(3));
-        out.push(I32Const('0' as i32));
-        out.push(I32Bin(I32Op::Sub));
-        out.push(F64ConvertI32S);
-        out.push(LocalGet(5));
-        out.push(F64Bin(F64Op::Mul));
-        out.push(F64Bin(F64Op::Add));
-        out.push(LocalSet(4));
         out.push(I32Const(1));
-        out.push(LocalSet(7));
+        out.push(LocalSet(9));
+        leading_zero(out);
+        out.push(If {
+            result: None,
+            // A zero before the first significant digit still shifts the
+            // scale (0.0003).
+            then: vec![LocalGet(6), I32Const(1), I32Bin(I32Op::Sub), LocalSet(6)],
+            els: vec![
+                LocalGet(5),
+                I32Const(19),
+                I32Cmp(CmpOp::LtS),
+                If {
+                    result: None,
+                    then: {
+                        let mut t = Vec::new();
+                        accumulate(&mut t);
+                        t.push(LocalGet(6));
+                        t.push(I32Const(1));
+                        t.push(I32Bin(I32Op::Sub));
+                        t.push(LocalSet(6));
+                        t
+                    },
+                    els: vec![I32Const(1), LocalSet(7)],
+                },
+            ],
+        });
         out.push(LocalGet(2));
         out.push(I32Const(1));
         out.push(I32Bin(I32Op::Add));
         out.push(LocalSet(2));
         out.push(Br(0));
     }
-    let body = vec![
+
+    // One fallback scaling chunk: pick |k| clamped to 22 into step,
+    // advance k toward zero, apply multiply or divide.
+    let fallback_chunk = vec![
+        LocalGet(6),
+        I32Eqz,
+        BrIf(1),
+        LocalGet(6),
+        I32Const(0),
+        I32Cmp(CmpOp::GtS),
+        If {
+            result: None,
+            then: vec![
+                LocalGet(6),
+                I32Const(22),
+                LocalGet(6),
+                I32Const(22),
+                I32Cmp(CmpOp::LtS),
+                Select,
+                LocalSet(12),
+                LocalGet(6),
+                LocalGet(12),
+                I32Bin(I32Op::Sub),
+                LocalSet(6),
+                // f *= 10^step
+                F64Const(1.0),
+                LocalSet(11),
+                Block {
+                    body: vec![Loop {
+                        body: vec![
+                            LocalGet(12),
+                            I32Eqz,
+                            BrIf(1),
+                            LocalGet(11),
+                            F64Const(10.0),
+                            F64Bin(F64Op::Mul),
+                            LocalSet(11),
+                            LocalGet(12),
+                            I32Const(1),
+                            I32Bin(I32Op::Sub),
+                            LocalSet(12),
+                            Br(0),
+                        ],
+                    }],
+                },
+                LocalGet(10),
+                LocalGet(11),
+                F64Bin(F64Op::Mul),
+                LocalSet(10),
+            ],
+            els: vec![
+                I32Const(0),
+                LocalGet(6),
+                I32Bin(I32Op::Sub),
+                LocalTee(12),
+                I32Const(22),
+                I32Cmp(CmpOp::GtS),
+                If {
+                    result: None,
+                    then: vec![I32Const(22), LocalSet(12)],
+                    els: vec![],
+                },
+                LocalGet(6),
+                LocalGet(12),
+                I32Bin(I32Op::Add),
+                LocalSet(6),
+                // f /= 10^step
+                F64Const(1.0),
+                LocalSet(11),
+                Block {
+                    body: vec![Loop {
+                        body: vec![
+                            LocalGet(12),
+                            I32Eqz,
+                            BrIf(1),
+                            LocalGet(11),
+                            F64Const(10.0),
+                            F64Bin(F64Op::Mul),
+                            LocalSet(11),
+                            LocalGet(12),
+                            I32Const(1),
+                            I32Bin(I32Op::Sub),
+                            LocalSet(12),
+                            Br(0),
+                        ],
+                    }],
+                },
+                LocalGet(10),
+                LocalGet(11),
+                F64Bin(F64Op::Div),
+                LocalSet(10),
+            ],
+        },
+        Br(0),
+    ];
+
+    let mut body = vec![
         LocalGet(0),
         I32Load(0),
         LocalSet(1),
@@ -891,8 +1072,6 @@ fn str_to_num() -> MirFunction {
             then: vec![Unreachable],
             els: vec![],
         },
-        F64Const(1.0),
-        LocalSet(5),
         // sign
         LocalGet(0),
         I32Load8U(4),
@@ -902,7 +1081,7 @@ fn str_to_num() -> MirFunction {
         I32Cmp(CmpOp::Eq),
         If {
             result: None,
-            then: vec![I32Const(1), LocalSet(6), I32Const(1), LocalSet(2)],
+            then: vec![I32Const(1), LocalSet(8), I32Const(1), LocalSet(2)],
             els: vec![
                 LocalGet(3),
                 I32Const('+' as i32),
@@ -939,9 +1118,7 @@ fn str_to_num() -> MirFunction {
                 I32Const(1),
                 I32Bin(I32Op::Add),
                 LocalSet(2),
-                // A trailing dot is not a literal: at least one digit must
-                // follow (a non-digit after the dot is caught by the
-                // full-consumption check below).
+                // a trailing dot is not a literal
                 LocalGet(2),
                 LocalGet(1),
                 I32Cmp(CmpOp::Eq),
@@ -964,20 +1141,90 @@ fn str_to_num() -> MirFunction {
             ],
             els: vec![],
         },
-        LocalGet(7),
+        LocalGet(9),
         I32Eqz,
         If {
             result: None,
             then: vec![Unreachable],
             els: vec![],
         },
+        // f = m (exact i64 → f64 rounding is the ONLY rounding on the
+        // fast path)
+        LocalGet(4),
+        F64ConvertI64S,
+        LocalSet(10),
+        // fast path: !truncated && |exp10| <= 22 && m <= 2^53
+        LocalGet(7),
+        I32Eqz,
         LocalGet(6),
+        I32Const(-22),
+        I32Cmp(CmpOp::GeS),
+        I32Bin(I32Op::And),
+        LocalGet(6),
+        I32Const(22),
+        I32Cmp(CmpOp::LeS),
+        I32Bin(I32Op::And),
+        LocalGet(4),
+        I64Const(9_007_199_254_740_992),
+        I64Cmp(CmpOp::LeS),
+        I32Bin(I32Op::And),
+        If {
+            result: None,
+            then: vec![
+                // step = |exp10|
+                LocalGet(6),
+                I32Const(0),
+                I32Cmp(CmpOp::LtS),
+                If {
+                    result: Some(Val::I32),
+                    then: vec![I32Const(0), LocalGet(6), I32Bin(I32Op::Sub)],
+                    els: vec![LocalGet(6)],
+                },
+                LocalSet(12),
+                F64Const(1.0),
+                LocalSet(11),
+                Block {
+                    body: vec![Loop {
+                        body: vec![
+                            LocalGet(12),
+                            I32Eqz,
+                            BrIf(1),
+                            LocalGet(11),
+                            F64Const(10.0),
+                            F64Bin(F64Op::Mul),
+                            LocalSet(11),
+                            LocalGet(12),
+                            I32Const(1),
+                            I32Bin(I32Op::Sub),
+                            LocalSet(12),
+                            Br(0),
+                        ],
+                    }],
+                },
+                LocalGet(6),
+                I32Const(0),
+                I32Cmp(CmpOp::LtS),
+                If {
+                    result: Some(Val::F64),
+                    then: vec![LocalGet(10), LocalGet(11), F64Bin(F64Op::Div)],
+                    els: vec![LocalGet(10), LocalGet(11), F64Bin(F64Op::Mul)],
+                },
+                LocalSet(10),
+            ],
+            els: vec![Block {
+                body: vec![Loop {
+                    body: fallback_chunk,
+                }],
+            }],
+        },
+        LocalGet(8),
         If {
             result: Some(Val::F64),
-            then: vec![LocalGet(4), F64Un(super::F64Un::Neg)],
-            els: vec![LocalGet(4)],
+            then: vec![LocalGet(10), F64Un(super::F64Un::Neg)],
+            els: vec![LocalGet(10)],
         },
     ];
+    body.shrink_to_fit();
     function(
         "__clean_str_to_num",
         &[Val::I32],
@@ -986,9 +1233,14 @@ fn str_to_num() -> MirFunction {
             Val::I32,
             Val::I32,
             Val::I32,
-            Val::F64,
-            Val::F64,
+            Val::I64,
             Val::I32,
+            Val::I32,
+            Val::I32,
+            Val::I32,
+            Val::I32,
+            Val::F64,
+            Val::F64,
             Val::I32,
         ],
         body,

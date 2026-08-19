@@ -3886,8 +3886,11 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     sink.note_unsupported("standard-library methods", self.diag_span(span));
                     return error_expr(span);
                 }
-                // TYP-06's four explicit conversions are typed here; the
-                // rest of the built-in method surface is chapter 15 (M6).
+                // 15 §Conversions (bbdf483): the table is exhaustive per
+                // (source, conversion) pair — an unlisted pair is SEM022,
+                // never a silent acceptance. toString covers every type;
+                // toInteger reads number/string; toNumber reads
+                // integer/string; toBoolean reads integer/number.
                 let target = match method {
                     "toInteger" => Some(Ty::Integer),
                     "toNumber" => Some(Ty::Number),
@@ -3895,7 +3898,15 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     "toBoolean" => Some(Ty::Boolean),
                     _ => None,
                 };
-                let convertible = other.is_numeric() || matches!(other, Ty::Str | Ty::Boolean);
+                let convertible = match method {
+                    "toString" => other.is_numeric() || matches!(other, Ty::Str | Ty::Boolean),
+                    "toInteger" => matches!(other, Ty::Number | Ty::Str),
+                    "toNumber" => matches!(other, Ty::Integer | Ty::IntegerW(_) | Ty::Str),
+                    "toBoolean" => {
+                        matches!(other, Ty::Integer | Ty::IntegerW(_) | Ty::Number)
+                    }
+                    _ => false,
+                };
                 if let (Some(target), true) = (&target, convertible) {
                     if !args.is_empty() {
                         sink.push(build(
@@ -3975,6 +3986,15 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     }
                     // SEM022 — the registered unknown-method code.
                     return self.undefined_method(&Ty::Str, method, member_span, span, sink);
+                }
+                // Receivers whose chapter-15 surface is fully typed:
+                // an unknown method (or an unlisted conversion pair) is
+                // SEM022. Matrix/pairs/datetime surfaces are still ahead.
+                if matches!(
+                    other,
+                    Ty::Integer | Ty::IntegerW(_) | Ty::Number | Ty::Boolean | Ty::Bytes
+                ) {
+                    return self.undefined_method(&other, method, member_span, span, sink);
                 }
                 sink.note_unsupported("standard-library methods", self.diag_span(span));
                 error_expr(span)
