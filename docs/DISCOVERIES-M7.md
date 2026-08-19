@@ -14,10 +14,18 @@ same request document — holds as a contract test on hand-written cases
 (`tests/parity_corpus.rs`). Diagnostics push, hover, and go-to-definition
 serve from one pipeline run per edit (`check_with`).
 
-Items 1 (editor-mode request construction) and 2 (request-level
-diagnostic placement) are candidate foundation briefs; 3–7 are local
-pinnings or milestone scoping that dissolve as the surface grows. None
-carried to foundation yet.
+Items 1 and 2 were carried to foundation on 2026-08-19 and are decision
+briefs, both Ready (report received the same day; neither was resolvable
+as a direct erratum, and no spec correction falls on the local
+adoptions — both stay in force unchanged until the briefs execute):
+
+- Item 1 → `work/2026-08-19-editor-mode-request-document.md`
+- Item 2 → `work/2026-08-19-request-level-diagnostics-editor-placement.md`
+
+The briefs are cross-linked (the `requestDocumentUri` designation in
+item 2 rides item 1's channel decision) and may resolve together.
+Items 3–7 are local pinnings or milestone scoping that dissolve as the
+surface grows.
 
 ## 1. Editor-mode request construction is unspecified
 
@@ -46,9 +54,17 @@ says how the language server *obtains* a request document in editor mode:
 - Missing `requestDocument` entirely is the caller's defect: the server
   serves protocol lifecycle only and logs why once.
 
-Candidate foundation brief: where the editor-mode request document comes
-from (extension? `cln` daemon? watch operation), and whether
-`initializationOptions` is the normative channel.
+**Carried to foundation (2026-08-19):**
+`work/2026-08-19-editor-mode-request-document.md` (Ready). The brief asks
+foundation to fix (a) the normative delivery channel (extension via
+`initializationOptions` with `cln` composing / server pulls the Framework
+lowering / a `cln` dev daemon serves and pushes), (b) who recomposes the
+request on project-shape changes — file create/delete/rename, dependency
+change, `clean.toml`/lockfile edits — and over what mid-session channel
+the running server receives it (`initializationOptions` is
+initialize-time only, so a second channel is needed under any option),
+and (c) ratification of the overlay semantics above. No correction on
+this adoption; it stays in force until the brief executes.
 
 ## 2. Where request-level diagnostics publish
 
@@ -62,6 +78,24 @@ under the synthetic URI `clean:request`. Spans convert to the zero range.
 A span naming a file that is neither `<request>` nor a `sources[]` entry
 joins the same bucket rather than vanish (parity over placement); no such
 span is currently emitted.
+
+**Carried to foundation (2026-08-19):**
+`work/2026-08-19-request-level-diagnostics-editor-placement.md` (Ready).
+The brief asks foundation to fix (a) the wire representation — the
+`<request>` sentinel is itself unregistered: 13 §6.1 shows `primary_span`
+as always present and the only spec language for the case is COM003's
+"program-level with no primary span" prose, so the brief asks to register
+the sentinel or make `primary_span` optional under DIA-04 — (b) the LSP
+destination (caller-designated URI with `clean:request` fallback — this
+adoption — vs. always `clean:request`; a heuristic real-file anchor is
+listed for rejection), (c) normative parity rules (no diagnostic dropped
+for lack of a URI, zero range, unknown-file spans join the same bucket),
+and (d) whether the rule mints as DIA- in 13 §7 or LSP- in 04. No
+correction on this adoption. **Migration watch:** if foundation makes
+`primary_span` nullable instead of registering the sentinel, the DIA-06
+fixtures and the sentinel-based bucketing here need a migration (the
+brief requires a migration note in that case). Cross-linked with item 1:
+the `requestDocumentUri` designation rides its channel decision.
 
 ## 3. Notes/helps append format on the wire
 
