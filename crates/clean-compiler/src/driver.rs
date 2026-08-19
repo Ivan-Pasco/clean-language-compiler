@@ -428,6 +428,13 @@ fn build_manifest(request: &CompileRequest, wasm: &[u8]) -> BuildManifest {
                     compiletime_wasm_sha256: l.compiletime_wasm_sha256.clone(),
                 })
                 .collect(),
+            project: Some(request.project.clone()),
+            target_world: Some(clean_compiler_types::manifest::TargetWorldRef {
+                host: request.target_world.host.clone(),
+                version: request.target_world.version.clone(),
+                world: request.target_world.world.clone(),
+                sha256: request.target_world.sha256.clone(),
+            }),
         },
         resolved_config,
         overrides: request.overrides.clone(),

@@ -38,6 +38,29 @@ pub struct CompilerId {
 pub struct Inputs {
     pub sources: Vec<SourceHash>,
     pub library_manifests: Vec<LibraryHash>,
+    /// The request's `project`, verbatim. Provisional M8 addition (local
+    /// ADR 0007, DISCOVERIES-M8 §4): §14.8 records neither `project` nor
+    /// `target_world`, leaving the manifest unable to name the request it
+    /// is the reproducibility record of (§14.14.6). Optional so manifests
+    /// written before the addition still deserialize.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<crate::request::Project>,
+    /// The request's `target_world`, by reference — the four identity
+    /// fields; the `wit` text itself is refetched by hash at reproduction
+    /// time. Provisional M8 addition (local ADR 0007, DISCOVERIES-M8 §4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_world: Option<TargetWorldRef>,
+}
+
+/// `target_world` minus the WIT text: enough to ask a resolver for the
+/// exact contract the build was compiled against.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TargetWorldRef {
+    pub host: String,
+    pub version: String,
+    pub world: String,
+    /// Hex-lowercase SHA-256 of the `wit` text.
+    pub sha256: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

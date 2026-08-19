@@ -11,7 +11,10 @@ In progress. Stage 1 (`cln why` re-projection, §14.14.1) landed with its
 contract suite (`tests/why_operation.rs` at corpus scale, plus the adapter
 half in `clean-compiler-bin/tests/cli.rs`). Stage 2 (watch-mode rebuild,
 §14.14.3) landed as a contract without an API
-(`clean-compiler-bin/tests/watch_rebuild.rs`).
+(`clean-compiler-bin/tests/watch_rebuild.rs`). Stage 3 (build
+reproduction, §14.14.6 first half) landed as `repro::repro_build` with a
+pluggable `InputResolver` (`tests/repro_build.rs`,
+`clean-compiler-bin/tests/repro_cli.rs`, local ADR 0007).
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
@@ -71,3 +74,36 @@ byte-identical to a cold process-adapter build (component and manifest),
 and the loop leaves no state behind (cycling back to an earlier request
 reproduces its earlier bytes). The rebuild-latency target is informative
 (§14.9) and belongs to M9 measurement.
+
+## 4. §14.14.6 reproduction is unimplementable against the §14.8 manifest as written
+
+The reproduction operation must "invoke `compile()` with the identical
+request" reconstructed from the build manifest — but §14.8 records
+neither `project` nor `target_world` (not even by hash), and the spec's
+two-method `InputResolver` cannot refetch the world contract at all.
+`resolved_config` is also resolved values, not request echoes (the memory
+tier comes back resolved), so `request_sha256` cannot be re-derived from
+a reconstruction even in principle.
+
+**Local adoption (in force, local ADR 0007):** two optional manifest
+additions (`inputs.project` verbatim; `inputs.target_world` as the four
+identity fields, WIT refetched by hash) and a third resolver method
+`fetch_world(host, version, sha256)`. Every fetched input is re-verified
+against its recorded hash — the resolver is a store, never an authority.
+The operation asserts `outputs.wasm_sha256` (the §14.14.6 assertion), not
+`request_sha256`. Foundation brief candidate: either extend §14.8 with
+these records or declare how else §14.14.6 names the request.
+
+## 5. First-divergent-byte reporting needs the artifact the manifest only hashes
+
+§14.14.6: "On mismatch, reports the first byte of divergence." The
+manifest records `outputs.wasm_sha256` — a hash has no bytes to diff
+against. **Local adoption (in force, `repro.rs`):** the operation takes
+the originally shipped `component.wasm` as an optional input
+(`--original` on the adapter); with it the divergence report carries the
+first differing byte offset, without it the report carries the two
+hashes. A provided original that does not hash to the manifest's record
+is detected before any rebuild as corruption. Divergence and corruption
+present as COM013 per §14.14.6 ("a compiler bug or a manifest
+corruption") — note this COM013 path lives outside the DIA-06 check
+harness, whose ledger tracks the build/check surface only.

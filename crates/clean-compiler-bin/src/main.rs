@@ -48,6 +48,18 @@ struct Args {
     /// discovers nothing — the caller says exactly which file).
     #[arg(long)]
     diagnostics: Option<PathBuf>,
+    /// Build reproduction (Platform 14 §14.14.6, the operation behind
+    /// `cln repro build`): path to the `build-manifest.json` to reproduce.
+    /// Inputs are resolved from the request document (`--request`), every
+    /// hash re-verified; the reproduced `component.wasm` is written to
+    /// `--out` only when it hashes to the manifest's record.
+    #[arg(long, conflicts_with_all = ["check", "emit", "why"])]
+    repro_build: Option<PathBuf>,
+    /// The originally shipped `component.wasm`, if the caller still has it:
+    /// enables first-divergent-byte reporting on mismatch (the manifest
+    /// records the artifact only by hash).
+    #[arg(long, requires = "repro_build")]
+    original: Option<PathBuf>,
 }
 
 fn main() -> ExitCode {
@@ -84,6 +96,10 @@ fn main() -> ExitCode {
         return finish_rejected(&out, diagnostics);
     }
     let request = request.expect("intake produced no request yet raised no error");
+
+    if let Some(manifest_path) = &args.repro_build {
+        return run_repro(manifest_path, args.original.as_deref(), request, &out);
+    }
 
     if let Some(emit) = &args.emit {
         if emit != "hir-json" {
@@ -161,6 +177,77 @@ fn main() -> ExitCode {
             // mistake it for a rejection.
             eprintln!("clean-compiler: {err}");
             ExitCode::from(3)
+        }
+    }
+}
+
+/// The `--repro-build` operation (Platform 14 §14.14.6): reproduce a build
+/// from its manifest, serving inputs from the request document on stdin /
+/// `--request`. Success writes the artifact set (the component is
+/// byte-identical to the shipped one); a divergence or corruption writes a
+/// COM013 `diagnostics.json` and exits 1 with no component (CMP-05); a
+/// missing input or incomplete manifest is transport failure, exit 2.
+fn run_repro(
+    manifest_path: &std::path::Path,
+    original_path: Option<&std::path::Path>,
+    request: clean_compiler::types::CompileRequest,
+    out: &PathBuf,
+) -> ExitCode {
+    let manifest: clean_compiler::types::BuildManifest =
+        match std::fs::read_to_string(manifest_path)
+            .map_err(|e| e.to_string())
+            .and_then(|text| serde_json::from_str(&text).map_err(|e| e.to_string()))
+        {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                eprintln!(
+                    "clean-compiler: cannot read build manifest {}: {err}",
+                    manifest_path.display()
+                );
+                return ExitCode::from(2);
+            }
+        };
+    let original = match original_path {
+        Some(path) => match std::fs::read(path) {
+            Ok(bytes) => Some(bytes),
+            Err(err) => {
+                eprintln!("clean-compiler: cannot read {}: {err}", path.display());
+                return ExitCode::from(2);
+            }
+        },
+        None => None,
+    };
+
+    let resolver = clean_compiler::RequestDocumentResolver::new(&request);
+    match clean_compiler::repro_build(&manifest, original.as_deref(), &resolver) {
+        Ok(artifact) => {
+            if let Err(err) = write_artifacts(out, &artifact) {
+                eprintln!("clean-compiler: cannot write outputs: {err}");
+                return ExitCode::from(2);
+            }
+            ExitCode::SUCCESS
+        }
+        Err(failure) => {
+            if let Some(diagnostic) = clean_compiler::repro::divergence_diagnostic(&failure) {
+                let diagnostics = clean_compiler::diag::finalize(
+                    vec![diagnostic],
+                    &clean_compiler::diag::SourceCache::empty(),
+                );
+                return finish_rejected(out, diagnostics);
+            }
+            match failure {
+                clean_compiler::ReproFailure::Compile(CompileError::Rejected(diagnostics)) => {
+                    finish_rejected(out, diagnostics)
+                }
+                clean_compiler::ReproFailure::Compile(err) => {
+                    eprintln!("clean-compiler: {err}");
+                    ExitCode::from(3)
+                }
+                err => {
+                    eprintln!("clean-compiler: {err}");
+                    ExitCode::from(2)
+                }
+            }
         }
     }
 }
