@@ -824,29 +824,6 @@ fn str_to_num() -> MirFunction {
         out.push(I32Cmp(CmpOp::LeS));
         out.push(I32Bin(I32Op::And));
     };
-    // p = 10^step (exact for step ≤ 22), consuming local 12.
-    let pow10 = |out: &mut Vec<Inst>| {
-        out.push(F64Const(1.0));
-        out.push(LocalSet(11));
-        out.push(Block {
-            body: vec![Loop {
-                body: vec![
-                    LocalGet(12),
-                    I32Eqz,
-                    BrIf(1),
-                    LocalGet(11),
-                    F64Const(10.0),
-                    F64Bin(F64Op::Mul),
-                    LocalSet(11),
-                    LocalGet(12),
-                    I32Const(1),
-                    I32Bin(I32Op::Sub),
-                    LocalSet(12),
-                    Br(0),
-                ],
-            }],
-        });
-    };
     // m = m*10 + (c-'0'); digits += 1
     let accumulate = |out: &mut Vec<Inst>| {
         out.push(LocalGet(4));
@@ -890,30 +867,27 @@ fn str_to_num() -> MirFunction {
         out.push(If {
             result: None,
             then: vec![],
-            els: {
-                let mut e = vec![
-                    LocalGet(5),
-                    I32Const(19),
-                    I32Cmp(CmpOp::LtS),
-                    If {
-                        result: None,
-                        then: {
-                            let mut t = Vec::new();
-                            accumulate(&mut t);
-                            t
-                        },
-                        els: vec![
-                            I32Const(1),
-                            LocalSet(7),
-                            LocalGet(6),
-                            I32Const(1),
-                            I32Bin(I32Op::Add),
-                            LocalSet(6),
-                        ],
+            els: vec![
+                LocalGet(5),
+                I32Const(19),
+                I32Cmp(CmpOp::LtS),
+                If {
+                    result: None,
+                    then: {
+                        let mut t = Vec::new();
+                        accumulate(&mut t);
+                        t
                     },
-                ];
-                e.drain(..).collect()
-            },
+                    els: vec![
+                        I32Const(1),
+                        LocalSet(7),
+                        LocalGet(6),
+                        I32Const(1),
+                        I32Bin(I32Op::Add),
+                        LocalSet(6),
+                    ],
+                },
+            ],
         });
         out.push(LocalGet(2));
         out.push(I32Const(1));

@@ -3987,13 +3987,12 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                     // SEM022 — the registered unknown-method code.
                     return self.undefined_method(&Ty::Str, method, member_span, span, sink);
                 }
-                // Receivers whose chapter-15 surface is fully typed:
-                // an unknown method (or an unlisted conversion pair) is
-                // SEM022. Matrix/pairs/datetime surfaces are still ahead.
-                if matches!(
-                    other,
-                    Ty::Integer | Ty::IntegerW(_) | Ty::Number | Ty::Boolean | Ty::Bytes
-                ) {
+                // bbdf483 scopes exhaustiveness to the CONVERSION family:
+                // a `to*` name whose (source, conversion) pair is not in
+                // the table is SEM022. Other unknown methods stay frontier
+                // notes — chapter-18 async handles and future surfaces
+                // still type through here.
+                if target.is_some() {
                     return self.undefined_method(&other, method, member_span, span, sink);
                 }
                 sink.note_unsupported("standard-library methods", self.diag_span(span));
