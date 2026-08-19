@@ -232,6 +232,7 @@ dependencies = [
 name = "clean-compiler-bin"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "clap",
  "clean-compiler",
  "serde_json",

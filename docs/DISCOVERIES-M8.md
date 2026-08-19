@@ -19,7 +19,8 @@ pluggable `InputResolver` (`tests/repro_build.rs`,
 provisional trace schema (`tests/replay_operation.rs`). Stage 5 (bridge
 stubs, §14.14.5) landed as the `stub::generate_stub` generator
 (`tests/bridge_stubs.rs`) — the normative WIT catalog it will feed on
-does not exist yet (§7).
+does not exist yet (§7). Stage 6 (JSON-RPC / MCP adapter, §14.2.3)
+landed as the bin's `--serve` mode (`serve_rpc.rs`).
 
 ## 1. The `Diagnostic` value carries no pass provenance, but §14.14.1 re-projects it
 
@@ -178,3 +179,21 @@ generator when foundation lands the WITs. Two provisional choices:
 
 Adapter surface: `--bridge-stub <interface> --wit <path> --fixture
 <path>`, writing the dist-layout name `clean-bridge-<interface>-stub.wasm`.
+
+## 8. §14.2.3 fixes the wire payload but not the protocol surface
+
+§14.2.3 requires the JSON-RPC / MCP adapter and fixes one thing: "the
+wire format is the request document unchanged." Method names, framing,
+the outcome model, and the MCP dialect's shape are unspecified.
+
+**Local adoption (in force, `clean-compiler-bin/src/serve.rs`, behind
+`--serve`):** one JSON-RPC 2.0 message per line over stdio (the MCP stdio
+framing, so one loop serves both dialects). Direct methods `compile`,
+`check`, `why`, `reproBuild`, `replay`, `bridgeStub`; MCP `initialize` /
+`tools/list` / `tools/call` wrap the identical handlers, so the two
+surfaces cannot diverge (pinned by `serve_rpc.rs`). Outcome model: an
+operation that ran returns a result even when the program failed (a
+rejected compile carries its diagnostics; a diverged replay says so);
+JSON-RPC errors are reserved for protocol misuse. Component bytes ride
+base64. Everything arrives in the message and leaves in the response —
+the serve loop touches no files (CMP-01 with nothing to point at).

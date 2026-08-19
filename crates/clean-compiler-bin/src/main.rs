@@ -16,6 +16,8 @@ use clap::Parser;
 use clean_compiler::diag::DiagnosticSink;
 use clean_compiler::{compile, CompileError};
 
+mod serve;
+
 #[derive(Parser)]
 #[command(name = "clean-compiler", version, about)]
 struct Args {
@@ -85,10 +87,19 @@ struct Args {
     /// order. Only read by `--bridge-stub`.
     #[arg(long)]
     fixture: Option<PathBuf>,
+    /// JSON-RPC / MCP adapter (Platform 14 §14.2.3): serve every operation
+    /// over stdio, one JSON-RPC message per line, until stdin closes. The
+    /// wire format for compilation is the request document unchanged.
+    #[arg(long, conflicts_with_all = ["check", "emit", "why", "repro_build", "replay", "bridge_stub"])]
+    serve: bool,
 }
 
 fn main() -> ExitCode {
     let args = Args::parse();
+
+    if args.serve {
+        return serve::serve();
+    }
 
     if let Some(location) = &args.why {
         return run_why(
