@@ -13,10 +13,14 @@ The distinguishing token between the single-line named form and the block-test f
    (any of the three forms below), one per line for single-line
    tests, or a description-plus-indented-body for block tests. *)
 
-TestsBlock      = "tests", ":", NEWLINE, INDENT,
-                  TestDeclaration, NEWLINE,
-                  { TestDeclaration, NEWLINE },
-                  DEDENT ;
+TestsBlock      = "tests", ":", NEWLINE, INDENT, TestsBody, DEDENT ;
+
+TestsBody       = TestDeclaration, NEWLINE,
+                  { TestDeclaration, NEWLINE } ;
+                  (* TestsBody is the block's interior — the body
+                     08-file-structure.ebnf.md's TestsSection
+                     delegates to.  At least one test declaration:
+                     an empty tests: section is dead weight. *)
 
 TestDeclaration = NamedTest
                 | AnonymousTest
@@ -76,6 +80,7 @@ AssertStatement = "assert", Expression ;
 
 ## Changelog
 
+- 2026-08-20 — Erratum from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, item 1d): 08-file-structure.ebnf.md's `TestsSection` delegates its body to a `TestsBody` this file never defined (only `TestsBlock`, header included, existed). `TestsBody` is now a named production — `TestDeclaration, NEWLINE, { TestDeclaration, NEWLINE }` — and `TestsBlock` is restated over it. Same language; no test that parsed before parses differently.
 - 2026-08-07 (afternoon) — Resolved both `⚠` markers: (a) `TestAssertion` stays as any Expression with a checker validating the top-level operator (tightening to `==` only would reject valid tests using `!=`, `is`, `not`); (b) zero-assert block test is a defect — almost always a maintenance mistake where the assertion was deleted; grammar requires at least one `AssertStatement`. No production change (both were already the encoded position).
 - 2026-08-07 — File minted. Productions derived from TST-01 and TST-02 in [11-testing.md](../11-testing.md) Accepted 2026-08-01.
 

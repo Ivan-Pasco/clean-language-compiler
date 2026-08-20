@@ -138,36 +138,20 @@ fn tokenize(block: &str, file: &str) -> Vec<Tok> {
             i += 1;
             continue;
         }
-        // Nesting comments. Tolerated notation defect (recorded in
-        // DISCOVERIES-M9): 19-ai-integration.ebnf.md writes `(0..*)` in
-        // comment prose, whose `*)` would close the comment early under
-        // strict ISO 14977. Prose `(` … `)` pairs inside a comment are
-        // tracked so `*)` first closes a pending prose paren.
+        // Nesting comments, strict ISO 14977: a `*)` in comment prose ends
+        // the comment (the 19-ai-integration case was fixed by foundation's
+        // 2026-08-20 erratum), so a stray one fails loudly here.
         if c == '(' && chars.get(i + 1) == Some(&'*') {
             let mut depth = 1;
-            let mut prose_parens = 0u32;
             i += 2;
             while i < chars.len() && depth > 0 {
                 if chars[i] == '(' && chars.get(i + 1) == Some(&'*') {
                     depth += 1;
                     i += 2;
                 } else if chars[i] == '*' && chars.get(i + 1) == Some(&')') {
-                    if prose_parens > 0 {
-                        prose_parens -= 1;
-                    } else {
-                        depth -= 1;
-                    }
+                    depth -= 1;
                     i += 2;
                 } else {
-                    match chars[i] {
-                        '(' => prose_parens += 1,
-                        ')' => prose_parens = prose_parens.saturating_sub(1),
-                        // Prose parens don't span lines; unclosed ones
-                        // (13-error-handling: "(from 06-expressions…:")
-                        // must not eat a later real `*)`.
-                        '\n' => prose_parens = 0,
-                        _ => {}
-                    }
                     i += 1;
                 }
             }
@@ -292,43 +276,20 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // Strict ISO 14977: concatenation is explicit `,` only — juxtaposition
+    // is a parse error again (the 18-async case was fixed by foundation's
+    // 2026-08-20 erratum), so `primary()` fails loudly on a stray one.
     fn sequence(&mut self) -> Expr {
         let mut items = vec![self.term()];
-        loop {
-            if self.peek() == Some(&Tok::Comma) {
-                self.pos += 1;
-                items.push(self.term());
-                continue;
-            }
-            // Tolerated notation defect (recorded in DISCOVERIES-M9):
-            // 18-async.ebnf.md's OnErrorTail concatenates by juxtaposition
-            // (`":" NEWLINE INDENT …`) where the grammar README requires
-            // explicit `,`. Read juxtaposition as concatenation.
-            if self.starts_primary() && !self.at_rule_boundary() {
-                items.push(self.term());
-                continue;
-            }
-            break;
+        while self.peek() == Some(&Tok::Comma) {
+            self.pos += 1;
+            items.push(self.term());
         }
         if items.len() == 1 {
             items.pop().expect("one item")
         } else {
             Expr::Seq(items)
         }
-    }
-
-    fn starts_primary(&self) -> bool {
-        matches!(
-            self.peek(),
-            Some(
-                Tok::Ident(_)
-                    | Tok::Terminal(_)
-                    | Tok::Special(_)
-                    | Tok::LBrack
-                    | Tok::LBrace
-                    | Tok::LParen
-            )
-        )
     }
 
     fn term(&mut self) -> Expr {

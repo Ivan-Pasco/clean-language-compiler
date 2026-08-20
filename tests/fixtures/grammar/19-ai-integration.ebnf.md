@@ -32,7 +32,8 @@ IntentStatement = "intent", StringLiteral ;
 
 ```ebnf
 (* Order (chapter §Best Practices #2 and AIM-01/AIM-02 prose):
-     intent (0..*) → spec (0..*) → contract prelude → statements
+     intent (zero or more) → spec (zero or more) → contract
+     prelude → statements
    Grammar admits any interleaving of `intent` and `spec` lines
    at the top of a function body; the CTR-01/CTR-02 ordering
    applies from the first non-metadata statement.  The relative
@@ -78,6 +79,7 @@ SourceBody      = SourceField, NEWLINE, SourceField, NEWLINE ;
 
 ## Changelog
 
+- 2026-08-20 — Erratum from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, item 1b): the §3 comment wrote the multiplicities as `(0..*)`, whose final two characters `*)` terminate the enclosing `(* … *)` comment early under strict ISO/IEC 14977 — everything after it leaked out of the comment. Rewritten as `(zero or more)`; comment prose in these files must not contain the `*)` sequence. No production change.
 - 2026-08-07 (afternoon) — Resolved both `⚠` markers: (a) relative order between `intent` and `spec` is deliberately unfixed — the chapter's Best Practices shows both orderings; (b) `SourceBlock` admits only `spec` and `version` — closed schema per DOC-18; future metadata must be added to AIM-03 explicitly. No production change.
 - 2026-08-07 — File minted. Productions derived from AIM-01..AIM-03 in [19-ai-integration.md](../19-ai-integration.md) Accepted 2026-08-01.
 

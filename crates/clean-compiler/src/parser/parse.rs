@@ -1308,7 +1308,9 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// `constant:` section (08 §2): TypedDeclaration items.
+    /// `constant:` section (08 §ConstantSection, body per 05 §2
+    /// ConstantBody): one or more `TypeExpression name = expr` lines,
+    /// initializer mandatory.
     fn constant_section(&mut self, sink: &mut DiagnosticSink) -> Option<Vec<ConstantDecl>> {
         self.bump(); // constant
         self.bump(); // ':'
@@ -1330,11 +1332,17 @@ impl<'a> Parser<'a> {
                         self.sync_line();
                         continue;
                     };
-                    let init = if self.eat(&TokenKind::Assign) {
-                        Some(self.expression(sink))
-                    } else {
-                        None
-                    };
+                    // 05 §2 ConstantBody: the initializer is part of the
+                    // grammar — a constant without `=` does not parse.
+                    if !self.expect(
+                        &TokenKind::Assign,
+                        "'=' (a constant carries its initializer)",
+                        sink,
+                    ) {
+                        self.sync_line();
+                        continue;
+                    }
+                    let init = Some(self.expression(sink));
                     constants.push(ConstantDecl {
                         ty,
                         name,
@@ -1346,6 +1354,14 @@ impl<'a> Parser<'a> {
             }
         }
         self.eat(&TokenKind::Dedent);
+        // 05 §2 ConstantBody: at least one declaration — an empty
+        // `constant:` does not parse.
+        if constants.is_empty() {
+            self.error_here(
+                sink,
+                "expected at least one constant declaration in 'constant:'".to_string(),
+            );
+        }
         Some(constants)
     }
 

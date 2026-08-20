@@ -17,10 +17,15 @@ Per ASY-01, the `start` keyword has two distinct meanings in the language: `star
    A `start` in any other position is SYN002. *)
 
 StartExpression = "start", CallExpression ;
-                  (* CallExpression is any expression whose top-
-                     level operator is a function/method call.  In
-                     practice this is a PostfixExpression whose
-                     tail is Call — see 06-expressions.ebnf.md. *)
+
+CallExpression  = PrimaryExpression, { PostfixOp }, Call ;
+                  (* A PostfixExpression whose LAST postfix
+                     operation is a Call — i.e. any expression
+                     whose top-level operation is a function or
+                     method call: `f()`, `obj.method()`,
+                     `a.b.c(x)[0].run()`.  PrimaryExpression,
+                     PostfixOp and Call are defined in
+                     06-expressions.ebnf.md. *)
 ```
 
 ## 2. `later` deferred binding
@@ -60,7 +65,7 @@ LaterBinding    = "later", TypeExpression, Identifier, "=", StartExpression ;
 
 BackgroundStatement = "background", CallExpression, [ OnErrorTail ] ;
 
-OnErrorTail     = "onError", ( Expression | ":" NEWLINE INDENT StatementSequence DEDENT ) ;
+OnErrorTail     = "onError", ( Expression | ":", NEWLINE, INDENT, StatementSequence, DEDENT ) ;
                   (* Reuses OnErrorSuffix / OnErrorBlock shapes
                      from 13-error-handling.ebnf.md — same
                      handler-attachment pattern. *)
@@ -110,6 +115,7 @@ BackgroundModifier = "background" ;
 
 ## Changelog
 
+- 2026-08-20 — Two errata from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, items 1a and 1e). (a) `OnErrorTail`'s block alternative concatenated `":" NEWLINE INDENT StatementSequence DEDENT` by juxtaposition, without the `,` the [grammar README](./README.md#notation) requires for ISO/IEC 14977 concatenation — commas added; the intended parse is unchanged. (b) `CallExpression` was referenced by `StartExpression` and `BackgroundStatement` but defined only in comment prose — now a real production, `PrimaryExpression, { PostfixOp }, Call` (a postfix chain whose last operation is a `Call`), matching the prose "any expression whose top-level operation is a call". Note this is deliberately wider than a bare `Identifier`-callee call: method calls (`obj.fetch()`) are legal `start` / `background` targets.
 - 2026-08-07 (afternoon, third pass) — Resolved the third `⚠` marker: `background` modifier stays postfix-only after the parameter list. Allowing multiple placements would give library authors two ways to write the same thing, contradicting LDR-08 "one way to do things". No production change.
 - 2026-08-07 (afternoon) — Resolved the first two `⚠` markers: (a) `LaterBinding` RHS is restricted to `StartExpression` — every chapter example uses `start f()`, and allowing plain expressions would raise questions about when the value becomes ready that the chapter doesn't answer; (b) `LaterBinding` stays as a distinct Statement kind (not a modifier on `VariableDeclaration`) — it is syntactically, semantically, and lowering-wise different from an immediate declaration.
 - 2026-08-07 — File minted. Productions derived from ASY-01..ASY-03 in [18-async.md](../18-async.md) Accepted 2026-08-01.

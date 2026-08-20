@@ -50,10 +50,28 @@ TypedDeclarationItem = Identifier, [ "=", Expression ]
                      | TypedDeclaration ;
 ```
 
+## 2. `ConstantBody` alias (referenced from 08-file-structure.ebnf.md)
+
+```ebnf
+(* The body 08-file-structure.ebnf.md's ConstantSection delegates
+   here — the `constant:` case of the ApplyBody shape above, made
+   explicit.  One full declaration per line, initializer REQUIRED:
+   a constant without a value has no meaning, so the grammar does
+   not admit the initializer-less TypedDeclaration form here.
+   At least one declaration, matching ApplyBody — an empty
+   `constant:` section is dead weight. *)
+
+ConstantBody        = ConstantDeclaration, NEWLINE,
+                      { ConstantDeclaration, NEWLINE } ;
+
+ConstantDeclaration = TypeExpression, Identifier, "=", Expression ;
+```
+
 ---
 
 ## Changelog
 
+- 2026-08-20 — Erratum from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, item 1c): 08-file-structure.ebnf.md's `ConstantSection` referenced a `ConstantBody` no grammar file defined (its comment pointed here, but this file only defined the generic `ApplyBody`). New §2 defines `ConstantBody` = one or more `ConstantDeclaration` lines, where `ConstantDeclaration = TypeExpression, Identifier, "=", Expression` — the "full TypedDeclaration" case this file's §1 comment already described for `constant:` headers, with the initializer made grammatically mandatory.
 - 2026-08-07 (afternoon) — Resolved the ApplyItem-shape `⚠` marker: apply-blocks and grouped-declarations remain a single unified construct with a union body; parser dispatches on the header's kind. Splitting them in grammar would invite the reader to wonder why since they look identical (`identifier:` + body). No production change.
 - 2026-08-07 — File minted. Productions derived from APB-01 in [05-apply-blocks.md](../05-apply-blocks.md) Accepted 2026-08-01.
 
@@ -66,4 +84,4 @@ TypedDeclarationItem = Identifier, [ "=", Expression ]
 - **Notation:** EBNF (ISO/IEC 14977)
 - **Part of:** [04 language / grammar / README.md](./README.md)
 - **Rules referencing this grammar:** [05-apply-blocks.md](../05-apply-blocks.md) (APB-01)
-- **References:** [03-lexical-structure.ebnf.md](./03-lexical-structure.ebnf.md) (Identifier, NEWLINE, INDENT, DEDENT, TypeKeyword), [04-type-system.ebnf.md](./04-type-system.ebnf.md) (TypedDeclaration)
+- **References:** [03-lexical-structure.ebnf.md](./03-lexical-structure.ebnf.md) (Identifier, NEWLINE, INDENT, DEDENT, TypeKeyword), [04-type-system.ebnf.md](./04-type-system.ebnf.md) (TypedDeclaration, TypeExpression), [06-expressions.ebnf.md](./06-expressions.ebnf.md) (Expression), [08-file-structure.ebnf.md](./08-file-structure.ebnf.md) (ConstantSection — delegates to ConstantBody)

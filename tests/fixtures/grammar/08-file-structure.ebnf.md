@@ -43,9 +43,10 @@ SourceSection  = "source", ":", NEWLINE, INDENT, SourceBody, DEDENT ;
                 (* Body defined in 19-ai-integration.ebnf.md *)
 
 ConstantSection = "constant", ":", NEWLINE, INDENT, ConstantBody, DEDENT ;
-                (* Body is an apply-block-style list of TypedDeclarations;
-                   grammar in 05-apply-blocks.ebnf.md.  Semantics of
-                   constant-ness are in the companion chapter. *)
+                (* ConstantBody defined in 05-apply-blocks.ebnf.md §2 —
+                   one ConstantDeclaration per line, initializer
+                   required.  Semantics of constant-ness are in the
+                   companion chapter. *)
 
 StateSection   = "state", ":", NEWLINE, INDENT, StateBody, DEDENT ;
                 (* Body defined in 20-state-management.ebnf.md *)
@@ -84,12 +85,16 @@ TopLevelCallable = FunctionDeclaration
                     live once its companion file is created (currently
                     inline in 09-libraries-specification.md §8.3). *)
 
-WatchBlock     = "watch", Identifier, ":", NEWLINE, INDENT,
-                 WatchBody, DEDENT ;
-                 (* Body in 20-state-management.ebnf.md *)
+(* WatchBlock — header and body defined in
+   20-state-management.ebnf.md §5.  SMG-04 admits both watch
+   targets — a single identifier (`watch total:`) and a
+   parenthesized identifier list (`watch (a, b, c):`) — so the
+   production is NOT restated here: an earlier restatement carried
+   only the single-identifier form, making it a diverging duplicate
+   definition, which is a defect per DOC-15. *)
 
 TestsSection   = "tests", ":", NEWLINE, INDENT, TestsBody, DEDENT ;
-                (* Body in 11-testing.ebnf.md *)
+                (* TestsBody defined in 11-testing.ebnf.md §1 *)
 
 StartSection   = "start", ":", NEWLINE, INDENT, StatementSequence, DEDENT ;
                 (* Body is a sequence of statements, grammar in
@@ -122,6 +127,7 @@ Per FIL-01 prose: `public:` is not a section, it is a wrapper appearing *inside*
 
 ## Changelog
 
+- 2026-08-20 — Three errata from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, items 1c, 1d, 1f). (a) `ConstantSection`'s body reference now points at the real production: `ConstantBody` is defined in [05-apply-blocks.ebnf.md §2](./05-apply-blocks.ebnf.md) (it was referenced here but defined nowhere). (b) `TestsSection`'s comment now names `TestsBody`, newly defined in [11-testing.ebnf.md §1](./11-testing.ebnf.md) (the comment said "Body in 11-testing.ebnf.md" but 11 only defined `TestsBlock`, header included). (c) The inline `WatchBlock` production is **removed**: it duplicated [20-state-management.ebnf.md §5](./20-state-management.ebnf.md) with a diverging, narrower shape (`watch Identifier :` only), and a production defined in more than one place is a defect per DOC-15. The definition in 20 is authoritative — SMG-04 explicitly admits the parenthesized multi-variable target (`watch (a, b, c):`), so the single-identifier restatement here was wrong, not just redundant. `FileBody` still references `WatchBlock`; it now resolves to 20's definition.
 - 2026-08-07 (afternoon, third pass) — `ScreenBlock` production removed and dropped from `FileBody` per [ADR-0030](../../01%20governance/decisions/0030-withdraw-screen-from-language.md). `screen` is not a keyword and no library registers it as a block name; it is a free identifier.
 - 2026-08-07 (afternoon) — Resolved both `⚠` markers: (a) `functions:` block and bare top-level callables both remain allowed — existing library code uses both shapes and forcing one would invalidate `host_bridge.cln` files; (b) `HostFunctionDeclaration` grammar home stays at `02 components/framework/grammar/host-bridge.ebnf.md` (LBS-02 lives in the framework spec, so its companion grammar file belongs in the framework grammar folder per DOC-15). No production change.
 - 2026-08-07 — File minted. Productions derived from FIL-01 and FIL-02 in [08-file-structure.md](../08-file-structure.md) Accepted 2026-08-01.

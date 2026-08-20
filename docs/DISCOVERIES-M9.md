@@ -25,6 +25,24 @@ Non-defect but generation-relevant: `LibraryBlock`'s body is
 `HostFunctionDeclaration` defers to the framework's host-bridge grammar —
 both are deliberately outside the language grammar and stay ungeneratable.
 
+**Round-trip closed 2026-08-20** (foundation @ 2642c0e, seven errata):
+1a/1b/1d/1g ratified as pinned (the reader returned to strict ISO 14977 —
+juxtaposition and comment-prose `*)` are loud errors again; `TestsBody`
+now defined in 11 §1 exactly as the pin; `ExpressionType`/`IdentifierType`
+are schema-tier specials, `BlockArgType` officially not source syntax).
+Three were **corrected differently** and migrated here: **1c**
+`ConstantBody` landed in 05 §2 with a mandatory initializer and at least
+one declaration — the parser's `constant_section` now rejects both an
+empty `constant:` and a missing `=` (regression tests in
+`tests/parser.rs`); **1e** `CallExpression` is
+`PrimaryExpression, { PostfixOp }, Call` (wider than the pin; the
+compiler's parser already accepted full expressions after
+`background`/`later`, so only generation changed); **1f** `WatchBlock`
+keeps 20-state-management's definition (WatchTarget with the
+parenthesized list — which `watch_block` already implemented) and 08's
+narrower restatement was deleted. The vendored grammar and SHA256SUMS
+were refreshed; the fuzzer's gap table is empty again.
+
 ## 2. No nesting limit anywhere: deep expressions abort the process
 
 `compile_limits` (07 §7.x, mirrored in the request schema) bounds handler

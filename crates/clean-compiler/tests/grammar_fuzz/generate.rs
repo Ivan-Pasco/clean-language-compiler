@@ -40,50 +40,14 @@ impl Rng {
     }
 }
 
-/// Grammar gaps found while seeding the fuzzer, pinned to an explicit local
-/// interpretation and reported in `docs/DISCOVERIES-M9.md`. Each entry
-/// replaces a non-terminal the vendored grammar references but never
-/// defines; the interpretation mirrors the citing file's own comment.
+/// Grammar gaps pinned to a local interpretation while foundation decides.
+/// Empty since the 2026-08-20 errata defined every M9 gap in the grammar
+/// itself (ConstantBody in 05 §2, TestsBody in 11 §1, CallExpression in
+/// 18); repopulate — with the DISCOVERIES entry — if new gaps appear. The
+/// trip-wire in `Generator::new` fires when a pinned name gets a real
+/// definition.
 pub fn pinned_gap_rules() -> Vec<(&'static str, Expr)> {
-    use Expr::*;
-    vec![
-        // 08-file-structure cites `ConstantBody` (§ ConstantSection); no
-        // grammar file defines it. Pinned as repeated typed declarations,
-        // the shape 07-statements gives `VariableDeclaration`.
-        (
-            "ConstantBody",
-            Rep(Box::new(Seq(vec![
-                NonTerm("VariableDeclaration".into()),
-                NonTerm("NEWLINE".into()),
-            ]))),
-        ),
-        // 08-file-structure cites `TestsBody` with "(* Body in
-        // 11-testing.ebnf.md *)", but 11 defines `TestsBlock` (header
-        // included) and no `TestsBody`. Pinned as TestsBlock's interior.
-        (
-            "TestsBody",
-            Seq(vec![
-                NonTerm("TestDeclaration".into()),
-                NonTerm("NEWLINE".into()),
-                Rep(Box::new(Seq(vec![
-                    NonTerm("TestDeclaration".into()),
-                    NonTerm("NEWLINE".into()),
-                ]))),
-            ]),
-        ),
-        // 18-async cites `CallExpression`, defined only by prose ("any
-        // expression whose top-level operation is a call"). Pinned as a
-        // direct call form.
-        (
-            "CallExpression",
-            Seq(vec![
-                NonTerm("Identifier".into()),
-                Terminal("(".into()),
-                Opt(Box::new(NonTerm("ArgumentList".into()))),
-                Terminal(")".into()),
-            ]),
-        ),
-    ]
+    Vec::new()
 }
 
 /// One rendered token of the generated program.
@@ -413,6 +377,10 @@ fn expr_cost(expr: &Expr, costs: &IndexMap<String, u32>) -> u32 {
             // Cross-repo references are not generatable from this grammar.
             t if t.starts_with("see ") => INF,
             "handler-defined body" => INF,
+            // 21 §BlockArg payloads (ExpressionType / IdentifierType):
+            // schema-tier compile-time types defined in schema/block-ast.md,
+            // officially not source syntax (2026-08-20 erratum for 1g).
+            t if t.contains("schema-tier") => INF,
             // Prefer a real line terminator over the EOF branch so comments
             // usually end their line; EOF still gets drawn at random.
             "EOF" => 3,

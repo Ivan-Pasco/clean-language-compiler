@@ -62,6 +62,21 @@ BlockNodeType   = "Statement"           (* a normal Clean statement, already typ
 BlockArgType    = "Positional", ExpressionType
                 | "Keyword", IdentifierType, ExpressionType ;
 
+ExpressionType  = ? the Expression payload of a BlockArg — a
+                    schema-tier compile-time type, field-level
+                    definition in ../schema/block-ast.md §BlockArg ? ;
+
+IdentifierType  = ? the Identifier payload of a BlockArg — a
+                    schema-tier compile-time type, field-level
+                    definition in ../schema/block-ast.md §BlockArg ? ;
+
+(* ExpressionType / IdentifierType are special sequences, not
+   language non-terminals: BlockArg payloads exist only inside the
+   compile-time environment, so — like LibraryBlock's
+   handler-defined body in 08-file-structure.ebnf.md — they are
+   deliberately outside the language grammar and BlockArgType is
+   not generatable as source syntax. *)
+
 (* These are TYPE-level constructors — they exist during
    compilation, not in a Clean program's runtime.  They are
    named here as the sum-type variants a handler's code
@@ -123,6 +138,7 @@ The chapter's rule ([21 §21.9](../21-block-handlers.md#219-testing-block-handle
 
 ## Changelog
 
+- 2026-08-20 — Erratum from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, item 1g): `BlockArgType` referenced `ExpressionType` and `IdentifierType`, which no grammar file defined. Both are now defined as ISO 14977 special sequences pointing at their field-level home ([`schema/block-ast.md` §BlockArg](../schema/block-ast.md)) — they are schema-tier compile-time payloads, not source syntax, so `BlockArgType` (and through it `CompileTimeFunctionDeclaration`'s pattern-match surface) is deliberately ungeneratable as language grammar, same status as `LibraryBlock`'s handler-defined body.
 - 2026-08-07 — File minted. `CompileTimeFunctionDeclaration` and `HandlesBlockDeclaration` productions extracted from [21-block-handlers.md §21.1](../21-block-handlers.md#211-declaring-a-block-handler) (Accepted 2026-08-01) — the only pre-existing grammar productions in `04 language/`, per the survey that motivated the Docs Readiness Program. `BlockNodeType`, `BlockArgType`, `DiagnosticEmission` productions derived from BLK-01..BLK-03 in the source chapter. Two `⚠` markers: (a) whether Clean has first-class pattern-matching syntax for `BlockNode` variants; (b) how the parser disambiguates `error(...)` between the diagnostic emitter (3 args, compiletime scope) and the runtime signal (1 arg, ERH-01).
 
 ---

@@ -198,3 +198,39 @@ fn multiline_parenthesized_expression_crosses_lines() {
         Stmt::Return { value: Some(_), .. }
     ));
 }
+
+// 05 §2 ConstantBody (2026-08-20 erratum for DISCOVERIES-M9 §1c): the
+// initializer is grammatical and the body holds at least one declaration.
+
+#[test]
+fn constant_without_initializer_is_a_syntax_error() {
+    let source = "constant:\n\tinteger maxUsers\n\nfunctions:\n\tvoid init()\n\t\treturn\n";
+    let (_, diagnostics) = parse_source(source);
+    assert!(
+        diagnostics.iter().any(|d| d.code == codes::SYN002),
+        "a constant without '=' must not parse: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn empty_constant_section_is_a_syntax_error() {
+    let source = "constant:\n\nfunctions:\n\tvoid init()\n\t\treturn\n";
+    let (_, diagnostics) = parse_source(source);
+    assert!(
+        diagnostics.iter().any(|d| d.code == codes::SYN002),
+        "an empty 'constant:' must not parse: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn constant_with_initializer_still_parses() {
+    let source = "constant:\n\tinteger maxUsers = 100\n\nfunctions:\n\tvoid init()\n\t\treturn\n";
+    let (items, diagnostics) = parse_source(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let Item::Constants(constants) = &items[0] else {
+        panic!("expected constants, got {items:?}");
+    };
+    assert_eq!(constants.len(), 1);
+    assert_eq!(constants[0].name, "maxUsers");
+    assert!(constants[0].init.is_some());
+}

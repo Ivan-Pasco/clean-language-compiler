@@ -131,26 +131,23 @@ fn vendored_grammar_matches_foundation() {
 #[test]
 fn grammar_loads_and_root_is_generatable() {
     let grammar = ebnf::Grammar::load(&vendored_files());
-    // DOC-15 defect recorded in DISCOVERIES-M9: WatchBlock is defined by
-    // both 08-file-structure and 20-state-management, with diverging
-    // shapes. First definition (08) wins for generation.
-    let dups: Vec<&str> = grammar
-        .duplicates
-        .iter()
-        .map(|(n, _, _)| n.as_str())
-        .collect();
-    assert_eq!(
-        dups,
-        ["WatchBlock"],
-        "duplicate-production set changed — update DISCOVERIES-M9 and this pin"
+    // No duplicated productions: the WatchBlock double definition
+    // (DISCOVERIES-M9 §1f) was resolved by foundation's 2026-08-20 erratum
+    // — 20-state-management's definition (WatchTarget admits the
+    // parenthesized list) is the one that remains.
+    assert!(
+        grammar.duplicates.is_empty(),
+        "duplicate productions reappeared (DOC-15 defect): {:?}",
+        grammar.duplicates
     );
     let generator = generate::Generator::new(grammar);
     generator.assert_root_generatable();
-    // Productions with no finite derivation inside the vendored grammar,
-    // each recorded in DISCOVERIES-M9: LibraryBlock's body is
-    // handler-defined (08 §LibraryBlock); BlockArgType (21) references
-    // `ExpressionType` / `IdentifierType`, which no grammar file defines,
-    // and CompileTimeFunctionDeclaration is unreachable through it.
+    // Productions with no finite derivation inside the vendored grammar —
+    // all spec-ratified as not-source-syntax (2026-08-20 errata):
+    // LibraryBlock's body is handler-defined (08 §LibraryBlock);
+    // ExpressionType / IdentifierType are schema-tier BlockArg payloads
+    // (21, defined field-level in schema/block-ast.md), so BlockArgType
+    // and CompileTimeFunctionDeclaration stay ungeneratable through them.
     let mut ungeneratable = generator.ungeneratable();
     ungeneratable.sort_unstable();
     assert_eq!(
@@ -158,6 +155,8 @@ fn grammar_loads_and_root_is_generatable() {
         [
             "BlockArgType",
             "CompileTimeFunctionDeclaration",
+            "ExpressionType",
+            "IdentifierType",
             "LibraryBlock"
         ],
         "ungeneratable-production set changed — update DISCOVERIES-M9 and this pin"
