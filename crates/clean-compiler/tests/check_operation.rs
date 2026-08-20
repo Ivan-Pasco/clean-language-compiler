@@ -63,3 +63,24 @@ fn check_refuses_a_request_without_target_world() {
         "missing target_world must be RQD002, got {diagnostics:?}"
     );
 }
+
+/// 07 §7.8: the request's own `max_nesting_depth` governs — BLD001 names
+/// the request's cap, not the default.
+#[test]
+fn custom_max_nesting_depth_is_honored() {
+    let mut request = common::minimal_valid_request();
+    request.compile_limits.max_nesting_depth = 8;
+    let content = format!(
+        "functions:\n\tvoid init()\n\t\tinteger x = {}1{}\n\t\treturn\n",
+        "(".repeat(20),
+        ")".repeat(20)
+    );
+    request.sources[0].sha256 = common::sha256_hex(content.as_bytes());
+    request.sources[0].content = content;
+    let diagnostics = clean_compiler::check(request).expect("check reports, does not fail");
+    assert!(
+        diagnostics.iter().any(|d| d.code == "BLD001"
+            && d.message == "build limit 'max-nesting-depth' exceeded: 9 > 8"),
+        "{diagnostics:#?}"
+    );
+}

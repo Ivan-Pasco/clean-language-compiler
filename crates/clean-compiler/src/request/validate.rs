@@ -100,9 +100,10 @@ pub fn validate(request: CompileRequest, sink: &mut DiagnosticSink) -> Option<Va
 
     // BLD001 (Platform 10 §12): `[compile.limits]` caps are hard. The
     // per-file size cap is checked here where the sources arrive; the
-    // import-depth leg lands with a deeper module graph, and the whole-
-    // build timeout belongs to the process adapter (no wall clock inside
-    // the pipeline — CMP-02).
+    // max-nesting-depth leg lives in the parser (07 §7.8, enforced during
+    // parse); the import-depth leg lands with a deeper module graph, and
+    // the whole-build timeout belongs to the process adapter (no wall
+    // clock inside the pipeline — CMP-02).
     let max_file_bytes = validated_max_file_bytes(&request);
     for source in &request.sources {
         let actual = source.content.len() as u64;

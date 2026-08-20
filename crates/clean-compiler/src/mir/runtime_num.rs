@@ -13,11 +13,12 @@
 //!    even, mirroring round-to-nearest-even). Everything is digit-string
 //!    arithmetic — exact, no rounding drift anywhere.
 //!
-//! Notation (the literal grammar of chapter 3 admits both): plain decimal
-//! for -4 ≤ E ≤ 21 (E the power of ten with the digits read as
-//! `0.d₁d₂…`), scientific otherwise; integral values append `.0`. The
-//! thresholds and the `NaN` / `Infinity` spellings are local pinnings —
-//! chapter 15 says only "where the magnitude admits it" (DISCOVERIES-M8).
+//! Notation (normative since 15 §Conversions, 2026-08-20): plain decimal
+//! for -4 ≤ E ≤ 21 with E from the NORMALIZED scientific form
+//! `d₁.d₂…×10^E`, scientific otherwise; integral plain values append
+//! `.0`; scientific mantissas carry no `.0` ("1e22"); spellings `NaN` /
+//! `Infinity` / `-Infinity` and `-0.0` are output-only —
+//! `string.toNumber` rejects the non-finite spellings (RUN003).
 
 use super::runtime::RuntimeFn;
 use super::{CmpOp, I32Op, I64Op, Inst, MirFunction, Val};
@@ -1244,12 +1245,15 @@ fn num_to_string() -> MirFunction {
         ]);
         sci.extend(digit_at(1));
 
+        // 15 §Conversions (2026-08-20): plain exactly while −4 ≤ E ≤ 21
+        // with E from the NORMALIZED form d₁.d₂…×10^E. EC here uses the
+        // 0.d₁d₂… convention (EC = E + 1), so the range is −3 ≤ EC ≤ 22.
         body.extend([
             LocalGet(EC),
-            I32Const(-4),
+            I32Const(-3),
             I32Cmp(CmpOp::GeS),
             LocalGet(EC),
-            I32Const(21),
+            I32Const(22),
             I32Cmp(CmpOp::LeS),
             I32Bin(I32Op::And),
             If {

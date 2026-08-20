@@ -1,8 +1,9 @@
-//! `number.toString()` (15 §Conversions): the shortest round-trip
-//! rendering, computed exactly in the guest. Oracle: Rust's own shortest
-//! digit generation (`{:e}`), re-rendered under the pinned notation rules
-//! (plain decimal for -4 ≤ E ≤ 21, scientific otherwise, integral values
-//! with `.0` — DISCOVERIES-M8).
+//! `number.toString()` (15 §Conversions, normative since 2026-08-20): the
+//! shortest round-trip rendering, computed exactly in the guest. Oracle:
+//! Rust's own shortest digit generation (`{:e}`), re-rendered under the
+//! spec's notation rules (plain decimal for -4 ≤ E ≤ 21 with E from the
+//! normalized form d₁.d₂…×10^E, scientific otherwise, integral plain
+//! values with `.0`).
 
 use clean_compiler::diag::DiagnosticSink;
 use clean_compiler::{codegen, hir, mir, parser, resolver, typecheck};
@@ -163,7 +164,9 @@ fn expected(v: f64) -> String {
     let e: i32 = exp.parse::<i32>().unwrap() + 1;
     let k = digits.len() as i32;
 
-    if (-4..=21).contains(&e) {
+    // 15 §Conversions: −4 ≤ E ≤ 21 over the NORMALIZED exponent; `e`
+    // here is the 0.d₁d₂… convention (e = E + 1), hence −3..=22.
+    if (-3..=22).contains(&e) {
         if e >= k {
             let zeros = "0".repeat((e - k) as usize);
             format!("{sign}{digits}{zeros}.0")
@@ -266,4 +269,16 @@ fn to_string_is_the_shortest_round_trip_rendering() {
 fn spec_examples_render_exactly() {
     let rendered = tostring_all(&[0.1, 42.0, -3.25, 6.02e23]);
     assert_eq!(rendered, ["0.1", "42.0", "-3.25", "6.02e23"]);
+}
+
+/// 15 §Conversions (2026-08-20 round-trip): the four notation-threshold
+/// anchors with normalized-scientific E (d₁.d₂… × 10^E), byte for byte —
+/// flat exactly while −4 ≤ E ≤ 21, one-digit mantissa without ".0".
+#[test]
+fn notation_threshold_anchors_render_exactly() {
+    let rendered = tostring_all(&[1e-4, 1e-5, 1e21, 1e22]);
+    assert_eq!(
+        rendered,
+        ["0.0001", "1e-5", "1000000000000000000000.0", "1e22"]
+    );
 }

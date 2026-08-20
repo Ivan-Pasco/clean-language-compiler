@@ -14,11 +14,30 @@ use crate::source::ByteSpan;
 use super::ast::*;
 
 pub fn parse(stream: &TokenStream, sink: &mut DiagnosticSink) -> SourceFile {
+    parse_with_limit(
+        stream,
+        clean_compiler_types::request::default_max_nesting_depth(),
+        sink,
+    )
+}
+
+/// Parse under an explicit `max-nesting-depth` (07 §7.8): one chained
+/// depth across expression nodes, INDENT levels, and generic
+/// type-argument layers. Exceeding it is BLD001, established during the
+/// parse — passes downstream may assume depth ≤ the limit.
+pub fn parse_with_limit(
+    stream: &TokenStream,
+    max_nesting_depth: u32,
+    sink: &mut DiagnosticSink,
+) -> SourceFile {
     let mut parser = Parser {
         stream,
         tokens: &stream.tokens,
         pos: 0,
         paren_depth: 0,
+        max_nesting: max_nesting_depth,
+        nesting: 0,
+        nesting_reported: false,
     };
     parser.source_file(sink)
 }
@@ -30,6 +49,17 @@ struct Parser<'a> {
     tokens: &'a [Token],
     pos: usize,
     paren_depth: u32,
+    /// `max-nesting-depth` (07 §7.8): the BLD001 structural bound.
+    max_nesting: u32,
+    /// One chained depth across families: expression nodes (paren groups,
+    /// operator applications — chains hold one level per application —
+    /// call/index arguments, collection elements, interpolation splices),
+    /// INDENT levels (counted in `bump`), and generic type-argument
+    /// layers.
+    nesting: u32,
+    /// BLD001 fires once, anchored at the first token establishing the
+    /// excess ({actual} = max + 1: where the parse stops counting).
+    nesting_reported: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -85,6 +115,14 @@ impl<'a> Parser<'a> {
         let token = &self.tokens[i];
         if !matches!(token.kind, TokenKind::Eof) {
             self.pos = i + 1;
+        }
+        // Every INDENT is one nesting level (07 §7.8); counting here keeps
+        // section and block indents uniform. Reporting happens at the
+        // recursion sites, which also stop descending.
+        match token.kind {
+            TokenKind::Indent => self.nesting += 1,
+            TokenKind::Dedent => self.nesting = self.nesting.saturating_sub(1),
+            _ => {}
         }
         token
     }
@@ -208,6 +246,87 @@ impl<'a> Parser<'a> {
         };
         diagnostic.rendered = render_cli(&diagnostic, &crate::diag::SourceCache::empty());
         sink.push(diagnostic);
+    }
+
+    /// Claims one nesting level for a construct about to recurse. At the
+    /// limit: reports BLD001 (once) and returns false — the caller must
+    /// not descend, which is what keeps parse recursion bounded.
+    fn enter_nesting(&mut self, sink: &mut DiagnosticSink) -> bool {
+        if self.nesting >= self.max_nesting {
+            self.report_nesting_excess(sink);
+            return false;
+        }
+        self.nesting += 1;
+        true
+    }
+
+    fn leave_nesting(&mut self) {
+        self.nesting -= 1;
+    }
+
+    /// BLD001 (10 §BLD001, 2026-08-20): `{actual}` is defined as max + 1 —
+    /// the first depth that exceeds, where the left-to-right parse stops
+    /// counting — anchored at the current token.
+    fn report_nesting_excess(&mut self, sink: &mut DiagnosticSink) {
+        if self.nesting_reported {
+            return;
+        }
+        self.nesting_reported = true;
+        let mut diagnostic = Diagnostic {
+            level: Level::Error,
+            code: codes::BLD001.to_string(),
+            message: format!(
+                "build limit 'max-nesting-depth' exceeded: {} > {}",
+                self.max_nesting + 1,
+                self.max_nesting
+            ),
+            primary_span: self.stream.diag_span(self.span()),
+            primary_label: Some("nesting here exceeds 'max-nesting-depth'".to_string()),
+            secondary: Vec::new(),
+            notes: Vec::new(),
+            helps: Vec::new(),
+            suggestions: Vec::new(),
+            doc_url: Diagnostic::doc_url_for(codes::BLD001),
+            rendered: String::new(),
+        };
+        diagnostic.rendered = render_cli(&diagnostic, &crate::diag::SourceCache::empty());
+        sink.push(diagnostic);
+    }
+
+    /// Parses one expression under one claimed nesting level — the shape
+    /// for call/index arguments, collection elements, and interpolation
+    /// splices (each is one level, balanced per element). Past the limit
+    /// nothing is descended into; recovery is the caller's closing-token
+    /// expectation.
+    fn nested_expression(&mut self, sink: &mut DiagnosticSink) -> Expr {
+        if self.enter_nesting(sink) {
+            let expr = self.expression(sink);
+            self.leave_nesting();
+            expr
+        } else {
+            Expr::Ident {
+                name: "<error>".to_string(),
+                span: self.span(),
+            }
+        }
+    }
+
+    /// One generic type-argument layer (`list<list<…>>`) is one nesting
+    /// level, same accounting as `nested_expression`.
+    fn nested_type(&mut self, pos: TypePos, sink: &mut DiagnosticSink) -> TypeExpr {
+        if self.enter_nesting(sink) {
+            let ty = self.type_expr(pos, sink);
+            self.leave_nesting();
+            ty
+        } else {
+            TypeExpr {
+                base: BaseType::Named("<error>".to_string()),
+                optional: false,
+                extra_optionals: Vec::new(),
+                behaviors: Vec::new(),
+                span: self.span(),
+            }
+        }
     }
 
     /// Skip to just after the next NEWLINE at the current nesting depth,
@@ -1878,6 +1997,20 @@ impl<'a> Parser<'a> {
         if !self.expect(&TokenKind::Indent, "indented block", sink) {
             return Vec::new();
         }
+        // `bump` counted this INDENT; past the limit the block's contents
+        // are skipped (balanced, iterative) rather than descended into.
+        if self.nesting > self.max_nesting {
+            self.report_nesting_excess(sink);
+            let mut balance = 1u32;
+            while balance > 0 && !matches!(self.peek(), TokenKind::Eof) {
+                match self.bump().kind {
+                    TokenKind::Indent => balance += 1,
+                    TokenKind::Dedent => balance -= 1,
+                    _ => {}
+                }
+            }
+            return Vec::new();
+        }
         let mut statements = Vec::new();
         loop {
             match self.peek() {
@@ -2376,21 +2509,21 @@ impl<'a> Parser<'a> {
                     "void" => BaseType::Void,
                     "list" => {
                         self.expect(&TokenKind::Lt, "'<' after 'list'", sink);
-                        let element = self.type_expr(element_pos, sink);
+                        let element = self.nested_type(element_pos, sink);
                         self.expect(&TokenKind::Gt, "'>'", sink);
                         BaseType::List(Box::new(element))
                     }
                     "matrix" => {
                         self.expect(&TokenKind::Lt, "'<' after 'matrix'", sink);
-                        let element = self.type_expr(element_pos, sink);
+                        let element = self.nested_type(element_pos, sink);
                         self.expect(&TokenKind::Gt, "'>'", sink);
                         BaseType::Matrix(Box::new(element))
                     }
                     "pairs" => {
                         self.expect(&TokenKind::Lt, "'<' after 'pairs'", sink);
-                        let key = self.type_expr(element_pos, sink);
+                        let key = self.nested_type(element_pos, sink);
                         self.expect(&TokenKind::Comma, "','", sink);
-                        let value = self.type_expr(element_pos, sink);
+                        let value = self.nested_type(element_pos, sink);
                         self.expect(&TokenKind::Gt, "'>'", sink);
                         BaseType::Pairs(Box::new(key), Box::new(value))
                     }
@@ -2488,7 +2621,12 @@ impl<'a> Parser<'a> {
     /// tail — the expression ladder leaves it for the statement parser.
     fn on_error_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.default_expr(sink);
+        let mut held = 0u32;
         while self.at_kw(Kw::OnError) && !matches!(self.peek2(), TokenKind::Colon) {
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.default_expr(sink);
             let span = lhs.span().merge(rhs.span());
@@ -2498,36 +2636,63 @@ impl<'a> Parser<'a> {
                 span,
             };
         }
+        for _ in 0..held {
+            self.leave_nesting();
+        }
         lhs
     }
 
     /// Level 11: `default` — none-coalescing, left-associative (EXP-03).
     fn default_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.or_expr(sink);
+        let mut held = 0u32;
         while self.at_kw(Kw::Default) {
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.or_expr(sink);
             lhs = binary(BinOp::Default, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
 
     fn or_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.and_expr(sink);
+        let mut held = 0u32;
         while self.at_kw(Kw::Or) {
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.and_expr(sink);
             lhs = binary(BinOp::Or, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
 
     fn and_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.equality_expr(sink);
+        let mut held = 0u32;
         while self.at_kw(Kw::And) {
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.equality_expr(sink);
             lhs = binary(BinOp::And, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
@@ -2537,6 +2702,7 @@ impl<'a> Parser<'a> {
     /// (06-expressions §1, position dispatch).
     fn equality_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.comparison_expr(sink);
+        let mut held = 0u32;
         loop {
             let op = match self.peek() {
                 TokenKind::Eq => BinOp::Eq,
@@ -2545,15 +2711,23 @@ impl<'a> Parser<'a> {
                 TokenKind::Keyword(Kw::Not) => BinOp::NotIs,
                 _ => break,
             };
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.comparison_expr(sink);
             lhs = binary(op, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
 
     fn comparison_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.additive_expr(sink);
+        let mut held = 0u32;
         loop {
             let op = match self.peek() {
                 TokenKind::Lt => BinOp::Lt,
@@ -2562,30 +2736,46 @@ impl<'a> Parser<'a> {
                 TokenKind::GtEq => BinOp::GtEq,
                 _ => break,
             };
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.additive_expr(sink);
             lhs = binary(op, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
 
     fn additive_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.multiplicative_expr(sink);
+        let mut held = 0u32;
         loop {
             let op = match self.peek() {
                 TokenKind::Plus => BinOp::Add,
                 TokenKind::Minus => BinOp::Sub,
                 _ => break,
             };
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.multiplicative_expr(sink);
             lhs = binary(op, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
 
     fn multiplicative_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let mut lhs = self.power_expr(sink);
+        let mut held = 0u32;
         loop {
             let op = match self.peek() {
                 TokenKind::Star => BinOp::Mul,
@@ -2593,9 +2783,16 @@ impl<'a> Parser<'a> {
                 TokenKind::Percent => BinOp::Rem,
                 _ => break,
             };
+            if !self.enter_nesting(sink) {
+                break;
+            }
+            held += 1;
             self.bump();
             let rhs = self.power_expr(sink);
             lhs = binary(op, lhs, rhs);
+        }
+        for _ in 0..held {
+            self.leave_nesting();
         }
         lhs
     }
@@ -2604,8 +2801,12 @@ impl<'a> Parser<'a> {
     fn power_expr(&mut self, sink: &mut DiagnosticSink) -> Expr {
         let lhs = self.unary_expr(sink);
         if self.at(&TokenKind::Caret) {
+            if !self.enter_nesting(sink) {
+                return lhs;
+            }
             self.bump();
             let rhs = self.power_expr(sink);
+            self.leave_nesting();
             return binary(BinOp::Pow, lhs, rhs);
         }
         lhs
@@ -2615,7 +2816,14 @@ impl<'a> Parser<'a> {
         if self.at_kw(Kw::Not) {
             let start = self.span();
             self.bump();
+            if !self.enter_nesting(sink) {
+                return Expr::Ident {
+                    name: "<error>".to_string(),
+                    span: start,
+                };
+            }
             let operand = self.unary_expr(sink);
+            self.leave_nesting();
             let span = start.merge(operand.span());
             return Expr::Unary {
                 op: UnOp::Not,
@@ -2626,7 +2834,14 @@ impl<'a> Parser<'a> {
         if self.at(&TokenKind::Minus) {
             let start = self.span();
             self.bump();
+            if !self.enter_nesting(sink) {
+                return Expr::Ident {
+                    name: "<error>".to_string(),
+                    span: start,
+                };
+            }
             let operand = self.unary_expr(sink);
+            self.leave_nesting();
             let span = start.merge(operand.span());
             return Expr::Unary {
                 op: UnOp::Neg,
@@ -2675,7 +2890,7 @@ impl<'a> Parser<'a> {
                     let mut args = Vec::new();
                     if !self.at(&TokenKind::RParen) {
                         loop {
-                            args.push(self.expression(sink));
+                            args.push(self.nested_expression(sink));
                             if !self.eat(&TokenKind::Comma) {
                                 break;
                             }
@@ -2695,7 +2910,7 @@ impl<'a> Parser<'a> {
                     // IndexAccess (06 §1).
                     self.bump();
                     self.paren_depth += 1;
-                    let index = self.expression(sink);
+                    let index = self.nested_expression(sink);
                     self.paren_depth -= 1;
                     let end = self.span();
                     self.expect(&TokenKind::RBracket, "']'", sink);
@@ -2724,17 +2939,30 @@ impl<'a> Parser<'a> {
 
     /// Parses one `{…}` interpolation interior (tokenized by the lexer,
     /// Eof-terminated) as a full Expression (06-expressions §3).
-    fn parse_interpolation(&self, tokens: &[Token], sink: &mut DiagnosticSink) -> Expr {
+    fn parse_interpolation(&mut self, tokens: &[Token], sink: &mut DiagnosticSink) -> Expr {
+        // The splice is one expression node: one claimed level, and the
+        // interior parses at the surrounding chained depth.
+        if !self.enter_nesting(sink) {
+            return Expr::Ident {
+                name: "<error>".to_string(),
+                span: self.span(),
+            };
+        }
         let mut sub = Parser {
             stream: self.stream,
             tokens,
             pos: 0,
             paren_depth: 0,
+            max_nesting: self.max_nesting,
+            nesting: self.nesting,
+            nesting_reported: self.nesting_reported,
         };
         let expr = sub.expression(sink);
         if !matches!(sub.peek(), TokenKind::Eof) {
             sub.error_here(sink, "expected the end of the interpolation".to_string());
         }
+        self.nesting_reported = sub.nesting_reported;
+        self.leave_nesting();
         expr
     }
 
@@ -2809,9 +3037,16 @@ impl<'a> Parser<'a> {
             }
             TokenKind::LParen => {
                 self.bump();
+                if !self.enter_nesting(sink) {
+                    return Expr::Ident {
+                        name: "<error>".to_string(),
+                        span,
+                    };
+                }
                 self.paren_depth += 1;
                 let inner = self.expression(sink);
                 self.paren_depth -= 1;
+                self.leave_nesting();
                 self.expect(&TokenKind::RParen, "')'", sink);
                 inner
             }
@@ -2821,7 +3056,7 @@ impl<'a> Parser<'a> {
                 let mut items = Vec::new();
                 if !self.at(&TokenKind::RBracket) {
                     loop {
-                        items.push(self.expression(sink));
+                        items.push(self.nested_expression(sink));
                         if !self.eat(&TokenKind::Comma) {
                             break;
                         }

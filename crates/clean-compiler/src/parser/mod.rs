@@ -6,4 +6,4 @@
 pub mod ast;
 mod parse;
 
-pub use parse::parse;
+pub use parse::{parse, parse_with_limit};

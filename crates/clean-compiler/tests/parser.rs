@@ -234,3 +234,72 @@ fn constant_with_initializer_still_parses() {
     assert_eq!(constants[0].name, "maxUsers");
     assert!(constants[0].init.is_some());
 }
+
+// 07 §7.8 / 10 §BLD001 (2026-08-20): `max-nesting-depth` — one chained
+// depth across expression nodes, INDENT levels, and generic type layers,
+// established during parse; {actual} is defined as max + 1.
+
+fn bld001_of(
+    diagnostics: &[clean_compiler_types::Diagnostic],
+) -> Vec<&clean_compiler_types::Diagnostic> {
+    diagnostics
+        .iter()
+        .filter(|d| d.code == codes::BLD001)
+        .collect()
+}
+
+#[test]
+fn deep_parentheses_report_bld001_with_the_spec_message() {
+    let expr = format!("{}1{}", "(".repeat(300), ")".repeat(300));
+    let source = format!("functions:\n\tvoid init()\n\t\tinteger x = {expr}\n\t\treturn\n");
+    let (_, diagnostics) = parse_source(&source);
+    let bld = bld001_of(&diagnostics);
+    assert_eq!(bld.len(), 1, "one BLD001 exactly: {diagnostics:#?}");
+    assert_eq!(
+        bld[0].message,
+        "build limit 'max-nesting-depth' exceeded: 257 > 256"
+    );
+    assert_eq!(
+        bld[0].primary_label.as_deref(),
+        Some("nesting here exceeds 'max-nesting-depth'")
+    );
+}
+
+#[test]
+fn nesting_within_the_limit_is_silent() {
+    let expr = format!("{}1{}", "(".repeat(200), ")".repeat(200));
+    let source = format!("functions:\n\tvoid init()\n\t\tinteger x = {expr}\n\t\treturn\n");
+    let (_, diagnostics) = parse_source(&source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn operator_chains_count_one_level_per_application() {
+    // 10 §BLD001's own example: a 300-term sum exceeds the default.
+    let chain = vec!["1"; 300].join(" + ");
+    let source = format!("functions:\n\tvoid init()\n\t\tinteger x = {chain}\n\t\treturn\n");
+    let (_, diagnostics) = parse_source(&source);
+    assert_eq!(bld001_of(&diagnostics).len(), 1, "{diagnostics:#?}");
+}
+
+#[test]
+fn deep_generic_type_layers_report_bld001() {
+    let ty = format!("{}integer{}", "list<".repeat(300), ">".repeat(300));
+    let source = format!("functions:\n\tvoid init()\n\t\t{ty} xs = []\n\t\treturn\n");
+    let (_, diagnostics) = parse_source(&source);
+    assert_eq!(bld001_of(&diagnostics).len(), 1, "{diagnostics:#?}");
+}
+
+#[test]
+fn deep_statement_blocks_report_bld001() {
+    let mut body = String::new();
+    for depth in 0..300 {
+        body.push_str(&"\t".repeat(2 + depth));
+        body.push_str("if true\n");
+    }
+    body.push_str(&"\t".repeat(302));
+    body.push_str("return\n");
+    let source = format!("functions:\n\tvoid init()\n{body}");
+    let (_, diagnostics) = parse_source(&source);
+    assert_eq!(bld001_of(&diagnostics).len(), 1, "{diagnostics:#?}");
+}

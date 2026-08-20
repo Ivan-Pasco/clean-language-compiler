@@ -101,6 +101,11 @@ pub struct CompileLimits {
     pub max_file_size_mb: u64,
     #[serde(default = "default_max_import_depth")]
     pub max_import_depth: u32,
+    /// Structural nesting bound (07 §7.8, 2026-08-20): one chained depth
+    /// across expression nodes, INDENT levels, and generic type-argument
+    /// layers; exceeding it is BLD001, established during parse.
+    #[serde(default = "default_max_nesting_depth")]
+    pub max_nesting_depth: u32,
 }
 
 fn default_handler_timeout_ms() -> u64 {
@@ -118,6 +123,9 @@ fn default_max_file_size_mb() -> u64 {
 fn default_max_import_depth() -> u32 {
     32
 }
+pub fn default_max_nesting_depth() -> u32 {
+    256
+}
 
 impl Default for CompileLimits {
     fn default() -> Self {
@@ -127,6 +135,7 @@ impl Default for CompileLimits {
             total_timeout_min: default_total_timeout_min(),
             max_file_size_mb: default_max_file_size_mb(),
             max_import_depth: default_max_import_depth(),
+            max_nesting_depth: default_max_nesting_depth(),
         }
     }
 }

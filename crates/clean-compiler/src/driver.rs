@@ -91,7 +91,11 @@ fn front(
     let mut files = Vec::new();
     for source in &validated.request.sources {
         let stream = crate::lexer::lex(&source.path, &source.content, sink);
-        let ast = crate::parser::parse(&stream, sink);
+        let ast = crate::parser::parse_with_limit(
+            &stream,
+            validated.request.compile_limits.max_nesting_depth,
+            sink,
+        );
         files.push(crate::resolver::ParsedFile { ast, stream });
     }
     if sink.has_errors() {
@@ -313,7 +317,11 @@ pub fn emit_hir(request: CompileRequest) -> Result<(String, Vec<Diagnostic>), Co
         let mut files = Vec::new();
         for source in &validated.request.sources {
             let stream = crate::lexer::lex(&source.path, &source.content, &mut sink);
-            let ast = crate::parser::parse(&stream, &mut sink);
+            let ast = crate::parser::parse_with_limit(
+                &stream,
+                validated.request.compile_limits.max_nesting_depth,
+                &mut sink,
+            );
             files.push(crate::resolver::ParsedFile { ast, stream });
         }
         if sink.has_errors() {

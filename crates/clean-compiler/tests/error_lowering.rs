@@ -402,3 +402,73 @@ fn string_parse_failure_raises_run003() {
     .expect("parse failure caught");
     assert_eq!(log, ["int(-2)", "text(RUN003)", "int(64)"]);
 }
+
+/// 10 §RUN003 (2026-08-20): remainder by zero raises with the SAME string
+/// as division — one message for both operations.
+#[test]
+fn remainder_by_zero_shares_the_division_message() {
+    let log = run(
+        "\tinteger zero()\n\t\treturn 0\n\
+         \tstring describe()\n\t\tinteger x = 10 % zero()\n\t\treturn \"ok\"\n\
+         \tvoid init()\n\t\tstring m = describe() onError error.message\n\t\temitText(m)\n",
+        false,
+    )
+    .expect("message surfaces through the binding");
+    assert_eq!(log, ["text(division by zero)"]);
+}
+
+/// 10 §RUN003 (2026-08-20): integer.MIN % -1 is DEFINED as 0 — wasm
+/// rem_s semantics, no raise (only MIN / -1 overflows).
+#[test]
+fn min_remainder_by_minus_one_is_zero_not_a_raise() {
+    let log = run(
+        "\tinteger minusOne()\n\t\treturn 0 - 1\n\
+         \tvoid init()\n\t\tinteger min = 0 - 9223372036854775807 - 1\n\t\temitInt(min % minusOne())\n",
+        false,
+    )
+    .expect("defined remainder, nothing raised");
+    assert_eq!(log, ["int(0)"]);
+}
+
+/// 15 §Math (2026-08-20): number `/` is IEEE f64.div and never raises —
+/// ±Infinity then falls in 10 §RUN003's "number is out of the integer
+/// range" arm when truncated.
+#[test]
+fn infinite_number_truncation_is_out_of_range() {
+    let log = run(
+        "\tnumber inf()\n\t\treturn 1.0 / 0.0\n\
+         \tstring describe(number n)\n\t\tinteger x = n.toInteger()\n\t\treturn \"ok\"\n\
+         \tvoid init()\n\t\tstring a = describe(inf()) onError error.message\n\t\temitText(a)\n\t\tstring b = describe(0.0 - inf()) onError error.message\n\t\temitText(b)\n",
+        false,
+    )
+    .expect("non-finite truncation caught");
+    assert_eq!(
+        log,
+        [
+            "text(number is out of the integer range)",
+            "text(number is out of the integer range)"
+        ]
+    );
+}
+
+/// 15 §Conversions (2026-08-20): the non-finite spellings are OUTPUT
+/// only — string.toNumber("NaN"/"Infinity"/"-Infinity") raises RUN003
+/// as an invalid number literal; toString∘toNumber round-trips finite
+/// values only.
+#[test]
+fn non_finite_spellings_are_not_tonumber_input() {
+    let log = run(
+        "\tstring describe(string s)\n\t\tnumber n = s.toNumber()\n\t\treturn \"ok\"\n\
+         \tvoid init()\n\t\tstring a = describe(\"NaN\") onError error.message\n\t\temitText(a)\n\t\tstring b = describe(\"Infinity\") onError error.message\n\t\temitText(b)\n\t\tstring c = describe(\"-Infinity\") onError error.message\n\t\temitText(c)\n",
+        false,
+    )
+    .expect("non-finite spellings rejected");
+    assert_eq!(
+        log,
+        [
+            "text(the string is not a valid number literal)",
+            "text(the string is not a valid number literal)",
+            "text(the string is not a valid number literal)"
+        ]
+    );
+}

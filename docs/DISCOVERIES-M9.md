@@ -60,11 +60,21 @@ recursive passes behind it) therefore converts deep-but-legal input into a
   abort satisfies neither, and a library caller (LSP, --serve loop) takes
   the whole process down with it.
 
-DIA-01 forbids inventing a code locally, so this repo does **not** pin a
+DIA-01 forbids inventing a code locally, so this repo did **not** pin a
 guard; the fuzzer bounds its own generation depth (64) to stay inside
-measured-safe territory. Needs a foundation decision: a `compile_limits`
-nesting bound (with default) + a registered code + message template, or an
-explicit statement that callers own stack sizing.
+measured-safe territory.
+
+**Round-trip closed 2026-08-20** (brief
+`2026-08-20-structural-nesting-limit.md`, Done): `max-nesting-depth = 256`
+in `[compile.limits]` (07 §7.8), enforced via CONF-05 → **BLD001** — no
+new code. Implemented in `parser/parse.rs` (`parse_with_limit`): one
+chained depth across expression nodes (operator chains hold one level per
+application), INDENT levels, and generic type-argument layers; the parse
+stops descending at the first excess, `{actual}` = max + 1, primary label
+"nesting here exceeds 'max-nesting-depth'". The request document gained
+`compile_limits.max_nesting_depth` (default 256, 14 §14.1.1). The 800-deep
+input that aborted the process now rejects with BLD001; regression tests
+in `tests/parser.rs` and `tests/check_operation.rs`.
 
 ## 3. ADR-0027's tooling references vs. the 2026-08 Rust ecosystem
 
@@ -142,3 +152,25 @@ structurally (the `registry_spec` leg self-skips without the foundation
 checkout); the baseline comment in the workflow records the local
 measurement, to be superseded by the first live CI measurement once GitHub
 billing recovers.
+
+## 7. M8 §9–§10 round-trip closed (2026-08-20)
+
+Both M8 briefs are Done in foundation; landing notes:
+
+- **Runtime error wordings (M8 §9)**: everything ratified byte for byte —
+  the six RUN003 strings, the RUN013 empty fill, "host function {name}
+  failed" with `code = none`, and the IEEE boundary (number `/` never
+  raises). Verified conformant with zero code changes; three new
+  regressions in `error_lowering.rs` pin the newly-normative edges
+  (`%` by zero shares "division by zero"; `integer.MIN % -1 == 0`
+  defined, no raise; `toInteger(±Infinity)` is the out-of-range arm).
+- **toString notation (M8 §10)**: foundation ratified the pins expecting
+  no migration, but landing found the implementation (and its oracle)
+  used the exact **off-by-one** convention the normative text warns
+  about — the threshold was applied to E of the `0.d₁d₂…` form, i.e.
+  normalized −5 ≤ E ≤ 20 instead of the ratified −4 ≤ E ≤ 21. Corrected
+  in `runtime_num.rs` and the test oracle (both shifted one): `1e-5` now
+  renders scientific and `1e21` flat; anchors pinned byte-exactly in
+  `number_to_string.rs` (`notation_threshold_anchors_render_exactly`).
+  The outputs-only sub-decision was already conformant (`toNumber`
+  parses the literal grammar only) and is pinned by a new regression.
