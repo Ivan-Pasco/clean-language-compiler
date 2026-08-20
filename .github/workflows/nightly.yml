@@ -9,7 +9,7 @@
 # `-Z coverage-options=mcdc` (only block|branch|condition remain, verified
 # 2026-08-20) — so the named modules are gated on the branch floor with
 # condition instrumentation as the nearest available measure
-# (DISCOVERIES-M9 §4).
+# (DISCOVERIES-M9 §3).
 
 name: nightly
 
@@ -53,6 +53,12 @@ jobs:
           DIFFERENTIAL_FUZZ_SEED=$SEED DIFFERENTIAL_FUZZ_COUNT=1024 \
             cargo test -p clean-compiler --test differential_profiles \
             -- --nocapture
+
+      # §14.9 budgets are informative — the harness prints the table and
+      # always exits 0; regressions are read, recorded in DISCOVERIES-M9,
+      # and only then acted on.
+      - name: §14.9 perf budgets (informative)
+        run: cargo run --release -p clean-compiler --example perf_budget
 
   # Branch coverage needs the nightly toolchain (`--branch` is unstable).
   # Condition instrumentation (`-Z coverage-options=condition`) stands in

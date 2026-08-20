@@ -48,7 +48,72 @@ measured-safe territory. Needs a foundation decision: a `compile_limits`
 nesting bound (with default) + a registered code + message template, or an
 explicit statement that callers own stack sizing.
 
-## 3. Coverage baseline at M9 activation (ADR-0027 Tier 1)
+## 3. ADR-0027's tooling references vs. the 2026-08 Rust ecosystem
+
+ADR-0027 (Draft) names enforcement tools that do not exist as specified:
+
+- **MC/DC**: the cited `cargo-mcdc` is unpublished on crates.io, and rustc
+  **removed** `-Z coverage-options=mcdc` — current nightly accepts only
+  `block | branch | condition` (verified 2026-08-20; the flag errors with
+  "incorrect value `mcdc`"). MC/DC on the named modules is therefore
+  unimplementable with today's toolchain. Local stand-in (nightly.yml):
+  the named modules are gated per-module on the Tier 1 **branch** floor
+  (75 %) with `-Z coverage-options=condition` instrumentation — the
+  nearest measure the toolchain offers. The ADR should name the
+  ecosystem-endorsed equivalent (or park MC/DC until rustc's
+  implementation returns).
+- **Named-module mapping**: the ADR's Tier 1 MC/DC list ("codegen,
+  type-checker, bridge marshalling, memory management") maps onto this
+  component as `src/codegen/`, `src/typecheck/`, `src/layout.rs`; bridge
+  marshalling is clean-server's Tier 1 surface, not the compiler's.
+- **Mutation cadence**: `cargo-mutants` 27.1.0 counts 3 275 mutants over
+  this workspace — far beyond the ADR's 30–90 min nightly window in one
+  run. nightly.yml runs a rotating 1/8 shard (full set every 8 nights),
+  floor 60 % per shard; timeouts count as caught. The ADR's
+  two-consecutive-red-nights merge-block rule is noted in the workflow
+  and left to the reader of the dashboard until enough CI history exists
+  to automate it.
+- **cargo-llvm-cov**: 0.6.x cannot find object files under the build-dir
+  layout newer cargo emits; both workflows pin 0.9.0.
+
+## 4. §14.9 performance budgets — measured, all within target
+
+`cargo run --release -p clean-compiler --example perf_budget`, 2026-08-20,
+M4 Mac (darwin 25.5), suite at a34a6a2. Synthetic projects: small 978 LOC /
+4 modules, medium 18 033 LOC / 9 modules, 0 library manifests (none
+released yet). Cold = fresh process per run, median of 5; the timed span is
+the operation alone. Manifest `timings` stay zero (CMP-02); every clock
+lives in the harness.
+
+| Case | Target | Measured |
+|---|---|---|
+| compile small, debug, cold | < 500 ms | 6.9 ms |
+| compile small, release, cold | < 1 500 ms | 4.2 ms |
+| compile medium, debug, cold | < 3 000 ms | 38.7 ms |
+| compile medium, release, cold | < 10 000 ms | 36.9 ms |
+| `check` medium, cold (§14.14.4) | < 300 ms | 30.5 ms |
+| `why` medium, cold (§14.14.1) | < 100 ms | ≈ 0.03 ms (10-diagnostic set) |
+| watch rebuild medium, warm (§14.14.3) | < 500 ms | 35.9 ms |
+
+debug ≈ release across the board because pass [8] runs no optimizations
+yet (the differential suite pins that); the large size class (< 100k LOC)
+is deferred until a real project of that size exists to calibrate against.
+The §14.9 numbers move to the nightly log once CI runs (informative step,
+never red).
+
+## 5. Milestone gate status (2026-08-20)
+
+- **Blocked**: GitHub billing is still down — every job dies with 0 steps
+  (checked at 9e96d2e). The two-week green-nightly clock cannot start.
+  nightly.yml is committed and `workflow_dispatch`-able; ci.yml coverage is
+  blocking. When billing recovers: re-run the HEAD ci run, dispatch
+  nightly once by hand, and start the two-week clock from the first green
+  scheduled run.
+- Local gates green at each M9 stage: fmt + clippy -D warnings + full
+  workspace suite; 10 256 fuzz seeds and the three-profile differential
+  swept clean; budgets measured above.
+
+## 6. Coverage baseline at M9 activation (ADR-0027 Tier 1)
 
 Measured locally 2026-08-19 (`cargo llvm-cov --workspace --summary-only`,
 `CARGO_PROFILE_DEV_DEBUG=0`, macOS aarch64, suite at e71104d):
