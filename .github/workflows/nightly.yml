@@ -1,0 +1,208 @@
+# M9 nightly — the hardening jobs too slow or too unstable-toolchain for
+# per-push CI. Milestone gate: two weeks of green nightlies plus measured
+# §14.9 budgets (with GitHub billing down, the clock starts when runs
+# actually execute; see docs/DISCOVERIES-M9.md).
+#
+# ADR-0027 Tier 1 floors enforced here: branch 75%, mutation 60% (line 80%
+# blocks per-push in ci.yml). MC/DC on the named modules is blocked
+# upstream — cargo-mcdc is unpublished and rustc removed
+# `-Z coverage-options=mcdc` (only block|branch|condition remain, verified
+# 2026-08-20) — so the named modules are gated on the branch floor with
+# condition instrumentation as the nearest available measure
+# (DISCOVERIES-M9 §4).
+
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Wide grammar-fuzz and differential sweeps. The seed rotates by date so
+  # every night explores new territory; a failure log always contains the
+  # seed, which reproduces the exact program on any machine.
+  fuzz-differential:
+    name: grammar fuzz + differential (wide)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: wide grammar fuzz (20k programs)
+        run: |
+          set -euo pipefail
+          SEED=$(date -u +%Y%m%d)
+          echo "grammar fuzz seed base: $SEED"
+          GRAMMAR_FUZZ_SEED=$SEED GRAMMAR_FUZZ_COUNT=20000 \
+            cargo test -p clean-compiler --test grammar_fuzz \
+            generated_programs_never_ice -- --nocapture
+
+      - name: wide differential debug/release/size (1k programs)
+        run: |
+          set -euo pipefail
+          SEED=$(date -u +%Y%m%d)
+          DIFFERENTIAL_FUZZ_SEED=$SEED DIFFERENTIAL_FUZZ_COUNT=1024 \
+            cargo test -p clean-compiler --test differential_profiles \
+            -- --nocapture
+
+  # Branch coverage needs the nightly toolchain (`--branch` is unstable).
+  # Condition instrumentation (`-Z coverage-options=condition`) stands in
+  # for MC/DC on the ADR-0027 named modules, mapped to this repo as:
+  # codegen -> src/codegen/, type-checker -> src/typecheck/,
+  # memory management -> src/layout.rs (§03 memory model layouts; bridge
+  # marshalling lives in clean-server, not this component).
+  branch-coverage:
+    name: branch coverage (ADR-0027 Tier 1, blocking)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      RUSTFLAGS: "-Z coverage-options=condition"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: free runner disk
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
+      - name: install rust nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - name: cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: install cargo-llvm-cov and wasm-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          CV=0.9.0
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/llvm-cov.tar.gz \
+            "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v${CV}/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/llvm-cov.tar.gz -C "$HOME/.cargo/bin"
+          V=1.252.0
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/wasm-tools.tar.gz \
+            "https://github.com/bytecodealliance/wasm-tools/releases/download/v${V}/wasm-tools-${V}-x86_64-linux.tar.gz"
+          tar -xzf /tmp/wasm-tools.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/wasm-tools-${V}-x86_64-linux/wasm-tools" /usr/local/bin/wasm-tools
+          cargo llvm-cov --version && wasm-tools --version
+
+      - name: measure branch coverage (workspace)
+        run: cargo llvm-cov --branch --workspace --summary-only --fail-under-lines 80
+
+      - name: enforce branch floor 75% + named-module floors
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo llvm-cov report --json > /tmp/coverage.json
+          python3 - <<'PY'
+          import json, sys
+
+          data = json.load(open("/tmp/coverage.json"))["data"][0]
+
+          pct = data["totals"]["branches"]["percent"]
+          print(f"workspace branch coverage: {pct:.2f}% (floor 75)")
+          failed = pct < 75.0
+
+          # ADR-0027 named modules, gated per-module on the branch floor
+          # with condition instrumentation (MC/DC stand-in).
+          named = {
+              "codegen": "crates/clean-compiler/src/codegen/",
+              "type-checker": "crates/clean-compiler/src/typecheck/",
+              "memory management": "crates/clean-compiler/src/layout.rs",
+          }
+          for label, fragment in named.items():
+              count = covered = 0
+              for f in data["files"]:
+                  if fragment in f["filename"]:
+                      count += f["summary"]["branches"]["count"]
+                      covered += f["summary"]["branches"]["covered"]
+              if count == 0:
+                  print(f"named module {label}: NO FILES MATCHED — path drifted?")
+                  failed = True
+                  continue
+              module_pct = 100.0 * covered / count
+              print(f"named module {label}: {module_pct:.2f}% branch ({covered}/{count}, floor 75)")
+              if module_pct < 75.0:
+                  failed = True
+
+          sys.exit(1 if failed else 0)
+          PY
+
+  # Mutation score, ADR-0027 Tier 1 floor 60%. A rotating 1/8 shard keeps
+  # the job inside the nightly window; the whole mutant set is visited
+  # every eight nights. Per ADR-0027, a red night here does not block
+  # merges by itself — merges block after the floor is missed on two
+  # consecutive nightly runs (checked by the humans reading the dashboard
+  # until CI history exists to automate it).
+  mutation:
+    name: mutation score (ADR-0027 Tier 1, floor 60%)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: free runner disk
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: install cargo-mutants and wasm-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          MV=27.1.0
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/mutants.tar.gz \
+            "https://github.com/sourcefrog/cargo-mutants/releases/download/v${MV}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/mutants.tar.gz -C "$HOME/.cargo/bin" cargo-mutants
+          V=1.252.0
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/wasm-tools.tar.gz \
+            "https://github.com/bytecodealliance/wasm-tools/releases/download/v${V}/wasm-tools-${V}-x86_64-linux.tar.gz"
+          tar -xzf /tmp/wasm-tools.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/wasm-tools-${V}-x86_64-linux/wasm-tools" /usr/local/bin/wasm-tools
+          cargo mutants --version && wasm-tools --version
+
+      - name: run rotating mutation shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHARD=$(( $(date -u +%j) % 8 ))
+          echo "running shard ${SHARD}/8"
+          # Non-zero exit just means missed mutants exist; the floor check
+          # below decides pass/fail.
+          cargo mutants --workspace --shard "${SHARD}/8" --timeout-multiplier 2 || true
+
+      - name: enforce mutation floor 60%
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, sys
+
+          outcomes = json.load(open("mutants.out/outcomes.json"))
+          caught = outcomes.get("caught", 0)
+          missed = outcomes.get("missed", 0)
+          timeout = outcomes.get("timeout", 0)
+          viable = caught + missed + timeout
+          if viable == 0:
+              print("no viable mutants in this shard")
+              sys.exit(0)
+          # Timeouts count as caught: the mutant broke the suite's ability
+          # to finish, which a real bug of that shape would too.
+          score = 100.0 * (caught + timeout) / viable
+          print(f"mutation score: {score:.2f}% ({caught} caught + {timeout} timeout / {viable} viable, floor 60)")
+          sys.exit(1 if score < 60.0 else 0)
+          PY

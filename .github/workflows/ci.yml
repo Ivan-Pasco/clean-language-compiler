@@ -65,13 +65,15 @@ jobs:
           cargo test -p clean-compiler-types --test registry --test registry_spec -- --nocapture
           cargo test -p clean-compiler --test emitted_codes --test diagnostics_fixtures -- --nocapture
 
-  # ADR-0027 coverage floors: measured from M4, blocking from M9. Until M9
-  # this job only prints the line summary — no threshold, so it fails only
-  # if the suite itself fails (which the test job already gates). Branch
-  # coverage needs nightly (`-Z coverage-options=branch`) and joins the M9
-  # nightly job alongside mutation scoring.
+  # ADR-0027 Tier 1, blocking since M9: the build FAILS below the 80% line
+  # floor. Branch (75%) and mutation (60%) floors run in nightly.yml, where
+  # the nightly toolchain and the long mutation runs live.
+  # baseline 87.73% line measured 2026-08-19 (local, macOS, suite at
+  # e71104d; the registry_spec leg self-skips in CI so the CI number reads
+  # slightly lower) — target 80% line per ADR-0027 Tier 1. Ratchet: when a
+  # live CI measurement lands above 80, raise --fail-under-lines to it.
   coverage:
-    name: coverage (measured, non-blocking until M9)
+    name: coverage (ADR-0027 Tier 1, blocking)
     runs-on: ubuntu-latest
     env:
       # M5 made wasmtime a production dependency, so every instrumented
@@ -99,7 +101,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CV=0.6.16
+          # 0.9.0: 0.6.x cannot find object files under the build-dir
+          # layout newer cargo emits (seen locally on nightly 2026-08).
+          CV=0.9.0
           curl -fsSL --retry 5 --retry-all-errors -o /tmp/llvm-cov.tar.gz \
             "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v${CV}/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/llvm-cov.tar.gz -C "$HOME/.cargo/bin"
@@ -110,8 +114,8 @@ jobs:
           sudo install -m 0755 "/tmp/wasm-tools-${V}-x86_64-linux/wasm-tools" /usr/local/bin/wasm-tools
           cargo llvm-cov --version && wasm-tools --version
 
-      - name: measure line coverage
-        run: cargo llvm-cov --workspace --summary-only
+      - name: line coverage (blocking, ADR-0027 Tier 1 floor)
+        run: cargo llvm-cov --workspace --summary-only --fail-under-lines 80
 
       # M3 snapshot-drift gate — the per-chapter spec suite and the smoke
       # corpus classification must match their committed snapshots (insta
