@@ -443,3 +443,43 @@ fn to_number_is_correctly_rounded() {
         ]
     );
 }
+
+/// The literal grammar's exponent form (LEX §NumberLiteral): toNumber
+/// accepts `digits e digits`, the dotted form, a signed exponent, and the
+/// leading-dot form; overflow saturates to infinity, underflow to zero.
+#[test]
+fn string_to_number_parses_exponents() {
+    let log = run("\t\temitNum(\"6.02e23\".toNumber())
+\t\temitNum(\"6e23\".toNumber())
+\t\temitNum(\"1.5E2\".toNumber())
+\t\temitNum(\"2e-3\".toNumber())
+\t\temitNum(\"2e+3\".toNumber())
+\t\temitNum(\".5e2\".toNumber())
+\t\temitNum(0.0 - \"1.25e1\".toNumber())
+\t\temitNum(\"1e999\".toNumber())
+\t\temitNum(\"1e-999\".toNumber())
+");
+    assert_eq!(
+        log,
+        [
+            Logged::Num(6.02e23),
+            Logged::Num(6e23),
+            Logged::Num(150.0),
+            Logged::Num(0.002),
+            Logged::Num(2000.0),
+            Logged::Num(50.0),
+            Logged::Num(-12.5),
+            Logged::Num(f64::INFINITY),
+            Logged::Num(0.0),
+        ]
+    );
+}
+
+/// Malformed exponents raise RUN003 — bare `e`, digitless tails, and the
+/// LEX-06 "digit required after the dot" rule combined with an exponent.
+#[test]
+fn malformed_exponents_raise_run003() {
+    for bad in ["1e", "1e+", "1e-", "3.e2", "1e2x", "e5"] {
+        run_expecting_trap(&format!("\t\temitNum(\"{bad}\".toNumber())\n"));
+    }
+}

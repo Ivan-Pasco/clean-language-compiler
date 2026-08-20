@@ -825,7 +825,8 @@ fn str_to_int(msgs: RaiseMsgs) -> MirFunction {
 
 /// Params: s@0. Locals: len@1, i@2, c@3, m@4 (i64 mantissa), digits@5,
 /// exp10@6, truncated@7, neg@8, seen@9, f@10 (f64), p@11 (f64),
-/// step@12. Grammar: `[+-]? digits* ('.' digits+)?` with at least one
+/// step@12, esign@13. Grammar: `[+-]? digits* ('.' digits+)?
+/// (('e'|'E') [+-] digits)?` with at least one
 /// digit; anything else raises RUN003, catchable (13 §ERH-03).
 ///
 /// Rounding (bbdf483: correctly rounded, roundTiesToEven): up to 19
@@ -1064,6 +1065,173 @@ fn str_to_num(msgs: RaiseMsgs) -> MirFunction {
         Br(0),
     ];
 
+    // Everything after the integer digits: optional fraction, optional
+    // exponent (the literal grammar's `Exponent` — `("e"|"E") [sign]
+    // digits`), then end-of-input. Runs inside one labeled block so the
+    // two "nothing follows" points can jump straight out.
+    let mut dotted_tail = Vec::new();
+    {
+        let out = &mut dotted_tail;
+        out.push(LocalGet(2));
+        out.push(LocalGet(1));
+        out.push(I32Cmp(CmpOp::Eq));
+        out.push(BrIf(0));
+        // Fraction: '.' must be followed by at least one digit (LEX-06 —
+        // "3." and "3.e2" are not number literals).
+        read_c(out);
+        out.push(LocalGet(3));
+        out.push(I32Const('.' as i32));
+        out.push(I32Cmp(CmpOp::Eq));
+        let mut frac = Vec::new();
+        {
+            let out = &mut frac;
+            out.push(LocalGet(2));
+            out.push(I32Const(1));
+            out.push(I32Bin(I32Op::Add));
+            out.push(LocalSet(2));
+            out.push(LocalGet(2));
+            out.push(LocalGet(1));
+            out.push(I32Cmp(CmpOp::Eq));
+            out.push(If {
+                result: None,
+                then: raise(),
+                els: vec![],
+            });
+            read_c(out);
+            is_digit(out);
+            out.push(I32Eqz);
+            out.push(If {
+                result: None,
+                then: raise(),
+                els: vec![],
+            });
+            out.push(Block {
+                body: vec![Loop { body: frac_loop }],
+            });
+        }
+        out.push(If {
+            result: None,
+            then: frac,
+            els: vec![],
+        });
+        out.push(LocalGet(2));
+        out.push(LocalGet(1));
+        out.push(I32Cmp(CmpOp::Eq));
+        out.push(BrIf(0));
+        // Exponent: anything left must be `("e"|"E") [sign] digits`.
+        read_c(out);
+        out.push(LocalGet(3));
+        out.push(I32Const('e' as i32));
+        out.push(I32Cmp(CmpOp::Ne));
+        out.push(LocalGet(3));
+        out.push(I32Const('E' as i32));
+        out.push(I32Cmp(CmpOp::Ne));
+        out.push(I32Bin(I32Op::And));
+        out.push(If {
+            result: None,
+            then: raise(),
+            els: vec![],
+        });
+        out.push(LocalGet(2));
+        out.push(I32Const(1));
+        out.push(I32Bin(I32Op::Add));
+        out.push(LocalSet(2));
+        out.push(LocalGet(2));
+        out.push(LocalGet(1));
+        out.push(I32Cmp(CmpOp::Eq));
+        out.push(If {
+            result: None,
+            then: raise(),
+            els: vec![],
+        });
+        read_c(out);
+        out.push(LocalGet(3));
+        out.push(I32Const('-' as i32));
+        out.push(I32Cmp(CmpOp::Eq));
+        out.push(If {
+            result: None,
+            then: vec![
+                I32Const(1),
+                LocalSet(13),
+                LocalGet(2),
+                I32Const(1),
+                I32Bin(I32Op::Add),
+                LocalSet(2),
+            ],
+            els: vec![
+                LocalGet(3),
+                I32Const('+' as i32),
+                I32Cmp(CmpOp::Eq),
+                If {
+                    result: None,
+                    then: vec![LocalGet(2), I32Const(1), I32Bin(I32Op::Add), LocalSet(2)],
+                    els: vec![],
+                },
+            ],
+        });
+        out.push(LocalGet(2));
+        out.push(LocalGet(1));
+        out.push(I32Cmp(CmpOp::Eq));
+        out.push(If {
+            result: None,
+            then: raise(),
+            els: vec![],
+        });
+        // eacc digits, clamped far past the f64 range so overflow and
+        // underflow saturate to infinity / zero without i32 wraparound.
+        out.push(I32Const(0));
+        out.push(LocalSet(12));
+        let mut exp_loop = Vec::new();
+        {
+            let out = &mut exp_loop;
+            out.push(LocalGet(2));
+            out.push(LocalGet(1));
+            out.push(I32Cmp(CmpOp::Eq));
+            out.push(BrIf(1));
+            read_c(out);
+            is_digit(out);
+            out.push(I32Eqz);
+            out.push(If {
+                result: None,
+                then: raise(),
+                els: vec![],
+            });
+            out.push(LocalGet(12));
+            out.push(I32Const(10));
+            out.push(I32Bin(I32Op::Mul));
+            out.push(LocalGet(3));
+            out.push(I32Const('0' as i32));
+            out.push(I32Bin(I32Op::Sub));
+            out.push(I32Bin(I32Op::Add));
+            out.push(LocalSet(12));
+            out.push(LocalGet(12));
+            out.push(I32Const(400_000));
+            out.push(I32Cmp(CmpOp::GtS));
+            out.push(If {
+                result: None,
+                then: vec![I32Const(400_000), LocalSet(12)],
+                els: vec![],
+            });
+            out.push(LocalGet(2));
+            out.push(I32Const(1));
+            out.push(I32Bin(I32Op::Add));
+            out.push(LocalSet(2));
+            out.push(Br(0));
+        }
+        out.push(Block {
+            body: vec![Loop { body: exp_loop }],
+        });
+        out.push(LocalGet(6));
+        out.push(LocalGet(13));
+        out.push(If {
+            result: Some(Val::I32),
+            then: vec![I32Const(0), LocalGet(12), I32Bin(I32Op::Sub)],
+            els: vec![LocalGet(12)],
+        });
+        out.push(I32Bin(I32Op::Add));
+        out.push(LocalSet(6));
+    }
+
     let mut body = vec![
         LocalGet(0),
         I32Load(0),
@@ -1099,51 +1267,7 @@ fn str_to_num(msgs: RaiseMsgs) -> MirFunction {
         Block {
             body: vec![Loop { body: int_loop }],
         },
-        // optional fraction
-        LocalGet(2),
-        LocalGet(1),
-        I32Cmp(CmpOp::Ne),
-        If {
-            result: None,
-            then: vec![
-                LocalGet(0),
-                LocalGet(2),
-                I32Bin(I32Op::Add),
-                I32Load8U(4),
-                I32Const('.' as i32),
-                I32Cmp(CmpOp::Ne),
-                If {
-                    result: None,
-                    then: raise(),
-                    els: vec![],
-                },
-                LocalGet(2),
-                I32Const(1),
-                I32Bin(I32Op::Add),
-                LocalSet(2),
-                // a trailing dot is not a literal
-                LocalGet(2),
-                LocalGet(1),
-                I32Cmp(CmpOp::Eq),
-                If {
-                    result: None,
-                    then: raise(),
-                    els: vec![],
-                },
-                Block {
-                    body: vec![Loop { body: frac_loop }],
-                },
-                LocalGet(2),
-                LocalGet(1),
-                I32Cmp(CmpOp::Ne),
-                If {
-                    result: None,
-                    then: raise(),
-                    els: vec![],
-                },
-            ],
-            els: vec![],
-        },
+        Block { body: dotted_tail },
         LocalGet(9),
         I32Eqz,
         If {
@@ -1244,6 +1368,8 @@ fn str_to_num(msgs: RaiseMsgs) -> MirFunction {
             Val::I32,
             Val::F64,
             Val::F64,
+            Val::I32,
+            // esign@13 — the exponent's sign.
             Val::I32,
         ],
         body,
