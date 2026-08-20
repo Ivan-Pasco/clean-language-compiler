@@ -670,7 +670,7 @@ pub fn lower(
             );
             continue;
         };
-        let base = crate::layout::HEAP_PTR_GLOBAL + 1 + state_globals.len() as u32;
+        let base = crate::layout::FIRST_STATE_GLOBAL + state_globals.len() as u32;
         states.insert((var.module, var.name.clone()), (base, var.ty.clone()));
         state_globals.extend(vals.iter().copied().zip(inits));
     }
@@ -684,10 +684,15 @@ pub fn lower(
             )
         })
         .collect();
+    let raise_msgs = runtime::RaiseMsgs {
+        run003_code: data.intern_string("RUN003") as i32,
+        not_an_integer: data.intern_string("the string is not a valid integer literal") as i32,
+        not_a_number: data.intern_string("the string is not a valid number literal") as i32,
+    };
     MirProgram {
         imports,
         functions,
-        runtime: runtime::build(tier),
+        runtime: runtime::build(tier, raise_msgs),
         data: data.blob,
         tier,
         state_globals,
@@ -1018,6 +1023,9 @@ fn lower_function(
         label_depth: 0,
         loops: Vec::new(),
         tags,
+        ret_vals: results.clone(),
+        handlers: Vec::new(),
+        error_bindings: Vec::new(),
     };
     if let Some(first) = function.before.first().or(function.after.first()) {
         sink.note_unsupported(
@@ -1071,6 +1079,18 @@ struct FnLowerer<'a> {
     loops: Vec<LoopCtx>,
     /// Program-wide element-type tags for list headers.
     tags: &'a mut TagRegistry,
+    /// The function's flattened result slots, for the dummy values a
+    /// propagating failure returns with (13 §ERH: the flag stays set, the
+    /// caller checks).
+    ret_vals: Vec<Val>,
+    /// Innermost-last absolute label indices of the active `onError`
+    /// raised-path blocks: a raise or a propagating callee failure
+    /// branches to the innermost one, or returns when none is active.
+    handlers: Vec<u32>,
+    /// Innermost-last `(message, code)` scratch slots holding the caught
+    /// failure while its handler runs — the `error` binding (ERH-04) reads
+    /// these, so a nested catch cannot clobber an outer binding.
+    error_bindings: Vec<(u32, u32)>,
 }
 
 /// Absolute label indices (count of enclosing labels *outside* the target)
@@ -1229,11 +1249,17 @@ impl<'a> FnLowerer<'a> {
         out.push(Inst::I64ExtendI32U);
         out.push(Inst::I64Cmp(CmpOp::LtU));
         out.push(Inst::I32Eqz);
-        out.push(Inst::If {
-            result: None,
-            then: vec![Inst::Unreachable],
-            els: vec![],
-        });
+        // Out of range raises RUN013 (ERH-03 family), catchable.
+        self.emit_raise_run013_if(
+            "list",
+            idx64,
+            vec![
+                Inst::LocalGet(base),
+                Inst::I32Load(crate::layout::LIST_LEN_OFFSET),
+                Inst::I64ExtendI32U,
+            ],
+            out,
+        );
         out.push(Inst::LocalGet(base));
         out.push(Inst::LocalGet(idx64));
         out.push(Inst::I32WrapI64);
@@ -1258,11 +1284,13 @@ impl<'a> FnLowerer<'a> {
         out.push(Inst::LocalTee(base));
         out.push(Inst::I32Load(crate::layout::LIST_LEN_OFFSET));
         out.push(Inst::I32Eqz);
-        out.push(Inst::If {
-            result: None,
-            then: vec![Inst::Unreachable],
-            els: vec![],
-        });
+        // An empty collection has no first/last element: RUN013,
+        // catchable, with the template's fields both zero.
+        self.emit_raise_if(
+            "RUN013",
+            "Index 0 is out of range for a list of length 0",
+            out,
+        );
         base
     }
 
@@ -1560,6 +1588,118 @@ impl<'a> FnLowerer<'a> {
         self.next_slot += vals.len() as u32;
         self.scratch.extend_from_slice(vals);
         base
+    }
+
+    /// One dummy per result slot — the values a propagating failure
+    /// returns with (never observed: the caller checks the flag first).
+    fn emit_ret_dummies(&self, out: &mut Vec<Inst>) {
+        for val in &self.ret_vals {
+            out.push(match val {
+                Val::I32 => Inst::I32Const(0),
+                Val::I64 => Inst::I64Const(0),
+                Val::F64 => Inst::F64Const(0.0),
+            });
+        }
+    }
+
+    /// Unconditional unwind of a raised failure: branch to the innermost
+    /// `onError` raised path, or leave the function with the flag still
+    /// set for the caller's check (13 §ERH-02/05).
+    fn emit_unwind(&mut self, out: &mut Vec<Inst>) {
+        match self.handlers.last() {
+            Some(&raised_abs) => out.push(Inst::Br(self.label_depth - 1 - raised_abs)),
+            None => {
+                self.emit_ret_dummies(out);
+                out.push(Inst::Return);
+            }
+        }
+    }
+
+    /// Raise (13 §ERH-01/03) with `error.message` already on the stack:
+    /// store message and code, set the flag, unwind. `code` is the
+    /// registered runtime code, or `None` for a program's own `error(...)`.
+    fn emit_raise_with_message_on_stack(&mut self, code: Option<&str>, out: &mut Vec<Inst>) {
+        out.push(Inst::GlobalSet(crate::layout::ERR_MSG_GLOBAL));
+        let code_base = code.map_or(0, |c| self.data.intern_string(c) as i32);
+        out.push(Inst::I32Const(code_base));
+        out.push(Inst::GlobalSet(crate::layout::ERR_CODE_GLOBAL));
+        out.push(Inst::I32Const(1));
+        out.push(Inst::GlobalSet(crate::layout::ERR_FLAG_GLOBAL));
+        self.emit_unwind(out);
+    }
+
+    /// Conditional raise: with an i32 condition on the stack, raise the
+    /// registered runtime code with a static message when it is true.
+    /// The message wordings are local pinnings — Platform 10 defines no
+    /// runtime-message templates for the RUN003 family (DISCOVERIES-M8).
+    fn emit_raise_if(&mut self, code: &str, message: &str, out: &mut Vec<Inst>) {
+        let msg = self.data.intern_string(message) as i32;
+        let mut then = Vec::new();
+        // The If arm is a labeled block; the unwind branch accounts for it.
+        self.label_depth += 1;
+        then.push(Inst::I32Const(msg));
+        self.emit_raise_with_message_on_stack(Some(code), &mut then);
+        self.label_depth -= 1;
+        out.push(Inst::If {
+            result: None,
+            then,
+            els: vec![],
+        });
+    }
+
+    /// Conditional RUN013 raise with the Platform 10 template — "Index
+    /// {index} is out of range for a {kind} of length {length}" — built at
+    /// raise time from the index slot and the length instructions (both
+    /// i64). The i32 condition is already on the stack.
+    fn emit_raise_run013_if(
+        &mut self,
+        kind: &str,
+        idx64: u32,
+        len_insts: Vec<Inst>,
+        out: &mut Vec<Inst>,
+    ) {
+        let head = self.data.intern_string("Index ") as i32;
+        let mid = self
+            .data
+            .intern_string(&format!(" is out of range for a {kind} of length "))
+            as i32;
+        let mut then = Vec::new();
+        self.label_depth += 1;
+        then.push(Inst::I32Const(head));
+        then.push(Inst::LocalGet(idx64));
+        then.push(Inst::CallRuntime(runtime::RuntimeFn::IntToString));
+        then.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat));
+        then.push(Inst::I32Const(mid));
+        then.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat));
+        then.extend(len_insts);
+        then.push(Inst::CallRuntime(runtime::RuntimeFn::IntToString));
+        then.push(Inst::CallRuntime(runtime::RuntimeFn::StringConcat));
+        self.emit_raise_with_message_on_stack(Some("RUN013"), &mut then);
+        self.label_depth -= 1;
+        out.push(Inst::If {
+            result: None,
+            then,
+            els: vec![],
+        });
+    }
+
+    /// After any call that can raise: if the flag is set, propagate — to
+    /// the innermost handler, or out of the function.
+    fn emit_propagate_check(&mut self, out: &mut Vec<Inst>) {
+        out.push(Inst::GlobalGet(crate::layout::ERR_FLAG_GLOBAL));
+        match self.handlers.last() {
+            Some(&raised_abs) => out.push(Inst::BrIf(self.label_depth - 1 - raised_abs)),
+            None => {
+                let mut then = Vec::new();
+                self.emit_ret_dummies(&mut then);
+                then.push(Inst::Return);
+                out.push(Inst::If {
+                    result: None,
+                    then,
+                    els: vec![],
+                });
+            }
+        }
     }
 
     fn note(
@@ -2054,6 +2194,9 @@ impl<'a> FnLowerer<'a> {
                     self.expr(arg, out, sink);
                 }
                 out.push(Inst::Call(*func as u32));
+                // Any user function can raise (ERH-01); propagate a set
+                // flag before the result is used.
+                self.emit_propagate_check(out);
             }
             HExprKind::Binary { op, lhs, rhs } => self.binary(*op, lhs, rhs, expr, out, sink),
             HExprKind::Unary { op, operand } => match op {
@@ -2208,8 +2351,98 @@ impl<'a> FnLowerer<'a> {
             {
                 self.expr(value, out, sink);
             }
-            HExprKind::Raise(_) | HExprKind::OnError { .. } | HExprKind::ErrorBinding => {
-                self.note(sink, "error handling in compiled code", expr.span)
+            // `error(message)` (ERH-01): a signal, not a value — store the
+            // message, no code (a program's own failure carries none),
+            // set the flag, unwind.
+            HExprKind::Raise(message) => {
+                self.expr(message, out, sink);
+                self.emit_raise_with_message_on_stack(None, out);
+            }
+            // General `onError` (ERH-02): run the protected expression
+            // with a raised-path landing block armed; a raise inside it —
+            // or inside anything it calls — lands in the fallback with
+            // the failure bound to `error`.
+            HExprKind::OnError { value, fallback } => {
+                let Some(result_vals) = val_types(&expr.ty) else {
+                    self.note(sink, "onError over this value type", expr.span);
+                    return;
+                };
+                let result_base = self.alloc_scratch(&result_vals);
+                let base = self.label_depth;
+
+                // Inner block: the protected expression; success stores
+                // the value and jumps past the raised path.
+                let mut inner = Vec::new();
+                self.label_depth += 2;
+                self.handlers.push(base + 1);
+                self.expr(value, &mut inner, sink);
+                self.handlers.pop();
+                for offset in (0..result_vals.len() as u32).rev() {
+                    inner.push(Inst::LocalSet(result_base + offset));
+                }
+                inner.push(Inst::Br(1));
+                self.label_depth -= 2;
+
+                // Raised path: copy the failure into locals (so a nested
+                // catch cannot clobber the binding — ERH-04), clear the
+                // flag, run the fallback.
+                let msg_slot = self.alloc_scratch(&[Val::I32]);
+                let code_slot = self.alloc_scratch(&[Val::I32]);
+                let mut raised = vec![
+                    Inst::GlobalGet(crate::layout::ERR_MSG_GLOBAL),
+                    Inst::LocalSet(msg_slot),
+                    Inst::GlobalGet(crate::layout::ERR_CODE_GLOBAL),
+                    Inst::LocalSet(code_slot),
+                    Inst::I32Const(0),
+                    Inst::GlobalSet(crate::layout::ERR_FLAG_GLOBAL),
+                ];
+                self.label_depth += 1;
+                self.error_bindings.push((msg_slot, code_slot));
+                self.expr(fallback, &mut raised, sink);
+                self.error_bindings.pop();
+                self.label_depth -= 1;
+                for offset in (0..result_vals.len() as u32).rev() {
+                    raised.push(Inst::LocalSet(result_base + offset));
+                }
+
+                let mut outer = vec![Inst::Block { body: inner }];
+                outer.extend(raised);
+                out.push(Inst::Block { body: outer });
+                for offset in 0..result_vals.len() as u32 {
+                    out.push(Inst::LocalGet(result_base + offset));
+                }
+            }
+            // The `error` binding (ERH-04), as the flattened Error record:
+            // [message, code disc, code payload].
+            HExprKind::ErrorBinding => {
+                let Some((msg_slot, code_slot)) = self.error_bindings.last().copied() else {
+                    self.note(sink, "the error binding outside a handler", expr.span);
+                    return;
+                };
+                out.push(Inst::LocalGet(msg_slot));
+                out.push(Inst::LocalGet(code_slot));
+                out.push(Inst::I32Const(0));
+                out.push(Inst::I32Cmp(CmpOp::Ne));
+                out.push(Inst::LocalGet(code_slot));
+            }
+            // `error.message` / `error.code` — the two fields of the
+            // built-in Error record, read from the binding's locals.
+            HExprKind::GetRecordField { recv, field }
+                if matches!(recv.kind, HExprKind::ErrorBinding) =>
+            {
+                let Some((msg_slot, code_slot)) = self.error_bindings.last().copied() else {
+                    self.note(sink, "the error binding outside a handler", expr.span);
+                    return;
+                };
+                match field {
+                    0 => out.push(Inst::LocalGet(msg_slot)),
+                    _ => {
+                        out.push(Inst::LocalGet(code_slot));
+                        out.push(Inst::I32Const(0));
+                        out.push(Inst::I32Cmp(CmpOp::Ne));
+                        out.push(Inst::LocalGet(code_slot));
+                    }
+                }
             }
             HExprKind::GetRecordField { .. } => {
                 self.note(sink, "record field access in compiled code", expr.span)
@@ -2243,10 +2476,24 @@ impl<'a> FnLowerer<'a> {
                         self.expr(operand, out, sink);
                         out.push(Inst::F64ConvertI32S);
                     }
-                    // Truncate toward zero; NaN or out-of-range traps
-                    // (RUN003 family until error lowering).
+                    // Truncate toward zero; NaN or out-of-range raises
+                    // RUN003 (ERH-03) — the wasm trunc would trap.
                     (Ty::Number, Ty::Integer) => {
                         self.expr(operand, out, sink);
+                        let f = self.alloc_scratch(&[Val::F64]);
+                        out.push(Inst::LocalTee(f));
+                        out.push(Inst::LocalGet(f));
+                        out.push(Inst::F64Cmp(CmpOp::Ne));
+                        self.emit_raise_if("RUN003", "cannot convert NaN to integer", out);
+                        out.push(Inst::LocalGet(f));
+                        out.push(Inst::F64Const(9_223_372_036_854_775_808.0));
+                        out.push(Inst::F64Cmp(CmpOp::GeS));
+                        out.push(Inst::LocalGet(f));
+                        out.push(Inst::F64Const(-9_223_372_036_854_775_808.0));
+                        out.push(Inst::F64Cmp(CmpOp::LtS));
+                        out.push(Inst::I32Bin(I32Op::Or));
+                        self.emit_raise_if("RUN003", "number is out of the integer range", out);
+                        out.push(Inst::LocalGet(f));
                         out.push(Inst::I64TruncF64S);
                     }
                     (Ty::Boolean | Ty::IntegerW(_), Ty::Integer) => {
@@ -2282,14 +2529,17 @@ impl<'a> FnLowerer<'a> {
                             els: vec![Inst::I32Const(f as i32)],
                         });
                     }
-                    // Parses; non-literals trap (RUN003 family).
+                    // Parses; a non-literal raises RUN003 inside the
+                    // runtime helper — propagate it here (ERH-03).
                     (Ty::Str, Ty::Integer) => {
                         self.expr(operand, out, sink);
                         out.push(Inst::CallRuntime(runtime::RuntimeFn::StrToInt));
+                        self.emit_propagate_check(out);
                     }
                     (Ty::Str, Ty::Number) => {
                         self.expr(operand, out, sink);
                         out.push(Inst::CallRuntime(runtime::RuntimeFn::StrToNum));
+                        self.emit_propagate_check(out);
                     }
                     // number.toString needs a formatting contract the spec
                     // does not state (shortest round-trip vs fixed) —
@@ -2343,6 +2593,39 @@ impl<'a> FnLowerer<'a> {
                         ));
                         return;
                     }
+                    // Code-point index out of range raises RUN013
+                    // (catchable) before the runtime helper runs — the
+                    // helper's own guard would trap instead.
+                    StdFn::StrCharAt | StdFn::StrCharCodeAt => {
+                        let s_slot = self.alloc_scratch(&[Val::I32]);
+                        let i_slot = self.alloc_scratch(&[Val::I64]);
+                        self.expr(&args[0], out, sink);
+                        out.push(Inst::LocalSet(s_slot));
+                        self.expr(&args[1], out, sink);
+                        out.push(Inst::LocalSet(i_slot));
+                        out.push(Inst::LocalGet(i_slot));
+                        out.push(Inst::LocalGet(s_slot));
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrCpLen));
+                        out.push(Inst::I64Cmp(CmpOp::LtU));
+                        out.push(Inst::I32Eqz);
+                        self.emit_raise_run013_if(
+                            "string",
+                            i_slot,
+                            vec![
+                                Inst::LocalGet(s_slot),
+                                Inst::CallRuntime(runtime::RuntimeFn::StrCpLen),
+                            ],
+                            out,
+                        );
+                        out.push(Inst::LocalGet(s_slot));
+                        out.push(Inst::LocalGet(i_slot));
+                        out.push(Inst::CallRuntime(if matches!(func, StdFn::StrCharAt) {
+                            runtime::RuntimeFn::StrCharAt
+                        } else {
+                            runtime::RuntimeFn::StrCharCodeAt
+                        }));
+                        return;
+                    }
                     _ => {}
                 }
                 for arg in args {
@@ -2373,10 +2656,6 @@ impl<'a> FnLowerer<'a> {
                     }
                     StdFn::StrEndsWith => {
                         out.push(Inst::CallRuntime(runtime::RuntimeFn::StrEndsWith))
-                    }
-                    StdFn::StrCharAt => out.push(Inst::CallRuntime(runtime::RuntimeFn::StrCharAt)),
-                    StdFn::StrCharCodeAt => {
-                        out.push(Inst::CallRuntime(runtime::RuntimeFn::StrCharCodeAt))
                     }
                     StdFn::StrSubstring => {
                         out.push(Inst::CallRuntime(runtime::RuntimeFn::StrSubstring))
@@ -2565,23 +2844,47 @@ impl<'a> FnLowerer<'a> {
         };
         let result_val = val_types(&ok_ty).and_then(|v| v.first().copied());
 
+        // The host's error payload never surfaces to the program (LBS
+        // §8.3): the binding a handler sees carries a generic message and
+        // no code — local wording, DISCOVERIES-M8.
+        let host_failure_msg = self.data.intern_string(&format!(
+            "host function `{}` failed",
+            self.program.host_imports[import].clean_name
+        )) as i32;
+
         out.push(Inst::RetAreaPtr);
         out.push(Inst::I32Load8U(0));
         match fallback {
             None => {
-                // Error arm: trap (RUN018's unhandled-error shape until
-                // error lowering — DISCOVERIES-M6).
+                // Error arm: raise through the ordinary chapter-13 path
+                // (LBS §8.3) — unhandled at the top it is RUN018.
+                let mut err_arm = Vec::new();
+                self.label_depth += 1;
+                err_arm.push(Inst::I32Const(host_failure_msg));
+                self.emit_raise_with_message_on_stack(None, &mut err_arm);
+                self.label_depth -= 1;
                 out.push(Inst::If {
                     result: None,
-                    then: vec![Inst::Unreachable],
+                    then: err_arm,
                     els: vec![],
                 });
                 out.extend(ok_loads);
             }
             Some(fb) => {
-                let mut err_arm = Vec::new();
+                // Direct branch — no flag round-trip — but the handler
+                // still binds `error` (ERH-04), with the generic message.
+                let msg_slot = self.alloc_scratch(&[Val::I32]);
+                let code_slot = self.alloc_scratch(&[Val::I32]);
+                let mut err_arm = vec![
+                    Inst::I32Const(host_failure_msg),
+                    Inst::LocalSet(msg_slot),
+                    Inst::I32Const(0),
+                    Inst::LocalSet(code_slot),
+                ];
                 self.label_depth += 1;
+                self.error_bindings.push((msg_slot, code_slot));
                 self.expr(fb, &mut err_arm, sink);
+                self.error_bindings.pop();
                 self.label_depth -= 1;
                 out.push(Inst::If {
                     result: result_val,
@@ -2929,7 +3232,11 @@ impl<'a> FnLowerer<'a> {
                     out.push(Inst::LocalSet(base + offset));
                 }
                 let mut els = Vec::new();
+                // The arm is a labeled block: unwind branches inside the
+                // fallback must account for it.
+                self.label_depth += 1;
                 self.expr(rhs, &mut els, sink);
+                self.label_depth -= 1;
                 for offset in (0..payload_vals.len() as u32).rev() {
                     els.push(Inst::LocalSet(base + offset));
                 }
@@ -2947,7 +3254,10 @@ impl<'a> FnLowerer<'a> {
                 // `a or b` ⇒ if a { true } else { b }.
                 self.expr(lhs, out, sink);
                 let mut rhs_body = Vec::new();
+                // The arm is a labeled block (unwind branch accounting).
+                self.label_depth += 1;
                 self.expr(rhs, &mut rhs_body, sink);
+                self.label_depth -= 1;
                 let (then, els) = if op == And {
                     (rhs_body, vec![Inst::I32Const(0)])
                 } else {
@@ -2959,15 +3269,45 @@ impl<'a> FnLowerer<'a> {
                     els,
                 });
             }
-            Add | Sub | Mul | Div | Rem => {
+            Add | Sub | Mul => {
                 self.lower_arith_operand(lhs, out, sink);
                 self.lower_arith_operand(rhs, out, sink);
                 out.push(Inst::I64Bin(match op {
                     Add => I64Op::Add,
                     Sub => I64Op::Sub,
-                    Mul => I64Op::Mul,
-                    Div => I64Op::DivS,
-                    _ => I64Op::RemS,
+                    _ => I64Op::Mul,
+                }));
+            }
+            // ERH-03: arithmetic failure raises RUN003, catchable — the
+            // wasm div instructions would trap instead, so guard first.
+            Div | Rem => {
+                self.lower_arith_operand(lhs, out, sink);
+                self.lower_arith_operand(rhs, out, sink);
+                let rhs_slot = self.alloc_scratch(&[Val::I64]);
+                let lhs_slot = self.alloc_scratch(&[Val::I64]);
+                out.push(Inst::LocalSet(rhs_slot));
+                out.push(Inst::LocalSet(lhs_slot));
+                out.push(Inst::LocalGet(rhs_slot));
+                out.push(Inst::I64Const(0));
+                out.push(Inst::I64Cmp(CmpOp::Eq));
+                self.emit_raise_if("RUN003", "division by zero", out);
+                if matches!(op, Div) {
+                    // i64.div_s also traps on MIN / -1.
+                    out.push(Inst::LocalGet(lhs_slot));
+                    out.push(Inst::I64Const(i64::MIN));
+                    out.push(Inst::I64Cmp(CmpOp::Eq));
+                    out.push(Inst::LocalGet(rhs_slot));
+                    out.push(Inst::I64Const(-1));
+                    out.push(Inst::I64Cmp(CmpOp::Eq));
+                    out.push(Inst::I32Bin(I32Op::And));
+                    self.emit_raise_if("RUN003", "integer overflow in division", out);
+                }
+                out.push(Inst::LocalGet(lhs_slot));
+                out.push(Inst::LocalGet(rhs_slot));
+                out.push(Inst::I64Bin(if matches!(op, Div) {
+                    I64Op::DivS
+                } else {
+                    I64Op::RemS
                 }));
             }
             Lt | LtEq | Gt | GtEq | Eq | NEq => {

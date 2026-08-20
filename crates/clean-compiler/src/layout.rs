@@ -72,6 +72,19 @@ pub const PAIRS_ENTRIES_OFFSET: u32 = 8;
 pub const HEAP_START_GLOBAL: u32 = 0;
 pub const HEAP_PTR_GLOBAL: u32 = 1;
 
+// The error channel (13 §ERH): a raised failure sets these three and
+// unwinds — `onError` catches by clearing the flag, an exported entry
+// returning with the flag still set traps (ERH-05, the RUN018 shape).
+/// 1 while a failure is propagating, 0 otherwise.
+pub const ERR_FLAG_GLOBAL: u32 = 2;
+/// String base of `error.message` (ERH-04).
+pub const ERR_MSG_GLOBAL: u32 = 3;
+/// String base of `error.code`, or 0 for `none` (a program's own
+/// `error(...)` carries no code — ERH-04).
+pub const ERR_CODE_GLOBAL: u32 = 4;
+/// First global index available to state variables (SMG-01).
+pub const FIRST_STATE_GLOBAL: u32 = 5;
+
 /// A memory tier row (Platform 05 §5.1, TIER-01).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Tier {

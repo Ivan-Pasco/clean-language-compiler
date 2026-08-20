@@ -237,3 +237,35 @@ rejected compile carries its diagnostics; a diverged replay says so);
 JSON-RPC errors are reserved for protocol misuse. Component bytes ride
 base64. Everything arrives in the message and leaves in the response —
 the serve loop touches no files (CMP-01 with nothing to point at).
+
+## 9. Error lowering (post-M8 backlog): runtime-message wordings are unspecified
+
+Chapter 13 defines the failure semantics completely (ERH-01..05) and the
+compiler now implements them: an error channel (three wasm globals —
+flag, message, code), `error(...)` raising, general suffix `onError`
+catching any failing expression with the `error` binding (message +
+optional code) copied into locals so nested catches cannot clobber an
+outer binding, propagation out of callees via post-call flag checks, and
+the ERH-05 top: entry shims trap when the flag survives to the boundary
+(the RUN018 shape). RUN003 (division/remainder by zero, division
+overflow, number→integer domain, string→number parse) and RUN013 (list
+index, empty-collection access, string code-point index) raise
+catchably; RUN013 uses the Platform 10 template filled at raise time.
+
+What the spec does not say — local pinnings, in force
+(`tests/error_lowering.rs` pins each):
+
+- **RUN003 has no message template** (Platform 10 stub): local wordings
+  "division by zero", "integer overflow in division", "cannot convert
+  NaN to integer", "number is out of the integer range", "the string is
+  not a valid integer literal" / "…number literal".
+- **Empty-collection access** (`first()`/`last()`/`remove()`/`peek()`)
+  fills the RUN013 template with index 0, length 0.
+- **Host failures** (LBS §8.3: the payload never surfaces): the binding
+  carries "host function `{cleanName}` failed" and `code = none`.
+- **Number division by zero** stays IEEE (infinity): wasm f64 division
+  never traps and chapter 15 does not classify it as RUN003; only
+  integer arithmetic raises.
+- **Block-form `onError:`** is parsed and type-checked but its lowering
+  remains `note_unsupported` (pre-existing frontier, unchanged by this
+  work).

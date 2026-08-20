@@ -107,6 +107,7 @@ pub fn emit_core(program: &MirProgram) -> Result<Vec<u8>, String> {
     // wraps the call in the per-request arena scope (TIER-04: reset after
     // each handler returns).
     let mut handle_shim: Option<u32> = None;
+    let mut init_shim: Option<u32> = None;
     let mut next_type = ctx.import_count;
     let mut next_func = ctx.import_count;
     for function in program.functions.iter().chain(&program.runtime) {
@@ -123,6 +124,8 @@ pub fn emit_core(program: &MirProgram) -> Result<Vec<u8>, String> {
         if function.export {
             if function.name == "handle" && function.params == [Val::I64] {
                 handle_shim = Some(next_func);
+            } else if function.name == "init" && function.params.is_empty() {
+                init_shim = Some(next_func);
             } else {
                 exports.export(&function.name, ExportKind::Func, next_func);
             }
@@ -131,6 +134,16 @@ pub fn emit_core(program: &MirProgram) -> Result<Vec<u8>, String> {
         next_type += 1;
         next_func += 1;
     }
+
+    // ERH-05: a failure that reaches the top with no enclosing `onError`
+    // ends execution — the RUN018 shape. The entry shims check the error
+    // flag after the call and trap while it is still set.
+    let unhandled_check = |shim: &mut Function| {
+        shim.instruction(&Instruction::GlobalGet(crate::layout::ERR_FLAG_GLOBAL));
+        shim.instruction(&Instruction::If(wasm_encoder::BlockType::Empty));
+        shim.instruction(&Instruction::Unreachable);
+        shim.instruction(&Instruction::End);
+    };
 
     if let Some(target) = handle_shim {
         types
@@ -148,6 +161,22 @@ pub fn emit_core(program: &MirProgram) -> Result<Vec<u8>, String> {
         // __heap_ptr = save (arena pop, O(1), no destructors — MMD-03)
         shim.instruction(&Instruction::LocalGet(1));
         shim.instruction(&Instruction::GlobalSet(HEAP_PTR_GLOBAL));
+        unhandled_check(&mut shim);
+        shim.instruction(&Instruction::End);
+        code.function(&shim);
+        next_type += 1;
+        next_func += 1;
+    }
+
+    if let Some(target) = init_shim {
+        types
+            .ty()
+            .function(Vec::<ValType>::new(), Vec::<ValType>::new());
+        functions.function(next_type);
+        exports.export("init", ExportKind::Func, next_func);
+        let mut shim = Function::new([]);
+        shim.instruction(&Instruction::Call(target));
+        unhandled_check(&mut shim);
         shim.instruction(&Instruction::End);
         code.function(&shim);
         next_type += 1;
@@ -193,8 +222,26 @@ pub fn emit_core(program: &MirProgram) -> Result<Vec<u8>, String> {
     exports.export("__heap_start", ExportKind::Global, HEAP_START_GLOBAL);
     exports.export("__heap_ptr", ExportKind::Global, HEAP_PTR_GLOBAL);
 
+    // The error channel (13 §ERH): flag, message base, code base — all
+    // zeroed between failures.
+    for _ in 0..3 {
+        globals.global(
+            GlobalType {
+                val_type: ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+            &ConstExpr::i32_const(0),
+        );
+    }
+    debug_assert_eq!(crate::layout::ERR_FLAG_GLOBAL, 2);
+    debug_assert_eq!(
+        crate::layout::ERR_CODE_GLOBAL + 1,
+        crate::layout::FIRST_STATE_GLOBAL
+    );
+
     // State variables (SMG-01): one mutable global per internal slot, in
-    // declaration order, right after the heap globals.
+    // declaration order, right after the error globals.
     for (val_ty, init) in &program.state_globals {
         let (val_type, init) = match (val_ty, init) {
             (Val::I32, crate::mir::StateInit::I32(v)) => (ValType::I32, ConstExpr::i32_const(*v)),

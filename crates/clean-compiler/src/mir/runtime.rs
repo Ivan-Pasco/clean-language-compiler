@@ -179,7 +179,34 @@ pub enum RuntimeFn {
     JsonSerializePretty = 56,
 }
 
-pub fn build(tier: Tier) -> Vec<MirFunction> {
+/// Pre-interned static strings the raising runtime helpers need (the
+/// data pool lives with the caller): the `RUN003` code text and the two
+/// parse-failure messages — local wordings, Platform 10 defines no
+/// runtime-message templates for RUN003 (DISCOVERIES-M8).
+#[derive(Debug, Clone, Copy)]
+pub struct RaiseMsgs {
+    pub run003_code: i32,
+    pub not_an_integer: i32,
+    pub not_a_number: i32,
+}
+
+/// The raise sequence for a runtime-helper body (13 §ERH-03): store the
+/// message and code, set the flag, return a dummy — the caller checks the
+/// flag and unwinds.
+fn raise_run003(msgs: RaiseMsgs, message: i32, dummy: Inst) -> Vec<Inst> {
+    vec![
+        Inst::I32Const(message),
+        Inst::GlobalSet(crate::layout::ERR_MSG_GLOBAL),
+        Inst::I32Const(msgs.run003_code),
+        Inst::GlobalSet(crate::layout::ERR_CODE_GLOBAL),
+        Inst::I32Const(1),
+        Inst::GlobalSet(crate::layout::ERR_FLAG_GLOBAL),
+        dummy,
+        Inst::Return,
+    ]
+}
+
+pub fn build(tier: Tier, msgs: RaiseMsgs) -> Vec<MirFunction> {
     let mut fns = vec![
         alloc(tier),
         string_concat(),
@@ -187,8 +214,8 @@ pub fn build(tier: Tier) -> Vec<MirFunction> {
         string_eq(),
         lift_string(),
         int_to_string(),
-        str_to_int(),
-        str_to_num(),
+        str_to_int(msgs),
+        str_to_num(msgs),
     ];
     fns.extend(super::runtime_str::build());
     fns.extend(super::runtime_list::build());
@@ -652,8 +679,9 @@ fn int_to_string() -> MirFunction {
 
 /// Params: s@0. Locals: len@1, i@2, c@3, acc@4 (i64, negative
 /// accumulation so i64::MIN parses without overflow), neg@5, d@6 (i64).
-/// Any non-literal input traps (RUN003 family until error lowering).
-fn str_to_int() -> MirFunction {
+/// Any non-literal input raises RUN003, catchable (13 §ERH-03).
+fn str_to_int(msgs: RaiseMsgs) -> MirFunction {
+    let raise = || raise_run003(msgs, msgs.not_an_integer, Inst::I64Const(0));
     use Inst::*;
     const PRE_MULT_MIN: i64 = i64::MIN / 10; // -922337203685477580
     let body = vec![
@@ -665,7 +693,7 @@ fn str_to_int() -> MirFunction {
         I32Eqz,
         If {
             result: None,
-            then: vec![Unreachable],
+            then: raise(),
             els: vec![],
         },
         // sign
@@ -695,7 +723,7 @@ fn str_to_int() -> MirFunction {
         I32Cmp(CmpOp::Eq),
         If {
             result: None,
-            then: vec![Unreachable],
+            then: raise(),
             els: vec![],
         },
         // digit loop
@@ -721,7 +749,7 @@ fn str_to_int() -> MirFunction {
                     I32Bin(I32Op::Or),
                     If {
                         result: None,
-                        then: vec![Unreachable],
+                        then: raise(),
                         els: vec![],
                     },
                     // d = c - '0'
@@ -736,7 +764,7 @@ fn str_to_int() -> MirFunction {
                     I64Cmp(CmpOp::LtS),
                     If {
                         result: None,
-                        then: vec![Unreachable],
+                        then: raise(),
                         els: vec![],
                     },
                     LocalGet(4),
@@ -751,7 +779,7 @@ fn str_to_int() -> MirFunction {
                     I64Cmp(CmpOp::LtS),
                     If {
                         result: None,
-                        then: vec![Unreachable],
+                        then: raise(),
                         els: vec![],
                     },
                     LocalGet(4),
@@ -777,7 +805,7 @@ fn str_to_int() -> MirFunction {
                 I64Cmp(CmpOp::Eq),
                 If {
                     result: None,
-                    then: vec![Unreachable],
+                    then: raise(),
                     els: vec![],
                 },
                 I64Const(0),
@@ -798,7 +826,7 @@ fn str_to_int() -> MirFunction {
 /// Params: s@0. Locals: len@1, i@2, c@3, m@4 (i64 mantissa), digits@5,
 /// exp10@6, truncated@7, neg@8, seen@9, f@10 (f64), p@11 (f64),
 /// step@12. Grammar: `[+-]? digits* ('.' digits+)?` with at least one
-/// digit; anything else traps (RUN003 family).
+/// digit; anything else raises RUN003, catchable (13 §ERH-03).
 ///
 /// Rounding (bbdf483: correctly rounded, roundTiesToEven): up to 19
 /// significant digits accumulate exactly in the i64 mantissa; when the
@@ -806,7 +834,8 @@ fn str_to_int() -> MirFunction {
 /// exact power of ten is provably correctly rounded (Clinger). Inputs
 /// past that window fall back to chunked scaling — documented residue,
 /// unreachable from hand-written literals.
-fn str_to_num() -> MirFunction {
+fn str_to_num(msgs: RaiseMsgs) -> MirFunction {
+    let raise = || raise_run003(msgs, msgs.not_a_number, Inst::F64Const(0.0));
     use Inst::*;
     let read_c = |out: &mut Vec<Inst>| {
         out.push(LocalGet(0));
@@ -1043,7 +1072,7 @@ fn str_to_num() -> MirFunction {
         I32Eqz,
         If {
             result: None,
-            then: vec![Unreachable],
+            then: raise(),
             els: vec![],
         },
         // sign
@@ -1085,7 +1114,7 @@ fn str_to_num() -> MirFunction {
                 I32Cmp(CmpOp::Ne),
                 If {
                     result: None,
-                    then: vec![Unreachable],
+                    then: raise(),
                     els: vec![],
                 },
                 LocalGet(2),
@@ -1098,7 +1127,7 @@ fn str_to_num() -> MirFunction {
                 I32Cmp(CmpOp::Eq),
                 If {
                     result: None,
-                    then: vec![Unreachable],
+                    then: raise(),
                     els: vec![],
                 },
                 Block {
@@ -1109,7 +1138,7 @@ fn str_to_num() -> MirFunction {
                 I32Cmp(CmpOp::Ne),
                 If {
                     result: None,
-                    then: vec![Unreachable],
+                    then: raise(),
                     els: vec![],
                 },
             ],
@@ -1119,7 +1148,7 @@ fn str_to_num() -> MirFunction {
         I32Eqz,
         If {
             result: None,
-            then: vec![Unreachable],
+            then: raise(),
             els: vec![],
         },
         // f = m (exact i64 → f64 rounding is the ONLY rounding on the
