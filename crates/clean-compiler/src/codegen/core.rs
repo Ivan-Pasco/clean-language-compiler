@@ -395,6 +395,7 @@ fn emit_inst(inst: &Inst, ctx: &EmitCtx, f: &mut Function) {
         Inst::F64ConvertI32S => f.instruction(&I::F64ConvertI32S),
         Inst::I64ExtendI32S => f.instruction(&I::I64ExtendI32S),
         Inst::I64TruncF64S => f.instruction(&I::I64TruncF64S),
+        Inst::I64ReinterpretF64 => f.instruction(&I::I64ReinterpretF64),
         Inst::Select => f.instruction(&I::Select),
         Inst::RetAreaPtr => f.instruction(&I::I32Const(ctx.ret_area as i32)),
         Inst::I32Load(offset) => f.instruction(&I::I32Load(MemArg {

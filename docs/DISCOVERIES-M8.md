@@ -269,3 +269,33 @@ What the spec does not say — local pinnings, in force
 - **Block-form `onError:`** is parsed and type-checked but its lowering
   remains `note_unsupported` (pre-existing frontier, unchanged by this
   work).
+
+## 10. number.toString (post-M8 backlog): notation thresholds and non-finite spellings are unspecified
+
+Chapter 15 fixes the hard part completely — "the decimal string with the
+fewest significant digits that parses back to the exact same number" is
+a complete contract — and the implementation delivers it exactly:
+`runtime_num.rs` computes the shortest digits by the Steele-White
+criterion over exact decimal expansions (base-10⁹ limbs of `v` and its
+two neighbor midpoints, bounds inclusive iff the mantissa is even), all
+in digit arithmetic in the guest. No host import — the old compiler
+formatted floats host-side, which CMP/BRG forbid and Platform 02 §2.2's
+own reasoning (pure computation lives in the stdlib) rules out. Oracle
+test: 250 corpus values byte-compared against Rust's shortest rendering
+re-projected through the rules below (`tests/number_to_string.rs`); the
+spec's four examples render exactly.
+
+What the spec leaves open — local pinnings, in force:
+
+- **Plain vs scientific**: "plain decimal where the magnitude admits it"
+  names no boundary. Pinned: plain for -4 ≤ E ≤ 21 (E the power of ten
+  reading the digits as `0.d₁d₂…`), scientific otherwise — `0.0001`
+  stays plain, `1e-5` and `6.02e23` go scientific.
+- **Integral renderings** append `.0` (`42.0`), matching the spec's own
+  example and the NumberLiteral grammar's digit-on-both-sides rule.
+- **Non-finite spellings**: the literal grammar has none. Pinned:
+  `NaN`, `Infinity`, `-Infinity`. Signed zero renders `-0.0` (it
+  round-trips to the negative zero).
+- `string.toNumber` gained the literal grammar's exponent form first
+  (same backlog item): without it `toString ∘ toNumber` could not be
+  the identity the shortest-round-trip rule assumes.

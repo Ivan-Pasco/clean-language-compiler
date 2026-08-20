@@ -177,6 +177,20 @@ pub enum RuntimeFn {
     /// `json_serialize_pretty(box) -> s` — tab-indented, one member per
     /// line.
     JsonSerializePretty = 56,
+    // `number.toString` (bodies in `runtime_num.rs`): the shortest
+    // round-trip rendering via exact decimal expansions.
+    /// `num_expand(m: i64, e2: i32, limbs: i32) -> i32` — `m × 2^e2`
+    /// (e2 ≥ 0) or `m × 5^-e2` (e2 < 0) as base-10⁹ limbs; limb count.
+    NumExpand = 57,
+    /// `limbs_to_digits(limbs, n, digits) -> i32` — raw 0–9 digit bytes,
+    /// most significant first; digit count.
+    LimbsToDigits = 58,
+    /// `digits_cmp(a, alen, aE, b, blen, bE) -> i32` — order of
+    /// `0.A×10^aE` vs `0.B×10^bE`.
+    DigitsCmp = 59,
+    /// `num_to_string(v: f64) -> base` — 15 §Conversions shortest
+    /// round-trip.
+    NumToString = 60,
 }
 
 /// Pre-interned static strings the raising runtime helpers need (the
@@ -223,6 +237,7 @@ pub fn build(tier: Tier, msgs: RaiseMsgs) -> Vec<MirFunction> {
     fns.push(bytes_to_text());
     fns.extend(super::runtime_any::build());
     fns.extend(super::runtime_json::build());
+    fns.extend(super::runtime_num::build());
     fns
 }
 

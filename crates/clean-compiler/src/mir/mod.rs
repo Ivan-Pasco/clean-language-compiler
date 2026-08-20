@@ -26,6 +26,7 @@ pub mod runtime;
 pub mod runtime_any;
 pub mod runtime_json;
 pub mod runtime_list;
+pub mod runtime_num;
 pub mod runtime_str;
 
 /// Core-wasm value types MIR speaks in (a subset of `wasm_encoder`'s,
@@ -152,6 +153,9 @@ pub enum Inst {
     /// `i64.trunc_f64_s` — truncate toward zero; traps on NaN or out of
     /// range (the RUN003 family surfaces as a trap until error lowering).
     I64TruncF64S,
+    /// `i64.reinterpret_f64` — the IEEE 754 bit pattern, for the exact
+    /// mantissa/exponent decomposition `number.toString` needs.
+    I64ReinterpretF64,
     /// `select(a, b, cond) -> cond ? a : b`.
     Select,
     /// Pushes the address of the fixed return area (resolved at emission,
@@ -2541,10 +2545,14 @@ impl<'a> FnLowerer<'a> {
                         out.push(Inst::CallRuntime(runtime::RuntimeFn::StrToNum));
                         self.emit_propagate_check(out);
                     }
-                    // number.toString needs a formatting contract the spec
-                    // does not state (shortest round-trip vs fixed) —
-                    // DISCOVERIES-M6. string.toBoolean is not in the 15
-                    // §Conversions table at all.
+                    // 15 §Conversions: the shortest round-trip rendering,
+                    // computed exactly in the guest (runtime_num.rs).
+                    (Ty::Number, Ty::Str) => {
+                        self.expr(operand, out, sink);
+                        out.push(Inst::CallRuntime(runtime::RuntimeFn::NumToString));
+                    }
+                    // string.toBoolean is not in the 15 §Conversions table
+                    // at all.
                     _ => self.note(sink, "conversion methods in compiled code", expr.span),
                 }
             }
