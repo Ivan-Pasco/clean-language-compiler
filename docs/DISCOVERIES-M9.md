@@ -104,6 +104,15 @@ ADR-0027 (Draft) names enforcement tools that do not exist as specified:
 - **cargo-llvm-cov**: 0.6.x cannot find object files under the build-dir
   layout newer cargo emits; both workflows pin 0.9.0.
 
+**Round-trip closed 2026-08-20** (foundation @ 2178f18): ADR-0027 amended
+(2642c0e) and then **Accepted**, adopting every point above — the
+condition-instrumentation branch floor is the normative MC/DC interim,
+the module mapping and 1/8 mutation shard are ratified, and this repo's
+`ci.yml` + `nightly.yml` are named as the ecosystem's **reference
+implementation** (the foundation workflow template is quarantined pending
+realignment). Standing obligation: notify foundation before changing
+those two workflows' numbers or shape.
+
 ## 4. §14.9 performance budgets — measured, all within target
 
 `cargo run --release -p clean-compiler --example perf_budget`, 2026-08-20,

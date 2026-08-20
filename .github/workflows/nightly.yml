@@ -4,7 +4,13 @@
 # actually execute; see docs/DISCOVERIES-M9.md).
 #
 # ADR-0027 Tier 1 floors enforced here: branch 75%, mutation 60% (line 80%
-# blocks per-push in ci.yml). MC/DC on the named modules is blocked
+# blocks per-push in ci.yml).
+#
+# ADR-0027 (Accepted 2026-08-20) names this workflow and ci.yml's coverage
+# job as the ecosystem's REFERENCE implementation — new Tier 1/2
+# components copy these jobs (the foundation template is quarantined
+# pending realignment). Notify foundation before changing their numbers
+# or shape. MC/DC on the named modules is blocked
 # upstream — cargo-mcdc is unpublished and rustc removed
 # `-Z coverage-options=mcdc` (only block|branch|condition remain, verified
 # 2026-08-20) — so the named modules are gated on the branch floor with

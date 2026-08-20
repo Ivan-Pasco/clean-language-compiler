@@ -68,6 +68,9 @@ jobs:
   # ADR-0027 Tier 1, blocking since M9: the build FAILS below the 80% line
   # floor. Branch (75%) and mutation (60%) floors run in nightly.yml, where
   # the nightly toolchain and the long mutation runs live.
+  # ADR-0027 (Accepted 2026-08-20) names this job and nightly.yml as the
+  # ecosystem's REFERENCE implementation — new Tier 1/2 components copy
+  # these jobs. Notify foundation before changing their numbers or shape.
   # baseline 87.73% line measured 2026-08-19 (local, macOS, suite at
   # e71104d; the registry_spec leg self-skips in CI so the CI number reads
   # slightly lower) — target 80% line per ADR-0027 Tier 1. Ratchet: when a
