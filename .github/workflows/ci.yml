@@ -65,6 +65,30 @@ jobs:
           cargo test -p clean-compiler-types --test registry --test registry_spec -- --nocapture
           cargo test -p clean-compiler --test emitted_codes --test diagnostics_fixtures -- --nocapture
 
+  # Cross-OS build matrix cell required by foundation
+  # "05 execution/automation/01-ci-per-component.md" (clean-compiler row:
+  # ubuntu / macos / windows — build only, no test). ubuntu and macos
+  # already build as part of `test` above; this fills the windows cell so
+  # the first `v*` tag is not the first time the compiler compiles on
+  # windows (release.yml ships windows-x64). Confirmed with foundation
+  # 2026-08-20 (foundation @ 80f5e2e): implementation of existing spec,
+  # not an ADR-0027 change — coverage jobs below are untouched, and fmt
+  # stays ubuntu-only ("one canonical formatter run").
+  build-windows:
+    name: build windows (build only, no test)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: build
+        run: cargo build --workspace
+
   # ADR-0027 Tier 1, blocking since M9: the build FAILS below the 80% line
   # floor. Branch (75%) and mutation (60%) floors run in nightly.yml, where
   # the nightly toolchain and the long mutation runs live.

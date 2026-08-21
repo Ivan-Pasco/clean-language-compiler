@@ -50,8 +50,8 @@ which verifies the tag matches the workspace version in `Cargo.toml`, then
 builds and publishes one archive per target plus a `.sha256` sidecar:
 
 ```
-clean-compiler-<version>-<target>.tar.gz
-targets: linux-x64, macos-x64, macos-arm64, windows-x64
+clean-compiler-<version>-<target>.tar.gz   # linux-x64, macos-x64, macos-arm64
+clean-compiler-<version>-windows-x64.zip
 ```
 
 Clean Manager installs an archive into `~/.cln/versions/compiler/<version>/`
