@@ -2,10 +2,11 @@
 
 The reference implementation of the Clean compiler: one self-contained
 compilation request document in, one WebAssembly Component Model component
-out. The compiler is specified by the
-[Clean Language foundation](https://github.com/Ivan-Pasco/clean-language-foundation)
-(`03 platform/14-compiler-architecture.md`, `02 components/compiler/01-specification.md`);
-this repository is spec-driven — the spec decides, the code follows.
+out. The compiler is specified by the vendored spec in [specs/](specs/)
+(`03 platform/14-compiler-architecture.md`, `02 components/compiler/01-specification.md`;
+provenance in `specs/SOURCE.md`); this repository is spec-driven — the spec
+decides, the code follows. The compiler ↔ host binary contract lives in
+[contracts/](contracts/).
 
 ## What ships
 
@@ -56,7 +57,7 @@ clean-compiler-<version>-windows-x64.zip
 
 Clean Manager installs an archive into `~/.cln/versions/compiler/<version>/`
 and dispatches to it from there. The filename convention and target matrix are
-owned by the foundation (`02 components/manager/automation.md`).
+pinned in `specs/02 components/manager/automation.md`.
 
 ## Layout
 
@@ -78,7 +79,7 @@ cargo fmt --all -- --check
 
 Working conventions, fixture discipline, and spec pointers live in
 [CLAUDE.md](CLAUDE.md) and [TESTING.md](TESTING.md). Spec-dependent tests
-expect a sibling checkout of `clean-language-foundation`.
+read the vendored spec in `specs/`; no sibling checkout is required.
 
 ## License
 

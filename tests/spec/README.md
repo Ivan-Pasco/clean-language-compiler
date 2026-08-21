@@ -1,7 +1,7 @@
 # Per-chapter spec suite (M3 parse, M4 typecheck)
 
 One directory per EBNF grammar chapter in
-`../clean-language-foundation/04 language/grammar/`; each `.cln` fixture
+`specs/04 language/grammar/`; each `.cln` fixture
 runs through the whole front-end (lex, parse, resolve, typecheck against
 an empty world) by `crates/clean-compiler/tests/spec_suite.rs` and is
 pinned as an AST + diagnostics + unsupported-frontier snapshot under

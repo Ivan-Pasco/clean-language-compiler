@@ -1,21 +1,19 @@
 //! The spec legs of the M2 1:1 gate (ERC-02 / RUL-02): the registry in
 //! `codes.rs` must match Platform 09 row for row, and every message template
-//! must appear verbatim in Platform 10. Runs against the sibling
-//! `clean-language-foundation` checkout; skips (loudly) when it is absent —
-//! CI does not clone the private spec repo, so this leg is a local/nightly
-//! gate, mirroring the bi-repo acceptance check of M1.
+//! must appear verbatim in Platform 10. Runs against the vendored spec in
+//! `specs/03 platform/` (see `specs/SOURCE.md`), so it gates every run,
+//! CI included.
 
 use clean_compiler_types::codes::{self, Severity, Status};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-fn foundation() -> Option<PathBuf> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+fn specs() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(2)?
-        .parent()?
-        .join("clean-language-foundation");
-    root.is_dir().then_some(root)
+        .nth(2)
+        .expect("crate lives two levels below the repo root")
+        .join("specs")
 }
 
 fn read(path: PathBuf) -> String {
@@ -53,10 +51,7 @@ fn parse_09_rows(text: &str) -> BTreeMap<&str, (Option<&str>, Option<&str>)> {
 
 #[test]
 fn registry_matches_platform_09_and_10() {
-    let Some(root) = foundation() else {
-        eprintln!("SKIP: ../clean-language-foundation not present; spec leg runs locally only");
-        return;
-    };
+    let root = specs();
     let spec09 = read(root.join("03 platform/09-error-codes.md"));
     let spec10 = read(root.join("03 platform/10-semantic-rules.md"));
     let rows = parse_09_rows(&spec09);

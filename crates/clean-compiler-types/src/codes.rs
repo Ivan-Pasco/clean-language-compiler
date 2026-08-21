@@ -10,8 +10,8 @@
 //! reused), 157 emittable.
 //!
 //! The 1:1 obligation (ERC-02 / RUL-02) is enforced by
-//! `tests/registry_spec.rs` against the local `clean-language-foundation`
-//! checkout when present, and the DIA-06 fixture harness in
+//! `tests/registry_spec.rs` against the vendored spec in `specs/03 platform/`,
+//! and the DIA-06 fixture harness in
 //! `clean-compiler/tests/` keys off [`CodeInfo::is_compiler_emittable`].
 
 /// Severity as registered in Platform 09 §3. `Runtime` marks the *phase*,

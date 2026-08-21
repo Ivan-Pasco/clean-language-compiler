@@ -1,6 +1,6 @@
 //! ISO/IEC 14977 EBNF reader for the vendored grammar files
-//! (`tests/fixtures/grammar/*.ebnf.md`, copies of foundation
-//! `04 language/grammar/` — DOC-15's source of truth for syntax).
+//! (`tests/fixtures/grammar/*.ebnf.md`, copies of
+//! `specs/04 language/grammar/` — DOC-15's source of truth for syntax).
 //!
 //! Reads exactly the repo's notation per the grammar README: `=` defines,
 //! `,` concatenates, `|` alternates, `[x]` optional, `{x}` repetition,
