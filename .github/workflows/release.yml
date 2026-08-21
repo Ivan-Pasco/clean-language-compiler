@@ -1,12 +1,16 @@
 name: release
 
-# Triggered by pushing a `v*` tag. Publishes one archive per platform plus a
-# `.sha256` sidecar, matching the filename convention cln-install parses:
-#   clean-compiler-<version>-<os>-<arch>.tar.gz[.sha256]
+# Triggered by pushing a `v*` tag. Publishes one archive per target plus a
+# `.sha256` sidecar (hex digest only), using the 4-target matrix and filename
+# convention Manager's release-asset consumers expect
+# (foundation `02 components/manager/automation.md`, Release matrix):
+#   clean-compiler-<version>-<target>.tar.gz[.sha256]
+#   targets: linux-x64, macos-x64, macos-arm64, windows-x64
 #
-# Manager installs these into ~/.cln/versions/compiler/<version>/ and expects
-# the binary inside to be named `clean-compiler` (same convention as
-# clean-framework / clean-server releases).
+# Manager installs an archive into ~/.cln/versions/compiler/<version>/ and
+# expects the compiler binary inside to be named `clean-compiler` (`.exe` on
+# windows). The language server ships in the same archive at the same version
+# (CCMP-26): `clean-language-server` sits next to the compiler binary.
 
 on:
   push:
@@ -17,21 +21,45 @@ permissions:
   contents: write
 
 jobs:
+  version-check:
+    name: tag matches workspace version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: compare tag to Cargo.toml
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CARGO_VERSION="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          if [ "${TAG_VERSION}" != "${CARGO_VERSION}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match workspace version ${CARGO_VERSION} in Cargo.toml" >&2
+            exit 1
+          fi
+
   build:
-    name: build ${{ matrix.os }}-${{ matrix.arch }}
+    name: build ${{ matrix.target_name }}
+    needs: version-check
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
-            os: macos
-            arch: arm64
-            target: aarch64-apple-darwin
           - runner: ubuntu-latest
-            os: linux
-            arch: x86_64
+            target_name: linux-x64
             target: x86_64-unknown-linux-gnu
+            bin_ext: ""
+          - runner: macos-14
+            target_name: macos-x64
+            target: x86_64-apple-darwin
+            bin_ext: ""
+          - runner: macos-14
+            target_name: macos-arm64
+            target: aarch64-apple-darwin
+            bin_ext: ""
+          - runner: windows-latest
+            target_name: windows-x64
+            target: x86_64-pc-windows-msvc
+            bin_ext: ".exe"
     steps:
       - uses: actions/checkout@v4
 
@@ -46,18 +74,21 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: build
-        run: cargo build --release --target ${{ matrix.target }} -p clean-compiler-bin
+        run: cargo build --release --target ${{ matrix.target }} -p clean-compiler-bin -p clean-language-server
 
       - name: package
+        shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          NAME="clean-compiler-${VERSION}-${{ matrix.os }}-${{ matrix.arch }}"
+          NAME="clean-compiler-${VERSION}-${{ matrix.target_name }}"
           mkdir -p "dist/${NAME}"
-          cp "target/${{ matrix.target }}/release/clean-compiler" "dist/${NAME}/clean-compiler"
+          cp "target/${{ matrix.target }}/release/clean-compiler${{ matrix.bin_ext }}" "dist/${NAME}/"
+          cp "target/${{ matrix.target }}/release/clean-language-server${{ matrix.bin_ext }}" "dist/${NAME}/"
           tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
-          shasum -a 256 "dist/${NAME}.tar.gz" | awk '{print $1}' > "dist/${NAME}.tar.gz.sha256"
+          openssl dgst -sha256 "dist/${NAME}.tar.gz" | awk '{print $NF}' > "dist/${NAME}.tar.gz.sha256"
 
       - name: upload to release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
