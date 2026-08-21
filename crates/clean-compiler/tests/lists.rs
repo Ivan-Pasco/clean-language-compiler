@@ -131,8 +131,10 @@ fn instantiate(wasm: &[u8]) -> (wasmtime::Store<Vec<Logged>>, wasmtime::Instance
                 // Canonical ABI list<s64>: contiguous 8-byte elements.
                 let bytes = read_bytes(&mut caller, ptr, count as usize * 8);
                 let values = bytes
-                    .chunks_exact(8)
-                    .map(|c| i64::from_le_bytes(c.try_into().unwrap()))
+                    .as_chunks::<8>()
+                    .0
+                    .iter()
+                    .map(|c| i64::from_le_bytes(*c))
                     .collect();
                 caller.data_mut().push(Logged::Ints(values));
             },
@@ -146,7 +148,7 @@ fn instantiate(wasm: &[u8]) -> (wasmtime::Store<Vec<Logged>>, wasmtime::Instance
                 // Canonical ABI list<string>: (ptr, len) pairs.
                 let heads = read_bytes(&mut caller, ptr, count as usize * 8);
                 let mut values = Vec::new();
-                for pair in heads.chunks_exact(8) {
+                for pair in heads.as_chunks::<8>().0 {
                     let sptr = i32::from_le_bytes(pair[0..4].try_into().unwrap());
                     let slen = i32::from_le_bytes(pair[4..8].try_into().unwrap());
                     let bytes = read_bytes(&mut caller, sptr, slen as usize);
