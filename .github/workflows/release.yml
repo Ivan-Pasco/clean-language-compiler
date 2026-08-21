@@ -104,5 +104,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --notes "" 2>/dev/null || true
+          # --generate-notes seeds the body with GitHub's commit-based draft;
+          # deliberate prose (CCMP-24 emitted-bytes callouts) is edited in
+          # afterwards with `gh release edit`.
+          gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --generate-notes 2>/dev/null || true
           gh release upload "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" dist/*.${{ matrix.archive_ext }} dist/*.sha256
