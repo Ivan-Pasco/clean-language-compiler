@@ -58,8 +58,8 @@ jobs:
 
       # M2 1:1 gate — código ⇔ regla ⇔ snapshot. Redundant with the full
       # suite above, but named so a gate breach is legible in the log. The
-      # registry_spec leg reads the vendored spec in specs/ and runs here in
-      # full since 2026-08-21 (before that it self-skipped in CI).
+      # registry_spec leg self-skips here (the private spec checkout is not
+      # cloned in CI) and runs against ../clean-language-foundation locally.
       - name: diagnostics 1:1 gate
         run: |
           cargo test -p clean-compiler-types --test registry --test registry_spec -- --nocapture
@@ -96,7 +96,7 @@ jobs:
   # ecosystem's REFERENCE implementation — new Tier 1/2 components copy
   # these jobs. Notify foundation before changing their numbers or shape.
   # baseline 87.73% line measured 2026-08-19 (local, macOS, suite at
-  # e71104d; registry_spec ran only locally before 2026-08-21, so CI read
+  # e71104d; the registry_spec leg self-skips in CI so the CI number reads
   # slightly lower) — target 80% line per ADR-0027 Tier 1. Ratchet: when a
   # live CI measurement lands above 80, raise --fail-under-lines to it.
   coverage:

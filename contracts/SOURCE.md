@@ -17,8 +17,8 @@ SHA-256 de la copia:
 
 ## Estado y dirección
 
-- Foundation `03 platform/wit/` nunca recibió los WIT (solo un README; ver
-  `specs/SOURCE.md`). El único contrato real del ecosistema era el `host.wit`
+- Foundation `03 platform/wit/` nunca recibió los WIT (solo un README).
+  El único contrato real del ecosistema era el `host.wit`
   en la raíz de clean-server (HCV-02).
 - Esta copia está **pinneada** al commit de origen. Paso pendiente en el repo
   de clean-server: reapuntar su `host.wit` para que sea copia verificada de
@@ -28,8 +28,8 @@ SHA-256 de la copia:
   `contracts_host_wit_matches_fixture` obliga a que ambas copias sean
   byte-idénticas — un refresh es un cambio de tres piezas en el mismo commit
   (fixture, `contracts/host.wit`, `RECORDED_SHA256`).
-- La prosa que explica y gobierna este contrato está vendoreada en
-  `specs/03 platform/` (02 host bridge, 08 bridge versioning, 15/16/18
+- La prosa que explica y gobierna este contrato vive en foundation
+  `03 platform/` (02 host bridge, 08 bridge versioning, 15/16/18
   component model). Un cambio aquí exige propagación deliberada a los hosts:
   ellos no lo ven solos.
 - Los paquetes `wasi:*` (filesystem, http, clocks…) son estándar externo,

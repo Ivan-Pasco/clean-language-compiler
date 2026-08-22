@@ -1,7 +1,7 @@
 //! M9 grammar fuzz — programs generated from the DOC-15 EBNF itself.
 //!
 //! The vendored grammar (`tests/fixtures/grammar/`, byte-pinned copies of
-//! `specs/04 language/grammar/*.ebnf.md`) seeds a deterministic
+//! foundation `04 language/grammar/*.ebnf.md`) seeds a deterministic
 //! generator; every generated program goes through `compile()` under the
 //! compiler's external contract:
 //!
@@ -87,25 +87,29 @@ fn vendored_grammar_matches_recorded_sha256() {
     );
 }
 
-/// The fuzzer's vendored copy must be byte-identical to the spec grammar in
-/// `specs/04 language/grammar/` (see `specs/SOURCE.md`) — internal drift is
-/// caught on every run, CI included.
+/// When the foundation checkout is present, the vendored copy must be
+/// byte-identical to `04 language/grammar/` — drift is caught locally, and
+/// the leg self-skips in CI exactly like `registry_spec.rs`.
 #[test]
-fn vendored_grammar_matches_spec() {
-    let spec = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../specs/04 language/grammar");
+fn vendored_grammar_matches_foundation() {
+    let foundation = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../clean-language-foundation/04 language/grammar");
+    if !foundation.is_dir() {
+        eprintln!("skipping: ../clean-language-foundation not present");
+        return;
+    }
     for (name, vendored) in vendored_files() {
-        let upstream = std::fs::read_to_string(spec.join(&name))
-            .unwrap_or_else(|_| panic!("{name} vanished from specs/ grammar/"));
+        let upstream = std::fs::read_to_string(foundation.join(&name))
+            .unwrap_or_else(|_| panic!("{name} vanished from foundation grammar/"));
         assert_eq!(
             vendored, upstream,
-            "{name} drifted from specs/ — refresh the vendored copy \
+            "{name} drifted from foundation — refresh the vendored copy \
              and SHA256SUMS deliberately"
         );
     }
     // New grammar files must be vendored too, or generation silently
     // under-covers the language.
-    for entry in std::fs::read_dir(&spec).expect("specs/ grammar dir") {
+    for entry in std::fs::read_dir(&foundation).expect("foundation grammar dir") {
         let name = entry
             .expect("readable dir entry")
             .file_name()
@@ -114,7 +118,7 @@ fn vendored_grammar_matches_spec() {
         if name.ends_with(".ebnf.md") {
             assert!(
                 grammar_dir().join(&name).is_file(),
-                "specs/ added {name}; vendor it and update SHA256SUMS"
+                "foundation added {name}; vendor it and update SHA256SUMS"
             );
         }
     }

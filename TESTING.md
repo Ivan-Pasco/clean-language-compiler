@@ -1,6 +1,6 @@
 # TESTING.md — clean-language-compiler
 
-Follows the template of `specs/05 execution/testing/00-testing-strategy-overview.md`. Compiler-specific strategy: `specs/05 execution/testing/01-compiler-testing.md`.
+Follows the template of foundation `05 execution/testing/00-testing-strategy-overview.md`. Compiler-specific strategy: foundation `05 execution/testing/01-compiler-testing.md`.
 
 ## 1. Surface being tested
 
@@ -38,7 +38,7 @@ Reads: request document (Platform 14 §14.1.1, hash-verified). Writes: Component
 
 ## 5. Fingerprint discipline
 
-The errors dashboard is not wired up yet (foundation rollout F1). Until then: compile-time panics and miscompilations become GitHub issues carrying the minimal `.cln` reproducer, expected vs actual, and the wasm dump — and a regression test in the same PR as the fix. Never adjust a snapshot to make a regression pass. Spec ambiguity is not a compiler bug: it is resolved by editing `specs/` deliberately, recording the change in `specs/SOURCE.md`.
+The errors dashboard is not wired up yet (foundation rollout F1). Until then: compile-time panics and miscompilations become GitHub issues carrying the minimal `.cln` reproducer, expected vs actual, and the wasm dump — and a regression test in the same PR as the fix. Never adjust a snapshot to make a regression pass. Spec ambiguity is not a compiler bug: it goes to foundation `work/` as a task brief.
 
 ## 6. Review-agent config
 
