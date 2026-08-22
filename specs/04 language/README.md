@@ -6,6 +6,7 @@ This folder is the specification of the Clean Language itself — its tokens, ty
 
 | Chapter | Purpose |
 |---------|---------|
+| [00 — Scope and Conformance](./00-scope-and-conformance.md) | What the spec covers, the normative vocabulary, and what "conforming implementation" means |
 | [01 — Overview](./01-overview.md) | What Clean Language is and its design goals |
 | [02 — Language Design Rules](./02-language-design-rules.md) | The "one way to do things" rules |
 | [03 — Lexical Structure](./03-lexical-structure.md) | Tokens, keywords, whitespace, literals |
