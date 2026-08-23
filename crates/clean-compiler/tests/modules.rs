@@ -190,3 +190,36 @@ fn file_path_import_resolves_relative_to_importer() {
         ),
     ]);
 }
+
+/// MOD-06 fix-and-pin (ratified 2026-08-22): visibility does not chain
+/// through a middle module, in either `sources[]` order. Phase 4's scope
+/// extension used to read the target module's already-extended scope, so
+/// `a → b → c` leaked c's exports into a exactly when the `b → c` edge
+/// happened to be processed first — an order-dependent surface.
+#[test]
+fn import_visibility_does_not_chain_through_a_middle_module() {
+    let c = (
+        "c.cln",
+        "functions:\n\tpublic:\n\t\tinteger fromC()\n\t\t\treturn 3\n",
+    );
+    let b = (
+        "b.cln",
+        "import:\n\tc\n\nfunctions:\n\tpublic:\n\t\tinteger fromB()\n\t\t\treturn fromC()\n",
+    );
+    let a = (
+        "a.cln",
+        "import:\n\tb\n\nfunctions:\n\tvoid init()\n\t\tinteger x = fromC()\n\t\treturn\n",
+    );
+    // [c, b, a] processes the b→c edge first (the leaking order);
+    // [a, b, c] processes a→b first (never leaked). Both must reject.
+    for order in [[c, b, a], [a, b, c]] {
+        let diagnostics = diagnostics(&order);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == "SEM019" && d.primary_span.file == "a.cln"),
+            "what b imported must not reach a (order {:?}): {diagnostics:#?}",
+            order.map(|(p, _)| p)
+        );
+    }
+}

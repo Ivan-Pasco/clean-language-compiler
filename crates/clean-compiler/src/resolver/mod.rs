@@ -399,12 +399,35 @@ pub fn resolve(
     // adoption) for whole-module imports, the named symbol otherwise.
     // A locally declared name shadows an imported one; two imports of
     // the same name keep the first (deterministic in entry order).
+    //
+    // MOD-06 (non-transitive, ratified 2026-08-22): an import makes
+    // visible only the names DECLARED in the target module — what the
+    // target itself imported does not flow through. Phase 4 therefore
+    // reads a snapshot of the declaration tables taken before any scope
+    // is extended; reading the live maps let visibility chain whenever a
+    // target's own edges happened to be processed first (the
+    // `sources[]`-order leak the ratification turned into a bug).
+    let declared: Vec<(
+        IndexMap<String, usize>,
+        IndexMap<String, usize>,
+        IndexMap<String, usize>,
+    )> = decls
+        .modules
+        .iter()
+        .map(|m| {
+            (
+                m.functions.clone(),
+                m.classes.clone(),
+                m.capabilities.clone(),
+            )
+        })
+        .collect();
     for edge in &edges {
         let from = edge.from;
         match &edge.symbol {
             None => {
-                let target_fns: Vec<(String, usize)> = decls.modules[edge.to]
-                    .functions
+                let target_fns: Vec<(String, usize)> = declared[edge.to]
+                    .0
                     .iter()
                     .filter(|(_, &i)| decls.functions[i].public)
                     .map(|(n, &i)| (n.clone(), i))
@@ -412,16 +435,16 @@ pub fn resolve(
                 for (name, index) in target_fns {
                     decls.modules[from].functions.entry(name).or_insert(index);
                 }
-                let target_classes: Vec<(String, usize)> = decls.modules[edge.to]
-                    .classes
+                let target_classes: Vec<(String, usize)> = declared[edge.to]
+                    .1
                     .iter()
                     .map(|(n, &i)| (n.clone(), i))
                     .collect();
                 for (name, index) in target_classes {
                     decls.modules[from].classes.entry(name).or_insert(index);
                 }
-                let target_caps: Vec<(String, usize)> = decls.modules[edge.to]
-                    .capabilities
+                let target_caps: Vec<(String, usize)> = declared[edge.to]
+                    .2
                     .iter()
                     .map(|(n, &i)| (n.clone(), i))
                     .collect();
@@ -440,12 +463,12 @@ pub fn resolve(
                 decls.modules[from].module_aliases.insert(handle, edge.to);
             }
             Some((symbol, bind_name)) => {
-                let function = decls.modules[edge.to]
-                    .functions
+                let function = declared[edge.to]
+                    .0
                     .get(symbol)
                     .copied()
                     .filter(|&i| decls.functions[i].public);
-                let class = decls.modules[edge.to].classes.get(symbol).copied();
+                let class = declared[edge.to].1.get(symbol).copied();
                 match (function, class) {
                     (Some(index), _) => {
                         decls.modules[from]
