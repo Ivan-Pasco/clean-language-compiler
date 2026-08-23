@@ -29,10 +29,6 @@ use crate::resolver::{ParsedFile, ResolvedAst};
 use crate::source::ByteSpan;
 use crate::typecheck::tir::TypedProgram;
 
-/// Chapter 21 §21.7: compile-time heap across all of one library's handler
-/// invocations. Not configurable through the request — `compile_limits`
-/// carries no per-library keys (DISCOVERIES-M5 item 5).
-const LIBRARY_HEAP_LIMIT: u64 = 512 * 1024 * 1024;
 
 /// Pass [6] entry point: takes pass [4]/[5]'s outputs and returns them
 /// unchanged when the program declares no library blocks, or the expanded
@@ -52,6 +48,10 @@ pub fn expand(
     }
 
     let limits = &request.compile_limits;
+    // Chapter 21 §21.7 per-library caps, configurable per project since
+    // the 2026-08-22 amendment: they travel in `request.compile_limits`
+    // like the per-invocation budgets.
+    let heap_limit = limits.library_heap_mb.saturating_mul(1024 * 1024);
     let mut heap: IndexMap<String, u64> = IndexMap::new();
     let mut heap_reported: Vec<String> = Vec::new();
     // (file, item) → the items replacing that `LibraryBlock`, plus the
@@ -90,18 +90,17 @@ pub fn expand(
 
         let total = heap.entry(lib.clone()).or_insert(0);
         *total += run.memory_bytes;
-        if *total > LIBRARY_HEAP_LIMIT && !heap_reported.contains(&lib) {
+        if *total > heap_limit && !heap_reported.contains(&lib) {
             heap_reported.push(lib.clone());
             let total = *total;
             // LIB014 template verbatim (Platform 10 §10.5); heap measured
-            // as the sum of end-of-call linear-memory sizes
-            // (DISCOVERIES-M5 item 5).
+            // as the sum of end-of-invocation linear-memory sizes, failed
+            // invocations included, at most once per library (the
+            // normative accounting ratified 2026-08-22).
             sink.push(build(
                 Level::Error,
                 codes::LIB014,
-                format!(
-                    "Library '{lib}' exceeded compile-time heap: {total} > {LIBRARY_HEAP_LIMIT}"
-                ),
+                format!("Library '{lib}' exceeded compile-time heap: {total} > {heap_limit}"),
                 Span::request_document(),
                 None,
             ));
@@ -181,7 +180,8 @@ pub fn expand(
                 if halted {
                     continue;
                 }
-                let mut lowerer = ir::Lowerer::new(extent, &file.stream.path);
+                let mut lowerer =
+                    ir::Lowerer::new(extent, &file.stream.path, limits.max_ir_nodes);
                 match lowerer.items(&envelope.ir) {
                     Ok(items) => {
                         expanded_sites.push(ExpandedSite {
@@ -199,8 +199,8 @@ pub fn expand(
                             codes::LIB014,
                             format!(
                                 "Library '{lib}' exceeded generated-IR node count: {} > {}",
-                                ir::MAX_IR_NODES + 1,
-                                ir::MAX_IR_NODES
+                                limits.max_ir_nodes + 1,
+                                limits.max_ir_nodes
                             ),
                             span,
                             None,

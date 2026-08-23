@@ -95,6 +95,15 @@ pub struct CompileLimits {
     pub handler_timeout_ms: u64,
     #[serde(default = "default_handler_memory_mb")]
     pub handler_memory_mb: u64,
+    /// Per-library compile-time heap, in MiB, summed over the library's
+    /// handler invocations (21 §21.7; exceeding it is LIB014). Travels in
+    /// the request since the 2026-08-22 amendment (option A of the
+    /// compiletime-request brief).
+    #[serde(default = "default_library_heap_mb")]
+    pub library_heap_mb: u64,
+    /// IR nodes one handler invocation may emit (21 §21.7; LIB014).
+    #[serde(default = "default_max_ir_nodes")]
+    pub max_ir_nodes: u64,
     #[serde(default = "default_total_timeout_min")]
     pub total_timeout_min: u64,
     #[serde(default = "default_max_file_size_mb")]
@@ -114,6 +123,12 @@ fn default_handler_timeout_ms() -> u64 {
 fn default_handler_memory_mb() -> u64 {
     128
 }
+fn default_library_heap_mb() -> u64 {
+    512
+}
+fn default_max_ir_nodes() -> u64 {
+    500_000
+}
 fn default_total_timeout_min() -> u64 {
     10
 }
@@ -132,6 +147,8 @@ impl Default for CompileLimits {
         Self {
             handler_timeout_ms: default_handler_timeout_ms(),
             handler_memory_mb: default_handler_memory_mb(),
+            library_heap_mb: default_library_heap_mb(),
+            max_ir_nodes: default_max_ir_nodes(),
             total_timeout_min: default_total_timeout_min(),
             max_file_size_mb: default_max_file_size_mb(),
             max_import_depth: default_max_import_depth(),

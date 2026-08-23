@@ -154,7 +154,7 @@ fn node_budget_is_lib014() {
     }
     let ir = serde_json::json!({"kind": "concat", "fragments": fragments});
     let mut lowerer =
-        clean_compiler::blocks::ir::Lowerer::new(clean_compiler::source::ByteSpan::new(0, 10), "a");
+        clean_compiler::blocks::ir::Lowerer::new(clean_compiler::source::ByteSpan::new(0, 10), "a", 500_000);
     match lowerer.items(&ir) {
         Err(clean_compiler::blocks::ir::LowerError::NodeLimit) => {}
         Ok(_) => panic!("node budget did not fire"),
@@ -173,7 +173,7 @@ fn pathological_nesting_is_malformed_not_a_crash() {
         node = serde_json::json!({"kind": "concat", "fragments": [node]});
     }
     let mut lowerer =
-        clean_compiler::blocks::ir::Lowerer::new(clean_compiler::source::ByteSpan::new(0, 10), "a");
+        clean_compiler::blocks::ir::Lowerer::new(clean_compiler::source::ByteSpan::new(0, 10), "a", 500_000);
     match lowerer.items(&node) {
         Err(clean_compiler::blocks::ir::LowerError::Malformed(reason)) => {
             assert!(reason.contains("depth"), "unexpected reason: {reason}")
@@ -193,5 +193,60 @@ fn class_with_fields_expands_and_compiles() {
     assert!(
         diagnostics.iter().all(|d| d.level != Level::Error),
         "expected clean expansion, got {diagnostics:?}"
+    );
+}
+
+/// LIB014, heap leg — `library_heap_mb` travels in the request since the
+/// 2026-08-22 amendment. With a 0 MiB cap, the first invocation's
+/// end-of-call linear memory (two wasm pages) exceeds it; the diagnostic
+/// anchors at the request sentinel and fires at most once per library.
+/// Pinned here in full because LIB014's DIA-06 triple exercises the
+/// generated-IR leg (the heap-leg pin foundation requested in the
+/// round-trip).
+#[test]
+fn library_heap_limit_from_the_request_is_lib014() {
+    let mut request = request_with_handler(BLOCK_SRC, common::EMPTY_ENVELOPE);
+    request.compile_limits.library_heap_mb = 0;
+    let diagnostics = match clean_compiler::check(request) {
+        Ok(diagnostics) => diagnostics,
+        Err(err) => panic!("expected diagnostics, got {err:?}"),
+    };
+    let heap: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == "LIB014")
+        .collect();
+    assert_eq!(heap.len(), 1, "at most once per library: {diagnostics:?}");
+    assert_eq!(
+        heap[0].message,
+        "Library 'alpha' exceeded compile-time heap: 131072 > 0"
+    );
+    assert_eq!(heap[0].primary_span.file, "<request>");
+}
+
+/// LIB014, generated-IR leg, wired from the request: `max_ir_nodes` caps
+/// the lowering and names the request's own value in the message.
+#[test]
+fn max_ir_nodes_limit_from_the_request_is_lib014() {
+    let envelope = serde_json::json!({
+        "ir": {"kind": "concat", "fragments": [
+            {"kind": "empty"}, {"kind": "empty"}, {"kind": "empty"},
+            {"kind": "empty"}, {"kind": "empty"}
+        ]},
+        "diagnostics": []
+    })
+    .to_string();
+    let mut request = request_with_handler(BLOCK_SRC, &envelope);
+    request.compile_limits.max_ir_nodes = 3;
+    let diagnostics = match clean_compiler::check(request) {
+        Ok(diagnostics) => diagnostics,
+        Err(err) => panic!("expected diagnostics, got {err:?}"),
+    };
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == "LIB014")
+        .unwrap_or_else(|| panic!("expected LIB014, got {diagnostics:?}"));
+    assert_eq!(
+        d.message,
+        "Library 'alpha' exceeded generated-IR node count: 4 > 3"
     );
 }

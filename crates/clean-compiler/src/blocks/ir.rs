@@ -7,16 +7,15 @@
 //! Every lowered node carries the block header's span by default (§21.5);
 //! `with_span` re-anchors to a real sub-span of the block. A shape the
 //! closed §21.4 builder surface does not produce is malformed IR
-//! (`BLOCK004`); more than 500 000 nodes in one envelope is the library's
-//! resource limit (`LIB014`, chapter 21 §21.7).
+//! (`BLOCK004`); more nodes in one envelope than the request's
+//! `max_ir_nodes` cap (default 500 000) is the library's resource limit
+//! (`LIB014`, chapter 21 §21.7).
 
 use serde_json::Value;
 
 use crate::parser::ast;
 use crate::source::ByteSpan;
 
-/// Chapter 21 §21.7: IR nodes emitted by a single invocation.
-pub const MAX_IR_NODES: u64 = 500_000;
 
 /// Chapter 21 §21.7 (normative since the 2026-08-18 erratum, which
 /// ratified this compiler's cap): IR nesting beyond 128 levels is
@@ -73,24 +72,28 @@ pub struct Lowerer {
     /// The block's file — the only file `with_span` may re-anchor into.
     file: String,
     nodes: u64,
+    max_nodes: u64,
     depth: u32,
 }
 
 type Lower<T> = Result<T, LowerError>;
 
 impl Lowerer {
-    pub fn new(block_extent: ByteSpan, file: &str) -> Self {
+    /// `max_nodes` is `request.compile_limits.max_ir_nodes` (21 §21.7;
+    /// configurable per project since 2026-08-22, default 500 000).
+    pub fn new(block_extent: ByteSpan, file: &str, max_nodes: u64) -> Self {
         Self {
             block_extent,
             file: file.to_string(),
             nodes: 0,
+            max_nodes,
             depth: 0,
         }
     }
 
     fn tick(&mut self) -> Lower<()> {
         self.nodes += 1;
-        if self.nodes > MAX_IR_NODES {
+        if self.nodes > self.max_nodes {
             return Err(LowerError::NodeLimit);
         }
         Ok(())
