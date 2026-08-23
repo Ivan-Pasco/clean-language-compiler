@@ -65,20 +65,13 @@ enum State {
 }
 
 impl State {
-    #[allow(deprecated)] // `root_uri` is deprecated in LSP but still the common field.
-    fn from_initialize(params: InitializeParams) -> Self {
-        let root = params
-            .root_uri
-            .as_ref()
-            .map(|uri| uri.as_str().to_string())
-            .or_else(|| {
-                params
-                    .workspace_folders
-                    .as_ref()
-                    .and_then(|folders| folders.first())
-                    .map(|folder| folder.uri.as_str().to_string())
-            });
-        let options = params.initialization_options.unwrap_or_default();
+    /// The single intake path (LSP-06): the bootstrap's
+    /// `initializationOptions` and the mid-session `clean/requestDocument`
+    /// notification carry the same `{requestDocument, requestDocumentUri}`
+    /// envelope and flow through `request::from_json` exactly like the
+    /// batch adapter, so a malformed payload yields the same RQD
+    /// diagnostics `cln check` would report.
+    fn intake(options: &serde_json::Value, root: Option<String>) -> Self {
         let request_uri = options
             .get("requestDocumentUri")
             .and_then(|v| v.as_str())
@@ -86,9 +79,6 @@ impl State {
         let Some(document) = options.get("requestDocument") else {
             return State::NoRequest;
         };
-        // The document goes through the same intake as the batch adapter
-        // (`request::from_json`), so a malformed payload yields the same
-        // RQD diagnostics `cln check` would report.
         let json = document.to_string();
         let mut intake = clean_compiler::diag::DiagnosticSink::new();
         match clean_compiler::request::from_json(&json, &mut intake) {
@@ -111,6 +101,23 @@ impl State {
     }
 }
 
+/// The workspace root: `root_uri`, falling back to the first workspace
+/// folder (LSP-06's recorded limitation for multi-root workspaces).
+#[allow(deprecated)] // `root_uri` is deprecated in LSP but still the common field.
+fn root_of(params: &InitializeParams) -> Option<String> {
+    params
+        .root_uri
+        .as_ref()
+        .map(|uri| uri.as_str().to_string())
+        .or_else(|| {
+            params
+                .workspace_folders
+                .as_ref()
+                .and_then(|folders| folders.first())
+                .map(|folder| folder.uri.as_str().to_string())
+        })
+}
+
 /// Drives one editor session over `connection` until `exit`.
 pub fn run(connection: Connection) -> Result<(), ServerError> {
     let (initialize_id, initialize_params) = connection.initialize_start()?;
@@ -128,7 +135,9 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
     // notification, so the first diagnostics push happens here: the request
     // document arrived complete at `initialize`, and Platform 04 §4.1 wants
     // diagnostics streaming without waiting for an edit.
-    let mut state = State::from_initialize(params);
+    let root = root_of(&params);
+    let options = params.initialization_options.unwrap_or_default();
+    let mut state = State::intake(&options, root.clone());
     match &mut state {
         State::Session(session) => publish_check(&connection, session)?,
         State::Rejected { uri, diagnostics } => {
@@ -154,7 +163,7 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
                 handle_request(&connection, &state, request);
             }
             Message::Notification(notification) => {
-                handle_notification(&connection, &mut state, notification)?;
+                handle_notification(&connection, &mut state, &root, notification)?;
             }
             // The server sends no requests yet, so no response is expected.
             Message::Response(_) => {}
@@ -166,9 +175,56 @@ pub fn run(connection: Connection) -> Result<(), ServerError> {
 fn handle_notification(
     connection: &Connection,
     state: &mut State,
+    root: &Option<String>,
     notification: Notification,
 ) -> Result<(), ServerError> {
     match notification.method.as_str() {
+        // LSP-06 mid-session update: a complete replacement document goes
+        // through the same intake as the bootstrap, followed by a full
+        // re-check and republication. Buckets the old session published
+        // but the replacement does not own are cleared explicitly, so
+        // stale squiggles die with the document that owned them. A
+        // notification carrying no `requestDocument` is the caller's
+        // defect: said once, and the live session (if any) is kept.
+        "clean/requestDocument" => {
+            let replacement = State::intake(&notification.params, root.clone());
+            if matches!(replacement, State::NoRequest) {
+                log(
+                    connection,
+                    "no `requestDocument` in clean/requestDocument params; \
+                     the replacement is ignored"
+                        .to_string(),
+                );
+                return Ok(());
+            }
+            let stale = match state {
+                State::Session(session) => session.bucket_uris(),
+                State::Rejected { uri, .. } => vec![uri.clone()],
+                State::NoRequest => Vec::new(),
+            };
+            *state = replacement;
+            match state {
+                State::Session(session) => {
+                    let kept = session.bucket_uris();
+                    for uri in stale {
+                        if !kept.contains(&uri) {
+                            publish(connection, uri, Vec::new());
+                        }
+                    }
+                    publish_check(connection, session)
+                }
+                State::Rejected { uri, diagnostics } => {
+                    for stale_uri in stale {
+                        if stale_uri != *uri {
+                            publish(connection, stale_uri, Vec::new());
+                        }
+                    }
+                    publish(connection, uri.clone(), diagnostics.clone());
+                    Ok(())
+                }
+                State::NoRequest => unreachable!("NoRequest replacements are ignored above"),
+            }
+        }
         "textDocument/didOpen" => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(notification.params)?;
             document_changed(

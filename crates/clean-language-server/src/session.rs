@@ -232,6 +232,15 @@ impl Session {
     /// Buckets diagnostics by primary file: the request bucket first, then
     /// every source in `sources[]` order — every bucket published every
     /// round, so a fixed file's stale squiggles clear deterministically.
+    /// Every URI this session publishes under: the request-document bucket
+    /// plus one per `sources[]` entry. Lets the server clear buckets a
+    /// replacement document (LSP-06 mid-session update) no longer owns.
+    pub fn bucket_uris(&self) -> Vec<lsp_types::Uri> {
+        let mut uris = vec![self.uri_for(REQUEST_PSEUDO_FILE)];
+        uris.extend(self.base.sources.iter().map(|s| self.uri_for(&s.path)));
+        uris
+    }
+
     fn bucket(&self, diagnostics: &[Diagnostic]) -> Vec<Publish> {
         let locate = |file: &str| -> Option<(lsp_types::Uri, String)> {
             Some((self.uri_for(file), self.content_for(file)))
