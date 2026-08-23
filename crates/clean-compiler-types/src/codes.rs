@@ -1,13 +1,14 @@
 //! The complete diagnostic-code registry, mirroring Platform 09 §3 row for
 //! row. Every diagnostic the toolchain can emit carries one of these codes
 //! (DIA-01); the message templates are copied **verbatim** from Platform 10
-//! (never redacted), and the six withdrawn identifiers are retained so they
-//! can never be reused (DOC-13).
+//! (or, for the BLOCK range, from 21 §21.6 — the declared ERC-02
+//! exception), and the withdrawn identifiers are retained so they can
+//! never be reused (DOC-13).
 //!
-//! Counts per Platform 09 §1.1 (M4 registry pass, 2026-08-17): 165 rows
-//! registered, 8 withdrawn (`SCOPE005`, `FUNC001`, `CLASS007`, `LIB005`,
-//! `LIB007`, `LIB008`, `LIB009`, `IMPORT005` — never emitted, never
-//! reused), 157 emittable.
+//! Counts per Platform 09 §1.1 (brief-drain convergence, 2026-08-22):
+//! 173 rows registered, 12 withdrawn (`SCOPE005`, `FUNC001`,
+//! `FUNC008`–`FUNC011`, `CLASS007`, `LIB005`, `LIB007`, `LIB008`,
+//! `LIB009`, `IMPORT005` — never emitted, never reused), 161 emittable.
 //!
 //! The 1:1 obligation (ERC-02 / RUL-02) is enforced by
 //! `tests/registry_spec.rs` against the local `clean-language-foundation`
@@ -105,25 +106,26 @@ code_consts!(
     SEM001, SEM002, SEM003, SEM004, SEM005, SEM006, SEM007, SEM008, SEM009,
     SEM010, SEM011, SEM012, SEM013, SEM014, SEM015, SEM016, SEM017, SEM018,
     SEM019, SEM020, SEM021, SEM022, SEM023, SEM024, SEM025, SEM026, SEM027,
-    SEM028,
+    SEM028, SEM029, SEM030, SEM031,
     SCOPE001, SCOPE002, SCOPE003, SCOPE004, SCOPE006,
-    FUNC001, FUNC002, FUNC003, FUNC004, FUNC005, FUNC006, FUNC007, FUNC008,
-    FUNC009, FUNC010, FUNC011, FUNC012, FUNC013, FUNC014, FUNC015,
+    FUNC001, FUNC002, FUNC003, FUNC004, FUNC005, FUNC006, FUNC007,
+    FUNC012, FUNC013, FUNC014, FUNC015,
     CLASS001, CLASS002, CLASS003, CLASS004, CLASS005, CLASS006, CLASS007,
     CLASS008, CLASS009, CLASS010, CLASS011, CLASS012,
     IDX001, IDX002, IDX003, IDX004, IDX005,
     STATE001, STATE002, STATE003, STATE004, STATE005, STATE006,
     IMPORT001, IMPORT002, IMPORT003, IMPORT004,
     LIB001, LIB002, LIB003, LIB004, LIB006, LIB010, LIB011, LIB012, LIB013,
-    LIB014, LIB015, LIB016, LIB017, LIB018, LIB019, LIB020,
+    LIB014, LIB015, LIB016, LIB017, LIB018, LIB019, LIB020, LIB021,
     COM001, COM002, COM003, COM004, COM005, COM006, COM007, COM008, COM009,
     COM010, COM011, COM012, COM013, COM014, COM015, COM016, COM017,
     BLD001,
     RUN001, RUN002, RUN003, RUN004, RUN005, RUN006, RUN007, RUN008, RUN009,
     RUN010, RUN011, RUN012, RUN013, RUN014, RUN015, RUN016, RUN017, RUN018,
-    RUN019,
+    RUN019, RUN020,
     MEM001, MEM002, MEM003,
-    BLOCK001, BLOCK002, BLOCK003, BLOCK004, BLOCK005, BLOCK006,
+    BLOCK001, BLOCK002, BLOCK003, BLOCK004, BLOCK005, BLOCK006, BLOCK007,
+    BLOCK008, BLOCK009,
     CFG001, CFG002, CFG003, CFG004, CFG005,
     RQD001, RQD002,
     CAP001, CAP002, CAP003,
@@ -250,6 +252,12 @@ pub const REGISTRY: &[CodeInfo] = &[
       "integer value {value} exceeds 2^53 and loses precision as a number"),
     t(SEM028, "UndefinedField", Error, Compiler,
       "type `<T>` has no field named `<field>`"),
+    t(SEM029, "SecretStringComparison", Error, Compiler,
+      "cannot compare `secret` with `string`"),
+    t(SEM030, "ZeroStepRange", Error, Compiler,
+      "a range cannot advance with step 0"),
+    t(SEM031, "MatchArmsMismatch", Error, Compiler,
+      "this match does not cover `{type}`'s variants exactly"),
 
     // §3.3 Scope (SCOPE) — resolver.
     c(SCOPE001, "UseBeforeDeclaration", Error, Compiler),
@@ -269,10 +277,14 @@ pub const REGISTRY: &[CodeInfo] = &[
     c(FUNC005, "EmptyReturnInNonVoid", Warning, Compiler),
     c(FUNC006, "StartBlockHasParameters", Error, Compiler),
     c(FUNC007, "StartBlockReturnsValue", Warning, Compiler),
-    c(FUNC008, "UnknownNamedArgument", Error, Compiler),
-    c(FUNC009, "DuplicateNamedArgument", Error, Compiler),
-    c(FUNC010, "PositionalAfterNamed", Error, Compiler),
-    c(FUNC011, "NamedArgCoverageError", Error, Compiler),
+    // FUNC008–FUNC011 withdrawn 2026-08-22: the named-arguments quartet.
+    // The feature exists in no chapter and no grammar (a call-parenthesis
+    // colon is a hard SYN002); the codes were fossils of the retired
+    // compiler's surface. Identifiers never reused (DOC-13).
+    w("FUNC008", "UnknownNamedArgument"),
+    w("FUNC009", "DuplicateNamedArgument"),
+    w("FUNC010", "PositionalAfterNamed"),
+    w("FUNC011", "NamedArgCoverageError"),
     c(FUNC012, "MethodCallOnStandaloneFunction", Error, Compiler),
     t(FUNC013, "FunctionOutsideFunctionsBlock", Error, Compiler,
       "Function '{name}' must be declared inside a 'functions:' block"),
@@ -351,9 +363,12 @@ pub const REGISTRY: &[CodeInfo] = &[
     w("LIB007", ""),
     w("LIB008", ""),
     w("LIB009", ""),
-    // LIB010's "template" is the wrapper format line of Platform 10 §10.3.
+    // LIB010's "template" is the attribution prefix of Platform 10 §10.3
+    // (ratified 2026-08-22 from the fixture-pinned rendering; the former
+    // one-line `{file}:{line}:{col}: …` format is withdrawn). Rendering
+    // follows Platform 13 like every other diagnostic.
     t(LIB010, "CompiletimeDiagnostic", PerDiagnostic, Compiler,
-      "{file}:{line}:{col}: {severity} [LIB010 via {library}::{function}] {message}"),
+      "[via {library}::{block}] {message}"),
     t(LIB011, "HostFunctionSignatureMismatch", Error, Compiler,
       "Host function '{name}' from module '{host}' expected signature {expected}, library declares {actual}"),
     t(LIB012, "HostFunctionUnbound", Error, Compiler,
@@ -374,6 +389,10 @@ pub const REGISTRY: &[CodeInfo] = &[
       "Host declaration '{name}' must live in host_bridge.cln (found in '{file}')"),
     t(LIB020, "SourceBlockMalformed", Error, Compiler,
       "'source:' block is malformed: {reason}"),
+    // LIB021's {reason} is "is already taken by '{other}'" or
+    // "is not a valid WIT identifier" (Platform 10 §LIB021).
+    t(LIB021, "WitNameConflict", Error, Compiler,
+      "host function '{name}' resolves to WIT name '{wit}', which {reason}"),
 
     // §3.10 Compilation (COM) — codegen through instantiation. COM014/015
     // are Clean Framework's Moment 1/2 checks; COM011/017 are the host's
@@ -449,6 +468,10 @@ pub const REGISTRY: &[CodeInfo] = &[
       "unhandled failure: {message}"),
     t(RUN019, "ReadOfCancelledTask", Runtime, Host,
       "'{name}' was cancelled and has no value to read"),
+    // RUN020: computed `step` of 0 at the head of a range iterate; the
+    // compile-time-constant case is SEM030.
+    t(RUN020, "ZeroStepRange", Runtime, Host,
+      "a range cannot advance with step 0"),
 
     // §3.14 Memory (MEM) — allocator, tier limits, arena lifecycle.
     t(MEM001, "TierExceeded", Runtime, Host,
@@ -458,14 +481,32 @@ pub const REGISTRY: &[CodeInfo] = &[
     t(MEM003, "ArenaImbalance", Runtime, Host,
       "arena imbalance: {pop without matching push | pop past a save-point not owned by the caller} at {location}"),
 
-    // §3.15 Block handlers (BLOCK) — rule bodies live in 04 language / 21
-    // §21.6 (the declared ERC-02 exception); no templates are defined there.
-    c(BLOCK001, "AmbiguousBlockName", Error, Compiler),
-    c(BLOCK002, "UnknownBlockName", Error, Compiler),
-    c(BLOCK003, "ReservedBlockName", Error, Compiler),
-    c(BLOCK004, "HandlerMalformedIR", Error, Compiler),
-    c(BLOCK005, "HandlerBudgetExceeded", Error, Compiler),
-    c(BLOCK006, "HandlerForbiddenSideEffect", Error, Compiler),
+    // §3.15 Block handlers (BLOCK) — rule bodies AND templates live in
+    // 04 language / 21 §21.6 (the declared ERC-02 exception; templates
+    // normative there since 2026-08-22, ratifying the fixture-pinned
+    // wordings verbatim). BLOCK004's template is the trunk; its four
+    // {detail} arms are "crashed: {reason}" / "is malformed: {reason}" /
+    // "returned malformed IR: {reason}" / "emitted diagnostic '{code}'
+    // with a synthetic span". BLOCK005's {limit} is "wall-clock limit
+    // {n} ms" or "memory limit {n} MiB".
+    t(BLOCK001, "AmbiguousBlockName", Error, Compiler,
+      "block name `{block_name}` is ambiguous: libraries '{a}' and '{b}' both register a handler for it"),
+    t(BLOCK002, "UnknownBlockName", Error, Compiler,
+      "no library in scope registers a handler for block `{block_name}`"),
+    t(BLOCK003, "ReservedBlockName", Error, Compiler,
+      "library '{library}' registers reserved block name `{block}`"),
+    t(BLOCK004, "HandlerMalformedIR", Error, Compiler,
+      "library '{library}' handler for block `{block}` {detail}"),
+    t(BLOCK005, "HandlerBudgetExceeded", Error, Compiler,
+      "library '{library}' exceeded its compile-time budget expanding block `{block}`: {limit}"),
+    t(BLOCK006, "HandlerForbiddenSideEffect", Error, Compiler,
+      "library '{library}' attempted a forbidden side effect expanding block `{block}`: called host import '{import}'"),
+    t(BLOCK007, "HandlerParameterShape", Error, Compiler,
+      "compiletime function '{function}' handling block `{block}` must take exactly one parameter of type BlockAST"),
+    t(BLOCK008, "HandlerReturnType", Error, Compiler,
+      "compiletime function '{function}' handling block `{block}` must return IR, not {type}"),
+    t(BLOCK009, "MalformedBlockName", Error, Compiler,
+      "handles block name `{name}` is not a qualified identifier (`name` or `name.name.name` — no spaces, no punctuation other than `.`)"),
 
     // §3.16 Configuration (CFG) — Framework/Manager/LSP read project files;
     // the compiler emits none of these (CMP-01).

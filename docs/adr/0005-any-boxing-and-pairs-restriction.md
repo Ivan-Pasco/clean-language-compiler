@@ -1,6 +1,15 @@
 # ADR 0005 — The `any` box, JSON number fidelity, and the pairs subset
 
-Status: Accepted (2026-08-18)
+Status: Accepted (2026-08-18); **ratified by foundation with one
+amendment (2026-08-22)** — MMD-06 (Platform 03 §3.4.5) adopts the box
+as spec, following the code where this ADR diverged from it: the tag
+table below lists tag 5 as `bytes`, but the implementation boxes
+`bytes → any` under tag 4 (byte-for-byte indistinguishable from
+`string`) and no producer emits tag 5 — ratified as **tag 4 covers
+both, tag 5 is reserved**. Also ratified: the record layout (§3.4.4,
+with align = max(4, widest leaf) and recursive flattening), the V2
+`pairs` subset note in §3.4.2, and the JSON round-trip regime
+including non-finite → `null`, which this ADR did not record.
 
 ## Context
 

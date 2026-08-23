@@ -33,23 +33,23 @@ fn codes_are_unique() {
     }
 }
 
-/// The counts of Platform 09 §1.1 (M4 registry pass, 2026-08-17): 165
-/// rows registered, 8 withdrawn, 157 emittable — of which 122 belong to
-/// the compiler pipeline. Changing any of these is a spec change
+/// The counts of Platform 09 §1.1 (brief-drain convergence, 2026-08-22):
+/// 173 rows registered, 12 withdrawn, 161 emittable — of which 125 belong
+/// to the compiler pipeline. Changing any of these is a spec change
 /// (ERC-03), never an implementation choice.
 #[test]
 fn registry_counts_match_platform_09() {
-    assert_eq!(codes::REGISTRY.len(), 165, "registered rows");
+    assert_eq!(codes::REGISTRY.len(), 173, "registered rows");
     let withdrawn = codes::REGISTRY
         .iter()
         .filter(|i| i.status == Status::Withdrawn)
         .count();
-    assert_eq!(withdrawn, 8, "withdrawn identifiers");
+    assert_eq!(withdrawn, 12, "withdrawn identifiers");
     let emittable = codes::REGISTRY
         .iter()
         .filter(|i| i.is_compiler_emittable())
         .count();
-    assert_eq!(emittable, 122, "codes the compiler pipeline may emit");
+    assert_eq!(emittable, 125, "codes the compiler pipeline may emit");
 }
 
 /// Withdrawn rows carry no severity, no emitter, no template — nothing may

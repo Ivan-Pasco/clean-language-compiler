@@ -65,9 +65,9 @@ pub struct BlockAst {
     pub span: ByteSpan,
 }
 
-/// Sum type over block-body children (schema/block-ast.md). The
-/// `Statement` variant materialises during pass-6 expansion (M5); at parse
-/// time every non-block line is preserved as a `BlockLine`.
+/// Sum type over block-body children (schema/block-ast.md). Two variants
+/// only — ratified 2026-08-22: every non-block line is preserved as a
+/// `BlockLine`; no `Statement` variant exists in the AST or the wire ABI.
 #[derive(Debug)]
 pub enum BlockNode {
     Block(BlockAst),

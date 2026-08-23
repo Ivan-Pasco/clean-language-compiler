@@ -329,10 +329,9 @@ impl Scalar {
 /// Packed in-memory layout of one list element: the flattened leaves as
 /// `(byte offset, scalar)` in field order, plus the element stride.
 ///
-/// MMD §3.4.1 gives lists their header but no chapter tabulates element
-/// sizes or record packing (DISCOVERIES-M6 items 7–8). Local adoption:
-/// natural alignment, fields in declaration order, stride rounded up to
-/// the widest leaf's alignment.
+/// Platform 03 §3.4.4 (record layout, ratified 2026-08-22 from this
+/// adoption): natural alignment, fields in declaration order, recursive
+/// flattening, stride rounded up to `align = max(4, widest leaf)`.
 #[derive(Debug, Clone)]
 pub struct ElemLayout {
     pub leaves: Vec<(u32, Scalar)>,
@@ -500,8 +499,10 @@ pub struct WorldFacts {
     /// `clean:host/{interface}@{version}` convention.
     pub module: Option<String>,
     /// `Some(ok)` when the world return is `result<ok, err>`; the err
-    /// side's payload is never read (expression `onError` binds no error
-    /// value) but its alignment still positions the ok payload.
+    /// side's payload is never read (LBS §8.3: both `onError` forms bind
+    /// a synthesized `error` — "host function {name} failed", code none —
+    /// never the world's payload) but its alignment still positions the
+    /// ok payload.
     pub fallible_ok: Option<Ty>,
     /// Canonical offset of the ok payload inside the result's memory
     /// form: `align_to(1, max(align(ok), align(err)))`.
@@ -2337,8 +2338,10 @@ impl<'a> FnLowerer<'a> {
             }
             HExprKind::GuardValue => self.note(sink, "state access in compiled code", expr.span),
             // `value onError fallback` over a fallible host call: branch
-            // on the result discriminant, fallback on the error arm (the
-            // expression form binds no error value).
+            // on the result discriminant, fallback on the error arm. Both
+            // `onError` forms bind a synthesized `error` (LBS §8.3:
+            // "host function {name} failed", code none); the world's
+            // error payload itself is never read.
             HExprKind::OnError { value, fallback }
                 if matches!(&value.kind, HExprKind::CallHost { import, .. }
                     if self.imports[self.remap[import]].fallible_ok.is_some()) =>
@@ -2802,9 +2805,9 @@ impl<'a> FnLowerer<'a> {
 
     /// Lowers a call to a fallible import (world return `result<ok, err>`).
     /// The retptr area holds the canonical result: discriminant byte at
-    /// +0, ok payload at its natural alignment. The error payload is never
-    /// read (expression `onError` binds no error value); a bare call traps
-    /// on the error arm.
+    /// +0, ok payload at its natural alignment. The world's error payload
+    /// is never read — the `error` binding of either `onError` form is
+    /// synthesized per LBS §8.3; a bare call traps on the error arm.
     fn lower_fallible_call(
         &mut self,
         import: usize,

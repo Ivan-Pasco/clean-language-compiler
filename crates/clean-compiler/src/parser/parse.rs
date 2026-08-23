@@ -1870,8 +1870,8 @@ impl<'a> Parser<'a> {
 
     /// One library block: `qualified.name [args…]:` + indented body of DSL
     /// lines and nested blocks (schema/block-ast.md). Body lines are
-    /// preserved as token lists — the handler tokenises them itself; the
-    /// `Statement` variant materialises during expansion (M5).
+    /// preserved as token lists — the handler tokenises them itself
+    /// (ratified 2026-08-22: `BlockNode` has two variants; no `Statement`).
     fn library_block(&mut self, sink: &mut DiagnosticSink) -> Option<BlockAst> {
         let start = self.span();
         let (mut name, mut last_span) = self.ident("block name", sink)?;

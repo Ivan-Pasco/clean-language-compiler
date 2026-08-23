@@ -1,6 +1,12 @@
 # ADR 0003 — Wire ABI between the compiler and compile-time handler wasm
 
-- **Status:** Accepted (2026-08-18)
+- **Status:** Superseded by ratification (2026-08-22) — foundation drained
+  the `handler-wire-abi` brief and made the wire ABI normative as
+  `03 platform/schema/handler-wire.json.md` v1, ratified **wider** than
+  this ADR records (13 `TypeRef` kinds, positional records, guards,
+  optional `diagnostics` field; versioned by export surface). The schema
+  is now the authority; this ADR remains as the historical record of the
+  local decision. Originally Accepted (2026-08-18).
 - **Context:** ADR-0004 (foundation) decides *where* handlers run — a
   sandboxed wasmtime sub-instance inside the compiler's pass [6] — and
   *what* they exchange at the language level: a typed `BlockAST` in, typed

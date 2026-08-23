@@ -1,6 +1,14 @@
 # ADR 0007 — Manifest records for build reproduction
 
-- **Status:** Accepted (2026-08-19)
+- **Status:** Accepted (2026-08-19); **ratified verbatim by foundation
+  (2026-08-22, no migration)** — the brief drain adopted
+  `inputs.project`/`inputs.target_world` by reference, `resolved_config`
+  as resolved values, `request_sha256` as forensic-only, `fetch_world`,
+  and the conditional divergence contract with the prefix edge. The
+  "normative-schema deviation" consequence below is closed: §14.8 now
+  matches this shape. One loose end stays registered on the compiler
+  side: canonicalization of `request_sha256` (serde output vs §14.15.1)
+  — decide or relax.
 - **Context:** Platform 14 §14.14.6 requires the reproduction operation to
   read a build manifest, refetch every input at its recorded SHA-256, and
   invoke `compile()` with the identical request. But the §14.8 manifest

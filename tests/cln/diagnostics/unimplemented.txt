@@ -1,10 +1,18 @@
 # DIA-06 ledger (Platform 13 §12): compiler-emittable codes that no input
-# can trigger in the current build. This file only ever DECREASES: when a
-# pass learns to emit a code, its fixture triple lands in this directory
-# and the line here is deleted in the same commit. Adding a line back for
-# a code that has a fixture is rejected by the harness. COM013 (internal
-# compiler invariant) stays here until a deliberate fault-injection hook
-# exists: no well-formed input can trigger an ICE by design.
+# can trigger in the current build. This file only ever DECREASES for an
+# implemented code: when a pass learns to emit one, its fixture triple
+# lands in this directory and the line here is deleted in the same commit
+# (a newly registered, not-yet-implemented code enters here in the commit
+# that registers it). Adding a line back for a code that has a fixture is
+# rejected by the harness. COM013 (internal compiler invariant) is the
+# registered internal-invariant exception of 13 §12: exempt from the
+# fixture triple, triple-locked instead (positive emission through the
+# repro surface, the fuzzer's negative lock, and the registry-pinned
+# template); a deliberate debug-only fault-injection hook remains its
+# named exit condition — a deferred refinement, not a mandate.
+BLOCK007
+BLOCK008
+BLOCK009
 COM001
 COM002
 COM004
@@ -16,10 +24,6 @@ COM010
 COM013
 COM016
 FUNC006
-FUNC008
-FUNC009
-FUNC010
-FUNC011
 LIB002
 LIB003
 LIB006
@@ -31,4 +35,8 @@ LIB016
 LIB018
 LIB019
 LIB020
+LIB021
 SEM007
+SEM029
+SEM030
+SEM031

@@ -1,6 +1,12 @@
 # ADR 0004 — Runtime support is emitted as guest functions; the BRG-05 always-on imports are deferred
 
-Status: Accepted (2026-08-18)
+Status: Accepted (2026-08-18); **ratified by foundation (2026-08-22)** —
+the brief drain rewrote BRG-05 to "guest runtime always emitted", removed
+the mem/math/string rows from the L2 catalog, and decided transcendentals,
+`^` and case folding as **guest** computation (so the Unsupported channel
+for them can close — compiler follow-up). Stdlib host needs flow through
+the single `target_world.wit` with COM012 at the call site. The
+"BLOCKED ON SPEC" consequence below is resolved in this direction.
 
 ## Context
 

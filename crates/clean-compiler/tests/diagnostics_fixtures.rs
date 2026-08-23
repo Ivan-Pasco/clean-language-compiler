@@ -11,9 +11,13 @@
 //! fixture can never return to the ledger (the file's header states the
 //! decrease-only rule the review enforces).
 //!
-//! Request-level codes (`RQD`) replace the synthesized request with a
-//! committed `<CODE>.request.json`, exercising the same intake path the
-//! binary uses. Regenerate snapshots deliberately with
+//! A committed `<CODE>.request.json` replaces the synthesized minimal
+//! request, exercising the same intake path the binary uses. The
+//! mechanism is general, not `RQD`-scoped (ratified 2026-08-22): any code
+//! whose trigger needs a richer-than-minimal request uses it, and it is
+//! mandatory exactly when the minimal request cannot trigger the code —
+//! enforced structurally, since a fixture producing no diagnostic fails.
+//! Regenerate snapshots deliberately with
 //! `UPDATE_DIAG_FIXTURES=1 cargo test --test diagnostics_fixtures`.
 
 mod common;

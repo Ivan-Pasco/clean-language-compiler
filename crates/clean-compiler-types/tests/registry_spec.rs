@@ -1,6 +1,8 @@
 //! The spec legs of the M2 1:1 gate (ERC-02 / RUL-02): the registry in
 //! `codes.rs` must match Platform 09 row for row, and every message template
-//! must appear verbatim in Platform 10. Runs against the sibling
+//! must appear verbatim in Platform 10 — except the BLOCK range, whose rule
+//! bodies and templates live in 04 language / 21 §21.6 (the declared ERC-02
+//! exception, templates normative there since 2026-08-22). Runs against the sibling
 //! `clean-language-foundation` checkout; skips (loudly) when it is absent,
 //! UNLESS `CLEAN_SPEC_REQUIRED` is set — CI clones the spec checkout and sets
 //! that variable, so a conformance test can never self-skip there.
@@ -64,6 +66,7 @@ fn registry_matches_platform_09_and_10() {
     };
     let spec09 = read(root.join("03 platform/09-error-codes.md"));
     let spec10 = read(root.join("03 platform/10-semantic-rules.md"));
+    let spec21 = read(root.join("04 language/21-block-handlers.md"));
     let rows = parse_09_rows(&spec09);
 
     // Leg 1 — same code set in both directions.
@@ -120,13 +123,19 @@ fn registry_matches_platform_09_and_10() {
         }
     }
 
-    // Leg 3 — every message template is a verbatim substring of Platform 10
-    // (copied, never redacted).
+    // Leg 3 — every message template is a verbatim substring of its owning
+    // chapter (copied, never redacted): Platform 10, except the BLOCK range,
+    // whose templates live in 21 §21.6 (the declared ERC-02 exception).
     for info in codes::REGISTRY {
         if let Some(template) = info.template {
+            let (owner, text) = if info.code.starts_with("BLOCK") {
+                ("21 §21.6", &spec21)
+            } else {
+                ("Platform 10", &spec10)
+            };
             assert!(
-                spec10.contains(template),
-                "{}: template is not a verbatim substring of Platform 10:\n{template}",
+                text.contains(template),
+                "{}: template is not a verbatim substring of {owner}:\n{template}",
                 info.code
             );
         }
