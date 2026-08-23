@@ -20,9 +20,12 @@ SHA-256 de la copia:
 - Foundation `03 platform/wit/` nunca recibió los WIT (solo un README).
   El único contrato real del ecosistema era el `host.wit`
   en la raíz de clean-server (HCV-02).
-- Esta copia está **pinneada** al commit de origen. Paso pendiente en el repo
-  de clean-server: reapuntar su `host.wit` para que sea copia verificada de
-  este directorio (test de deriva por SHA-256), invirtiendo la autoridad.
+- La inversión de autoridad se **completó el 2026-08-23**: foundation
+  `03 platform/16` §16.5 (HCV-02) declara a este directorio dueño del
+  contrato (decisión del owner), y clean-server reapuntó su `host.wit` como
+  copia verificada — test de deriva byte a byte en
+  `clean-server/crates/clean-server/tests/contract_drift.rs`, forzado en su
+  CI (`CLEAN_SPEC_REQUIRED=1`, sin auto-skip).
 - El repo ya mantenía una copia de prueba en `tests/fixtures/wit/host.wit`
   (bytes pinneados por `vendored_wit.rs`); el test
   `contracts_host_wit_matches_fixture` obliga a que ambas copias sean

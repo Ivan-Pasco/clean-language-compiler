@@ -6,9 +6,13 @@
   as resolved values, `request_sha256` as forensic-only, `fetch_world`,
   and the conditional divergence contract with the prefix edge. The
   "normative-schema deviation" consequence below is closed: §14.8 now
-  matches this shape. One loose end stays registered on the compiler
-  side: canonicalization of `request_sha256` (serde output vs §14.15.1)
-  — decide or relax.
+  matches this shape. The last loose end — canonicalization of
+  `request_sha256` (serde output vs §14.15.1) — was **decided 2026-08-23:
+  relaxed** (owner decision, option B of foundation
+  `work/archive/2026-08-23-request-sha256-canonicalization.md`): §14.8 now
+  defines the field as the hash of the request as this compiler serialized
+  it, opaque and toolchain-version-stable. The shipped behaviour is the
+  specified behaviour; nothing left open here.
 - **Context:** Platform 14 §14.14.6 requires the reproduction operation to
   read a build manifest, refetch every input at its recorded SHA-256, and
   invoke `compile()` with the identical request. But the §14.8 manifest
