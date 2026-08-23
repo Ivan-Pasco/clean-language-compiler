@@ -16,8 +16,24 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-14, ubuntu-latest]
+    env:
+      # With the spec checkout cloned below, the spec legs (registry_spec,
+      # vendored_grammar) MUST run: this flag turns their local self-skip
+      # into a failure. A conformance test never self-skips in CI.
+      CLEAN_SPEC_REQUIRED: "1"
     steps:
       - uses: actions/checkout@v4
+
+      # The spec authority is the sibling foundation checkout (CLAUDE.md
+      # rule 3). Clone it where the spec legs look for it: the parent of
+      # the workspace. Needs the FOUNDATION_READ_TOKEN secret (fine-grained
+      # PAT, read-only on clean-language-foundation).
+      - name: clone spec checkout (foundation)
+        shell: bash
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${{ secrets.FOUNDATION_READ_TOKEN }}@github.com/Ivan-Pasco/clean-language-foundation.git" \
+            "$GITHUB_WORKSPACE/../clean-language-foundation"
 
       - name: install rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -58,8 +74,8 @@ jobs:
 
       # M2 1:1 gate — código ⇔ regla ⇔ snapshot. Redundant with the full
       # suite above, but named so a gate breach is legible in the log. The
-      # registry_spec leg self-skips here (the private spec checkout is not
-      # cloned in CI) and runs against ../clean-language-foundation locally.
+      # registry_spec leg runs against the foundation clone made above;
+      # CLEAN_SPEC_REQUIRED forbids it from self-skipping.
       - name: diagnostics 1:1 gate
         run: |
           cargo test -p clean-compiler-types --test registry --test registry_spec -- --nocapture
@@ -96,13 +112,15 @@ jobs:
   # ecosystem's REFERENCE implementation — new Tier 1/2 components copy
   # these jobs. Notify foundation before changing their numbers or shape.
   # baseline 87.73% line measured 2026-08-19 (local, macOS, suite at
-  # e71104d; the registry_spec leg self-skips in CI so the CI number reads
-  # slightly lower) — target 80% line per ADR-0027 Tier 1. Ratchet: when a
+  # e71104d) — target 80% line per ADR-0027 Tier 1. Ratchet: when a
   # live CI measurement lands above 80, raise --fail-under-lines to it.
+  # The spec checkout is cloned here too, so the spec legs run instrumented
+  # and the coverage number matches the local measurement.
   coverage:
     name: coverage (ADR-0027 Tier 1, blocking)
     runs-on: ubuntu-latest
     env:
+      CLEAN_SPEC_REQUIRED: "1"
       # M5 made wasmtime a production dependency, so every instrumented
       # test binary links it statically; with full DWARF the runner's
       # linker dies with SIGBUS (resource exhaustion). Line coverage needs
@@ -110,6 +128,13 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
       - uses: actions/checkout@v4
+
+      - name: clone spec checkout (foundation)
+        shell: bash
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${{ secrets.FOUNDATION_READ_TOKEN }}@github.com/Ivan-Pasco/clean-language-foundation.git" \
+            "$GITHUB_WORKSPACE/../clean-language-foundation"
 
       # Same exhaustion guard: the stock image ships ~10 GB of unrelated
       # toolchains; reclaim them before building multi-GB test binaries.

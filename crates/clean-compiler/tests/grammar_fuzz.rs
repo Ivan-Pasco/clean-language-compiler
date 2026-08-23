@@ -88,13 +88,19 @@ fn vendored_grammar_matches_recorded_sha256() {
 }
 
 /// When the foundation checkout is present, the vendored copy must be
-/// byte-identical to `04 language/grammar/` — drift is caught locally, and
-/// the leg self-skips in CI exactly like `registry_spec.rs`.
+/// byte-identical to `04 language/grammar/`. Absent checkout: skips locally,
+/// but fails when `CLEAN_SPEC_REQUIRED` is set (CI clones the spec checkout
+/// and sets it — a conformance test must not self-skip there).
 #[test]
 fn vendored_grammar_matches_foundation() {
     let foundation = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../clean-language-foundation/04 language/grammar");
     if !foundation.is_dir() {
+        assert!(
+            std::env::var_os("CLEAN_SPEC_REQUIRED").is_none(),
+            "CLEAN_SPEC_REQUIRED is set but ../clean-language-foundation is absent — \
+             a conformance test must not self-skip when the spec checkout was promised"
+        );
         eprintln!("skipping: ../clean-language-foundation not present");
         return;
     }

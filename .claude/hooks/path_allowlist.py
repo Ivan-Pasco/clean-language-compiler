@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""PreToolUse gate on Edit/Write (foundation 05 execution/elements/06-hooks §6.2).
+"""PreToolUse gate on Edit/Write.
 
-A compiler session writes to the compiler repo only. The sibling checkouts —
-foundation specs, clean-server, clean-host-core, the retired compiler — are
-read-only context here: spec changes travel as task briefs (CT-H-16), and
-other components own their own sessions (CT-H-15).
+A compiler session writes to the compiler repo — and to the sibling
+foundation checkout, where approved spec amendments land in the moment
+(CLAUDE.md rule 3: block-and-decide; the guarantee that a spec write only
+follows the user's approval lives in that rule and in diff review, not
+here). The other siblings — clean-server, clean-host-core, the retired
+compiler — are read-only context: other components own their own sessions.
 """
 
 import json
@@ -12,7 +14,6 @@ import pathlib
 import sys
 
 BLOCKED_SIBLINGS = (
-    "clean-language-foundation",
     "clean-server",
     "clean-host-core",
     "clean-language-compiler-old",
@@ -25,20 +26,13 @@ def main() -> int:
     if not file_path:
         return 0
     parts = pathlib.PurePath(file_path).parts
-    # CT-H-06: a session MAY write task briefs under foundation/work/ —
-    # that is where execution learnings (Discoveries) are recorded. Only
-    # governance, specs, and ADRs are off-limits from here.
-    if "clean-language-foundation" in parts:
-        index = parts.index("clean-language-foundation")
-        if len(parts) > index + 1 and parts[index + 1] == "work":
-            return 0
     for sibling in BLOCKED_SIBLINGS:
         if sibling in parts:
             sys.stderr.write(
-                f"blocked by path-allowlist (06-hooks §6.2): '{file_path}' is "
-                f"inside '{sibling}', which is read-only for a compiler "
-                "session. Spec or cross-component changes go through a task "
-                "brief / team-prompt (CT-H-15, CT-H-16), not a direct edit.\n"
+                f"blocked by path-allowlist: '{file_path}' is inside "
+                f"'{sibling}', which is read-only for a compiler session. "
+                "That component owns its own sessions; changes to it are "
+                "asked for there, not edited from here.\n"
             )
             return 2
     return 0

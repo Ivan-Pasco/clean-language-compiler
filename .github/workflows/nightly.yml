@@ -28,6 +28,39 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Spec-drift watch. ci.yml runs the drift legs on every push to THIS
+  # repo, but spec drift arrives from pushes to foundation, when this repo
+  # may be idle for days — so the same legs run here nightly, unconditionally.
+  # CLEAN_SPEC_REQUIRED forbids the legs from self-skipping.
+  spec-drift:
+    name: spec drift (registry + vendored grammar vs foundation HEAD)
+    runs-on: ubuntu-latest
+    env:
+      CLEAN_SPEC_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: clone spec checkout (foundation)
+        shell: bash
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${{ secrets.FOUNDATION_READ_TOKEN }}@github.com/Ivan-Pasco/clean-language-foundation.git" \
+            "$GITHUB_WORKSPACE/../clean-language-foundation"
+
+      - name: registry vs Platform 09/10
+        run: cargo test -p clean-compiler-types --test registry_spec -- --nocapture
+
+      - name: vendored grammar vs 04 language/grammar
+        run: |
+          cargo test -p clean-compiler --test grammar_fuzz \
+            vendored_grammar_matches_foundation -- --nocapture
+
   # Wide grammar-fuzz and differential sweeps. The seed rotates by date so
   # every night explores new territory; a failure log always contains the
   # seed, which reproduces the exact program on any machine.

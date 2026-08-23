@@ -1,9 +1,9 @@
 //! The spec legs of the M2 1:1 gate (ERC-02 / RUL-02): the registry in
 //! `codes.rs` must match Platform 09 row for row, and every message template
 //! must appear verbatim in Platform 10. Runs against the sibling
-//! `clean-language-foundation` checkout; skips (loudly) when it is absent —
-//! CI does not clone the private spec repo, so this leg is a local/nightly
-//! gate, mirroring the bi-repo acceptance check of M1.
+//! `clean-language-foundation` checkout; skips (loudly) when it is absent,
+//! UNLESS `CLEAN_SPEC_REQUIRED` is set — CI clones the spec checkout and sets
+//! that variable, so a conformance test can never self-skip there.
 
 use clean_compiler_types::codes::{self, Severity, Status};
 use std::collections::BTreeMap;
@@ -54,6 +54,11 @@ fn parse_09_rows(text: &str) -> BTreeMap<&str, (Option<&str>, Option<&str>)> {
 #[test]
 fn registry_matches_platform_09_and_10() {
     let Some(root) = foundation() else {
+        assert!(
+            std::env::var_os("CLEAN_SPEC_REQUIRED").is_none(),
+            "CLEAN_SPEC_REQUIRED is set but ../clean-language-foundation is absent — \
+             a conformance test must not self-skip when the spec checkout was promised"
+        );
         eprintln!("SKIP: ../clean-language-foundation not present; spec leg runs locally only");
         return;
     };
