@@ -153,8 +153,11 @@ fn node_budget_is_lib014() {
         fragments.push(serde_json::json!({"kind": "empty"}));
     }
     let ir = serde_json::json!({"kind": "concat", "fragments": fragments});
-    let mut lowerer =
-        clean_compiler::blocks::ir::Lowerer::new(clean_compiler::source::ByteSpan::new(0, 10), "a", 500_000);
+    let mut lowerer = clean_compiler::blocks::ir::Lowerer::new(
+        clean_compiler::source::ByteSpan::new(0, 10),
+        "a",
+        500_000,
+    );
     match lowerer.items(&ir) {
         Err(clean_compiler::blocks::ir::LowerError::NodeLimit) => {}
         Ok(_) => panic!("node budget did not fire"),
@@ -172,8 +175,11 @@ fn pathological_nesting_is_malformed_not_a_crash() {
     for _ in 0..200 {
         node = serde_json::json!({"kind": "concat", "fragments": [node]});
     }
-    let mut lowerer =
-        clean_compiler::blocks::ir::Lowerer::new(clean_compiler::source::ByteSpan::new(0, 10), "a", 500_000);
+    let mut lowerer = clean_compiler::blocks::ir::Lowerer::new(
+        clean_compiler::source::ByteSpan::new(0, 10),
+        "a",
+        500_000,
+    );
     match lowerer.items(&node) {
         Err(clean_compiler::blocks::ir::LowerError::Malformed(reason)) => {
             assert!(reason.contains("depth"), "unexpected reason: {reason}")
@@ -211,10 +217,7 @@ fn library_heap_limit_from_the_request_is_lib014() {
         Ok(diagnostics) => diagnostics,
         Err(err) => panic!("expected diagnostics, got {err:?}"),
     };
-    let heap: Vec<_> = diagnostics
-        .iter()
-        .filter(|d| d.code == "LIB014")
-        .collect();
+    let heap: Vec<_> = diagnostics.iter().filter(|d| d.code == "LIB014").collect();
     assert_eq!(heap.len(), 1, "at most once per library: {diagnostics:?}");
     assert_eq!(
         heap[0].message,

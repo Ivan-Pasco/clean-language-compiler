@@ -266,7 +266,8 @@ fn valid_registration_pair_reaches_the_body_frontier() {
 #[test]
 fn module_beats_library_on_name_collision() {
     let module = "functions:\n\tpublic:\n\t\tinteger fromModule(integer a)\n\t\t\treturn a\n";
-    let main = "import:\n\tdata\n\nfunctions:\n\tvoid init()\n\t\tinteger x = fromModule(1)\n\t\treturn\n";
+    let main =
+        "import:\n\tdata\n\nfunctions:\n\tvoid init()\n\t\tinteger x = fromModule(1)\n\t\treturn\n";
     let mut request = block_request("app/main.cln", main, &[], vec![manifest("data", &["data"])]);
     request
         .sources

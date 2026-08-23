@@ -16,7 +16,6 @@ use serde_json::Value;
 use crate::parser::ast;
 use crate::source::ByteSpan;
 
-
 /// Chapter 21 §21.7 (normative since the 2026-08-18 erratum, which
 /// ratified this compiler's cap): IR nesting beyond 128 levels is
 /// malformed IR — a recursive lowerer would overflow its stack long before

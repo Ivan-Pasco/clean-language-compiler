@@ -358,10 +358,7 @@ fn import_chain_deeper_than_the_request_limit_is_bld001() {
         .iter()
         .find(|d| d.code == "BLD001")
         .unwrap_or_else(|| panic!("expected BLD001, got {diagnostics:#?}"));
-    assert_eq!(
-        d.message,
-        "build limit 'max-import-depth' exceeded: 3 > 2"
-    );
+    assert_eq!(d.message, "build limit 'max-import-depth' exceeded: 3 > 2");
     // The exact cap passes.
     let mut request = request_for(&sources);
     request.compile_limits.max_import_depth = 3;

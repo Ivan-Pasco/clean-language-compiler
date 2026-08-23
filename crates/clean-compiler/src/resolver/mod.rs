@@ -495,19 +495,18 @@ pub fn resolve_with_limits(
     // is extended; reading the live maps let visibility chain whenever a
     // target's own edges happened to be processed first (the
     // `sources[]`-order leak the ratification turned into a bug).
-    let declared: Vec<(
-        IndexMap<String, usize>,
-        IndexMap<String, usize>,
-        IndexMap<String, usize>,
-    )> = decls
+    struct DeclaredTables {
+        functions: IndexMap<String, usize>,
+        classes: IndexMap<String, usize>,
+        capabilities: IndexMap<String, usize>,
+    }
+    let declared: Vec<DeclaredTables> = decls
         .modules
         .iter()
-        .map(|m| {
-            (
-                m.functions.clone(),
-                m.classes.clone(),
-                m.capabilities.clone(),
-            )
+        .map(|m| DeclaredTables {
+            functions: m.functions.clone(),
+            classes: m.classes.clone(),
+            capabilities: m.capabilities.clone(),
         })
         .collect();
     for edge in &edges {
@@ -515,7 +514,7 @@ pub fn resolve_with_limits(
         match &edge.symbol {
             None => {
                 let target_fns: Vec<(String, usize)> = declared[edge.to]
-                    .0
+                    .functions
                     .iter()
                     .filter(|(_, &i)| decls.functions[i].public)
                     .map(|(n, &i)| (n.clone(), i))
@@ -524,7 +523,7 @@ pub fn resolve_with_limits(
                     decls.modules[from].functions.entry(name).or_insert(index);
                 }
                 let target_classes: Vec<(String, usize)> = declared[edge.to]
-                    .1
+                    .classes
                     .iter()
                     .map(|(n, &i)| (n.clone(), i))
                     .collect();
@@ -532,7 +531,7 @@ pub fn resolve_with_limits(
                     decls.modules[from].classes.entry(name).or_insert(index);
                 }
                 let target_caps: Vec<(String, usize)> = declared[edge.to]
-                    .2
+                    .capabilities
                     .iter()
                     .map(|(n, &i)| (n.clone(), i))
                     .collect();
@@ -552,11 +551,11 @@ pub fn resolve_with_limits(
             }
             Some((symbol, bind_name)) => {
                 let function = declared[edge.to]
-                    .0
+                    .functions
                     .get(symbol)
                     .copied()
                     .filter(|&i| decls.functions[i].public);
-                let class = declared[edge.to].1.get(symbol).copied();
+                let class = declared[edge.to].classes.get(symbol).copied();
                 match (function, class) {
                     (Some(index), _) => {
                         decls.modules[from]

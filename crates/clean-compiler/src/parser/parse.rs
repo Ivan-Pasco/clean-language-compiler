@@ -751,8 +751,7 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_here(
                     sink,
-                    "host function body admits only 'wit name' and 'description' lines"
-                        .to_string(),
+                    "host function body admits only 'wit name' and 'description' lines".to_string(),
                 );
                 self.sync_line();
             }

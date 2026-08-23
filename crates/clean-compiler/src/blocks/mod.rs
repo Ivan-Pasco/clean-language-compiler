@@ -29,7 +29,6 @@ use crate::resolver::{ParsedFile, ResolvedAst};
 use crate::source::ByteSpan;
 use crate::typecheck::tir::TypedProgram;
 
-
 /// Pass [6] entry point: takes pass [4]/[5]'s outputs and returns them
 /// unchanged when the program declares no library blocks, or the expanded
 /// and re-validated pair when it does. On any error the inputs are
@@ -180,8 +179,7 @@ pub fn expand(
                 if halted {
                     continue;
                 }
-                let mut lowerer =
-                    ir::Lowerer::new(extent, &file.stream.path, limits.max_ir_nodes);
+                let mut lowerer = ir::Lowerer::new(extent, &file.stream.path, limits.max_ir_nodes);
                 match lowerer.items(&envelope.ir) {
                     Ok(items) => {
                         expanded_sites.push(ExpandedSite {
