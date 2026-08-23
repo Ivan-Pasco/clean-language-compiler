@@ -1,0 +1,15 @@
+// LIB021: the camelCase→kebab projection is not injective — both
+// declarations below resolve to the WIT name `set-inner-html`.
+
+host interface dom version "0.1.0":
+	requires host worlds ["server"]
+
+	host function setInnerHTML(html: string)
+		description "First claimant of set-inner-html."
+
+	host function setInnerHtml(html: string)
+		description "Collides by projection."
+
+functions:
+	void init()
+		return

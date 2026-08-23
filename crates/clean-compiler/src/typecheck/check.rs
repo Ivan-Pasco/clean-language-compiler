@@ -24,7 +24,7 @@ use crate::source::ByteSpan;
 
 use super::infer::{Fit, InferCtx};
 use super::tir::*;
-use super::types::{kebab, ListBehavior, Removal, Ty};
+use super::types::{is_valid_wit_name, kebab, ListBehavior, Removal, Ty};
 
 pub fn check(
     resolved: &ResolvedAst,
@@ -480,6 +480,10 @@ impl<'a> Checker<'a> {
         for slot in 0..self.resolved.decls.host_interfaces.len() {
             let (hi, file) = self.resolved.host_interface(slot);
             let (name, functions) = (hi.name.clone(), &hi.functions);
+            // LBS-02 / LIB021: within one interface every declaration's
+            // resolved WIT name (projected or explicit `wit name`) is
+            // unique; wit name → Clean name of the declaration that took it.
+            let mut taken: IndexMap<String, String> = IndexMap::new();
             for f in functions {
                 let params: Vec<Ty> = f
                     .params
@@ -490,10 +494,62 @@ impl<'a> Checker<'a> {
                     Some(ty) => self.project_host_type(ty, &name, file, sink),
                     None => Ty::Void,
                 };
+                // LBS-02 name projection: the declared name MUST start
+                // lowercase — an uppercase initial has no sanctioned
+                // projection (`Start` would silently reach `start`,
+                // bypassing the `wit name` escape). LIB021.
+                if !f.name.starts_with(|c: char| c.is_ascii_lowercase()) {
+                    sink.push(build(
+                        Level::Error,
+                        codes::LIB021,
+                        format!(
+                            "host function '{0}' resolves to WIT name '{0}', \
+                             which is not a valid WIT identifier",
+                            f.name
+                        ),
+                        self.span(file, f.span),
+                        Some("WIT name conflict".to_string()),
+                    ));
+                }
+                let (wit_name, wit_span) = match &f.wit_name {
+                    Some((explicit, span)) => {
+                        if !is_valid_wit_name(explicit) {
+                            sink.push(build(
+                                Level::Error,
+                                codes::LIB021,
+                                format!(
+                                    "host function '{}' resolves to WIT name '{}', \
+                                     which is not a valid WIT identifier",
+                                    f.name, explicit
+                                ),
+                                self.span(file, *span),
+                                Some("WIT name conflict".to_string()),
+                            ));
+                        }
+                        (explicit.clone(), *span)
+                    }
+                    None => (kebab(&f.name), f.span),
+                };
+                match taken.get(&wit_name) {
+                    Some(other) => sink.push(build(
+                        Level::Error,
+                        codes::LIB021,
+                        format!(
+                            "host function '{}' resolves to WIT name '{}', \
+                             which is already taken by '{}'",
+                            f.name, wit_name, other
+                        ),
+                        self.span(file, wit_span),
+                        Some("WIT name conflict".to_string()),
+                    )),
+                    None => {
+                        taken.insert(wit_name.clone(), f.name.clone());
+                    }
+                }
                 self.host_imports.push(HostImport {
                     interface: name.clone(),
                     clean_name: f.name.clone(),
-                    wit_name: kebab(&f.name),
+                    wit_name,
                     params,
                     ret,
                     span: f.span,

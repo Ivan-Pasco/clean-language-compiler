@@ -294,6 +294,117 @@ fn kebab_projection_matches_lbs_example() {
     assert_eq!(kebab("handlerId"), "handler-id");
 }
 
+const NOOP_MAIN: &str = "functions:\n\tvoid init()\n\t\treturn\n";
+
+/// LIB021 leg 1: the camelCase→kebab projection is not injective — two
+/// declarations in one interface may collide without either naming a
+/// `wit name` explicitly.
+#[test]
+fn lib021_on_projected_name_collision() {
+    let host_bridge = "\
+host interface dom version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function setInnerHTML(html: string)
+\t\tdescription \"First claimant of set-inner-html.\"
+
+\thost function setInnerHtml(html: string)
+\t\tdescription \"Collides by projection.\"
+";
+    let diagnostics = rejected(&[
+        ("app/host_bridge.cln", host_bridge),
+        ("app/main.cln", NOOP_MAIN),
+    ]);
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == codes::LIB021)
+        .expect("LIB021 expected");
+    assert_eq!(
+        d.message,
+        "host function 'setInnerHtml' resolves to WIT name 'set-inner-html', \
+         which is already taken by 'setInnerHTML'"
+    );
+    assert_eq!(d.primary_label.as_deref(), Some("WIT name conflict"));
+}
+
+/// LIB021 leg 2: an explicit `wit name` string must be a valid lowercase
+/// kebab-case WIT identifier.
+#[test]
+fn lib021_on_invalid_explicit_wit_name() {
+    let host_bridge = "\
+host interface sse version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function sseStart() returns integer
+\t\twit name \"Start\"
+\t\tdescription \"Uppercase target is not a WIT identifier.\"
+";
+    let diagnostics = rejected(&[
+        ("app/host_bridge.cln", host_bridge),
+        ("app/main.cln", NOOP_MAIN),
+    ]);
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == codes::LIB021)
+        .expect("LIB021 expected");
+    assert_eq!(
+        d.message,
+        "host function 'sseStart' resolves to WIT name 'Start', \
+         which is not a valid WIT identifier"
+    );
+}
+
+/// LIB021 leg 3 (LBS-02 name projection): a declared name with an
+/// uppercase initial has no sanctioned projection — without this check
+/// `Start` would silently project to `start`, bypassing the escape.
+#[test]
+fn lib021_on_uppercase_initial_declared_name() {
+    let host_bridge = "\
+host interface sse version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function Start() returns integer
+\t\tdescription \"Uppercase initial bypasses the sanctioned escape.\"
+";
+    let diagnostics = rejected(&[
+        ("app/host_bridge.cln", host_bridge),
+        ("app/main.cln", NOOP_MAIN),
+    ]);
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == codes::LIB021)
+        .expect("LIB021 expected");
+    assert_eq!(
+        d.message,
+        "host function 'Start' resolves to WIT name 'Start', \
+         which is not a valid WIT identifier"
+    );
+}
+
+/// The `/events` unblocker: `wit name "start"` binds the server world's
+/// `sse.start` — otherwise undeclarable, since `start` is a hard keyword
+/// (LEX-04) and the projection cannot reach it from any legal Clean name.
+#[test]
+fn wit_name_escape_binds_a_keyword_named_world_function() {
+    let host_bridge = "\
+host interface sse version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function sseStart() returns integer:u64
+\t\twit name \"start\"
+\t\tdescription \"Turn the current response into an SSE stream.\"
+";
+    let main = "\
+functions:
+\tvoid init()
+\t\treturn
+\tvoid handle(integer handlerId)
+\t\tsseStart()
+\t\treturn
+";
+    typechecks(&[("app/host_bridge.cln", host_bridge), ("app/main.cln", main)]);
+}
+
 /// Silences the unused-helper lint for helpers other suites use.
 #[allow(dead_code)]
 fn _use_sink(_: DiagnosticSink) {}

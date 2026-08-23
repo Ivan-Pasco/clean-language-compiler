@@ -1,0 +1,7 @@
+error[LIB021]: host function 'setInnerHtml' resolves to WIT name 'set-inner-html', which is already taken by 'setInnerHTML'
+  --> tests/cln/diagnostics/LIB021.cln:10:2
+   |
+10 | 	host function setInnerHtml(html: string)
+   | 	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ WIT name conflict
+   |
+   = docs: https://errors.cleanlanguage.dev/E/LIB021

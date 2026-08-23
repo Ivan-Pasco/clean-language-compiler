@@ -678,8 +678,10 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// `host function name(p: type, …) [returns type]` + indented
-    /// `description "…"` (LBS-02: description is mandatory).
+    /// `host function name(p: type, …) [returns type]` + indented body of
+    /// an optional `wit name "…"` line followed by `description "…"`
+    /// (LBS-02: description is mandatory; `wit name` overrides the
+    /// mechanical camelCase→kebab projection for this one function).
     fn host_function(&mut self, sink: &mut DiagnosticSink) -> Option<HostFunction> {
         let start = self.span();
         self.bump(); // host
@@ -724,7 +726,23 @@ impl<'a> Parser<'a> {
         self.expect(&TokenKind::Newline, "end of line", sink);
 
         let mut description = String::new();
+        let mut wit_name = None;
         if self.eat(&TokenKind::Indent) {
+            // Grammar order (LBS-02 companion §2): `[wit name "…"]` first,
+            // then the mandatory `description "…"`.
+            if self.eat_word("wit") {
+                if self.eat_word("name") {
+                    let wn_start = self.span();
+                    if let Some(text) = self.string_literal("WIT name string", sink) {
+                        wit_name = Some((text, wn_start.merge(self.prev_span())));
+                    }
+                    self.expect(&TokenKind::Newline, "end of line", sink);
+                } else {
+                    self.error_here(sink, "expected 'name' after 'wit'".to_string());
+                    self.sync_line();
+                }
+                while self.eat(&TokenKind::Newline) {}
+            }
             if self.eat_word("description") {
                 description = self
                     .string_literal("description string", sink)
@@ -733,7 +751,8 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_here(
                     sink,
-                    "host function body admits only a 'description' line".to_string(),
+                    "host function body admits only 'wit name' and 'description' lines"
+                        .to_string(),
                 );
                 self.sync_line();
             }
@@ -752,6 +771,7 @@ impl<'a> Parser<'a> {
             name,
             params,
             ret,
+            wit_name,
             description,
             span: start.merge(self.prev_span()),
         })

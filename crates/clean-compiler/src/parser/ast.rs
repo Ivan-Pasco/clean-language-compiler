@@ -273,11 +273,15 @@ pub struct HostInterface {
 
 #[derive(Debug)]
 pub struct HostFunction {
-    /// camelCase Clean name; kebab-cased when matched against WIT.
+    /// camelCase Clean name; kebab-cased when matched against WIT unless
+    /// an explicit `wit name` clause overrides the projection (LBS-02).
     pub name: String,
     pub params: Vec<HostParam>,
     /// `None` means no `returns` clause — a void host function.
     pub ret: Option<TypeExpr>,
+    /// The optional `wit name "…"` body line: the explicit WIT target
+    /// name and the span of its string, for LIB021 anchoring.
+    pub wit_name: Option<(String, ByteSpan)>,
     pub description: String,
     pub span: ByteSpan,
 }

@@ -224,6 +224,19 @@ pub fn project_wit(resolve: &wit_parser::Resolve, ty: &wit_parser::Type) -> Opti
     })
 }
 
+/// A valid lowercase kebab-case WIT identifier (LBS-02 / LIB021):
+/// `-`-separated words, each an ASCII lowercase letter followed by
+/// lowercase letters or digits.
+pub fn is_valid_wit_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.split('-').all(|word| {
+            word.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+                && word
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        })
+}
+
 /// camelCase → kebab-case, the LBS-02 name projection (`setInnerHTML` →
 /// `set-inner-html`).
 pub fn kebab(name: &str) -> String {
