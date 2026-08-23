@@ -291,7 +291,12 @@ pub fn expand(
         .collect();
     let files: Vec<ParsedFile> = std::mem::take(&mut resolved.files);
     let mut second = DiagnosticSink::new();
-    let resolved = crate::resolver::resolve(files, &library_names, &mut second);
+    let resolved = crate::resolver::resolve_with_limits(
+        files,
+        &library_names,
+        validated.request.compile_limits.max_import_depth,
+        &mut second,
+    );
     let typed_expanded = crate::typecheck::check(&resolved, &validated.world, &mut second);
     let had_errors = second.has_errors();
     for note in second.unsupported() {

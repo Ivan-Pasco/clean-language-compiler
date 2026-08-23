@@ -329,3 +329,68 @@ fn ambiguous_suffix_match_resolves_to_nothing() {
         "ambiguity must not pick a winner: {rejected:#?}"
     );
 }
+
+/// CONF-05 / 07 §7.8: `max-import-depth` is a hard cap wired from the
+/// request; exceeding it is BLD001 with the limit's kebab name. Counted
+/// as edges along the longest acyclic import chain (local adoption — 07
+/// states no counting rule; recorded for a return brief).
+#[test]
+fn import_chain_deeper_than_the_request_limit_is_bld001() {
+    let sources = [
+        (
+            "a.cln",
+            "import:\n\tb\n\nfunctions:\n\tvoid init()\n\t\treturn\n",
+        ),
+        ("b.cln", "import:\n\tc\n"),
+        ("c.cln", "import:\n\td\n"),
+        (
+            "d.cln",
+            "functions:\n\tpublic:\n\t\tinteger leaf()\n\t\t\treturn 1\n",
+        ),
+    ];
+    let mut request = request_for(&sources);
+    request.compile_limits.max_import_depth = 2;
+    let diagnostics = match clean_compiler::check(request) {
+        Ok(diagnostics) => diagnostics,
+        Err(err) => panic!("expected diagnostics, got {err:?}"),
+    };
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == "BLD001")
+        .unwrap_or_else(|| panic!("expected BLD001, got {diagnostics:#?}"));
+    assert_eq!(
+        d.message,
+        "build limit 'max-import-depth' exceeded: 3 > 2"
+    );
+    // The exact cap passes.
+    let mut request = request_for(&sources);
+    request.compile_limits.max_import_depth = 3;
+    match clean_compiler::check(request) {
+        Ok(diagnostics) => assert!(
+            diagnostics.iter().all(|d| d.code != "BLD001"),
+            "a chain at the cap is legal: {diagnostics:#?}"
+        ),
+        Err(err) => panic!("expected a clean check, got {err:?}"),
+    }
+}
+
+/// A file-path import climbing past the request root resolves to nothing
+/// (IMPORT002) — request paths are root-relative, so the old silent
+/// clamping of `..` invented a wrong root-level match.
+#[test]
+fn path_import_escaping_the_root_is_import002() {
+    let rejected = diagnostics(&[
+        (
+            "main.cln",
+            "import \"../utils.cln\"\n\nfunctions:\n\tvoid init()\n\t\treturn\n",
+        ),
+        (
+            "utils.cln",
+            "functions:\n\tpublic:\n\t\tinteger u()\n\t\t\treturn 1\n",
+        ),
+    ]);
+    assert!(
+        rejected.iter().any(|d| d.code == "IMPORT002"),
+        "escaping the root must not clamp to a root match: {rejected:#?}"
+    );
+}

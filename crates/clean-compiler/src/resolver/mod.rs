@@ -152,7 +152,10 @@ fn dir_of(path: &str) -> &str {
 
 /// Lexically normalizes `base_dir` joined with `rel` (`.` and `..`
 /// segments). Purely textual — MOD-03 forbids touching the filesystem.
-fn join_normalize(base_dir: &str, rel: &str) -> String {
+/// `None` when the path climbs past the request root: request paths are
+/// root-relative, so an escaping path can name no `sources[]` entry —
+/// clamping it silently used to invent a wrong root-level match.
+fn join_normalize(base_dir: &str, rel: &str) -> Option<String> {
     let mut parts: Vec<&str> = if base_dir.is_empty() {
         Vec::new()
     } else {
@@ -162,12 +165,71 @@ fn join_normalize(base_dir: &str, rel: &str) -> String {
         match seg {
             "" | "." => {}
             ".." => {
-                parts.pop();
+                parts.pop()?;
             }
             other => parts.push(other),
         }
     }
-    parts.join("/")
+    Some(parts.join("/"))
+}
+
+/// The longest-chain depth check behind `max-import-depth` (CONF-05).
+/// `depth_below[m]` is the longest edge count of any acyclic import chain
+/// starting at module `m`; the first edge (entry order) whose chain
+/// exceeds the cap anchors the single BLD001.
+fn enforce_import_depth(
+    files: &[ParsedFile],
+    edges: &[ImportEdge],
+    max_import_depth: u32,
+    sink: &mut DiagnosticSink,
+) {
+    fn depth_below(
+        module: usize,
+        out: &Vec<Vec<usize>>,
+        memo: &mut Vec<Option<u64>>,
+        on_stack: &mut Vec<bool>,
+    ) -> u64 {
+        if let Some(depth) = memo[module] {
+            return depth;
+        }
+        if on_stack[module] {
+            return 0; // a back edge — the cycle is IMPORT001's finding
+        }
+        on_stack[module] = true;
+        let depth = out[module]
+            .iter()
+            .map(|&to| 1 + depth_below(to, out, memo, on_stack))
+            .max()
+            .unwrap_or(0);
+        on_stack[module] = false;
+        memo[module] = Some(depth);
+        depth
+    }
+
+    let mut out: Vec<Vec<usize>> = vec![Vec::new(); files.len()];
+    for edge in edges {
+        out[edge.from].push(edge.to);
+    }
+    let mut memo = vec![None; files.len()];
+    let mut on_stack = vec![false; files.len()];
+    let deepest = (0..files.len())
+        .map(|m| depth_below(m, &out, &mut memo, &mut on_stack))
+        .max()
+        .unwrap_or(0);
+    if deepest <= u64::from(max_import_depth) {
+        return;
+    }
+    let offending = edges
+        .iter()
+        .find(|e| 1 + memo[e.to].unwrap_or(0) > u64::from(max_import_depth))
+        .expect("a chain deeper than the cap starts at some edge");
+    sink.push(build(
+        Level::Error,
+        codes::BLD001,
+        format!("build limit 'max-import-depth' exceeded: {deepest} > {max_import_depth}"),
+        files[offending.from].stream.diag_span(offending.span),
+        Some("this import sits atop a chain deeper than 'max-import-depth'".to_string()),
+    ));
 }
 
 /// One resolved import edge, for cycle detection and scope building.
@@ -183,10 +245,28 @@ struct ImportEdge {
 
 /// `libraries` are the `library_manifests[].name`s from the request; an
 /// import path matching one is a §21.2 explicit library import, not an
-/// IMPORT002 (adoption, DISCOVERIES-M5 item 7).
+/// IMPORT002 (adoption, DISCOVERIES-M5 item 7). Resolves with the spec
+/// default `max-import-depth` (07 §7.8); the driver passes the request's
+/// own value through [`resolve_with_limits`].
 pub fn resolve(
     files: Vec<ParsedFile>,
     libraries: &[String],
+    sink: &mut DiagnosticSink,
+) -> ResolvedAst {
+    resolve_with_limits(
+        files,
+        libraries,
+        clean_compiler_types::request::CompileLimits::default().max_import_depth,
+        sink,
+    )
+}
+
+/// [`resolve`] with the request's `compile_limits.max_import_depth`
+/// (CONF-05: limits are hard caps; exceeding one is BLD001).
+pub fn resolve_with_limits(
+    files: Vec<ParsedFile>,
+    libraries: &[String],
+    max_import_depth: u32,
     sink: &mut DiagnosticSink,
 ) -> ResolvedAst {
     let mut decls = Declarations::default();
@@ -356,7 +436,7 @@ pub fn resolve(
                 }
                 ast::Item::FileImport { path, span } => {
                     let target = join_normalize(dir_of(&file.stream.path), path);
-                    match files.iter().position(|f| f.stream.path == target) {
+                    match target.and_then(|t| files.iter().position(|f| f.stream.path == t)) {
                         Some(to) => {
                             push_edge(
                                 ImportEdge {
@@ -393,6 +473,14 @@ pub fn resolve(
     // Phase 3 — cycle detection over the module graph (IMPORT001, one
     // diagnostic per cycle; resolution continues).
     report_cycles(&files, &edges, &decls, sink);
+
+    // CONF-05 (07 §7.8): `max-import-depth` is a hard cap; exceeding it
+    // is BLD001, once. Counted as edges along the longest acyclic import
+    // chain (a back edge is IMPORT001's finding and contributes nothing);
+    // anchored at the first edge in entry order sitting atop a too-deep
+    // chain. The counting rule is a local adoption — 07 states no rule
+    // for this limit (recorded for a return brief).
+    enforce_import_depth(&files, &edges, max_import_depth, sink);
 
     // Phase 4 — extend each module's scope with what its imports bring
     // in: public functions and all classes (see the class-export
@@ -612,9 +700,10 @@ fn find_module(parts: &[String], importing: usize, files: &[ParsedFile]) -> Opti
         return None;
     }
     let rel = format!("{}.cln", parts.join("/"));
-    let from_here = join_normalize(dir_of(&files[importing].stream.path), &rel);
-    if let Some(i) = files.iter().position(|f| f.stream.path == from_here) {
-        return Some(i);
+    if let Some(from_here) = join_normalize(dir_of(&files[importing].stream.path), &rel) {
+        if let Some(i) = files.iter().position(|f| f.stream.path == from_here) {
+            return Some(i);
+        }
     }
     if let Some(i) = files.iter().position(|f| f.stream.path == rel) {
         return Some(i);

@@ -109,7 +109,12 @@ fn front(
         .iter()
         .map(|m| m.name.clone())
         .collect();
-    let resolved = crate::resolver::resolve(files, &library_names, sink);
+    let resolved = crate::resolver::resolve_with_limits(
+        files,
+        &library_names,
+        validated.request.compile_limits.max_import_depth,
+        sink,
+    );
     if sink.has_errors() {
         return Ok((cache, None));
     }
@@ -333,7 +338,12 @@ pub fn emit_hir(request: CompileRequest) -> Result<(String, Vec<Diagnostic>), Co
             .iter()
             .map(|m| m.name.clone())
             .collect();
-        let resolved = crate::resolver::resolve(files, &library_names, &mut sink);
+        let resolved = crate::resolver::resolve_with_limits(
+            files,
+            &library_names,
+            validated.request.compile_limits.max_import_depth,
+            &mut sink,
+        );
         if sink.has_errors() {
             break 'front (None, cache);
         }
