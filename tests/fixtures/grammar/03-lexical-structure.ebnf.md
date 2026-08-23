@@ -78,6 +78,7 @@ HardKeyword    = "after"    | "always"      | "and"         | "assert"
                | "constant" | "constructor" | "continue"    | "default"
                | "else"     | "error"       | "false"       | "function"
                | "handles"  | "host"        | "if"          | "import"
+               | "case"     | "match"
                | "in"       | "intent"      | "is"          | "iterate"
                | "later"    | "none"        | "not"         | "onError"
                | "or"       | "print"       | "public"      | "reset"
@@ -252,7 +253,7 @@ GtEq           = ">=" ;
 
 - 2026-08-19 — Erratum from compiler Milestone 6 (`clean-language-compiler/docs/DISCOVERIES-M6.md`, item 6h): §7 gains the `BytesLiteral` production. [Platform 14 §14.14.2](../../03%20platform/14-compiler-architecture.md#14142-first-class-bytes-type)'s Accepted lexer contract requires `b"..."` and hex-escaped forms, but this file — the syntax authority per DOC-15 — had `bytes` only as a `TypeKeyword`, so no literal was implementable. The production admits the single-line string shape with `SimpleEscape` plus `\xNN` and no `\u` escape; prose home: [03 §LEX-06](../03-lexical-structure.md).
 - 2026-08-17 — Erratum from compiler Milestone 3 (`clean-language-compiler/docs/DISCOVERIES-M3.md`, item 5): §8 gains the missing `Caret = "^" ;` row. [06-expressions.ebnf.md](./06-expressions.ebnf.md) uses `"^"` at level 4 (`ExponentiationExpression`) and the lexer recognises it, but the §8 token vocabulary — which claims completeness for the lexer — omitted it. Registration only; precedence and associativity stay with the expression grammar.
-- 2026-08-07 (afternoon, third pass) — `screen` REMOVED entirely per [ADR-0030](../../01%20governance/decisions/0030-withdraw-screen-from-language.md). Not a keyword of any kind — not `HardKeyword`, not `ContextualKeyword`, not `ReservedUnused`. The word `screen` is a free identifier for user code. The former `screen <Name>:` language section is withdrawn and no future language use is planned; the [ui library](../../02%20components/framework/libraries/10-ui.md) also does not register `screen` as a block name.
+- 2026-08-07 (afternoon, third pass) — `screen` REMOVED entirely per ADR-0030. Not a keyword of any kind — not `HardKeyword`, not `ContextualKeyword`, not `ReservedUnused`. The word `screen` is a free identifier for user code. The former `screen <Name>:` language section is withdrawn and no future language use is planned; the [ui library](../../02%20components/framework/libraries/10-ui.md) also does not register `screen` as a block name.
 - 2026-08-07 (afternoon) — Resolved the §4 `⚠` marker: contextual-keyword handling stays as a parser-policy responsibility (grammar lists the words, parser dispatches on the following `":"`). Matches Python/Rust/Kotlin convention. No production change.
 - 2026-08-07 — File minted. Productions derived from prose rules LEX-01..LEX-09 in [03-lexical-structure.md](../03-lexical-structure.md) Accepted 2026-08-01.
 

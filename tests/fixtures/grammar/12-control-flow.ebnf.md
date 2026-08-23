@@ -34,13 +34,18 @@ ElseClause      = "else", NEWLINE, INDENT, StatementSequence, DEDENT ;
    (a to b) is the range form; anything else is the element form. *)
 
 IterateStatement = "iterate", Identifier, "in", IterateSource,
-                   [ StepClause ], NEWLINE,
+                   NEWLINE,
                    INDENT, StatementSequence, DEDENT ;
 
-IterateSource   = RangeExpression | Expression ;
+IterateSource   = RangeExpression, [ StepClause ]
+                | Expression ;
                   (* A RangeExpression is `a to b` (see below).  Any
                      other expression is an iterable value — a list,
-                     a string, a matrix, or the rows of a matrix. *)
+                     a string, a matrix, or the rows of a matrix.
+                     2026-08-22: StepClause moved inside the range
+                     alternative — `step` belongs to ranges only
+                     (12 §FLW-02).  Decidable in the parser because
+                     RangeExpression is syntactic and iterate-only. *)
 
 RangeExpression = Expression, "to", Expression ;
                   (* `to` is a hard keyword per LEX-04.  RangeExpression
@@ -100,6 +105,7 @@ ControlFlowStatement = IfStatement
 
 ## Changelog
 
+- 2026-08-22 — §2: `[ StepClause ]` moved from `IterateStatement` into the `RangeExpression` alternative of `IterateSource` — `step` is range-only per the closed brief (`work/archive/2026-08-17-iterate-step-non-range.md`); see 12 §FLW-02's changelog for the ruling.
 - 2026-08-07 (afternoon) — Resolved the §2 `⚠` marker: `RangeExpression` stays iterate-only, NOT admissible as a general Expression form. Every chapter example uses it in iterate source position; treating it as a general expression would require thinking through precedence, associativity, and interactions with list/matrix types that the chapter does not address. A future spec that wants general ranges would add a new form explicitly. No production change.
 - 2026-08-07 — File minted. Productions derived from FLW-01..FLW-03 in [12-control-flow.md](../12-control-flow.md) Accepted 2026-08-01.
 

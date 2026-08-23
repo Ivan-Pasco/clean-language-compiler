@@ -49,9 +49,11 @@ pub struct Grammar {
 
 impl Grammar {
     /// Loads every ` ```ebnf ` fenced block from the files, in the given
-    /// order. A rule whose whole body is one `? see … ?` special is a
-    /// cross-reference stub, skipped so the real definition wins wherever
-    /// it loads. Otherwise the first definition wins and later ones are
+    /// order. A rule whose whole body is one `? see … ?` or
+    /// `? defined in … ?` special is a cross-reference stub (the latter
+    /// spelling arrived with 08's `LibraryBlock` pointer to 21 §1a,
+    /// 2026-08-22), skipped so the real definition wins wherever it
+    /// loads. Otherwise the first definition wins and later ones are
     /// recorded in `duplicates`.
     pub fn load(files: &[(String, String)]) -> Grammar {
         let mut grammar = Grammar {
@@ -61,7 +63,9 @@ impl Grammar {
         for (file, markdown) in files {
             for block in ebnf_blocks(markdown) {
                 for (name, expr) in parse_block(&block, file) {
-                    if matches!(&expr, Expr::Special(s) if s.starts_with("see ")) {
+                    if matches!(&expr, Expr::Special(s)
+                        if s.starts_with("see ") || s.starts_with("defined in "))
+                    {
                         continue; // cross-reference stub
                     }
                     if let Some(existing) = grammar.rules.get(&name) {

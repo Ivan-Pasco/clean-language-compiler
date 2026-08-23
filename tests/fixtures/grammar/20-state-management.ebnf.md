@@ -2,7 +2,7 @@
 
 Companion grammar file for [20 — State Management](../20-state-management.md). Defines the shape of every state-related construct: the top-level `state:` block, guard clauses on individual declarations, the `rules:` sub-block, `computed:` derived state, `watch:` observers (single-variable and multi-variable), and the `reset` statement (variable or whole-state). Semantic rules SMG-01..SMG-05 live in the companion chapter.
 
-State-block grammar is used by [08-file-structure.ebnf.md](./08-file-structure.ebnf.md) at the top level (`StateSection`). The former screen-scoped state and language-level `screen <Name>:` construct were withdrawn per [ADR-0030](../../01%20governance/decisions/0030-withdraw-screen-from-language.md).
+State-block grammar is used by [08-file-structure.ebnf.md](./08-file-structure.ebnf.md) at the top level (`StateSection`). The former screen-scoped state and language-level `screen <Name>:` construct were withdrawn per ADR-0030.
 
 ---
 
@@ -133,7 +133,7 @@ The `StateBody` production defined in §1 above is the same one 08-file-structur
 
 ## Changelog
 
-- 2026-08-07 (afternoon, third pass) — `ScreenBlock`, `ScreenBody`, `ScreenBodyMember` productions removed per [ADR-0030](../../01%20governance/decisions/0030-withdraw-screen-from-language.md). The language-level `screen <Name>:` construct is withdrawn and `screen` is not a keyword of any kind; the ui library does not register it either. UI-local scoping is an application-level concern, not a language or framework construct. Sections renumbered (former §7 → §6, §8 → §7, §9 → §8). Also resolved the §1 `⚠` marker on StateBody ordering — no strict ordering imposed, StateBodyMember alternatives may interleave freely (matches how the chapter presents examples).
+- 2026-08-07 (afternoon, third pass) — `ScreenBlock`, `ScreenBody`, `ScreenBodyMember` productions removed per ADR-0030. The language-level `screen <Name>:` construct is withdrawn and `screen` is not a keyword of any kind; the ui library does not register it either. UI-local scoping is an application-level concern, not a language or framework construct. Sections renumbered (former §7 → §6, §8 → §7, §9 → §8). Also resolved the §1 `⚠` marker on StateBody ordering — no strict ordering imposed, StateBodyMember alternatives may interleave freely (matches how the chapter presents examples).
 - 2026-08-07 — File minted. Productions derived from SMG-01..SMG-05 in [20-state-management.md](../20-state-management.md) Accepted 2026-08-01.
 
 ---

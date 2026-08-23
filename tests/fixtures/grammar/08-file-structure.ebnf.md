@@ -111,12 +111,12 @@ Library-registered blocks (`endpoints:`, `data:`, `component:`, and the rest) do
 (* A library-registered block appears wherever the library's
    library.toml specifies it in the section order. When unspecified,
    between FunctionsBlock and WatchBlock per FIL-01 prose.
-   Grammar-wise the block is an ApplyBlock (or the generalised
-   block form the block handler expects); the actual shape depends
-   on the handler and is not fixed by this file. *)
+   The LibraryBlock production — qualified block name, header
+   argument surfaces, and handler-defined body — is defined once in
+   21-block-handlers.ebnf.md §1a (DOC-15: one home per production;
+   same pattern as WatchBlock resolving to 20's definition). *)
 
-LibraryBlock   = Identifier, ":", NEWLINE, INDENT,
-                 ? handler-defined body ?, DEDENT ;
+LibraryBlock   = ? defined in 21-block-handlers.ebnf.md §1a ? ;
 ```
 
 ## 4. `public:` wrapper
@@ -127,8 +127,9 @@ Per FIL-01 prose: `public:` is not a section, it is a wrapper appearing *inside*
 
 ## Changelog
 
+- 2026-08-22 — §3's `LibraryBlock` production moved to its owning chapter's grammar file, [21-block-handlers.ebnf.md §1a](./21-block-handlers.ebnf.md), which now carries the ratified header shape (qualified name, parenthesized **and** bare argument surfaces). The production here had admitted no argument surface at all — under it, `data UserData:` did not parse, contradicting every worked example in two Accepted files. From `work/2026-08-17-library-block-header-grammar.md` (`DISCOVERIES-M3.md` item 4).
 - 2026-08-20 — Three errata from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, items 1c, 1d, 1f). (a) `ConstantSection`'s body reference now points at the real production: `ConstantBody` is defined in [05-apply-blocks.ebnf.md §2](./05-apply-blocks.ebnf.md) (it was referenced here but defined nowhere). (b) `TestsSection`'s comment now names `TestsBody`, newly defined in [11-testing.ebnf.md §1](./11-testing.ebnf.md) (the comment said "Body in 11-testing.ebnf.md" but 11 only defined `TestsBlock`, header included). (c) The inline `WatchBlock` production is **removed**: it duplicated [20-state-management.ebnf.md §5](./20-state-management.ebnf.md) with a diverging, narrower shape (`watch Identifier :` only), and a production defined in more than one place is a defect per DOC-15. The definition in 20 is authoritative — SMG-04 explicitly admits the parenthesized multi-variable target (`watch (a, b, c):`), so the single-identifier restatement here was wrong, not just redundant. `FileBody` still references `WatchBlock`; it now resolves to 20's definition.
-- 2026-08-07 (afternoon, third pass) — `ScreenBlock` production removed and dropped from `FileBody` per [ADR-0030](../../01%20governance/decisions/0030-withdraw-screen-from-language.md). `screen` is not a keyword and no library registers it as a block name; it is a free identifier.
+- 2026-08-07 (afternoon, third pass) — `ScreenBlock` production removed and dropped from `FileBody` per ADR-0030. `screen` is not a keyword and no library registers it as a block name; it is a free identifier.
 - 2026-08-07 (afternoon) — Resolved both `⚠` markers: (a) `functions:` block and bare top-level callables both remain allowed — existing library code uses both shapes and forcing one would invalidate `host_bridge.cln` files; (b) `HostFunctionDeclaration` grammar home stays at `02 components/framework/grammar/host-bridge.ebnf.md` (LBS-02 lives in the framework spec, so its companion grammar file belongs in the framework grammar folder per DOC-15). No production change.
 - 2026-08-07 — File minted. Productions derived from FIL-01 and FIL-02 in [08-file-structure.md](../08-file-structure.md) Accepted 2026-08-01.
 

@@ -36,10 +36,10 @@ ModuleImport    = QualifiedModuleName, [ "as", Identifier ] ;
 
 QualifiedModuleName = Identifier, { ".", Identifier } ;
                   (* Nested paths like `data.models` resolve to
-                     nested file paths (`data/models.cln`) — that
-                     resolution is done by the framework before
-                     the compiler runs (MOD-03), not by this
-                     grammar. *)
+                     nested file paths (`data/models.cln`) by the
+                     deterministic textual rule of MOD-04 — shared
+                     by framework and compiler over the request's
+                     sources[] — not by this grammar. *)
 ```
 
 ## 3. File path imports
@@ -98,18 +98,25 @@ PublicBody      = { PublicDeclaration } ;
    class body, etc.  Grammar admits the union; the checker
    verifies the declaration is valid in the outer context. *)
 
-PublicDeclaration = FunctionsBlock
-                  | FunctionDeclaration
-                  | ClassOrCapabilityDeclaration
+PublicDeclaration = FunctionDeclaration
                   | FieldDeclaration ;
-                  (* Extend this union if more forms become
-                     public-wrappable. *)
+                  (* 2026-08-22: ClassOrCapabilityDeclaration retired
+                     from this union — classes and capabilities are
+                     top-level declarations (08 §FIL-01) with no legal
+                     position inside a public: wrapper, and they
+                     travel with the module without an export marker
+                     (MOD-02).  FunctionsBlock likewise removed: the
+                     wrapper lives INSIDE functions:/class bodies, so
+                     the members are FunctionDeclaration/
+                     FieldDeclaration.  Extend this union only if a
+                     form actually becomes public-wrappable. *)
 ```
 
 ---
 
 ## Changelog
 
+- 2026-08-22 — §5: `ClassOrCapabilityDeclaration` (and `FunctionsBlock`) retired from `PublicDeclaration` — dead members with no legal position; classes/capabilities export with the module (MOD-02, `work/archive/2026-08-17-class-export-surface.md`).
 - 2026-08-07 (afternoon) — Resolved both `⚠` markers: (a) `import "path"` file-path form is a standalone top-level statement, NOT an entry inside an `import:` block — chapter examples consistently show it that way, and mixing them inside one block would confuse readers about resolution order; (b) a file may contain BOTH an `import:` block AND standalone `import "path"` lines — they serve different purposes (block-form for module names, standalone for direct paths). No production change.
 - 2026-08-07 — File minted. Productions derived from MOD-01..MOD-03 in [17-modules-and-imports.md](../17-modules-and-imports.md) Accepted 2026-08-01.
 

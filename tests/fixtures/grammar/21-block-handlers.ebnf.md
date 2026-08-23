@@ -45,18 +45,78 @@ HandlesBlockDeclaration = "handles", "block", StringLiteral,
    rule, not grammar. *)
 ```
 
+## 1a. `LibraryBlock` — the block header (BLK-02)
+
+The normative production for a library-registered block's header, ratified from the compiler's M3 parser. Its single home is this file per DOC-15; [`grammar/08-file-structure.ebnf.md §3`](./08-file-structure.ebnf.md) references it (same pattern as the 2026-08-20 `WatchBlock` deduplication).
+
+```ebnf
+(* BLK-02: the block name is a qualified identifier — the same
+   string a library registers via `handles block`. *)
+
+BlockName       = Identifier, { ".", Identifier } ;
+
+(* Header arguments come in two surfaces that MAY be combined: an
+   optional parenthesized, comma-separated list, followed by zero
+   or more bare arguments juxtaposed by whitespace (no commas),
+   terminated by the header's closing ":".  Both surfaces append
+   to BlockAST.arguments in source order — `name(a) b:` is legal
+   and yields [a, b]. *)
+
+LibraryBlock    = BlockName,
+                  [ "(", [ BlockHeaderArg, { ",", BlockHeaderArg } ], ")" ],
+                  { BlockHeaderArg },
+                  ":", NEWLINE, INDENT, ? handler-defined body ?, DEDENT ;
+
+BlockHeaderArg  = Identifier, "=", Expression   (* BlockArg::Keyword *)
+                | Expression ;                   (* BlockArg::Positional *)
+
+(* LEX-04 disambiguation, stated per the header brief's acceptance
+   check: a contextual keyword is specialised only when ":"
+   immediately follows it, so a header carrying arguments is
+   always a LibraryBlock.  A line is recognised as a block header
+   only when ":" is its final token and an indented body follows —
+   a library block with an empty body is not source syntax. *)
+```
+
+## 1b. `match` statement — variant discrimination (21 §21.3.3)
+
+Decided 2026-08-22. `match` and `case` are hard keywords (LEX-04).
+
+```ebnf
+(* 21 §21.3.3: the variant-discrimination statement, scoped in this
+   version to the compile-time sum types (BlockNode, BlockArg,
+   Token).  Grammar admits it wherever a statement is admitted; the
+   operand rule (SEM004 on a non-sum type) confines it in practice
+   to compiletime bodies.  Exact coverage of the operand's variants
+   is the checker's SEM031, not grammar. *)
+
+MatchStatement  = "match", Expression, NEWLINE, INDENT,
+                  CaseArm, { CaseArm },
+                  DEDENT ;
+
+CaseArm         = "case", VariantName, [ Identifier ], NEWLINE,
+                  INDENT, StatementSequence, DEDENT ;
+
+VariantName     = ? a variant name of the operand's compile-time
+                    sum type — BlockNodeType (§2), BlockArgType
+                    (§2), or a Token variant name; the payload the
+                    optional Identifier binds is field-level in
+                    ../schema/block-ast.md ? ;
+```
+
 ## 2. `BlockAST`, `BlockNode`, `BlockArg` (compile-time value types)
 
 Grammar-side sum-type definitions per the original `21 §21.3`. Field-level Schema lives in [`schema/block-ast.md`](../schema/block-ast.md).
 
 ```ebnf
-(* BLK-01 §21.3: BlockNode is a sum type over the three kinds of
+(* BLK-01 §21.3: BlockNode is a sum type over the two kinds of
    child a BlockAST body may contain.  Exposed here as an
    algebraic type; the concrete field-level schema is in
-   schema/block-ast.md. *)
+   schema/block-ast.md.  The former `Statement` variant is
+   deliberately absent — see the schema and the 2026-08-22
+   changelog entry. *)
 
-BlockNodeType   = "Statement"           (* a normal Clean statement, already typed *)
-                | "BlockAST"            (* a nested block *)
+BlockNodeType   = "BlockAST"            (* a nested block *)
                 | "BlockLine" ;         (* a structured DSL line *)
 
 BlockArgType    = "Positional", ExpressionType
@@ -78,15 +138,15 @@ IdentifierType  = ? the Identifier payload of a BlockArg — a
    not generatable as source syntax. *)
 
 (* These are TYPE-level constructors — they exist during
-   compilation, not in a Clean program's runtime.  They are
-   named here as the sum-type variants a handler's code
-   pattern-matches against; the actual pattern-match syntax
-   is expression-level and lives in 06-expressions.ebnf.md.
-   ⚠ Whether Clean supports algebraic sum-type pattern matching
-   as a first-class syntactic form is under-specified across the
-   language chapters — TYP-04 references these types but no
-   chapter defines a `match` or `case` construct.  Encoded here
-   as "names of variants, no match syntax". Needs review. *)
+   compilation, not in a Clean program's runtime.  The variant
+   names are schema-tier discriminators (schema/block-ast.md);
+   on the compile-time wire they surface as the node's "kind"
+   discriminator field.  In Clean source they are discriminated
+   by the MatchStatement of §1b (decided 2026-08-22): `is`
+   remains the identity operator of 06-expressions (EXP-01
+   level 8), and assigning a BlockNode to a variant-typed name
+   is still not a defined coercion — `case` binding is the one
+   downcast surface. *)
 ```
 
 ## 3. `error`, `warning`, `info` — diagnostic emission (BLK-03)
@@ -138,6 +198,8 @@ The chapter's rule ([21 §21.9](../21-block-handlers.md#219-testing-block-handle
 
 ## Changelog
 
+- 2026-08-22 (escalation resolved) — New **§1b**: `MatchStatement`/`CaseArm` productions (21 §21.3.3); the §2 trailing comment updated — the variant names are now discriminated in source by `match`, and `case` binding is the one downcast surface. `match`/`case` reserved in LEX-04.
+- 2026-08-22 — Three rulings from the compiler-milestone decision briefs. (a) New §1a: the `LibraryBlock` header production ratified from the compiler's M3 parser (`work/2026-08-17-library-block-header-grammar.md`, `DISCOVERIES-M3.md` item 4) — qualified `BlockName`, optional parenthesized list **plus** bare arguments (the two surfaces combine, which none of the brief's candidate shapes described), keyword form legal in both surfaces, LEX-04 disambiguation stated; `08-file-structure.ebnf.md §3` now references this production instead of defining its own. (b) §2's `BlockNodeType` reduced to two variants (`work/2026-08-17-block-ast-statement-classification.md`, `DISCOVERIES-M3.md` item 2 — the parse-time `Statement` variant was never producible and the wire ABI never carried it). (c) The ⚠ (a) marker of §2 resolved normatively as "no discrimination construct exists in this version" (`work/2026-08-18-block-pattern-match-syntax.md`, `DISCOVERIES-M5.md` item 16): the false "lives in 06-expressions.ebnf.md" claim removed; the construct choice itself remains an open decision. The ⚠ (b) of §3 (arity-based `error()` dispatch) is untouched.
 - 2026-08-20 — Erratum from the compiler's Milestone 9 (`clean-language-compiler/docs/DISCOVERIES-M9.md` §1, item 1g): `BlockArgType` referenced `ExpressionType` and `IdentifierType`, which no grammar file defined. Both are now defined as ISO 14977 special sequences pointing at their field-level home ([`schema/block-ast.md` §BlockArg](../schema/block-ast.md)) — they are schema-tier compile-time payloads, not source syntax, so `BlockArgType` (and through it `CompileTimeFunctionDeclaration`'s pattern-match surface) is deliberately ungeneratable as language grammar, same status as `LibraryBlock`'s handler-defined body.
 - 2026-08-07 — File minted. `CompileTimeFunctionDeclaration` and `HandlesBlockDeclaration` productions extracted from [21-block-handlers.md §21.1](../21-block-handlers.md#211-declaring-a-block-handler) (Accepted 2026-08-01) — the only pre-existing grammar productions in `04 language/`, per the survey that motivated the Docs Readiness Program. `BlockNodeType`, `BlockArgType`, `DiagnosticEmission` productions derived from BLK-01..BLK-03 in the source chapter. Two `⚠` markers: (a) whether Clean has first-class pattern-matching syntax for `BlockNode` variants; (b) how the parser disambiguates `error(...)` between the diagnostic emitter (3 args, compiletime scope) and the runtime signal (1 arg, ERH-01).
 
