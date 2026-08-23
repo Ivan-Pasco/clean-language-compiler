@@ -154,3 +154,57 @@ fn finalize_deduplicates_by_code_span_and_message() {
     assert_eq!(out[0].message, "dup");
     assert_eq!(out[1].message, "other");
 }
+
+/// 13 §4.2 compact `= suggestion:` lines (normed 2026-08-22): one line
+/// per suggestion in emission order; the snippet is the first
+/// replacement's new text, falling back to the suggestion's message when
+/// it carries no replacements — or when the snippet holds a newline,
+/// whose raw insertion would corrupt the block (the spec-first multiline
+/// guard). No applicability tag in the compact form.
+#[test]
+fn suggestion_lines_render_compact_with_the_multiline_guard() {
+    use clean_compiler_types::{Applicability, Replacement, Suggestion};
+    let mut sources = SourceCache::empty();
+    sources.insert("app/main.cln", "integer n = lenght\n".to_string());
+
+    let mut d = diagnostic(
+        "SEM002",
+        "I cannot find a variable named `lenght` in scope",
+        span("app/main.cln", 1, 13, 18),
+    );
+    d.suggestions.push(Suggestion {
+        message: "replace with `length`".to_string(),
+        replacements: vec![Replacement {
+            span: span("app/main.cln", 1, 13, 18),
+            replacement: "length".to_string(),
+        }],
+        applicability: Applicability::MachineApplicable,
+    });
+    d.suggestions.push(Suggestion {
+        message: "declare `lenght` first".to_string(),
+        replacements: vec![Replacement {
+            span: span("app/main.cln", 1, 1, 1),
+            replacement: "integer lenght = 0\ninteger n = lenght".to_string(),
+        }],
+        applicability: Applicability::MaybeIncorrect,
+    });
+    d.suggestions.push(Suggestion {
+        message: "import it from another module".to_string(),
+        replacements: Vec::new(),
+        applicability: Applicability::Unspecified,
+    });
+
+    let rendered = render_cli(&d, &sources);
+    let suggestion_lines: Vec<&str> = rendered
+        .lines()
+        .filter(|l| l.contains("= suggestion:"))
+        .collect();
+    assert_eq!(
+        suggestion_lines,
+        [
+            "  = suggestion: length",
+            "  = suggestion: declare `lenght` first",
+            "  = suggestion: import it from another module",
+        ]
+    );
+}

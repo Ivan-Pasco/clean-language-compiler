@@ -369,11 +369,15 @@ pub fn render_cli(d: &Diagnostic, sources: &SourceCache) -> String {
     }
     for suggestion in &d.suggestions {
         // §4.2 renders "<replacement snippet>": the first replacement's new
-        // text, falling back to the suggestion's message when it has none.
+        // text, falling back to the suggestion's message when it has none —
+        // or when the snippet contains a newline, whose raw insertion would
+        // corrupt the block (the 13 §4.2 multiline guard, spec-first
+        // 2026-08-22).
         let snippet = suggestion
             .replacements
             .first()
             .map(|r| r.replacement.as_str())
+            .filter(|text| !text.contains('\n'))
             .unwrap_or(suggestion.message.as_str());
         out.push_str(&format!("{pad} = suggestion: {snippet}\n"));
     }
