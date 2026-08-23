@@ -236,3 +236,43 @@ fn continue_in_while_retests_the_condition() {
 ");
     assert_eq!(out, [1, 3, 4, 5]);
 }
+
+/// RUN020 (FLW-02, 2026-08-22): a computed `step` of 0 raises at the loop
+/// head — before the first body execution — instead of hanging. Trap-form
+/// until error lowering. (The compile-time-constant case is SEM030.)
+#[test]
+fn computed_step_of_zero_traps_at_the_loop_head() {
+    let main = "\
+functions:
+\tvoid init()
+\t\tinteger z = 0
+\t\titerate i in 1 to 10 step z
+\t\t\temitInt(i)
+";
+    let wasm = compile(&[("app/host_bridge.cln", PROBE), ("app/main.cln", main)]);
+    let engine = wasmtime::Engine::default();
+    let module = wasmtime::Module::new(&engine, &wasm).expect("module loads");
+    let mut linker: wasmtime::Linker<Vec<i64>> = wasmtime::Linker::new(&engine);
+    linker
+        .func_wrap(
+            "clean:host/probe@0.1.0",
+            "emit-int",
+            |mut caller: wasmtime::Caller<'_, Vec<i64>>, value: i64| {
+                caller.data_mut().push(value);
+            },
+        )
+        .expect("emit-int links");
+    let mut store = wasmtime::Store::new(&engine, Vec::new());
+    let instance = linker
+        .instantiate(&mut store, &module)
+        .expect("instantiates");
+    let result = instance
+        .get_typed_func::<(), ()>(&mut store, "init")
+        .expect("init export")
+        .call(&mut store, ());
+    assert!(result.is_err(), "step 0 must trap, not loop or complete");
+    assert!(
+        store.into_data().is_empty(),
+        "the check fires before the first body execution"
+    );
+}

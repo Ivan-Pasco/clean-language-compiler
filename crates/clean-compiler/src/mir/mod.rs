@@ -1852,6 +1852,22 @@ impl<'a> FnLowerer<'a> {
                     }
                 }
                 out.push(Inst::LocalSet(s));
+                if step.is_some() {
+                    // RUN020 (FLW-02): a computed `step` of 0 can never
+                    // advance the range — checked once at the loop head,
+                    // after the exactly-once evaluation of from/to/step,
+                    // before the first body execution. Trap-form until
+                    // error lowering, like the RUN013 family. (The
+                    // constant-0 case is SEM030 at compile time.)
+                    out.push(Inst::LocalGet(s));
+                    out.push(Inst::I64Const(0));
+                    out.push(Inst::I64Cmp(CmpOp::Eq));
+                    out.push(Inst::If {
+                        result: None,
+                        then: vec![Inst::Unreachable],
+                        els: vec![],
+                    });
+                }
 
                 let base = self.label_depth;
                 self.loops.push(LoopCtx {
@@ -1909,13 +1925,9 @@ impl<'a> FnLowerer<'a> {
                     unreachable!("guard checked the source is a list");
                 };
                 let layout = elem_layout(elem).expect("guard checked the layout");
-                if let Some(step) = step {
-                    // The M4 brief 2026-08-17-iterate-step-non-range.md
-                    // owns step-on-list semantics; until it lands, the
-                    // checker types it and codegen declines.
-                    self.note(sink, "iterate step over list sources", step.span);
-                    return;
-                }
+                // FLW-02 (2026-08-22): `step` is range-only — the parser
+                // rejects it on any other source, so none reaches here.
+                debug_assert!(step.is_none(), "parser admits step on ranges only");
                 let base = self.alloc_scratch(&[Val::I32]);
                 let len = self.alloc_scratch(&[Val::I32]);
                 let idx = self.alloc_scratch(&[Val::I32]);

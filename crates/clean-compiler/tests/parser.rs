@@ -303,3 +303,48 @@ fn deep_statement_blocks_report_bld001() {
     let (_, diagnostics) = parse_source(&source);
     assert_eq!(bld001_of(&diagnostics).len(), 1, "{diagnostics:#?}");
 }
+
+/// FLW-02 (2026-08-22): the grammar's `StepClause` hangs off the range
+/// alternative — `step` on a list/string/matrix source is a syntax error.
+#[test]
+fn step_on_a_non_range_source_is_syn002() {
+    let source = "\
+functions:
+\tvoid init()
+\t\tlist<integer> xs = [1, 2, 3]
+\t\titerate x in xs step 2
+\t\t\treturn
+";
+    let (_, diagnostics) = parse_source(source);
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == codes::SYN002)
+        .expect("SYN002 expected");
+    assert_eq!(
+        d.message,
+        "'step' is legal only when the iterate source is a range (`from to to`)"
+    );
+}
+
+/// LBS-02: the optional `wit name "…"` body line parses ahead of the
+/// mandatory description and lands on the AST.
+#[test]
+fn wit_name_clause_parses() {
+    let source = "\
+host interface sse version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function sseStart() returns integer
+\t\twit name \"start\"
+\t\tdescription \"Open the SSE stream.\"
+";
+    let (items, diagnostics) = parse_source(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let Item::HostInterface(hi) = &items[0] else {
+        panic!("expected host interface, got {items:?}");
+    };
+    let f = &hi.functions[0];
+    assert_eq!(f.name, "sseStart");
+    assert_eq!(f.wit_name.as_ref().map(|(n, _)| n.as_str()), Some("start"));
+    assert_eq!(f.description, "Open the SSE stream.");
+}

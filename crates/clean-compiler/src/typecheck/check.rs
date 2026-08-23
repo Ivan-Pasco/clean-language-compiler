@@ -2536,12 +2536,25 @@ impl<'c, 'a> BodyChecker<'c, 'a> {
                 body,
                 span: _,
             } => {
+                let is_range = matches!(source, ast::IterateSource::Range { .. });
                 let (source, binder_ty) = self.check_iterate_source(source, sink);
                 let step = step.as_ref().map(|s| {
                     let v = self.check_expr(s, Some(&Ty::Integer), sink);
                     if !self.is_integerish(&v.ty) {
                         let resolved = self.infcx.resolve(&v.ty);
                         self.invalid_op(sink, "step", &resolved, v.span);
+                    }
+                    // SEM030 (FLW-02): a compile-time-constant step of 0
+                    // could never advance the range; the computed-0 case
+                    // raises RUN020 at the loop head instead.
+                    if is_range && const_int(&v) == Some(0) {
+                        sink.push(build(
+                            Level::Error,
+                            codes::SEM030,
+                            "a range cannot advance with step 0".to_string(),
+                            self.diag_span(v.span),
+                            Some("this step is 0".to_string()),
+                        ));
                     }
                     v
                 });

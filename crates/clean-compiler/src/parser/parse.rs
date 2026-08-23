@@ -2400,8 +2400,23 @@ impl<'a> Parser<'a> {
             IterateSource::Expr(first)
         };
         // `step` is a contextual keyword (03 §4) — identifier text here.
+        // FLW-02: the clause belongs to the range form only; the grammar's
+        // StepClause hangs off the range alternative (12 §2, 2026-08-22).
         let step = if self.eat_word("step") {
-            Some(self.expression(sink))
+            let step_kw = self.prev_span();
+            let expr = self.expression(sink);
+            if matches!(source, IterateSource::Range { .. }) {
+                Some(expr)
+            } else {
+                self.error_at(
+                    sink,
+                    codes::SYN002,
+                    "'step' is legal only when the iterate source is a range (`from to to`)"
+                        .to_string(),
+                    step_kw,
+                );
+                None
+            }
         } else {
             None
         };

@@ -1,0 +1,7 @@
+error[SEM030]: a range cannot advance with step 0
+ --> tests/cln/diagnostics/SEM030.cln:5:28
+  |
+5 | 	iterate i in 1 to 10 step 0
+  | 	                          ^ this step is 0
+  |
+  = docs: https://errors.cleanlanguage.dev/E/SEM030
