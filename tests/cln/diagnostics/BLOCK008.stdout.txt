@@ -1,0 +1,7 @@
+error[BLOCK008]: compiletime function 'expandData' handling block `custom` must return IR, not integer
+ --> tests/cln/diagnostics/BLOCK008.cln:7:1
+  |
+7 | handles block "custom" with expandData
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK008

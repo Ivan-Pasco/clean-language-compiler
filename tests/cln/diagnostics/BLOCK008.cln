@@ -1,0 +1,7 @@
+// BLOCK008: the compiletime function bound by a `handles block` must
+// declare `returns IR` (BLK-01); a missing `returns` clause is SYN002.
+
+compiletime function expandData(BlockAST ast) returns integer
+	return 0
+
+handles block "custom" with expandData

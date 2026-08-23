@@ -10,9 +10,6 @@
 # repro surface, the fuzzer's negative lock, and the registry-pinned
 # template); a deliberate debug-only fault-injection hook remains its
 # named exit condition — a deferred refinement, not a mandate.
-BLOCK007
-BLOCK008
-BLOCK009
 COM001
 COM002
 COM004

@@ -1,0 +1,7 @@
+error[BLOCK007]: compiletime function 'expandData' handling block `custom` must take exactly one parameter of type BlockAST
+ --> tests/cln/diagnostics/BLOCK007.cln:7:1
+  |
+7 | handles block "custom" with expandData
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = docs: https://errors.cleanlanguage.dev/E/BLOCK007

@@ -162,11 +162,11 @@ pub fn expand(
                         break;
                     }
                     let diag_span = file.stream.diag_span(ByteSpan::new(start, end));
-                    // LIB010 wrapper: the registry's `{library}::{function}`
-                    // cannot be filled — manifests carry no handler function
-                    // names — so attribution is `{library}::{block}` and the
-                    // kebab-case sub-label rides as the primary label
-                    // (DISCOVERIES-M5 item 11).
+                    // LIB010 wrapper, `[via {library}::{block}]` — ratified
+                    // 2026-08-22 from this fixture-pinned rendering (the
+                    // Accepted `{library}::{function}` was unfillable:
+                    // manifests carry no handler function names). The
+                    // kebab-case sub-label rides as the primary label.
                     sink.push(build(
                         level,
                         codes::LIB010,
@@ -308,25 +308,27 @@ pub fn expand(
     (resolved, typed_expanded)
 }
 
-/// BLK-01 over in-source registrations: a `handles block` declaration must
-/// name a non-reserved qualified block name (LEX-05 → `BLOCK003`, at the
-/// declaration; the library here is the unit being compiled, named by
-/// `project.name`) and reference a `compiletime function` defined in the
-/// same library — the compilation unit (missing → `SEM019`, whose
-/// registered template states exactly this failure). The arity/return
-/// constraints of BLK-01 have no registered codes (DISCOVERIES-M5
-/// item 15).
+/// BLK-01 over in-source registrations (21 §21.1; templates in §21.6): a
+/// `handles block` declaration must name a well-formed (`BLOCK009`; the
+/// manifest-side equivalent stays `LIB004`), non-reserved (`BLOCK003`, at
+/// the declaration; the library here is the unit being compiled, named by
+/// `project.name`) qualified block name and reference a `compiletime
+/// function` defined in the same library — the compilation unit (missing
+/// → `SEM019`, whose registered template states exactly this failure).
+/// The bound handler must take exactly one `BlockAST` parameter
+/// (`BLOCK007`) and declare `returns IR` (`BLOCK008`; a missing `returns`
+/// clause is the parser's SYN002, never this code).
 fn check_source_registrations(
     resolved: &ResolvedAst,
     request: &clean_compiler_types::CompileRequest,
     sink: &mut DiagnosticSink,
 ) {
-    let handler_names: Vec<&str> = resolved
+    let handlers: Vec<&ast::CompiletimeFunction> = resolved
         .decls
         .compiletime_functions
         .iter()
         .filter_map(|&(f, i)| match &resolved.files[f].ast.items[i] {
-            ast::Item::CompiletimeFunction(cf) => Some(cf.name.as_str()),
+            ast::Item::CompiletimeFunction(cf) => Some(cf),
             _ => None,
         })
         .collect();
@@ -336,6 +338,20 @@ fn check_source_registrations(
             continue;
         };
         let span = file.stream.diag_span(handles.span);
+        if !resolve::is_qualified_identifier(&handles.block_name) {
+            sink.push(build(
+                Level::Error,
+                codes::BLOCK009,
+                format!(
+                    "handles block name `{}` is not a qualified identifier \
+                     (`name` or `name.name.name` — no spaces, no punctuation other than `.`)",
+                    handles.block_name
+                ),
+                span.clone(),
+                None,
+            ));
+            continue;
+        }
         if resolve::is_reserved_block_name(&handles.block_name) {
             sink.push(build(
                 Level::Error,
@@ -344,21 +360,82 @@ fn check_source_registrations(
                     "library '{}' registers reserved block name `{}`",
                     request.project.name, handles.block_name
                 ),
-                span,
+                span.clone(),
                 Some("reserved block name".to_string()),
             ));
             continue;
         }
-        if !handler_names.contains(&handles.handler.as_str()) {
+        let Some(cf) = handlers.iter().find(|cf| cf.name == handles.handler) else {
             // SEM019 — exact wording from Platform 10 §3.
             sink.push(build(
                 Level::Error,
                 codes::SEM019,
                 format!("I cannot find a function named `{}`", handles.handler),
-                span,
+                span.clone(),
                 Some("no function with this name is in scope".to_string()),
             ));
+            continue;
+        };
+        let param_is_block_ast = cf.params.len() == 1
+            && !cf.params[0].ty.optional
+            && matches!(&cf.params[0].ty.base, ast::BaseType::Named(n) if n == "BlockAST");
+        if !param_is_block_ast {
+            sink.push(build(
+                Level::Error,
+                codes::BLOCK007,
+                format!(
+                    "compiletime function '{}' handling block `{}` \
+                     must take exactly one parameter of type BlockAST",
+                    cf.name, handles.block_name
+                ),
+                span.clone(),
+                None,
+            ));
         }
+        if let Some(ret) = &cf.ret {
+            let returns_ir =
+                !ret.optional && matches!(&ret.base, ast::BaseType::Named(n) if n == "IR");
+            if !returns_ir {
+                sink.push(build(
+                    Level::Error,
+                    codes::BLOCK008,
+                    format!(
+                        "compiletime function '{}' handling block `{}` \
+                         must return IR, not {}",
+                        cf.name,
+                        handles.block_name,
+                        type_expr_name(ret)
+                    ),
+                    span.clone(),
+                    None,
+                ));
+            }
+        }
+    }
+}
+
+/// Renders a surface type for the `{type}` slot of BLOCK008's template.
+fn type_expr_name(ty: &ast::TypeExpr) -> String {
+    let base = match &ty.base {
+        ast::BaseType::Boolean => "boolean".to_string(),
+        ast::BaseType::Integer(_) => "integer".to_string(),
+        ast::BaseType::Number => "number".to_string(),
+        ast::BaseType::String_ => "string".to_string(),
+        ast::BaseType::Bytes => "bytes".to_string(),
+        ast::BaseType::Datetime => "datetime".to_string(),
+        ast::BaseType::Any => "any".to_string(),
+        ast::BaseType::Void => "void".to_string(),
+        ast::BaseType::List(t) => format!("list<{}>", type_expr_name(t)),
+        ast::BaseType::Matrix(t) => format!("matrix<{}>", type_expr_name(t)),
+        ast::BaseType::Pairs(k, v) => {
+            format!("pairs<{}, {}>", type_expr_name(k), type_expr_name(v))
+        }
+        ast::BaseType::Named(n) => n.clone(),
+    };
+    if ty.optional {
+        format!("{base}?")
+    } else {
+        base
     }
 }
 

@@ -172,15 +172,62 @@ fn library_without_wasm_is_lib004_at_load() {
     );
 }
 
+/// BLOCK003, source leg (21 §21.2): span on the `handles block`
+/// declaration, `{library}` = the project's name, primary label
+/// `reserved block name` — pinned in full here because the code's DIA-06
+/// triple exercises the manifest leg (span on the request document).
 #[test]
 fn source_handles_block_with_reserved_name_is_block003() {
     let content = "compiletime function expandData(BlockAST ast) returns IR\n\treturn 0\n\nhandles block \"state\" with expandData\n";
     let request = block_request("app/main.cln", content, &[], vec![]);
+    let diagnostics = match clean_compiler::check(request) {
+        Ok(diagnostics) => diagnostics,
+        Err(err) => panic!("expected diagnostics, got {err:?}"),
+    };
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == "BLOCK003")
+        .unwrap_or_else(|| panic!("expected BLOCK003, got {diagnostics:?}"));
+    assert_eq!(
+        d.message,
+        "library 'fixture' registers reserved block name `state`"
+    );
+    assert_eq!(d.primary_label.as_deref(), Some("reserved block name"));
+    assert_eq!(d.primary_span.file, "app/main.cln");
+    assert_eq!(d.primary_span.start.line, 4);
+}
+
+/// BLOCK007/BLOCK008 (BLK-01): shape violations of the bound handler.
+#[test]
+fn handler_with_wrong_parameter_shape_is_block007() {
+    let content = "compiletime function expandData(integer n) returns IR\n\treturn 0\n\nhandles block \"custom\" with expandData\n";
+    let request = block_request("app/main.cln", content, &[], vec![]);
     let codes = codes_of(request);
     assert!(
-        codes.contains(&"BLOCK003".to_string()),
-        "expected BLOCK003, got {codes:?}"
+        codes.contains(&"BLOCK007".to_string()),
+        "expected BLOCK007, got {codes:?}"
     );
+}
+
+#[test]
+fn handler_with_optional_ir_return_is_block008() {
+    let content = "compiletime function expandData(BlockAST ast) returns IR?\n\treturn 0\n\nhandles block \"custom\" with expandData\n";
+    let request = block_request("app/main.cln", content, &[], vec![]);
+    let codes = codes_of(request);
+    assert!(
+        codes.contains(&"BLOCK008".to_string()),
+        "expected BLOCK008, got {codes:?}"
+    );
+}
+
+/// BLOCK009 fires on the name form alone and short-circuits the other
+/// registration checks (no cascading SEM019/BLOCK003).
+#[test]
+fn malformed_block_name_is_block009_alone() {
+    let content = "handles block \"has space\" with missingHandler\n";
+    let request = block_request("app/main.cln", content, &[], vec![]);
+    let codes = codes_of(request);
+    assert_eq!(codes, vec!["BLOCK009".to_string()], "got {codes:?}");
 }
 
 #[test]

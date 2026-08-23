@@ -49,8 +49,9 @@ impl<'r> Catalog<'r> {
 }
 
 /// A block name must be a qualified identifier: `name` or `name.name.name`
-/// (BLK-01), each segment in LEX-03 form.
-fn is_qualified_identifier(name: &str) -> bool {
+/// (BLK-01), each segment in LEX-03 form. The source-declaration leg of
+/// the check is `BLOCK009`; the manifest leg stays `LIB004`.
+pub(super) fn is_qualified_identifier(name: &str) -> bool {
     !name.is_empty()
         && name.split('.').all(|segment| {
             let mut chars = segment.chars();

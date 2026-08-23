@@ -1,0 +1,7 @@
+// BLOCK007: the compiletime function bound by a `handles block` must
+// take exactly one parameter of type BlockAST (BLK-01).
+
+compiletime function expandData(BlockAST ast, integer extra) returns IR
+	return 0
+
+handles block "custom" with expandData

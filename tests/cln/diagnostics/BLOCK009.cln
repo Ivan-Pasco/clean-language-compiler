@@ -1,0 +1,7 @@
+// BLOCK009: a source `handles block` string must be a qualified
+// identifier (BLK-01); the manifest-side equivalent stays LIB004.
+
+compiletime function expandData(BlockAST ast) returns IR
+	return 0
+
+handles block "not a name" with expandData
