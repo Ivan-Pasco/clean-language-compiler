@@ -348,3 +348,30 @@ host interface sse version \"0.1.0\":
     assert_eq!(f.wit_name.as_ref().map(|(n, _)| n.as_str()), Some("start"));
     assert_eq!(f.description, "Open the SSE stream.");
 }
+
+/// 21 §1a (ratified 2026-08-22): the block header combines parenthesized
+/// and bare argument surfaces in source order — keyword (`name = expr`)
+/// and positional forms in either surface — and the empty parenthesized
+/// form `data():` is legal.
+#[test]
+fn block_header_argument_surfaces_combine() {
+    use clean_compiler::parser::ast::BlockArg;
+    let source = "data.query(limit = 5) 7:\n\tsome line\n";
+    let (items, diagnostics) = parse_source(source);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let Item::LibraryBlock(block) = &items[0] else {
+        panic!("expected a library block, got {items:?}");
+    };
+    assert_eq!(block.name, "data.query");
+    assert_eq!(block.arguments.len(), 2, "parenthesized + bare combine");
+    assert!(matches!(&block.arguments[0], BlockArg::Keyword { name, .. } if name == "limit"));
+    assert!(matches!(&block.arguments[1], BlockArg::Positional(_)));
+
+    let (items, diagnostics) = parse_source("data():\n\tsome line\n");
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let Item::LibraryBlock(block) = &items[0] else {
+        panic!("expected a library block, got {items:?}");
+    };
+    assert_eq!(block.name, "data");
+    assert!(block.arguments.is_empty(), "`data():` carries no arguments");
+}

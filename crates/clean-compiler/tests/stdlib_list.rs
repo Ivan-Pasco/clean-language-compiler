@@ -394,3 +394,20 @@ fn remove_without_behavior_is_sem004() {
         "expected SEM004 for remove() without a behavior, got: {diagnostics:#?}"
     );
 }
+
+/// TYP-08 (ratified 2026-08-22): list assignment copies the handle, not
+/// the buffer — a mutation through one binding is visible through the
+/// other. Reference semantics are the observable contract the relayout
+/// (stable handle + indirect buffer) must preserve.
+#[test]
+fn list_to_list_assignment_aliases_the_same_object() {
+    let out = run("\
+\t\tlist<integer> a = [1, 2, 3]
+\t\tlist<integer> b = a
+\t\tb.set(0, 9)
+\t\temitInt(a.get(0))
+\t\temitInt(a.length())
+\t\temitInt(b.get(0))
+");
+    assert_eq!(ints(&out), [9, 3, 9]);
+}

@@ -223,3 +223,109 @@ fn import_visibility_does_not_chain_through_a_middle_module() {
         );
     }
 }
+
+/// MOD-06 (ratified 2026-08-22): when two imports would bind the same
+/// name, the first import in source order wins, **silently** — the
+/// shadowing warning is a recorded possible future, not current surface.
+#[test]
+fn first_import_wins_silently_on_name_collision() {
+    let one = (
+        "one.cln",
+        "functions:\n\tpublic:\n\t\tinteger pick(integer a)\n\t\t\treturn a\n",
+    );
+    let two = (
+        "two.cln",
+        "functions:\n\tpublic:\n\t\tinteger pick(integer a, integer b)\n\t\t\treturn a + b\n",
+    );
+    // `one` first: the unary signature is bound and the check is silent.
+    let main_one_first = (
+        "main.cln",
+        "import:\n\tone\n\ttwo\n\nfunctions:\n\tvoid init()\n\t\tinteger s = pick(5)\n\t\treturn\n",
+    );
+    match clean_compiler::check(request_for(&[one, two, main_one_first])) {
+        Ok(diagnostics) => assert!(
+            diagnostics.is_empty(),
+            "the collision is silent: {diagnostics:#?}"
+        ),
+        Err(err) => panic!("expected a silent clean check, got {err:?}"),
+    }
+    // `two` first: the same call now misses the binary arity — order
+    // decides which import won.
+    let main_two_first = (
+        "main.cln",
+        "import:\n\ttwo\n\tone\n\nfunctions:\n\tvoid init()\n\t\tinteger s = pick(5)\n\t\treturn\n",
+    );
+    let rejected = diagnostics(&[one, two, main_two_first]);
+    assert!(
+        rejected.iter().any(|d| d.code == "FUNC002"),
+        "the first import's signature is the bound one: {rejected:#?}"
+    );
+}
+
+/// MOD-04 ladder (ratified 2026-08-22), legs 1–3: the path relative to
+/// the importer beats the request-root path, which beats a unique
+/// `…/name.cln` suffix match.
+#[test]
+fn module_resolution_prefers_relative_then_root_then_unique_suffix() {
+    let near = (
+        "app/utils.cln",
+        "functions:\n\tpublic:\n\t\tinteger near(integer a)\n\t\t\treturn a\n",
+    );
+    let far = (
+        "utils.cln",
+        "functions:\n\tpublic:\n\t\tinteger far(integer a)\n\t\t\treturn a\n",
+    );
+    let deep = (
+        "lib/nested/utils.cln",
+        "functions:\n\tpublic:\n\t\tinteger deep(integer a)\n\t\t\treturn a\n",
+    );
+    // Leg 1: relative wins even with a root candidate present.
+    typechecks(&[
+        (
+            "app/main.cln",
+            "import:\n\tutils\n\nfunctions:\n\tvoid init()\n\t\tinteger s = near(1)\n\t\treturn\n",
+        ),
+        near,
+        far,
+    ]);
+    // Leg 2: the request-root path when no relative match exists.
+    typechecks(&[
+        (
+            "app/main.cln",
+            "import:\n\tutils\n\nfunctions:\n\tvoid init()\n\t\tinteger s = far(1)\n\t\treturn\n",
+        ),
+        far,
+    ]);
+    // Leg 3: a unique suffix match anywhere in the set.
+    typechecks(&[
+        (
+            "app/main.cln",
+            "import:\n\tutils\n\nfunctions:\n\tvoid init()\n\t\tinteger s = deep(1)\n\t\treturn\n",
+        ),
+        deep,
+    ]);
+}
+
+/// MOD-04 (ratified 2026-08-22): an ambiguous suffix match resolves to
+/// nothing — IMPORT002, never an arbitrary pick.
+#[test]
+fn ambiguous_suffix_match_resolves_to_nothing() {
+    let rejected = diagnostics(&[
+        (
+            "app/main.cln",
+            "import:\n\tutils\n\nfunctions:\n\tvoid init()\n\t\treturn\n",
+        ),
+        (
+            "x/utils.cln",
+            "functions:\n\tpublic:\n\t\tinteger fx(integer a)\n\t\t\treturn a\n",
+        ),
+        (
+            "y/utils.cln",
+            "functions:\n\tpublic:\n\t\tinteger fy(integer a)\n\t\t\treturn a\n",
+        ),
+    ]);
+    assert!(
+        rejected.iter().any(|d| d.code == "IMPORT002"),
+        "ambiguity must not pick a winner: {rejected:#?}"
+    );
+}

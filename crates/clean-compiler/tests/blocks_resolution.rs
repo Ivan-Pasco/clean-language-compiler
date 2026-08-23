@@ -259,3 +259,41 @@ fn valid_registration_pair_reaches_the_body_frontier() {
         other => panic!("expected Unsupported(compiletime function bodies), got {other:?}"),
     }
 }
+
+/// MOD-04/05 collision ladder (ratified 2026-08-22): sources-module
+/// resolution is tried before the library-manifest leg, so a module and
+/// a library sharing a name resolve in the module's favor.
+#[test]
+fn module_beats_library_on_name_collision() {
+    let module = "functions:\n\tpublic:\n\t\tinteger fromModule(integer a)\n\t\t\treturn a\n";
+    let main = "import:\n\tdata\n\nfunctions:\n\tvoid init()\n\t\tinteger x = fromModule(1)\n\t\treturn\n";
+    let mut request = block_request("app/main.cln", main, &[], vec![manifest("data", &["data"])]);
+    request
+        .sources
+        .push(clean_compiler_types::request::SourceFile {
+            path: "app/data.cln".to_string(),
+            sha256: common::sha256_hex(module.as_bytes()),
+            content: module.to_string(),
+        });
+    assert_resolves(request);
+}
+
+/// MOD-04/05 collision ladder: the built-in rung beats the library leg —
+/// a manifest named `math` does not capture `import: math`, which stays
+/// on the standard-library frontier.
+#[test]
+fn builtin_beats_library_on_name_collision() {
+    let main = "import:\n\tmath\n\nfunctions:\n\tvoid init()\n\t\treturn\n";
+    let request = block_request("app/main.cln", main, &[], vec![manifest("math", &["math"])]);
+    match clean_compiler::check(request) {
+        Err(clean_compiler::driver::CompileError::Unsupported(notes)) => {
+            assert!(
+                notes
+                    .iter()
+                    .any(|n| n.construct == "standard-library imports"),
+                "expected the built-in frontier note, got {notes:?}"
+            );
+        }
+        other => panic!("the built-in rung must win: {other:?}"),
+    }
+}

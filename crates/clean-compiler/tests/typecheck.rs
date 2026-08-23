@@ -408,3 +408,34 @@ functions:
 /// Silences the unused-helper lint for helpers other suites use.
 #[allow(dead_code)]
 fn _use_sink(_: DiagnosticSink) {}
+
+/// ERH / SEM001 over `onError` (ratified 2026-08-22): the mismatch
+/// diagnostic anchors at the **fallback** expression — the corrected
+/// SEM001 contract; the compiler always pointed there and the drain
+/// fixed the rule text, not the span.
+#[test]
+fn sem001_over_onerror_anchors_at_the_fallback() {
+    let host_bridge = "\
+host interface sse version \"0.1.0\":
+\trequires host worlds [\"server\"]
+
+\thost function sseStart() returns integer:u64
+\t\twit name \"start\"
+\t\tdescription \"Fallible per the world's result shape.\"
+";
+    let main = "\
+functions:
+\tvoid handle(integer handlerId)
+\t\tinteger x = sseStart() onError \"nope\"
+\t\treturn
+";
+    let diagnostics = rejected(&[("app/host_bridge.cln", host_bridge), ("app/main.cln", main)]);
+    let d = diagnostics
+        .iter()
+        .find(|d| d.code == codes::SEM001)
+        .unwrap_or_else(|| panic!("expected SEM001, got {diagnostics:#?}"));
+    // The fallback string starts at column 34 of line 3.
+    assert_eq!(d.primary_span.file, "app/main.cln");
+    assert_eq!(d.primary_span.start.line, 3);
+    assert_eq!(d.primary_span.start.column, 34);
+}

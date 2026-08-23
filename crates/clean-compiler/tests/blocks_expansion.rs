@@ -250,3 +250,25 @@ fn max_ir_nodes_limit_from_the_request_is_lib014() {
         "Library 'alpha' exceeded generated-IR node count: 4 > 3"
     );
 }
+
+/// ir-builder visibility (ratified 2026-08-22, extended to methods):
+/// handler-emitted functions are module-local — callable from the
+/// expanding module (pinned by `emitted_function_is_callable_from_user_code`)
+/// but invisible to a sibling module that imports it.
+#[test]
+fn handler_emitted_functions_are_module_local() {
+    let envelope = r#"{"ir":{"kind":"function","name":"answer","params":[],"return":{"kind":"integer"},"body":{"kind":"return","expression":{"kind":"literal_integer","value":42}}},"diagnostics":[]}"#;
+    let mut request = request_with_handler("data UserData:\n\tinteger id primary\n", envelope);
+    let other =
+        "import:\n\tapp.main\n\nfunctions:\n\tvoid init()\n\t\tinteger x = answer()\n\t\treturn\n";
+    request.sources.push(SourceFile {
+        path: "other.cln".to_string(),
+        sha256: common::sha256_hex(other.as_bytes()),
+        content: other.to_string(),
+    });
+    let codes = error_codes(request);
+    assert!(
+        codes.contains(&"SEM019".to_string()),
+        "the emitted function must not cross the module boundary: {codes:?}"
+    );
+}
