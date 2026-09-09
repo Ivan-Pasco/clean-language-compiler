@@ -1,3 +1,0 @@
-# work/
-
-Task briefs whose *Files touched* live in this repository — and only those (`clean-language-foundation EXE-04`). Active briefs sit here; a brief whose acceptance checks pass moves to `work/archive/` in the same change that completes it, with any durable discovery promoted first (`clean-language-foundation DOC-12`). Briefs cite foundation rules as plain-text qualified IDs, resolved against the sibling `../clean-language-foundation` checkout at its current HEAD (rule 3 — no pin; drift is caught by the spec tests). Under the block-and-decide protocol (CLAUDE.md rule 3), briefs are for large multi-step work only — a spec question is never parked here as a brief; it is decided in the moment.
