@@ -29,10 +29,10 @@ Trabajo pendiente accionable del compilador. Lo alimenta `/X40-capture`; lo cier
 - **Alcance/Acción**: decidir dónde vive la autoridad (foundation, `clean-server`, o el fixture mismo) y, si es un repo externo, reponer un gate que compare el fixture contra esa fuente (auto-skip local, obligatorio en CI como los tests de spec).
 - **Estado**: open
 
-### DOC-001 · Escribir el WBS inicial en `Scope/`
-- **Origen**: 2026-09-09, decisión de seguir el avance con un Work Breakdown Structure.
-- **Problema**: `Scope/` existe pero está vacía (`.gitkeep`). Sin WBS no hay medida de avance.
-- **Alcance/Acción**: definir formato (un archivo por paquete de trabajo o uno solo con jerarquía), volcar el estado actual del compilador (pipeline de 10 pasadas, LSP, CLI, CI) y marcar hecho / en curso / pendiente.
+### DOC-001 · Diseñar el subárbol de alcance del compilador (en foundation)
+- **Origen**: 2026-09-09, decisión de seguir el avance con un Work Breakdown Structure. El mismo día se decidió que el árbol vive en foundation (SCM-05) y no en una carpeta `Scope/` de este repo; la carpeta se borró.
+- **Problema**: el compilador no tiene subárbol de alcance: sin superficies ni paquetes de trabajo no hay medida de avance. Foundation tampoco tiene todavía el tronco (familias, componentes, capítulos que gobiernan a cada uno) ni el skill `/scope-design` de UC-13.
+- **Alcance/Acción**: en foundation, crear el tronco y diseñar el subárbol del compilador en `02 components/compiler/` (UC-13): superficies alineadas a capítulos, paquetes nombrados por comportamiento y dimensionados a una sesión, cada unidad vigente llevada por al menos un paquete. En este repo queda solo la evidencia (tests que citan unidades); pendiente aquí un checker que compruebe que cada unidad de un paquete `done` está citada por un test verde.
 - **Estado**: open
 
 ## P2 — Menor

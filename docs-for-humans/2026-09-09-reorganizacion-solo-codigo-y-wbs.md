@@ -23,3 +23,7 @@ Quedó una consecuencia sin resolver: **el `host.wit` ya no tiene un hogar "de c
 ## Tensión abierta
 
 La decisión 1 ("solo código") y la 3 (X40 escribe `docs-for-claude/`, `docs-for-humans/` y `backlog.md` en el repo) se contradicen en la letra. La captura se hizo aquí porque el dueño pidió correr X40 en este repo y foundation no tiene esas carpetas. Falta que el dueño diga si estas carpetas son una segunda excepción (como `Scope/`) o si X40 debe escribir en foundation.
+
+## Adenda (2026-09-09, más tarde)
+
+La decisión 2 se revirtió el mismo día: el árbol de alcance vive en foundation, junto a la spec del componente (`02 components/compiler/`, regla SCM-05), no en `Scope/`. La carpeta se borró; aquí queda solo la evidencia (tests que citan unidades). Lo que pesó: una enmienda de spec reabre paquetes en el mismo commit, la serie de ids de nodo es única para todo el stack, y el tronco y las cuentas por familia tienen un solo lugar. El costo aceptado es un commit extra en foundation por sesión para escribir el estado del paquete.

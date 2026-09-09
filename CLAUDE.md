@@ -12,16 +12,18 @@ va a foundation.
 
 ## Avance del desarrollo (2026-09-09)
 
-El avance se sigue con un **Work Breakdown Structure (WBS)** en la carpeta
-`Scope/` de este repo.
+El avance se mide con el **árbol de alcance (WBS)** que vive en foundation,
+junto a la spec del componente (`../clean-language-foundation/02 components/compiler/`,
+regla SCM-05). Este repo no tiene carpeta de scope ni copia del árbol: aquí
+queda solo la **evidencia**, los tests que citan las unidades (reglas, códigos
+de diagnóstico, producciones de la gramática) que cada paquete de trabajo lleva.
 
 ## Excepciones a "solo código aquí" (2026-09-09)
 
 Memoria operativa del trabajo sobre este código, no documentación del lenguaje:
 
-- `Scope/` — el WBS.
 - `docs-for-claude/` — notas que Claude relee; `INDEX.md` dice qué carga cada skill.
 - `docs-for-humans/` — narrativa de sesiones (Claude no la lee).
 - `backlog.md` — pendientes accionables.
 
-Las tres últimas las alimenta `/X40-capture`. Todo lo demás documental va a foundation.
+Las tres las alimenta `/X40-capture`. Todo lo demás documental va a foundation.
