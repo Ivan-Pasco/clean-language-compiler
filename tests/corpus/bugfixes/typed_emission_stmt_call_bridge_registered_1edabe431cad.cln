@@ -1,5 +1,5 @@
 // Test: bugfixes/typed_emission_stmt_call_bridge_registered_1edabe431cad
-// Grammar: external block declaration + functions block (grammar.ebnf §external_block, §functions_block)
+// Grammar: external block declaration + functions block (language-principles/*.lark.md)
 // Regression: dashboard fp 1edabe431cad.
 //   Reported error code: TYPED-EMISSION-DUAL-SHIP-BLOCKED.
 //   A plugin that dual-shipped v1 and v3 expansion paths and declared

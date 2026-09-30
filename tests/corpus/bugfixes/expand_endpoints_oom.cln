@@ -1,7 +1,7 @@
 // Test: bugfixes/expand_endpoints_oom
 // Regression: COMPILER-MEM-ALLOC-NO-GROW-RECURRENCE (fingerprint b80c2f907c71)
 //
-// Grammar: grammar.ebnf `while_statement`, `string_concat_expr`
+// Grammar: language-principles/*.lark.md `while_statement`, `string_concat_expr`
 // Semantic: SEM-MEM-001 (host arena bump allocator monotonic growth)
 //
 // Models the dual-accumulator triangular-sum pattern from the framework's

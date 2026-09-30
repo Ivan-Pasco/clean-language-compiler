@@ -1,7 +1,8 @@
-//! M9 grammar fuzz — programs generated from the DOC-15 EBNF itself.
+//! M9 grammar fuzz — programs generated from the law's Lark grammar itself.
 //!
 //! The vendored grammar (`tests/fixtures/grammar/`, byte-pinned copies of
-//! foundation `04 language/grammar/*.ebnf.md`) seeds a deterministic
+//! foundation `governance/product/language-principles/*.lark.md`, the
+//! companions FS-01 composes into one Lark grammar) seeds a deterministic
 //! generator; every generated program goes through `compile()` under the
 //! compiler's external contract:
 //!
@@ -19,10 +20,10 @@
 //! sweep in the nightly job without touching the checked-in defaults.
 
 mod common;
-#[path = "grammar_fuzz/ebnf.rs"]
-mod ebnf;
 #[path = "grammar_fuzz/generate.rs"]
 mod generate;
+#[path = "grammar_fuzz/lark.rs"]
+mod lark;
 
 use clean_compiler::{compile, CompileError};
 use clean_compiler_types::codes;
@@ -33,8 +34,8 @@ fn grammar_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/grammar")
 }
 
-/// Vendored grammar files in filename order (deterministic load order; the
-/// first definition of a duplicated production wins).
+/// Vendored grammar files in filename order — the order FS-01 composes
+/// them in.
 fn vendored_files() -> Vec<(String, String)> {
     let mut names: Vec<String> = std::fs::read_dir(grammar_dir())
         .expect("vendored grammar directory exists")
@@ -44,7 +45,7 @@ fn vendored_files() -> Vec<(String, String)> {
                 .into_string()
                 .expect("utf-8")
         })
-        .filter(|n| n.ends_with(".ebnf.md"))
+        .filter(|n| n.ends_with(".lark.md"))
         .collect();
     names.sort();
     names
@@ -58,7 +59,7 @@ fn vendored_files() -> Vec<(String, String)> {
 }
 
 fn generator() -> generate::Generator {
-    generate::Generator::new(ebnf::Grammar::load(&vendored_files()))
+    generate::Generator::new(lark::Grammar::load(&vendored_files()))
 }
 
 /// The vendored copy matches its recorded hashes — refreshing the grammar is
@@ -88,13 +89,14 @@ fn vendored_grammar_matches_recorded_sha256() {
 }
 
 /// When the foundation checkout is present, the vendored copy must be
-/// byte-identical to `04 language/grammar/`. Absent checkout: skips locally,
+/// byte-identical to the companions in
+/// `governance/product/language-principles/`. Absent checkout: skips locally,
 /// but fails when `CLEAN_SPEC_REQUIRED` is set (CI clones the spec checkout
 /// and sets it — a conformance test must not self-skip there).
 #[test]
 fn vendored_grammar_matches_foundation() {
     let foundation = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../clean-language-foundation/04 language/grammar");
+        .join("../../../clean-language-foundation/governance/product/language-principles");
     if !foundation.is_dir() {
         assert!(
             std::env::var_os("CLEAN_SPEC_REQUIRED").is_none(),
@@ -106,22 +108,22 @@ fn vendored_grammar_matches_foundation() {
     }
     for (name, vendored) in vendored_files() {
         let upstream = std::fs::read_to_string(foundation.join(&name))
-            .unwrap_or_else(|_| panic!("{name} vanished from foundation grammar/"));
+            .unwrap_or_else(|_| panic!("{name} vanished from foundation language-principles/"));
         assert_eq!(
             vendored, upstream,
             "{name} drifted from foundation — refresh the vendored copy \
              and SHA256SUMS deliberately"
         );
     }
-    // New grammar files must be vendored too, or generation silently
+    // New grammar companions must be vendored too, or generation silently
     // under-covers the language.
-    for entry in std::fs::read_dir(&foundation).expect("foundation grammar dir") {
+    for entry in std::fs::read_dir(&foundation).expect("foundation language-principles dir") {
         let name = entry
             .expect("readable dir entry")
             .file_name()
             .into_string()
             .expect("utf-8");
-        if name.ends_with(".ebnf.md") {
+        if name.ends_with(".lark.md") {
             assert!(
                 grammar_dir().join(&name).is_file(),
                 "foundation added {name}; vendor it and update SHA256SUMS"
@@ -130,42 +132,67 @@ fn vendored_grammar_matches_foundation() {
     }
 }
 
-/// The grammar parses, the root derives finitely, and the sets of
-/// duplicates and ungeneratable productions are exactly the known ones —
-/// any change here is grammar evolution the fuzzer must absorb
-/// deliberately, not silently.
+/// The grammar reads, every name it uses is defined, both start symbols
+/// derive finitely, and the sets of duplicates and ungeneratable rules
+/// are exactly the known ones — any change here is grammar evolution the
+/// fuzzer must absorb deliberately, not silently.
 #[test]
 fn grammar_loads_and_root_is_generatable() {
-    let grammar = ebnf::Grammar::load(&vendored_files());
-    // No duplicated productions: the WatchBlock double definition
-    // (DISCOVERIES-M9 §1f) was resolved by foundation's 2026-08-20 erratum
-    // — 20-state-management's definition (WatchTarget admits the
-    // parenthesized list) is the one that remains.
+    let grammar = lark::Grammar::load(&vendored_files());
+    // Lark refuses a name defined twice; DOC-15 calls it a defect. The
+    // WatchBlock double definition (DISCOVERIES-M9 §1f) was resolved by
+    // foundation's 2026-08-20 erratum and must not come back.
     assert!(
         grammar.duplicates.is_empty(),
-        "duplicate productions reappeared (DOC-15 defect): {:?}",
+        "duplicate definitions reappeared (DOC-15 defect): {:?}",
         grammar.duplicates
+    );
+    let undefined = grammar.undefined();
+    assert!(
+        undefined.is_empty(),
+        "names used but defined nowhere: {undefined:?}"
+    );
+    // The indenter's events are declared, not lexed (LEXG-02).
+    assert_eq!(grammar.declared, ["_INDENT", "_DEDENT"]);
+    assert!(
+        grammar.imports.is_empty(),
+        "the language grammar imports nothing"
     );
     let generator = generate::Generator::new(grammar);
     generator.assert_root_generatable();
-    // Productions with no finite derivation inside the vendored grammar —
-    // all spec-ratified as not-source-syntax (2026-08-20 errata):
-    // LibraryBlock's body is handler-defined (08 §LibraryBlock);
-    // ExpressionType / IdentifierType are schema-tier BlockArg payloads
-    // (21, defined field-level in schema/block-ast.md), so BlockArgType
-    // and CompileTimeFunctionDeclaration stay ungeneratable through them.
-    let mut ungeneratable = generator.ungeneratable();
-    ungeneratable.sort_unstable();
-    assert_eq!(
-        ungeneratable,
-        [
-            "BlockArgType",
-            "CompileTimeFunctionDeclaration",
-            "ExpressionType",
-            "IdentifierType",
-            "LibraryBlock"
-        ],
-        "ungeneratable-production set changed — update DISCOVERIES-M9 and this pin"
+    // Every rule has a finite derivation. Under the EBNF this set was
+    // LibraryBlock, BlockArgType, CompileTimeFunctionDeclaration,
+    // ExpressionType and IdentifierType: a library block's body was an
+    // informal "handler-defined" special, and the BlockArg payload types
+    // were schema-tier specials. The Lark grammar spells the body as lines
+    // of tokens (BLKG-02) and writes the payload types as comments, not
+    // rules, so nothing is left without a derivation.
+    let ungeneratable = generator.ungeneratable();
+    assert!(
+        ungeneratable.is_empty(),
+        "ungeneratable-rule set changed — update DISCOVERIES-M9 and this pin: {ungeneratable:?}"
+    );
+}
+
+/// The snippet root generates too: `statement_sequence` is the start
+/// symbol a parser reading the chapters' snippets uses (FS-01). Its
+/// sentences are deterministic per seed and not all empty.
+#[test]
+fn statement_sequence_root_generates() {
+    let generator = generator();
+    let snippets: Vec<String> = (0..16)
+        .map(|seed| generator.sentence("statement_sequence", seed, 200))
+        .collect();
+    for (seed, text) in snippets.iter().enumerate() {
+        assert_eq!(
+            *text,
+            generator.sentence("statement_sequence", seed as u64, 200),
+            "seed {seed}: generation is not deterministic"
+        );
+    }
+    assert!(
+        snippets.iter().any(|t| !t.trim().is_empty()),
+        "16 seeds of statement_sequence produced no statement"
     );
 }
 

@@ -1,5 +1,5 @@
 // Test: bugfixes/type_nullable_declaration
-// Grammar: type = base_type , [ "?" ] ;  (foundation/spec/grammar/grammar.ebnf)
+// Grammar: type = base_type , [ "?" ] ;  (language-principles/*.lark.md)
 // Semantic: spec 04-type-system.md §"Nullable Types" — T? holds T or null;
 //   `!` moves T? → T, trapping on null; `default` provides a fallback.
 //

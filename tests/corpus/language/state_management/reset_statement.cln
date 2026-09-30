@@ -1,5 +1,5 @@
 // Test: language/state_management/reset_statement
-// Grammar: grammar.ebnf reset_statement = "reset" , ( "state" | identifier ) ;
+// Grammar: language-principles/*.lark.md reset_statement = "reset" , ( "state" | identifier ) ;
 // Semantic: N/A — reset is a runtime state operation
 // Expected output:
 //   10

@@ -1,0 +1,9951 @@
+[
+ {
+  "id": "EXP-01.p1",
+  "unidad": "EXP-01",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "2^3^2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "pow",
+     [
+      "int",
+      2
+     ],
+     [
+      "bin",
+      "pow",
+      [
+       "int",
+       3
+      ],
+      [
+       "int",
+       2
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.p2",
+  "unidad": "EXP-01",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "(2^3)^2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "pow",
+     [
+      "paren",
+      [
+       "bin",
+       "pow",
+       [
+        "int",
+        2
+       ],
+       [
+        "int",
+        3
+       ]
+      ]
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.p3",
+  "unidad": "EXP-01",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "a - b - c",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "sub",
+     [
+      "bin",
+      "sub",
+      [
+       "var",
+       "a"
+      ],
+      [
+       "var",
+       "b"
+      ]
+     ],
+     [
+      "var",
+      "c"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.p4",
+  "unidad": "EXP-01",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado EQUAL",
+  "linea": 1,
+  "fuente": "a = b = c",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXP-01.p5",
+  "unidad": "EXP-01",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "x = f() onError 0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "x"
+    ],
+    [
+     "bin",
+     "onError",
+     [
+      "call",
+      [
+       "var",
+       "f"
+      ],
+      []
+     ],
+     [
+      "int",
+      0
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.s1",
+  "unidad": "EXP-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// Single line expressions (no parentheses required)\noutcome = a + b + c",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "outcome"
+    ],
+    [
+     "bin",
+     "add",
+     [
+      "bin",
+      "add",
+      [
+       "var",
+       "a"
+      ],
+      [
+       "var",
+       "b"
+      ]
+     ],
+     [
+      "var",
+      "c"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.s2",
+  "unidad": "EXP-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "value = functionCall(arg1, arg2)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "value"
+    ],
+    [
+     "call",
+     [
+      "var",
+      "functionCall"
+     ],
+     [
+      [
+       "var",
+       "arg1"
+      ],
+      [
+       "var",
+       "arg2"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.s3",
+  "unidad": "EXP-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// Multi-line expressions (parentheses required)\noutcome = (a + b + c +\n          d + e + f)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "outcome"
+    ],
+    [
+     "paren",
+     [
+      "bin",
+      "add",
+      [
+       "bin",
+       "add",
+       [
+        "bin",
+        "add",
+        [
+         "bin",
+         "add",
+         [
+          "bin",
+          "add",
+          [
+           "var",
+           "a"
+          ],
+          [
+           "var",
+           "b"
+          ]
+         ],
+         [
+          "var",
+          "c"
+         ]
+        ],
+        [
+         "var",
+         "d"
+        ]
+       ],
+       [
+        "var",
+        "e"
+       ]
+      ],
+      [
+       "var",
+       "f"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.s4",
+  "unidad": "EXP-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "complex = (functionCall(arg1, arg2) +\n           anotherFunction(arg3) *\n           (nested + expression))",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "complex"
+    ],
+    [
+     "paren",
+     [
+      "bin",
+      "add",
+      [
+       "call",
+       [
+        "var",
+        "functionCall"
+       ],
+       [
+        [
+         "var",
+         "arg1"
+        ],
+        [
+         "var",
+         "arg2"
+        ]
+       ]
+      ],
+      [
+       "bin",
+       "mul",
+       [
+        "call",
+        [
+         "var",
+         "anotherFunction"
+        ],
+        [
+         [
+          "var",
+          "arg3"
+         ]
+        ]
+       ],
+       [
+        "paren",
+        [
+         "bin",
+         "add",
+         [
+          "var",
+          "nested"
+         ],
+         [
+          "var",
+          "expression"
+         ]
+        ]
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.s5",
+  "unidad": "EXP-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "calculation = (matrix1 * matrix2 +\n               matrix3.transpose() *\n               scalar_value)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "calculation"
+    ],
+    [
+     "paren",
+     [
+      "bin",
+      "add",
+      [
+       "bin",
+       "mul",
+       [
+        "var",
+        "matrix1"
+       ],
+       [
+        "var",
+        "matrix2"
+       ]
+      ],
+      [
+       "bin",
+       "mul",
+       [
+        "call",
+        [
+         "member",
+         [
+          "var",
+          "matrix3"
+         ],
+         "transpose"
+        ],
+        []
+       ],
+       [
+        "var",
+        "scalar_value"
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.e1",
+  "unidad": "EXP-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// ✅ Valid: Single line, no parentheses needed\ntotal = price + tax + shipping",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "total"
+    ],
+    [
+     "bin",
+     "add",
+     [
+      "bin",
+      "add",
+      [
+       "var",
+       "price"
+      ],
+      [
+       "var",
+       "tax"
+      ]
+     ],
+     [
+      "var",
+      "shipping"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.e2",
+  "unidad": "EXP-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// ✅ Valid: Multi-line with parentheses\ntotal = (price + tax + \n         shipping + handling)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "total"
+    ],
+    [
+     "paren",
+     [
+      "bin",
+      "add",
+      [
+       "bin",
+       "add",
+       [
+        "bin",
+        "add",
+        [
+         "var",
+         "price"
+        ],
+        [
+         "var",
+         "tax"
+        ]
+       ],
+       [
+        "var",
+        "shipping"
+       ]
+      ],
+      [
+       "var",
+       "handling"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.e3",
+  "unidad": "EXP-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// ✅ Valid: Complex multi-line expression\noutcome = (calculateBase(width, height) +\n          calculateTax(subtotal) +\n          (shippingCost * quantity))",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "outcome"
+    ],
+    [
+     "paren",
+     [
+      "bin",
+      "add",
+      [
+       "bin",
+       "add",
+       [
+        "call",
+        [
+         "var",
+         "calculateBase"
+        ],
+        [
+         [
+          "var",
+          "width"
+         ],
+         [
+          "var",
+          "height"
+         ]
+        ]
+       ],
+       [
+        "call",
+        [
+         "var",
+         "calculateTax"
+        ],
+        [
+         [
+          "var",
+          "subtotal"
+         ]
+        ]
+       ]
+      ],
+      [
+       "paren",
+       [
+        "bin",
+        "mul",
+        [
+         "var",
+         "shippingCost"
+        ],
+        [
+         "var",
+         "quantity"
+        ]
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.e4",
+  "unidad": "EXP-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// ✅ Valid: Multi-line function call\nvalue = functionCall(\n\t(arg1 + arg2),\n\t(arg3 * arg4),\n\tdefaultValue\n)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "value"
+    ],
+    [
+     "call",
+     [
+      "var",
+      "functionCall"
+     ],
+     [
+      [
+       "paren",
+       [
+        "bin",
+        "add",
+        [
+         "var",
+         "arg1"
+        ],
+        [
+         "var",
+         "arg2"
+        ]
+       ]
+      ],
+      [
+       "paren",
+       [
+        "bin",
+        "mul",
+        [
+         "var",
+         "arg3"
+        ],
+        [
+         "var",
+         "arg4"
+        ]
+       ]
+      ],
+      [
+       "var",
+       "defaultValue"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-02.e5",
+  "unidad": "EXP-02",
+  "origen": "ley-ejemplo",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado _NEWLINE '\\n\\t\\t'",
+  "linea": 2,
+  "fuente": "// ❌ Invalid: Multi-line without parentheses\ntotal = price + tax + \n\t\tshipping         // SYN002: the line break ends the statement",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXP-02.e6",
+  "unidad": "EXP-02",
+  "origen": "ley-ejemplo",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN004",
+  "detalle": "construcción sin cerrar al final",
+  "linea": 2,
+  "fuente": "// ❌ Invalid: Unmatched parentheses\noutcome = (a + b + c      // SYN004: missing closing parenthesis",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXP-02.p1",
+  "unidad": "EXP-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado RPAR ')'",
+  "linea": 1,
+  "fuente": "total = a + b)",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXP-02.p2",
+  "unidad": "EXP-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN004",
+  "detalle": "construcción sin cerrar al final",
+  "linea": 1,
+  "fuente": "total = (a + b",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXP-04.n1",
+  "unidad": "EXP-04",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "a + b       // Addition\na - b       // Subtraction\na * b       // Multiplication\na / b       // Division\na % b       // Modulo\na ^ b       // Exponentiation",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "add",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "sub",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "mul",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "div",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "mod",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "pow",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-05.n1",
+  "unidad": "EXP-05",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "a == b      // Equal\na != b      // Not equal\na < b       // Less than\na > b       // Greater than\na <= b      // Less than or equal\na >= b      // Greater than or equal\na is b      // Identity: a and b are the same value\na not b     // Negated identity: a and b are not the same value",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "eq",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "ne",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "lt",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "gt",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "le",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "ge",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "is",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "isNot",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-06.n1",
+  "unidad": "EXP-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "not a           // unary: negation of a",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "un",
+     "not",
+     [
+      "var",
+      "a"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-06.n2",
+  "unidad": "EXP-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "a not b         // binary: a is not identical to b",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "isNot",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-06.n3",
+  "unidad": "EXP-06",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "not a not b     // (not a) not b — unary first, then binary",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "isNot",
+     [
+      "un",
+      "not",
+      [
+       "var",
+       "a"
+      ]
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-06.n4",
+  "unidad": "EXP-06",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "a not not b     // a not (not b) — binary, whose right operand is a negation",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "isNot",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "un",
+      "not",
+      [
+       "var",
+       "b"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-07.n1",
+  "unidad": "EXP-07",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "a and b     // Logical AND\na or b      // Logical OR\nnot a       // Logical NOT (unary prefix)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "and",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "or",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "un",
+     "not",
+     [
+      "var",
+      "a"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.a1",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "value default fallback    // Returns value if not none, otherwise fallback",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "default",
+     [
+      "var",
+      "value"
+     ],
+     [
+      "var",
+      "fallback"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b1",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "none default \"x\"           // Returns \"x\" (left is none)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "default",
+     [
+      "none"
+     ],
+     [
+      "str",
+      "x"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b2",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "\"y\" default \"x\"            // Returns \"y\" (left is not none)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "default",
+     [
+      "str",
+      "y"
+     ],
+     [
+      "str",
+      "x"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b3",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "false default true         // Returns false (false is NOT none)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "default",
+     [
+      "bool",
+      false
+     ],
+     [
+      "bool",
+      true
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b4",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "0 default 10               // Returns 0 (0 is NOT none)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "default",
+     [
+      "int",
+      0
+     ],
+     [
+      "int",
+      10
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b5",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "\"\" default \"fallback\"      // Returns \"\" (empty string is NOT none)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "default",
+     [
+      "str",
+      ""
+     ],
+     [
+      "str",
+      "fallback"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b6",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "false or true              // Returns true (traditional boolean OR)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "or",
+     [
+      "bool",
+      false
+     ],
+     [
+      "bool",
+      true
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.b7",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "true or false              // Returns true",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "or",
+     [
+      "bool",
+      true
+     ],
+     [
+      "bool",
+      false
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.c1",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string username = userData.name default \"Guest\"\ninteger count = config.maxItems default 100\nnumber price = product.price default 0.0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "username",
+    [
+     "bin",
+     "default",
+     [
+      "member",
+      [
+       "var",
+       "userData"
+      ],
+      "name"
+     ],
+     [
+      "str",
+      "Guest"
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "count",
+    [
+     "bin",
+     "default",
+     [
+      "member",
+      [
+       "var",
+       "config"
+      ],
+      "maxItems"
+     ],
+     [
+      "int",
+      100
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "price",
+    [
+     "bin",
+     "default",
+     [
+      "member",
+      [
+       "var",
+       "product"
+      ],
+      "price"
+     ],
+     [
+      "num",
+      0,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.c2",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string value = primary default secondary default \"final fallback\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "value",
+    [
+     "bin",
+     "default",
+     [
+      "bin",
+      "default",
+      [
+       "var",
+       "primary"
+      ],
+      [
+       "var",
+       "secondary"
+      ]
+     ],
+     [
+      "str",
+      "final fallback"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.e1",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "value!    // ✅ Correct postfix form",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "assert",
+     [
+      "var",
+      "value"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.e2",
+  "unidad": "EXP-03",
+  "origen": "ley-ejemplo",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado BANG",
+  "linea": 1,
+  "fuente": "!value    // ❌ SYN002 — ! is not a prefix here",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXP-03.f1",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string? maybeNone = getUser()",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "string"
+     ]
+    ],
+    "maybeNone",
+    [
+     "call",
+     [
+      "var",
+      "getUser"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.f2",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string name = maybeNone!    // Runtime check: halts if none; compile-time: treated as string",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "name",
+    [
+     "assert",
+     [
+      "var",
+      "maybeNone"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.f3",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string upper = getText()!.toUpperCase()    // getText() is checked for none before .toUpperCase()",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "upper",
+    [
+     "call",
+     [
+      "member",
+      [
+       "assert",
+       [
+        "call",
+        [
+         "var",
+         "getText"
+        ],
+        []
+       ]
+      ],
+      "toUpperCase"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.f4",
+  "unidad": "EXP-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer count = items.find(item)!",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "count",
+    [
+     "assert",
+     [
+      "call",
+      [
+       "member",
+       [
+        "var",
+        "items"
+       ],
+       "find"
+      ],
+      [
+       [
+        "var",
+        "item"
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.p1",
+  "unidad": "EXP-03",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? v = none\ninteger w = v!",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "v",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "w",
+    [
+     "assert",
+     [
+      "var",
+      "v"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-08.n1",
+  "unidad": "EXP-08",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "matrix<number> product = a * b       // matrix multiplication\nnumber scaled = x * y                // ordinary multiplication\nstring greeting = \"hola \" + name     // concatenation",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "generic",
+     "matrix",
+     [
+      [
+       "prim",
+       "number"
+      ]
+     ]
+    ],
+    "product",
+    [
+     "bin",
+     "mul",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "scaled",
+    [
+     "bin",
+     "mul",
+     [
+      "var",
+      "x"
+     ],
+     [
+      "var",
+      "y"
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "greeting",
+    [
+     "bin",
+     "add",
+     [
+      "str",
+      "hola "
+     ],
+     [
+      "var",
+      "name"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-09.n1",
+  "unidad": "EXP-09",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "obj.method()            // Method call\nobj.property            // Property access\nobj.method(arg1, arg2)  // Method with arguments\n\"string\".length()       // Method on literal\nmyList.get(0)           // Built-in method",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "obj"
+      ],
+      "method"
+     ],
+     []
+    ]
+   ],
+   [
+    "expr",
+    [
+     "member",
+     [
+      "var",
+      "obj"
+     ],
+     "property"
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "obj"
+      ],
+      "method"
+     ],
+     [
+      [
+       "var",
+       "arg1"
+      ],
+      [
+       "var",
+       "arg2"
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "str",
+       "string"
+      ],
+      "length"
+     ],
+     []
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "myList"
+      ],
+      "get"
+     ],
+     [
+      [
+       "int",
+       0
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-10.n1",
+  "unidad": "EXP-10",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "functionName()                     // No arguments\nfunctionName(arg1)                 // Single argument\nfunctionName(arg1, arg2, arg3)     // Multiple arguments",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "call",
+     [
+      "var",
+      "functionName"
+     ],
+     []
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "var",
+      "functionName"
+     ],
+     [
+      [
+       "var",
+       "arg1"
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "var",
+      "functionName"
+     ],
+     [
+      [
+       "var",
+       "arg1"
+      ],
+      [
+       "var",
+       "arg2"
+      ],
+      [
+       "var",
+       "arg3"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "CALL-03.e1",
+  "unidad": "CALL-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// Math utilities (no single owner)\nmath.sqrt(16)\nmath.max(10, 20)\nmath.absInteger(-5)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "math"
+      ],
+      "sqrt"
+     ],
+     [
+      [
+       "int",
+       16
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "math"
+      ],
+      "max"
+     ],
+     [
+      [
+       "int",
+       10
+      ],
+      [
+       "int",
+       20
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "math"
+      ],
+      "absInteger"
+     ],
+     [
+      [
+       "un",
+       "neg",
+       [
+        "int",
+        5
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "CALL-03.e2",
+  "unidad": "CALL-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// Creating new collections\nlist.concat(listA, listB)\nlist.range(1, 10)\nlist.fill(5, 0)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "nscall",
+     "list",
+     "concat",
+     [
+      [
+       "var",
+       "listA"
+      ],
+      [
+       "var",
+       "listB"
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "nscall",
+     "list",
+     "range",
+     [
+      [
+       "int",
+       1
+      ],
+      [
+       "int",
+       10
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "nscall",
+     "list",
+     "fill",
+     [
+      [
+       "int",
+       5
+      ],
+      [
+       "int",
+       0
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "CALL-03.e4",
+  "unidad": "CALL-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "list.join(words, \", \")",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "nscall",
+     "list",
+     "join",
+     [
+      [
+       "var",
+       "words"
+      ],
+      [
+       "str",
+       ", "
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-04.s1",
+  "unidad": "LEX-04",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado EQUAL",
+  "linea": 1,
+  "fuente": "list = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "LEX-04.s2",
+  "unidad": "LEX-04",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado _NEWLINE '\\n'",
+  "linea": 1,
+  "fuente": "x = list",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "LEX-04.s3",
+  "unidad": "LEX-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "n = list.concat(a, b).length()",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "n"
+    ],
+    [
+     "call",
+     [
+      "member",
+      [
+       "nscall",
+       "list",
+       "concat",
+       [
+        [
+         "var",
+         "a"
+        ],
+        [
+         "var",
+         "b"
+        ]
+       ]
+      ],
+      "length"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-04.s4",
+  "unidad": "LEX-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "b = boolean.parse(\"true\")",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "b"
+    ],
+    [
+     "nscall",
+     "boolean",
+     "parse",
+     [
+      [
+       "str",
+       "true"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.i1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "42          // Decimal",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "int",
+     42
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.i2",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "0xff        // Hexadecimal",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "int",
+     255
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.i3",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "0b1010      // Binary",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "int",
+     10
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.i4",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "0o777       // Octal",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "int",
+     511
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.f1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "3.14        // Standard decimal",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "num",
+     314,
+     -2
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.f2",
+  "unidad": "LEX-06",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": ".5          // Leading zero optional",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "num",
+     5,
+     -1
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.f3",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "6.02e23     // Scientific notation",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "num",
+     602,
+     21
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.p1",
+  "unidad": "LEX-06",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "3.14.toInteger()",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "num",
+       314,
+       -2
+      ],
+      "toInteger"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.p2",
+  "unidad": "LEX-06",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "3.toInteger()",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "call",
+     [
+      "member",
+      [
+       "int",
+       3
+      ],
+      "toInteger"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.p3",
+  "unidad": "LEX-06",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado _NEWLINE '\\n'",
+  "linea": 1,
+  "fuente": "3.",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "LEX-06.p4",
+  "unidad": "LEX-06",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN001",
+  "detalle": "carácter inesperado '_'",
+  "linea": 1,
+  "fuente": "1_000_000",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "LEX-06.s1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "\"Hello, World!\"\n\"Line 1\\nLine 2\"\n\"\"          // Empty string",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "str",
+     "Hello, World!"
+    ]
+   ],
+   [
+    "expr",
+    [
+     "str",
+     "Line 1\nLine 2"
+    ]
+   ],
+   [
+    "expr",
+    [
+     "str",
+     ""
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.b1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "true\nfalse",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bool",
+     true
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bool",
+     false
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.n1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "none        // The none value",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "none"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.n2",
+  "unidad": "LEX-06",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "none == none",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "eq",
+     [
+      "none"
+     ],
+     [
+      "none"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.n3",
+  "unidad": "LEX-06",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "none == 0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "eq",
+     [
+      "none"
+     ],
+     [
+      "int",
+      0
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.y1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "b\"GET / HTTP/1.1\\r\\n\"     // the UTF-8 bytes of the text, escapes applied\nb\"\\x00\\xFF\\x7F\"           // arbitrary bytes, two hex digits each\nb\"PNG\\x89\"                // text and hex bytes mix freely",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bytes",
+     "GET / HTTP/1.1\\r\\n"
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bytes",
+     "\\x00\\xFF\\x7F"
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bytes",
+     "PNG\\x89"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.t1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string text = \"\"\"\n\tdata UserData:\n\t\tfields:\n\t\t\tinteger id primary\n\t\"\"\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "text",
+    [
+     "str",
+     "data UserData:\n\tfields:\n\t\tinteger id primary"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.l1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "[1, 2, 3, 4]           // Integer list\n[\"a\", \"b\", \"c\"]        // String list\n[]                     // Empty list\n[true, false, true]    // Boolean list",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "list",
+     [
+      [
+       "int",
+       1
+      ],
+      [
+       "int",
+       2
+      ],
+      [
+       "int",
+       3
+      ],
+      [
+       "int",
+       4
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "list",
+     [
+      [
+       "str",
+       "a"
+      ],
+      [
+       "str",
+       "b"
+      ],
+      [
+       "str",
+       "c"
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "list",
+     []
+    ]
+   ],
+   [
+    "expr",
+    [
+     "list",
+     [
+      [
+       "bool",
+       true
+      ],
+      [
+       "bool",
+       false
+      ],
+      [
+       "bool",
+       true
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-06.m1",
+  "unidad": "LEX-06",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "[[1, 2], [3, 4]]                    // 2x2 matrix\n[[1, 2, 3], [4, 5, 6], [7, 8, 9]]   // 3x3 matrix\n[[]]                                // Empty matrix",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "list",
+     [
+      [
+       "list",
+       [
+        [
+         "int",
+         1
+        ],
+        [
+         "int",
+         2
+        ]
+       ]
+      ],
+      [
+       "list",
+       [
+        [
+         "int",
+         3
+        ],
+        [
+         "int",
+         4
+        ]
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "list",
+     [
+      [
+       "list",
+       [
+        [
+         "int",
+         1
+        ],
+        [
+         "int",
+         2
+        ],
+        [
+         "int",
+         3
+        ]
+       ]
+      ],
+      [
+       "list",
+       [
+        [
+         "int",
+         4
+        ],
+        [
+         "int",
+         5
+        ],
+        [
+         "int",
+         6
+        ]
+       ]
+      ],
+      [
+       "list",
+       [
+        [
+         "int",
+         7
+        ],
+        [
+         "int",
+         8
+        ],
+        [
+         "int",
+         9
+        ]
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "expr",
+    [
+     "list",
+     [
+      [
+       "list",
+       []
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-05.p1",
+  "unidad": "TYP-05",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "list<string>.line queue = []",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "behav",
+     [
+      "generic",
+      "list",
+      [
+       [
+        "prim",
+        "string"
+       ]
+      ]
+     ],
+     [
+      "line"
+     ]
+    ],
+    "queue",
+    [
+     "list",
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-05.p2",
+  "unidad": "TYP-05",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "list<integer>.line.unique seen = []",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "behav",
+     [
+      "generic",
+      "list",
+      [
+       [
+        "prim",
+        "integer"
+       ]
+      ]
+     ],
+     [
+      "line",
+      "unique"
+     ]
+    ],
+    "seen",
+    [
+     "list",
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-05.p3",
+  "unidad": "TYP-05",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado DOT",
+  "linea": 1,
+  "fuente": "matrix<integer>.line m = []",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "TYP-05.p4",
+  "unidad": "TYP-05",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado LPAR",
+  "linea": 1,
+  "fuente": "void f(list<string>.line q)\n\treturn",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "TYPG-02.s1",
+  "unidad": "TYPG-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "class Point\n\tinteger x\n\ty = 0\n",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "FNC-03.e1",
+  "unidad": "FNC-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "can Describe:\n\tdescribe() -> string\n\ttag() -> string",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "FIL-01.o1",
+  "unidad": "FIL-01",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN007",
+  "detalle": "sección 'import' fuera de orden",
+  "linea": 4,
+  "fuente": "functions:\n\tvoid f()\n\t\treturn\nimport:\n\tmath\n",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "FIL-02.t1",
+  "unidad": "FIL-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN009",
+  "detalle": "'integer' no es una forma de nivel superior",
+  "linea": 1,
+  "fuente": "integer x = 5\n",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "TYP-03.p1",
+  "unidad": "TYP-03",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = none",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "none"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-06.p1",
+  "unidad": "TYP-06",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "int",
+     1
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-06.e1",
+  "unidad": "TYP-06",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer num = 42\nnumber numFloat = num.toNumber()      // ✅ Works: converts 42 to 42.0\ninteger piInt = 3.14.toInteger()      // ✅ Works: converts 3.14 to 3 (truncated)\nboolean flag = 0.toBoolean()          // ✅ Works: converts 0 to false\nboolean nonZero = 5.toBoolean()       // ✅ Works: converts 5 to true",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "num",
+    [
+     "int",
+     42
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "numFloat",
+    [
+     "call",
+     [
+      "member",
+      [
+       "var",
+       "num"
+      ],
+      "toNumber"
+     ],
+     []
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "piInt",
+    [
+     "call",
+     [
+      "member",
+      [
+       "num",
+       314,
+       -2
+      ],
+      "toInteger"
+     ],
+     []
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "flag",
+    [
+     "call",
+     [
+      "member",
+      [
+       "int",
+       0
+      ],
+      "toBoolean"
+     ],
+     []
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "nonZero",
+    [
+     "call",
+     [
+      "member",
+      [
+       "int",
+       5
+      ],
+      "toBoolean"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-07.e1",
+  "unidad": "TYP-07",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string a = \"caf\\u0000E9\"\nstring b = \"cafe\\u000301\"\na == b        // false — different bytes, therefore different strings",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "a",
+    [
+     "str",
+     "café"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "b",
+    [
+     "str",
+     "café"
+    ]
+   ],
+   [
+    "expr",
+    [
+     "bin",
+     "eq",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-11.e1",
+  "unidad": "TYP-11",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "// Basic variable declarations\ninteger count = 0\nnumber temperature = 23.5\nboolean isActive = true\nstring name = \"Alice\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "count",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "temperature",
+    [
+     "num",
+     235,
+     -1
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "isActive",
+    [
+     "bool",
+     true
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "name",
+    [
+     "str",
+     "Alice"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "ERH-02.e1",
+  "unidad": "ERH-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer value = riskyCall() onError 0\nstring name = lookupName(id) onError \"unknown\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "value",
+    [
+     "bin",
+     "onError",
+     [
+      "call",
+      [
+       "var",
+       "riskyCall"
+      ],
+      []
+     ],
+     [
+      "int",
+      0
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "name",
+    [
+     "bin",
+     "onError",
+     [
+      "call",
+      [
+       "var",
+       "lookupName"
+      ],
+      [
+       [
+        "var",
+        "id"
+       ]
+      ]
+     ],
+     [
+      "str",
+      "unknown"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "ERH-02.p1",
+  "unidad": "ERH-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = 1 onError 2.5",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "bin",
+     "onError",
+     [
+      "int",
+      1
+     ],
+     [
+      "num",
+      25,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-16.e1",
+  "unidad": "RUL-16",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 42\nstring name = \"Alice\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     42
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "name",
+    [
+     "str",
+     "Alice"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-16.e2",
+  "unidad": "RUL-16",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = \"hello\"     // string is not assignable to integer",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "str",
+     "hello"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-19.e1",
+  "unidad": "RUL-19",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string outcome = \"hello\" - \"world\"    // operator `-` is not defined for type `string`",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "outcome",
+    [
+     "bin",
+     "sub",
+     [
+      "str",
+      "hello"
+     ],
+     [
+      "str",
+      "world"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-19.e2",
+  "unidad": "RUL-19",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string outcome = \"hello\" + \"world\"    // + on two strings is concatenation",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "outcome",
+    [
+     "bin",
+     "add",
+     [
+      "str",
+      "hello"
+     ],
+     [
+      "str",
+      "world"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-41.p1",
+  "unidad": "RUL-41",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer floor = -9223372036854775808",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "floor",
+    [
+     "un",
+     "neg",
+     [
+      "int",
+      9223372036854775808
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-41.p2",
+  "unidad": "RUL-41",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer n = 9223372036854775808",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "n",
+    [
+     "int",
+     9223372036854775808
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-136.e1",
+  "unidad": "RUL-136",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer a = 10\ninteger b = 0\ninteger q = a / b        // raises RUN003 — message: division by zero",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "a",
+    [
+     "int",
+     10
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "b",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "q",
+    [
+     "bin",
+     "div",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-136.e2",
+  "unidad": "RUL-136",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = 1.0 / 0.0     // x is Infinity; number division is IEEE 754 and never raises",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "bin",
+     "div",
+     [
+      "num",
+      10,
+      -1
+     ],
+     [
+      "num",
+      0,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-136.p1",
+  "unidad": "RUL-136",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer m = -9223372036854775808\ninteger q = m / -1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "m",
+    [
+     "un",
+     "neg",
+     [
+      "int",
+      9223372036854775808
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "q",
+    [
+     "bin",
+     "div",
+     [
+      "var",
+      "m"
+     ],
+     [
+      "un",
+      "neg",
+      [
+       "int",
+       1
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-136.p2",
+  "unidad": "RUL-136",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer m = -9223372036854775808\ninteger r = m % -1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "m",
+    [
+     "un",
+     "neg",
+     [
+      "int",
+      9223372036854775808
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "r",
+    [
+     "bin",
+     "mod",
+     [
+      "var",
+      "m"
+     ],
+     [
+      "un",
+      "neg",
+      [
+       "int",
+       1
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-136.p3",
+  "unidad": "RUL-136",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer r = 7 % 0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "r",
+    [
+     "bin",
+     "mod",
+     [
+      "int",
+      7
+     ],
+     [
+      "int",
+      0
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STD-14.p1",
+  "unidad": "STD-14",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = -1.0 / 0.0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "bin",
+     "div",
+     [
+      "un",
+      "neg",
+      [
+       "num",
+       10,
+       -1
+      ]
+     ],
+     [
+      "num",
+      0,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STD-14.p2",
+  "unidad": "STD-14",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = 0.0 / 0.0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "bin",
+     "div",
+     [
+      "num",
+      0,
+      -1
+     ],
+     [
+      "num",
+      0,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-02.s1",
+  "unidad": "STM-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "obj.property = val",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "member",
+     [
+      "var",
+      "obj"
+     ],
+     "property"
+    ],
+    [
+     "var",
+     "val"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-02.s2",
+  "unidad": "STM-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "arr[0] = value",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "index",
+     [
+      "var",
+      "arr"
+     ],
+     [
+      "int",
+      0
+     ]
+    ],
+    [
+     "var",
+     "value"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-02.s3",
+  "unidad": "STM-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado EQUAL",
+  "linea": 1,
+  "fuente": "f() = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "STM-02.s4",
+  "unidad": "STM-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado EQUAL",
+  "linea": 1,
+  "fuente": "x! = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "EXPG-01.s1",
+  "unidad": "EXPG-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "first = items[0]",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "first"
+    ],
+    [
+     "index",
+     [
+      "var",
+      "items"
+     ],
+     [
+      "int",
+      0
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-02.s1",
+  "unidad": "TYP-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "User owner = makeUser()",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "class",
+     "User"
+    ],
+    "owner",
+    [
+     "call",
+     [
+      "var",
+      "makeUser"
+     ],
+     []
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-01.s1",
+  "unidad": "LEX-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if x > 0\n\ty = 1\nelse if x < 0\n\ty = 2\nelse\n\ty = 3\nwhile y > 0\n\ty = y - 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        0
+       ]
+      ],
+      [
+       [
+        "assign",
+        [
+         "var",
+         "y"
+        ],
+        [
+         "int",
+         1
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "bin",
+       "lt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        0
+       ]
+      ],
+      [
+       [
+        "assign",
+        [
+         "var",
+         "y"
+        ],
+        [
+         "int",
+         2
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "assign",
+      [
+       "var",
+       "y"
+      ],
+      [
+       "int",
+       3
+      ]
+     ]
+    ]
+   ],
+   [
+    "while",
+    [
+     "bin",
+     "gt",
+     [
+      "var",
+      "y"
+     ],
+     [
+      "int",
+      0
+     ]
+    ],
+    [
+     [
+      "assign",
+      [
+       "var",
+       "y"
+      ],
+      [
+       "bin",
+       "sub",
+       [
+        "var",
+        "y"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "LEX-01.s2",
+  "unidad": "LEX-01",
+  "origen": "sonda",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN003",
+  "detalle": "espacios en posición de indentación",
+  "linea": 2,
+  "fuente": "if x > 0\n    y = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "LEX-01.s3",
+  "unidad": "LEX-01",
+  "origen": "sonda",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN006",
+  "detalle": "espacios en posición de indentación",
+  "linea": 2,
+  "fuente": "if x > 0\n \ty = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "LEX-01.s4",
+  "unidad": "LEX-01",
+  "origen": "sonda",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN003",
+  "detalle": "la indentación sube 2 niveles de golpe",
+  "linea": 2,
+  "fuente": "if x > 0\n\t\ty = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "RUL-19.s1",
+  "unidad": "RUL-19",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string r = \"hello\" - \"world\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "r",
+    [
+     "bin",
+     "sub",
+     [
+      "str",
+      "hello"
+     ],
+     [
+      "str",
+      "world"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-19.s2",
+  "unidad": "RUL-19",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string r = \"hello\" + \"world\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "r",
+    [
+     "bin",
+     "add",
+     [
+      "str",
+      "hello"
+     ],
+     [
+      "str",
+      "world"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.s1",
+  "unidad": "EXP-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "1 + 2 * 3",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "add",
+     [
+      "int",
+      1
+     ],
+     [
+      "bin",
+      "mul",
+      [
+       "int",
+       2
+      ],
+      [
+       "int",
+       3
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.s2",
+  "unidad": "EXP-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "10 - 4 - 3",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "sub",
+     [
+      "bin",
+      "sub",
+      [
+       "int",
+       10
+      ],
+      [
+       "int",
+       4
+      ]
+     ],
+     [
+      "int",
+      3
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.s3",
+  "unidad": "EXP-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "-2 ^ 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "pow",
+     [
+      "un",
+      "neg",
+      [
+       "int",
+       2
+      ]
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.s4",
+  "unidad": "EXP-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "not true == false",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "eq",
+     [
+      "un",
+      "not",
+      [
+       "bool",
+       true
+      ]
+     ],
+     [
+      "bool",
+      false
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.s5",
+  "unidad": "EXP-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "1 + 2 < 4 and 2 * 2 == 4",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "and",
+     [
+      "bin",
+      "lt",
+      [
+       "bin",
+       "add",
+       [
+        "int",
+        1
+       ],
+       [
+        "int",
+        2
+       ]
+      ],
+      [
+       "int",
+       4
+      ]
+     ],
+     [
+      "bin",
+      "eq",
+      [
+       "bin",
+       "mul",
+       [
+        "int",
+        2
+       ],
+       [
+        "int",
+        2
+       ]
+      ],
+      [
+       "int",
+       4
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-01.s6",
+  "unidad": "EXP-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = none\ninteger b = a default 1 + 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "b",
+    [
+     "bin",
+     "default",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "bin",
+      "add",
+      [
+       "int",
+       1
+      ],
+      [
+       "int",
+       2
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.s1",
+  "unidad": "EXP-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? v = 5\ninteger w = v!",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "v",
+    [
+     "int",
+     5
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "w",
+    [
+     "assert",
+     [
+      "var",
+      "v"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-03.s2",
+  "unidad": "EXP-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = none\ninteger b = a default 3",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "b",
+    [
+     "bin",
+     "default",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "int",
+      3
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-04.s1",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "0.1 + 0.2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "add",
+     [
+      "num",
+      1,
+      -1
+     ],
+     [
+      "num",
+      2,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-04.s2",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "2.0 ^ 0.5",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "pow",
+     [
+      "num",
+      20,
+      -1
+     ],
+     [
+      "num",
+      5,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-04.s3",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "6 / 3",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "div",
+     [
+      "int",
+      6
+     ],
+     [
+      "int",
+      3
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-04.s4",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "7 % 3",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "mod",
+     [
+      "int",
+      7
+     ],
+     [
+      "int",
+      3
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-05.s1",
+  "unidad": "EXP-05",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "7 > 3 and 2 <= 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "and",
+     [
+      "bin",
+      "gt",
+      [
+       "int",
+       7
+      ],
+      [
+       "int",
+       3
+      ]
+     ],
+     [
+      "bin",
+      "le",
+      [
+       "int",
+       2
+      ],
+      [
+       "int",
+       2
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-05.s2",
+  "unidad": "EXP-05",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = none\nboolean b = a is none",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "is",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "none"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-06.s1",
+  "unidad": "EXP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = none\ninteger? b = 1\nboolean c = a not b",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "b",
+    [
+     "int",
+     1
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "c",
+    [
+     "bin",
+     "isNot",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-06.s2",
+  "unidad": "EXP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = none\ninteger? b = 1\nboolean c = not (a is b)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "b",
+    [
+     "int",
+     1
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "c",
+    [
+     "un",
+     "not",
+     [
+      "paren",
+      [
+       "bin",
+       "is",
+       [
+        "var",
+        "a"
+       ],
+       [
+        "var",
+        "b"
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-07.s1",
+  "unidad": "EXP-07",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "not 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "un",
+     "not",
+     [
+      "int",
+      1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "EXP-07.s2",
+  "unidad": "EXP-07",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "1 and true",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "expr",
+    [
+     "bin",
+     "and",
+     [
+      "int",
+      1
+     ],
+     [
+      "bool",
+      true
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "ERH-02.s1",
+  "unidad": "ERH-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = (1 / 0) onError 7",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "onError",
+     [
+      "paren",
+      [
+       "bin",
+       "div",
+       [
+        "int",
+        1
+       ],
+       [
+        "int",
+        0
+       ]
+      ]
+     ],
+     [
+      "int",
+      7
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "ERH-02.s2",
+  "unidad": "ERH-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = (1 / 0) onError \"siete\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "onError",
+     [
+      "paren",
+      [
+       "bin",
+       "div",
+       [
+        "int",
+        1
+       ],
+       [
+        "int",
+        0
+       ]
+      ]
+     ],
+     [
+      "str",
+      "siete"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "ERH-02.s3",
+  "unidad": "ERH-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? v = none\ninteger w = v! onError 9",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "v",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "w",
+    [
+     "bin",
+     "onError",
+     [
+      "assert",
+      [
+       "var",
+       "v"
+      ]
+     ],
+     [
+      "int",
+      9
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "RUL-17.s1",
+  "unidad": "RUL-17",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = y + 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "add",
+     [
+      "var",
+      "y"
+     ],
+     [
+      "int",
+      1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-03.s1",
+  "unidad": "TYP-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = 5\ninteger b = a",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "int",
+     5
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "b",
+    [
+     "var",
+     "a"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-06.s1",
+  "unidad": "TYP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 3.14",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "num",
+     314,
+     -2
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "TYP-06.s2",
+  "unidad": "TYP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = -17",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "un",
+     "neg",
+     [
+      "int",
+      17
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-01",
+  "unidad": "RUL-136",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 9223372036854775807 + 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "add",
+     [
+      "int",
+      9223372036854775807
+     ],
+     [
+      "int",
+      1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-02",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer q = 7 / 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "q",
+    [
+     "bin",
+     "div",
+     [
+      "int",
+      7
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-02b",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer q = -7 / 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "q",
+    [
+     "bin",
+     "div",
+     [
+      "un",
+      "neg",
+      [
+       "int",
+       7
+      ]
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-03",
+  "unidad": "EXP-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer r = -7 % 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "r",
+    [
+     "bin",
+     "mod",
+     [
+      "un",
+      "neg",
+      [
+       "int",
+       7
+      ]
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-04",
+  "unidad": "RUL-136",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer p = 2 ^ -1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "p",
+    [
+     "bin",
+     "pow",
+     [
+      "int",
+      2
+     ],
+     [
+      "un",
+      "neg",
+      [
+       "int",
+       1
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-05",
+  "unidad": "TYP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number n = 1 + 2.5",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "n",
+    [
+     "bin",
+     "add",
+     [
+      "int",
+      1
+     ],
+     [
+      "num",
+      25,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-06",
+  "unidad": "RUL-19",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer a = 1\nnumber b = 2.5\nnumber c = a + b",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "a",
+    [
+     "int",
+     1
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "b",
+    [
+     "num",
+     25,
+     -1
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "c",
+    [
+     "bin",
+     "add",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "var",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-07",
+  "unidad": "EXP-08",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number r = 5.5 % 2.0",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "r",
+    [
+     "bin",
+     "mod",
+     [
+      "num",
+      55,
+      -1
+     ],
+     [
+      "num",
+      20,
+      -1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-08",
+  "unidad": "EXP-05",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean b = \"a\" < \"b\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "lt",
+     [
+      "str",
+      "a"
+     ],
+     [
+      "str",
+      "b"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-09",
+  "unidad": "EXP-05",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean b = 1 == \"1\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "eq",
+     [
+      "int",
+      1
+     ],
+     [
+      "str",
+      "1"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-10",
+  "unidad": "EXP-05",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean b = 3 is 3",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "is",
+     [
+      "int",
+      3
+     ],
+     [
+      "int",
+      3
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-11",
+  "unidad": "EXP-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 5\ninteger y = x!",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     5
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "y",
+    [
+     "assert",
+     [
+      "var",
+      "x"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-12",
+  "unidad": "EXP-07",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean b = false and (1 / 0 == 1)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "and",
+     [
+      "bool",
+      false
+     ],
+     [
+      "paren",
+      [
+       "bin",
+       "eq",
+       [
+        "bin",
+        "div",
+        [
+         "int",
+         1
+        ],
+        [
+         "int",
+         0
+        ]
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-13",
+  "unidad": "EXP-07",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean b = true or (1 / 0 == 1)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "or",
+     [
+      "bool",
+      true
+     ],
+     [
+      "paren",
+      [
+       "bin",
+       "eq",
+       [
+        "bin",
+        "div",
+        [
+         "int",
+         1
+        ],
+        [
+         "int",
+         0
+        ]
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-14",
+  "unidad": "EXP-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 5 default (1 / 0)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "default",
+     [
+      "int",
+      5
+     ],
+     [
+      "paren",
+      [
+       "bin",
+       "div",
+       [
+        "int",
+        1
+       ],
+       [
+        "int",
+        0
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-15",
+  "unidad": "TYP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number x = 1 + 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "x",
+    [
+     "bin",
+     "add",
+     [
+      "int",
+      1
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-16",
+  "unidad": "TYP-11",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "x = none",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "x"
+    ],
+    [
+     "none"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-17",
+  "unidad": "EXP-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer? a = none\nstring s = a default \"x\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "opt",
+     [
+      "prim",
+      "integer"
+     ]
+    ],
+    "a",
+    [
+     "none"
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "s",
+    [
+     "bin",
+     "default",
+     [
+      "var",
+      "a"
+     ],
+     [
+      "str",
+      "x"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-18",
+  "unidad": "EXP-05",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number n = 0.0 / 0.0\nboolean b = n == n",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "n",
+    [
+     "bin",
+     "div",
+     [
+      "num",
+      0,
+      -1
+     ],
+     [
+      "num",
+      0,
+      -1
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "b",
+    [
+     "bin",
+     "eq",
+     [
+      "var",
+      "n"
+     ],
+     [
+      "var",
+      "n"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-19",
+  "unidad": "RUL-136",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer m = -9223372036854775808\ninteger x = -m",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "m",
+    [
+     "un",
+     "neg",
+     [
+      "int",
+      9223372036854775808
+     ]
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "un",
+     "neg",
+     [
+      "var",
+      "m"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-20",
+  "unidad": "RUL-136",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 4611686018427387904 * 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "mul",
+     [
+      "int",
+      4611686018427387904
+     ],
+     [
+      "int",
+      2
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-21",
+  "unidad": "RUL-136",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 2 ^ 63",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "bin",
+     "pow",
+     [
+      "int",
+      2
+     ],
+     [
+      "int",
+      63
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "P-22",
+  "unidad": "TYP-06",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "number n = 2.5 + 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "n",
+    [
+     "bin",
+     "add",
+     [
+      "num",
+      25,
+      -1
+     ],
+     [
+      "int",
+      1
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-01.e1",
+  "unidad": "STM-01",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 10\nnumber y = 3.14\nstring z\nboolean flag = true",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     10
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "number"
+    ],
+    "y",
+    [
+     "num",
+     314,
+     -2
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "z",
+    null
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "flag",
+    [
+     "bool",
+     true
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-01.s1",
+  "unidad": "STM-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "string z\nz = \"a\"\nreturn z",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "string"
+    ],
+    "z",
+    null
+   ],
+   [
+    "assign",
+    [
+     "var",
+     "z"
+    ],
+    [
+     "str",
+     "a"
+    ]
+   ],
+   [
+    "return",
+    [
+     "var",
+     "z"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-01.s2",
+  "unidad": "STM-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 1\ninteger x = 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     1
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     2
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-02.e1",
+  "unidad": "STM-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "x = 42              // Simple assignment\narr[0] = value      // List element assignment\nobj.property = val  // Property assignment",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "assign",
+    [
+     "var",
+     "x"
+    ],
+    [
+     "int",
+     42
+    ]
+   ],
+   [
+    "assign",
+    [
+     "index",
+     [
+      "var",
+      "arr"
+     ],
+     [
+      "int",
+      0
+     ]
+    ],
+    [
+     "var",
+     "value"
+    ]
+   ],
+   [
+    "assign",
+    [
+     "member",
+     [
+      "var",
+      "obj"
+     ],
+     "property"
+    ],
+    [
+     "var",
+     "val"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-02.p1",
+  "unidad": "STM-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado EQUAL",
+  "linea": 1,
+  "fuente": "if x = 5\n\ty = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "STM-04.e1",
+  "unidad": "STM-04",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "print:\n\t\"User: {username}\"\n\t\"Score: {score}\"",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "printBlock",
+    [
+     [
+      "interp",
+      [
+       [
+        "str",
+        "User: "
+       ],
+       [
+        "var",
+        "username"
+       ],
+       [
+        "str",
+        ""
+       ]
+      ]
+     ],
+     [
+      "interp",
+      [
+       [
+        "str",
+        "Score: "
+       ],
+       [
+        "var",
+        "score"
+       ],
+       [
+        "str",
+        ""
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-04.p1",
+  "unidad": "STM-04",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN008",
+  "detalle": "`print:` exige una expresión por línea",
+  "linea": 2,
+  "fuente": "print:\nx = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "STM-04.p2",
+  "unidad": "STM-04",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN008",
+  "detalle": "`print:` exige una expresión por línea",
+  "linea": 2,
+  "fuente": "print:\n\tx = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "STM-04.p3",
+  "unidad": "STM-04",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado EQUAL",
+  "linea": 1,
+  "fuente": "print = 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "STM-04.s1",
+  "unidad": "STM-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "print:\n\t\"a\"\n\t1 + 2\n\ttrue",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "printBlock",
+    [
+     [
+      "str",
+      "a"
+     ],
+     [
+      "bin",
+      "add",
+      [
+       "int",
+       1
+      ],
+      [
+       "int",
+       2
+      ]
+     ],
+     [
+      "bool",
+      true
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-03.e1",
+  "unidad": "STM-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "return              // Return void\nreturn value        // Return a value\nreturn expression   // Return expression result",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "return",
+    null
+   ],
+   [
+    "return",
+    [
+     "var",
+     "value"
+    ]
+   ],
+   [
+    "return",
+    [
+     "var",
+     "expression"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-03.s1",
+  "unidad": "STM-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 5\nreturn x + 1\nx = 9",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     5
+    ]
+   ],
+   [
+    "return",
+    [
+     "bin",
+     "add",
+     [
+      "var",
+      "x"
+     ],
+     [
+      "int",
+      1
+     ]
+    ]
+   ],
+   [
+    "assign",
+    [
+     "var",
+     "x"
+    ],
+    [
+     "int",
+     9
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "STM-03.s2",
+  "unidad": "STM-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "return\nprint(1)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "return",
+    null
+   ],
+   [
+    "print",
+    [
+     "int",
+     1
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STD-04.p1",
+  "unidad": "STD-04",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer age = 25\nprint(age)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "age",
+    [
+     "int",
+     25
+    ]
+   ],
+   [
+    "print",
+    [
+     "var",
+     "age"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STD-04.p2",
+  "unidad": "STD-04",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer age = 25\nprint(\"Age: \" + age.toString())",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "age",
+    [
+     "int",
+     25
+    ]
+   ],
+   [
+    "print",
+    [
+     "bin",
+     "add",
+     [
+      "str",
+      "Age: "
+     ],
+     [
+      "call",
+      [
+       "member",
+       [
+        "var",
+        "age"
+       ],
+       "toString"
+      ],
+      []
+     ]
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STD-04.p3",
+  "unidad": "STD-04",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "print(\"a\", newline: false)\nprint(\"b\")",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "print",
+    [
+     "str",
+     "a"
+    ],
+    [
+     "bool",
+     false
+    ]
+   ],
+   [
+    "print",
+    [
+     "str",
+     "b"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STD-04.p4",
+  "unidad": "STD-04",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado STRING_LITERAL",
+  "linea": 1,
+  "fuente": "print \"text\"",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "STD-04.s1",
+  "unidad": "STD-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "print(true)\nprint(false)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "print",
+    [
+     "bool",
+     true
+    ],
+    null
+   ],
+   [
+    "print",
+    [
+     "bool",
+     false
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STD-04.s2",
+  "unidad": "STD-04",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "print(1, newline: 2)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "print",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     2
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.e1",
+  "unidad": "FLW-01",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if condition\n\tstatements",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "var",
+       "condition"
+      ],
+      [
+       [
+        "expr",
+        [
+         "var",
+         "statements"
+        ]
+       ]
+      ]
+     ]
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.e2",
+  "unidad": "FLW-01",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if condition\n\tstatements\nelse\n\tstatements",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "var",
+       "condition"
+      ],
+      [
+       [
+        "expr",
+        [
+         "var",
+         "statements"
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "expr",
+      [
+       "var",
+       "statements"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.e3",
+  "unidad": "FLW-01",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if condition1\n\tstatements\nelse if condition2\n\tstatements\nelse\n\tstatements",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "var",
+       "condition1"
+      ],
+      [
+       [
+        "expr",
+        [
+         "var",
+         "statements"
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "var",
+       "condition2"
+      ],
+      [
+       [
+        "expr",
+        [
+         "var",
+         "statements"
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "expr",
+      [
+       "var",
+       "statements"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.s1",
+  "unidad": "FLW-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 7\nif x > 5\n\tprint(1)\nelse if x > 2\n\tprint(2)\nelse\n\tprint(3)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     7
+    ]
+   ],
+   [
+    "if",
+    [
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        5
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         1
+        ],
+        null
+       ]
+      ]
+     ],
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        2
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         2
+        ],
+        null
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "print",
+      [
+       "int",
+       3
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.s2",
+  "unidad": "FLW-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 3\nif x > 5\n\tprint(1)\nelse if x > 2\n\tprint(2)\nelse\n\tprint(3)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     3
+    ]
+   ],
+   [
+    "if",
+    [
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        5
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         1
+        ],
+        null
+       ]
+      ]
+     ],
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        2
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         2
+        ],
+        null
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "print",
+      [
+       "int",
+       3
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.s3",
+  "unidad": "FLW-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 0\nif x > 5\n\tprint(1)\nelse if x > 2\n\tprint(2)\nelse\n\tprint(3)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "if",
+    [
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        5
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         1
+        ],
+        null
+       ]
+      ]
+     ],
+     [
+      [
+       "bin",
+       "gt",
+       [
+        "var",
+        "x"
+       ],
+       [
+        "int",
+        2
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         2
+        ],
+        null
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "print",
+      [
+       "int",
+       3
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.s4",
+  "unidad": "FLW-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if 1\n\tprint(1)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "int",
+       1
+      ],
+      [
+       [
+        "print",
+        [
+         "int",
+         1
+        ],
+        null
+       ]
+      ]
+     ]
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "FLW-01.s5",
+  "unidad": "FLW-01",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if true\n\tinteger y = 1\nprint(y)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "bool",
+       true
+      ],
+      [
+       [
+        "decl",
+        [
+         "prim",
+         "integer"
+        ],
+        "y",
+        [
+         "int",
+         1
+        ]
+       ]
+      ]
+     ]
+    ],
+    null
+   ],
+   [
+    "print",
+    [
+     "var",
+     "y"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STM-05.e1",
+  "unidad": "STM-05",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer total = 0\niterate n in 1 to 3\n\tinteger twice = n * 2      // made anew on each pass\n\ttotal = total + twice      // changes the outer variable\nprint(total)                   // 12\nprint(twice)                   // SEM002: twice ended with the body",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "total",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "iterateRange",
+    "n",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     3
+    ],
+    null,
+    [
+     [
+      "decl",
+      [
+       "prim",
+       "integer"
+      ],
+      "twice",
+      [
+       "bin",
+       "mul",
+       [
+        "var",
+        "n"
+       ],
+       [
+        "int",
+        2
+       ]
+      ]
+     ],
+     [
+      "assign",
+      [
+       "var",
+       "total"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "total"
+       ],
+       [
+        "var",
+        "twice"
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "print",
+    [
+     "var",
+     "total"
+    ],
+    null
+   ],
+   [
+    "print",
+    [
+     "var",
+     "twice"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STM-05.p1",
+  "unidad": "STM-05",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer total = 0\niterate n in 1 to 3\n\tinteger twice = n * 2\n\ttotal = total + twice\nprint(total)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "total",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "iterateRange",
+    "n",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     3
+    ],
+    null,
+    [
+     [
+      "decl",
+      [
+       "prim",
+       "integer"
+      ],
+      "twice",
+      [
+       "bin",
+       "mul",
+       [
+        "var",
+        "n"
+       ],
+       [
+        "int",
+        2
+       ]
+      ]
+     ],
+     [
+      "assign",
+      [
+       "var",
+       "total"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "total"
+       ],
+       [
+        "var",
+        "twice"
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "print",
+    [
+     "var",
+     "total"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STM-05.p2",
+  "unidad": "STM-05",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer x = 1\nif true\n\tinteger x = 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "x",
+    [
+     "int",
+     1
+    ]
+   ],
+   [
+    "if",
+    [
+     [
+      [
+       "bool",
+       true
+      ],
+      [
+       [
+        "decl",
+        [
+         "prim",
+         "integer"
+        ],
+        "x",
+        [
+         "int",
+         2
+        ]
+       ]
+      ]
+     ]
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "STM-05.p3",
+  "unidad": "STM-05",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 2\n\tinteger k = i\nprint(k)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     2
+    ],
+    null,
+    [
+     [
+      "decl",
+      [
+       "prim",
+       "integer"
+      ],
+      "k",
+      [
+       "var",
+       "i"
+      ]
+     ]
+    ]
+   ],
+   [
+    "print",
+    [
+     "var",
+     "k"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.e1",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate item in items\n\tprint(item)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "item",
+    [
+     "var",
+     "items"
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "item"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.e1b",
+  "unidad": "FLW-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "list<string> items = [\"x\", \"y\"]\niterate item in items\n\tprint(item)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "generic",
+     "list",
+     [
+      [
+       "prim",
+       "string"
+      ]
+     ]
+    ],
+    "items",
+    [
+     "list",
+     [
+      [
+       "str",
+       "x"
+      ],
+      [
+       "str",
+       "y"
+      ]
+     ]
+    ]
+   ],
+   [
+    "iterate",
+    "item",
+    [
+     "var",
+     "items"
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "item"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.e2",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate char in \"hello\"\n\tprint(char)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "char",
+    [
+     "str",
+     "hello"
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "char"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r0",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate name in source          // list, string, matrix, or range\n\tbody\niterate name in a to b step n   // a range; `step n` may be left out, and belongs to the range form only\n\tbody",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "name",
+    [
+     "var",
+     "source"
+    ],
+    [
+     [
+      "expr",
+      [
+       "var",
+       "body"
+      ]
+     ]
+    ]
+   ],
+   [
+    "iterateRange",
+    "name",
+    [
+     "var",
+     "a"
+    ],
+    [
+     "var",
+     "b"
+    ],
+    [
+     "var",
+     "n"
+    ],
+    [
+     [
+      "expr",
+      [
+       "var",
+       "body"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r1",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 10\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     10
+    ],
+    null,
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r2",
+  "unidad": "FLW-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate k in 10 to 1 step -2\n\tprint(k)                 // 10, 8, 6, 4, 2",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "k",
+    [
+     "int",
+     10
+    ],
+    [
+     "int",
+     1
+    ],
+    [
+     "un",
+     "neg",
+     [
+      "int",
+      2
+     ]
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "k"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r3",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate ch in \"Clean\"\n\tprint(ch)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "ch",
+    [
+     "str",
+     "Clean"
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "ch"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r4",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate row in grid\n\titerate value in row\n\t\tprint(value)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "row",
+    [
+     "var",
+     "grid"
+    ],
+    [
+     [
+      "iterate",
+      "value",
+      [
+       "var",
+       "row"
+      ],
+      [
+       [
+        "print",
+        [
+         "var",
+         "value"
+        ],
+        null
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r4b",
+  "unidad": "FLW-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "matrix<integer> grid = [[1, 2], [3, 4]]\niterate row in grid\n\titerate value in row\n\t\tprint(value)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "generic",
+     "matrix",
+     [
+      [
+       "prim",
+       "integer"
+      ]
+     ]
+    ],
+    "grid",
+    [
+     "list",
+     [
+      [
+       "list",
+       [
+        [
+         "int",
+         1
+        ],
+        [
+         "int",
+         2
+        ]
+       ]
+      ],
+      [
+       "list",
+       [
+        [
+         "int",
+         3
+        ],
+        [
+         "int",
+         4
+        ]
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "iterate",
+    "row",
+    [
+     "var",
+     "grid"
+    ],
+    [
+     [
+      "iterate",
+      "value",
+      [
+       "var",
+       "row"
+      ],
+      [
+       [
+        "print",
+        [
+         "var",
+         "value"
+        ],
+        null
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.r5",
+  "unidad": "FLW-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate idx in 0 to 100 step 5\n\tprint(idx)               // 0, 5, 10, …, 100",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "idx",
+    [
+     "int",
+     0
+    ],
+    [
+     "int",
+     100
+    ],
+    [
+     "int",
+     5
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "idx"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n1",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 0 to 100 step 3\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     0
+    ],
+    [
+     "int",
+     100
+    ],
+    [
+     "int",
+     3
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n2",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 5 to 1\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     5
+    ],
+    [
+     "int",
+     1
+    ],
+    null,
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n3",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 4 to 4\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     4
+    ],
+    [
+     "int",
+     4
+    ],
+    null,
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n4",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer n = 3\niterate i in 1 to n\n\tn = 10\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "n",
+    [
+     "int",
+     3
+    ]
+   ],
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "var",
+     "n"
+    ],
+    null,
+    [
+     [
+      "assign",
+      [
+       "var",
+       "n"
+      ],
+      [
+       "int",
+       10
+      ]
+     ],
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n5",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado _STEP 'step'",
+  "linea": 2,
+  "fuente": "list<integer> xs = [1, 2]\niterate x in xs step 1\n\tprint(x)",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "FLW-02.n6",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 10 step 0\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     10
+    ],
+    [
+     "int",
+     0
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n7",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer s = 0\niterate i in 1 to 3 step s\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "s",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     3
+    ],
+    [
+     "var",
+     "s"
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n8",
+  "unidad": "FLW-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 0\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     0
+    ],
+    null,
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n9",
+  "unidad": "FLW-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate x in 5\n\tprint(x)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "x",
+    [
+     "int",
+     5
+    ],
+    [
+     [
+      "print",
+      [
+       "var",
+       "x"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.n10",
+  "unidad": "FLW-02",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1.0 to 3.0\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "num",
+     10,
+     -1
+    ],
+    [
+     "num",
+     30,
+     -1
+    ],
+    null,
+    [
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w0",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "while condition\n\tbody                // executed while condition is true",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "while",
+    [
+     "var",
+     "condition"
+    ],
+    [
+     [
+      "expr",
+      [
+       "var",
+       "body"
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w1",
+  "unidad": "FLW-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer count = 0\nwhile count < 5\n\tprint(count.toString())\n\tcount = count + 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "count",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "while",
+    [
+     "bin",
+     "lt",
+     [
+      "var",
+      "count"
+     ],
+     [
+      "int",
+      5
+     ]
+    ],
+    [
+     [
+      "print",
+      [
+       "call",
+       [
+        "member",
+        [
+         "var",
+         "count"
+        ],
+        "toString"
+       ],
+       []
+      ],
+      null
+     ],
+     [
+      "assign",
+      [
+       "var",
+       "count"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "count"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w2",
+  "unidad": "FLW-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean running = true\ninteger iterations = 0\nwhile running\n\titerations = iterations + 1\n\tif iterations >= 3\n\t\trunning = false",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "running",
+    [
+     "bool",
+     true
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "iterations",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "while",
+    [
+     "var",
+     "running"
+    ],
+    [
+     [
+      "assign",
+      [
+       "var",
+       "iterations"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "iterations"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ],
+     [
+      "if",
+      [
+       [
+        [
+         "bin",
+         "ge",
+         [
+          "var",
+          "iterations"
+         ],
+         [
+          "int",
+          3
+         ]
+        ],
+        [
+         [
+          "assign",
+          [
+           "var",
+           "running"
+          ],
+          [
+           "bool",
+           false
+          ]
+         ]
+        ]
+       ]
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w2b",
+  "unidad": "FLW-02",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "boolean running = true\ninteger iterations = 0\nwhile running\n\titerations = iterations + 1\n\tif iterations >= 3\n\t\trunning = false\nprint(iterations)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "boolean"
+    ],
+    "running",
+    [
+     "bool",
+     true
+    ]
+   ],
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "iterations",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "while",
+    [
+     "var",
+     "running"
+    ],
+    [
+     [
+      "assign",
+      [
+       "var",
+       "iterations"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "iterations"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ],
+     [
+      "if",
+      [
+       [
+        [
+         "bin",
+         "ge",
+         [
+          "var",
+          "iterations"
+         ],
+         [
+          "int",
+          3
+         ]
+        ],
+        [
+         [
+          "assign",
+          [
+           "var",
+           "running"
+          ],
+          [
+           "bool",
+           false
+          ]
+         ]
+        ]
+       ]
+      ],
+      null
+     ]
+    ]
+   ],
+   [
+    "print",
+    [
+     "var",
+     "iterations"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w3",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer outer = 0\nwhile outer < 3\n\tinteger inner = 0\n\twhile inner < 2\n\t\tprint(\"outer: \" + outer.toString() + \", inner: \" + inner.toString())\n\t\tinner = inner + 1\n\touter = outer + 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "outer",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "while",
+    [
+     "bin",
+     "lt",
+     [
+      "var",
+      "outer"
+     ],
+     [
+      "int",
+      3
+     ]
+    ],
+    [
+     [
+      "decl",
+      [
+       "prim",
+       "integer"
+      ],
+      "inner",
+      [
+       "int",
+       0
+      ]
+     ],
+     [
+      "while",
+      [
+       "bin",
+       "lt",
+       [
+        "var",
+        "inner"
+       ],
+       [
+        "int",
+        2
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "bin",
+         "add",
+         [
+          "bin",
+          "add",
+          [
+           "bin",
+           "add",
+           [
+            "str",
+            "outer: "
+           ],
+           [
+            "call",
+            [
+             "member",
+             [
+              "var",
+              "outer"
+             ],
+             "toString"
+            ],
+            []
+           ]
+          ],
+          [
+           "str",
+           ", inner: "
+          ]
+         ],
+         [
+          "call",
+          [
+           "member",
+           [
+            "var",
+            "inner"
+           ],
+           "toString"
+          ],
+          []
+         ]
+        ],
+        null
+       ],
+       [
+        "assign",
+        [
+         "var",
+         "inner"
+        ],
+        [
+         "bin",
+         "add",
+         [
+          "var",
+          "inner"
+         ],
+         [
+          "int",
+          1
+         ]
+        ]
+       ]
+      ]
+     ],
+     [
+      "assign",
+      [
+       "var",
+       "outer"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "outer"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w4",
+  "unidad": "FLW-02",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer i = 0\nwhile i < 10\n\tinteger remainder = i % 2\n\tif remainder == 0\n\t\tprint(\"Even: \" + i.toString())\n\telse\n\t\tprint(\"Odd: \" + i.toString())\n\ti = i + 1",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "i",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "while",
+    [
+     "bin",
+     "lt",
+     [
+      "var",
+      "i"
+     ],
+     [
+      "int",
+      10
+     ]
+    ],
+    [
+     [
+      "decl",
+      [
+       "prim",
+       "integer"
+      ],
+      "remainder",
+      [
+       "bin",
+       "mod",
+       [
+        "var",
+        "i"
+       ],
+       [
+        "int",
+        2
+       ]
+      ]
+     ],
+     [
+      "if",
+      [
+       [
+        [
+         "bin",
+         "eq",
+         [
+          "var",
+          "remainder"
+         ],
+         [
+          "int",
+          0
+         ]
+        ],
+        [
+         [
+          "print",
+          [
+           "bin",
+           "add",
+           [
+            "str",
+            "Even: "
+           ],
+           [
+            "call",
+            [
+             "member",
+             [
+              "var",
+              "i"
+             ],
+             "toString"
+            ],
+            []
+           ]
+          ],
+          null
+         ]
+        ]
+       ]
+      ],
+      [
+       [
+        "print",
+        [
+         "bin",
+         "add",
+         [
+          "str",
+          "Odd: "
+         ],
+         [
+          "call",
+          [
+           "member",
+           [
+            "var",
+            "i"
+           ],
+           "toString"
+          ],
+          []
+         ]
+        ],
+        null
+       ]
+      ]
+     ],
+     [
+      "assign",
+      [
+       "var",
+       "i"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "i"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w5",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "while 1\n\tbreak",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "while",
+    [
+     "int",
+     1
+    ],
+    [
+     [
+      "break"
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-02.w6",
+  "unidad": "FLW-02",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "integer n = 0\nwhile n < 3\n\tn = n + 1\nprint(n)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "prim",
+     "integer"
+    ],
+    "n",
+    [
+     "int",
+     0
+    ]
+   ],
+   [
+    "while",
+    [
+     "bin",
+     "lt",
+     [
+      "var",
+      "n"
+     ],
+     [
+      "int",
+      3
+     ]
+    ],
+    [
+     [
+      "assign",
+      [
+       "var",
+       "n"
+      ],
+      [
+       "bin",
+       "add",
+       [
+        "var",
+        "n"
+       ],
+       [
+        "int",
+        1
+       ]
+      ]
+     ]
+    ]
+   ],
+   [
+    "print",
+    [
+     "var",
+     "n"
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.e1",
+  "unidad": "FLW-03",
+  "origen": "ley-sin-marca",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate item in items\n\tif item.isEmpty()\n\t\tcontinue          // next item, step applied as usual\n\tif item == \"stop\"\n\t\tbreak             // leaves this iterate\n\tprint(item)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterate",
+    "item",
+    [
+     "var",
+     "items"
+    ],
+    [
+     [
+      "if",
+      [
+       [
+        [
+         "call",
+         [
+          "member",
+          [
+           "var",
+           "item"
+          ],
+          "isEmpty"
+         ],
+         []
+        ],
+        [
+         [
+          "continue"
+         ]
+        ]
+       ]
+      ],
+      null
+     ],
+     [
+      "if",
+      [
+       [
+        [
+         "bin",
+         "eq",
+         [
+          "var",
+          "item"
+         ],
+         [
+          "str",
+          "stop"
+         ]
+        ],
+        [
+         [
+          "break"
+         ]
+        ]
+       ]
+      ],
+      null
+     ],
+     [
+      "print",
+      [
+       "var",
+       "item"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.e1b",
+  "unidad": "FLW-03",
+  "origen": "ley-ejemplo",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "list<string> items = [\"a\", \"\", \"b\", \"stop\", \"c\"]\niterate item in items\n\tif item.isEmpty()\n\t\tcontinue\n\tif item == \"stop\"\n\t\tbreak\n\tprint(item)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "decl",
+    [
+     "generic",
+     "list",
+     [
+      [
+       "prim",
+       "string"
+      ]
+     ]
+    ],
+    "items",
+    [
+     "list",
+     [
+      [
+       "str",
+       "a"
+      ],
+      [
+       "str",
+       ""
+      ],
+      [
+       "str",
+       "b"
+      ],
+      [
+       "str",
+       "stop"
+      ],
+      [
+       "str",
+       "c"
+      ]
+     ]
+    ]
+   ],
+   [
+    "iterate",
+    "item",
+    [
+     "var",
+     "items"
+    ],
+    [
+     [
+      "if",
+      [
+       [
+        [
+         "call",
+         [
+          "member",
+          [
+           "var",
+           "item"
+          ],
+          "isEmpty"
+         ],
+         []
+        ],
+        [
+         [
+          "continue"
+         ]
+        ]
+       ]
+      ],
+      null
+     ],
+     [
+      "if",
+      [
+       [
+        [
+         "bin",
+         "eq",
+         [
+          "var",
+          "item"
+         ],
+         [
+          "str",
+          "stop"
+         ]
+        ],
+        [
+         [
+          "break"
+         ]
+        ]
+       ]
+      ],
+      null
+     ],
+     [
+      "print",
+      [
+       "var",
+       "item"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.p1",
+  "unidad": "FLW-03",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "break",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "break"
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.p2",
+  "unidad": "FLW-03",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "if true\n\tcontinue",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "if",
+    [
+     [
+      [
+       "bool",
+       true
+      ],
+      [
+       [
+        "continue"
+       ]
+      ]
+     ]
+    ],
+    null
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.p3",
+  "unidad": "FLW-03",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 10 step 3\n\tif i == 4\n\t\tcontinue\n\tprint(i)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     10
+    ],
+    [
+     "int",
+     3
+    ],
+    [
+     [
+      "if",
+      [
+       [
+        [
+         "bin",
+         "eq",
+         [
+          "var",
+          "i"
+         ],
+         [
+          "int",
+          4
+         ]
+        ],
+        [
+         [
+          "continue"
+         ]
+        ]
+       ]
+      ],
+      null
+     ],
+     [
+      "print",
+      [
+       "var",
+       "i"
+      ],
+      null
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.p4",
+  "unidad": "FLW-03",
+  "origen": "ley-prosa",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 3\n\titerate j in 1 to 3\n\t\tif j == 2\n\t\t\tcontinue\n\t\tprint(i * 10 + j)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     3
+    ],
+    null,
+    [
+     [
+      "iterateRange",
+      "j",
+      [
+       "int",
+       1
+      ],
+      [
+       "int",
+       3
+      ],
+      null,
+      [
+       [
+        "if",
+        [
+         [
+          [
+           "bin",
+           "eq",
+           [
+            "var",
+            "j"
+           ],
+           [
+            "int",
+            2
+           ]
+          ],
+          [
+           [
+            "continue"
+           ]
+          ]
+         ]
+        ],
+        null
+       ],
+       [
+        "print",
+        [
+         "bin",
+         "add",
+         [
+          "bin",
+          "mul",
+          [
+           "var",
+           "i"
+          ],
+          [
+           "int",
+           10
+          ]
+         ],
+         [
+          "var",
+          "j"
+         ]
+        ],
+        null
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.p5",
+  "unidad": "FLW-03",
+  "origen": "sonda",
+  "esperado": "valida",
+  "obtenido": "valida",
+  "codigo": null,
+  "detalle": null,
+  "linea": null,
+  "fuente": "iterate i in 1 to 3\n\titerate j in 1 to 3\n\t\tif j == 2\n\t\t\tbreak\n\t\tprint(i * 10 + j)",
+  "problemas": [],
+  "decidido": null,
+  "ast": [
+   [
+    "iterateRange",
+    "i",
+    [
+     "int",
+     1
+    ],
+    [
+     "int",
+     3
+    ],
+    null,
+    [
+     [
+      "iterateRange",
+      "j",
+      [
+       "int",
+       1
+      ],
+      [
+       "int",
+       3
+      ],
+      null,
+      [
+       [
+        "if",
+        [
+         [
+          [
+           "bin",
+           "eq",
+           [
+            "var",
+            "j"
+           ],
+           [
+            "int",
+            2
+           ]
+          ],
+          [
+           [
+            "break"
+           ]
+          ]
+         ]
+        ],
+        null
+       ],
+       [
+        "print",
+        [
+         "bin",
+         "add",
+         [
+          "bin",
+          "mul",
+          [
+           "var",
+           "i"
+          ],
+          [
+           "int",
+           10
+          ]
+         ],
+         [
+          "var",
+          "j"
+         ]
+        ],
+        null
+       ]
+      ]
+     ]
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "FLW-03.p6",
+  "unidad": "FLW-03",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "token inesperado DECIMAL_INTEGER_LITERAL",
+  "linea": 1,
+  "fuente": "break 1",
+  "problemas": [],
+  "decidido": null
+ },
+ {
+  "id": "FLW-03.p7",
+  "unidad": "FLW-03",
+  "origen": "ley-prosa",
+  "esperado": "invalida",
+  "obtenido": "invalida",
+  "codigo": "SYN002",
+  "detalle": "palabra reservada 'break' en posición de nombre",
+  "linea": 1,
+  "fuente": "x = break",
+  "problemas": [],
+  "decidido": null
+ }
+]

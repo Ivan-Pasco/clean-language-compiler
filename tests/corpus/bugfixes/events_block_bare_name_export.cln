@@ -1,5 +1,5 @@
 // Test: bugfixes/events_block_bare_name_export
-// Grammar: foundation/spec/plugins/frame-ui.ebnf §events_section
+// Grammar: framework/libraries/10-ui.lark.md
 //          event_handler_function = identifier , "(" , [ parameter_list ] , ")" , ":" ,
 //                                   NEWLINE , INDENT , INDENT , INDENT , { statement } ;
 // Semantic: Methods declared inside a class's `events:` section follow the

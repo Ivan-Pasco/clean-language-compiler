@@ -1,5 +1,5 @@
 // Test: bugfixes/codegen_stack_remaining_static_call_to_void_method
-// Grammar: static_method_call → ClassName.method(args)  (grammar.ebnf §5
+// Grammar: static_method_call → ClassName.method(args)  (language-principles/*.lark.md
 //   static_method_call) where the resolved static method has a void return
 //   type.
 // Regression: CODEGEN_STACK_REMAINING (dashboard fp 82badd8d3d63).

@@ -1,0 +1,1164 @@
+{
+ "EXP-01.p1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "512",
+  "impreso": ""
+ },
+ "EXP-01.p2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "64",
+  "impreso": ""
+ },
+ "EXP-01.p3": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-01.p5": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-02.s1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-02.s2": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-02.s3": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-02.s4": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-02.s5": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `matrix1`",
+  "impreso": ""
+ },
+ "EXP-02.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `price`",
+  "impreso": ""
+ },
+ "EXP-02.e2": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `price`",
+  "impreso": ""
+ },
+ "EXP-02.e3": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-02.e4": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-04.n1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-05.n1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-06.n1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-06.n2": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-06.n3": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-06.n4": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-07.n1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-03.a1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `value`",
+  "impreso": ""
+ },
+ "EXP-03.b1": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "x",
+  "impreso": ""
+ },
+ "EXP-03.b2": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "y",
+  "impreso": ""
+ },
+ "EXP-03.b3": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "EXP-03.b4": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "0",
+  "impreso": ""
+ },
+ "EXP-03.b5": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "",
+  "impreso": ""
+ },
+ "EXP-03.b6": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-03.b7": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-03.c1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "acceso a miembro",
+  "impreso": ""
+ },
+ "EXP-03.c2": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `primary`",
+  "impreso": ""
+ },
+ "EXP-03.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `value`",
+  "impreso": ""
+ },
+ "EXP-03.f1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-03.f2": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `maybeNone`",
+  "impreso": ""
+ },
+ "EXP-03.f3": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "EXP-03.f4": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `items`",
+  "impreso": ""
+ },
+ "EXP-03.p1": {
+  "clase": "fallo",
+  "codigo": "RUN004",
+  "mensaje": "",
+  "impreso": ""
+ },
+ "EXP-08.n1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `a`",
+  "impreso": ""
+ },
+ "EXP-09.n1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `obj`",
+  "impreso": ""
+ },
+ "EXP-10.n1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "CALL-03.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `math`",
+  "impreso": ""
+ },
+ "CALL-03.e2": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada a un espacio de nombres",
+  "impreso": ""
+ },
+ "CALL-03.e4": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada a un espacio de nombres",
+  "impreso": ""
+ },
+ "LEX-04.s3": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada a un espacio de nombres",
+  "impreso": ""
+ },
+ "LEX-04.s4": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada a un espacio de nombres",
+  "impreso": ""
+ },
+ "LEX-06.i1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "42",
+  "impreso": ""
+ },
+ "LEX-06.i2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "255",
+  "impreso": ""
+ },
+ "LEX-06.i3": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "10",
+  "impreso": ""
+ },
+ "LEX-06.i4": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "511",
+  "impreso": ""
+ },
+ "LEX-06.f1": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 3.14,
+  "impreso": ""
+ },
+ "LEX-06.f2": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 0.5,
+  "impreso": ""
+ },
+ "LEX-06.f3": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 6.02e+23,
+  "impreso": ""
+ },
+ "LEX-06.p1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "método `toInteger/0` sobre `number`",
+  "impreso": ""
+ },
+ "LEX-06.p2": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "método `toInteger/0` sobre `integer`",
+  "impreso": ""
+ },
+ "LEX-06.s1": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "",
+  "impreso": ""
+ },
+ "LEX-06.b1": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "LEX-06.n1": {
+  "clase": "valor",
+  "tipo": "none",
+  "valor": "",
+  "impreso": ""
+ },
+ "LEX-06.n2": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "LEX-06.n3": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "LEX-06.y1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "expresión bytes",
+  "impreso": ""
+ },
+ "LEX-06.t1": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "data UserData:\n\tfields:\n\t\tinteger id primary",
+  "impreso": ""
+ },
+ "LEX-06.l1": {
+  "clase": "valor",
+  "tipo": "list",
+  "valor": "",
+  "impreso": ""
+ },
+ "LEX-06.m1": {
+  "clase": "valor",
+  "tipo": "list",
+  "valor": "",
+  "impreso": ""
+ },
+ "TYP-05.p1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "tipo `list.line`",
+  "impreso": ""
+ },
+ "TYP-05.p2": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "tipo `list.line.unique`",
+  "impreso": ""
+ },
+ "TYP-03.p1": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "TYP-06.p1": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 1.0,
+  "impreso": ""
+ },
+ "TYP-06.e1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "método `toNumber/0` sobre `integer`",
+  "impreso": ""
+ },
+ "TYP-07.e1": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "TYP-11.e1": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "Alice",
+  "impreso": ""
+ },
+ "ERH-02.e1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "llamada",
+  "impreso": ""
+ },
+ "ERH-02.p1": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 1.0,
+  "impreso": ""
+ },
+ "RUL-16.e1": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "Alice",
+  "impreso": ""
+ },
+ "RUL-16.e2": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "RUL-19.e1": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `-` is not defined for type `string`",
+  "impreso": ""
+ },
+ "RUL-19.e2": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "helloworld",
+  "impreso": ""
+ },
+ "RUL-41.p1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "-9223372036854775808",
+  "impreso": ""
+ },
+ "RUL-41.p2": {
+  "clase": "estatico",
+  "codigo": "SEM026",
+  "mensaje": "literal 9223372036854775808 does not fit integer (range -9223372036854775808 to 9223372036854775807)",
+  "impreso": ""
+ },
+ "RUL-136.e1": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "division by zero",
+  "impreso": ""
+ },
+ "RUL-136.e2": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": Infinity,
+  "impreso": ""
+ },
+ "RUL-136.p1": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "integer overflow in division",
+  "impreso": ""
+ },
+ "RUL-136.p2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "0",
+  "impreso": ""
+ },
+ "RUL-136.p3": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "division by zero",
+  "impreso": ""
+ },
+ "STD-14.p1": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": -Infinity,
+  "impreso": ""
+ },
+ "STD-14.p2": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": NaN,
+  "impreso": ""
+ },
+ "STM-02.s1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "asignación a miembro o índice",
+  "impreso": ""
+ },
+ "STM-02.s2": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "asignación a miembro o índice",
+  "impreso": ""
+ },
+ "EXPG-01.s1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `items`",
+  "impreso": ""
+ },
+ "TYP-02.s1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "tipo `User`",
+  "impreso": ""
+ },
+ "LEX-01.s1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `x`",
+  "impreso": ""
+ },
+ "RUL-19.s1": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `-` is not defined for type `string`",
+  "impreso": ""
+ },
+ "RUL-19.s2": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "helloworld",
+  "impreso": ""
+ },
+ "EXP-01.s1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "7",
+  "impreso": ""
+ },
+ "EXP-01.s2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": ""
+ },
+ "EXP-01.s3": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "4",
+  "impreso": ""
+ },
+ "EXP-01.s4": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-01.s5": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-01.s6": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": ""
+ },
+ "EXP-03.s1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "5",
+  "impreso": ""
+ },
+ "EXP-03.s2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": ""
+ },
+ "EXP-04.s1": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 0.30000000000000004,
+  "impreso": ""
+ },
+ "EXP-04.s2": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 1.4142135623730951,
+  "impreso": ""
+ },
+ "EXP-04.s3": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "2",
+  "impreso": ""
+ },
+ "EXP-04.s4": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "1",
+  "impreso": ""
+ },
+ "EXP-05.s1": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-05.s2": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-06.s1": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-06.s2": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "EXP-07.s1": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `not` is not defined for type `integer`",
+  "impreso": ""
+ },
+ "EXP-07.s2": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `and` is not defined for type `integer`",
+  "impreso": ""
+ },
+ "ERH-02.s1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "7",
+  "impreso": ""
+ },
+ "ERH-02.s2": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "ERH-02.s3": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "9",
+  "impreso": ""
+ },
+ "RUL-17.s1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `y`",
+  "impreso": ""
+ },
+ "TYP-03.s1": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "TYP-06.s1": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "TYP-06.s2": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": -17.0,
+  "impreso": ""
+ },
+ "P-01": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "integer overflow in addition",
+  "impreso": ""
+ },
+ "P-02": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": ""
+ },
+ "P-02b": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "-3",
+  "impreso": ""
+ },
+ "P-03": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "-1",
+  "impreso": ""
+ },
+ "P-04": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "negative exponent on integer",
+  "impreso": ""
+ },
+ "P-05": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 3.5,
+  "impreso": ""
+ },
+ "P-06": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `+` is not defined between `integer` and `number`",
+  "impreso": ""
+ },
+ "P-07": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `%` is not defined for type `number`",
+  "impreso": ""
+ },
+ "P-08": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `<` is not defined for type `string`",
+  "impreso": ""
+ },
+ "P-09": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `==` is not defined between `integer` and `string`",
+  "impreso": ""
+ },
+ "P-10": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "P-11": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "operator `!` is not defined for type `integer`",
+  "impreso": ""
+ },
+ "P-12": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "P-13": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "P-14": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "5",
+  "impreso": ""
+ },
+ "P-15": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 3.0,
+  "impreso": ""
+ },
+ "P-16": {
+  "clase": "estatico",
+  "codigo": "SEM009",
+  "mensaje": "`x` needs a type: `none` fixes none",
+  "impreso": ""
+ },
+ "P-17": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "P-18": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "P-19": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "integer overflow in negation",
+  "impreso": ""
+ },
+ "P-20": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "integer overflow in multiplication",
+  "impreso": ""
+ },
+ "P-21": {
+  "clase": "fallo",
+  "codigo": "RUN003",
+  "mensaje": "integer overflow in exponentiation",
+  "impreso": ""
+ },
+ "P-22": {
+  "clase": "valor",
+  "tipo": "number",
+  "valor": 3.5,
+  "impreso": ""
+ },
+ "STM-01.e1": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "true",
+  "impreso": ""
+ },
+ "STM-01.s1": {
+  "clase": "valor",
+  "tipo": "string",
+  "valor": "a",
+  "impreso": ""
+ },
+ "STM-01.s2": {
+  "clase": "estatico",
+  "codigo": "SCOPE002",
+  "mensaje": "`x` is already declared and still visible",
+  "impreso": ""
+ },
+ "STM-02.e1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "asignación a miembro o índice",
+  "impreso": ""
+ },
+ "STM-04.e1": {
+  "clase": "fuera-de-alcance",
+  "codigo": "",
+  "mensaje": "expresión interp",
+  "impreso": ""
+ },
+ "STM-04.s1": {
+  "clase": "sin-valor",
+  "impreso": "a\n3\ntrue\n"
+ },
+ "STM-03.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `value`",
+  "impreso": ""
+ },
+ "STM-03.s1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "6",
+  "impreso": ""
+ },
+ "STM-03.s2": {
+  "clase": "sin-valor",
+  "impreso": ""
+ },
+ "STD-04.p1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "25",
+  "impreso": "25\n"
+ },
+ "STD-04.p2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "25",
+  "impreso": "Age: 25\n"
+ },
+ "STD-04.p3": {
+  "clase": "sin-valor",
+  "impreso": "ab\n"
+ },
+ "STD-04.s1": {
+  "clase": "sin-valor",
+  "impreso": "true\nfalse\n"
+ },
+ "STD-04.s2": {
+  "clase": "estatico",
+  "codigo": "SEM001",
+  "mensaje": "type mismatch in assignment",
+  "impreso": ""
+ },
+ "FLW-01.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `condition`",
+  "impreso": ""
+ },
+ "FLW-01.e2": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `condition`",
+  "impreso": ""
+ },
+ "FLW-01.e3": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `condition1`",
+  "impreso": ""
+ },
+ "FLW-01.s1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "7",
+  "impreso": "1\n"
+ },
+ "FLW-01.s2": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": "2\n"
+ },
+ "FLW-01.s3": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "0",
+  "impreso": "3\n"
+ },
+ "FLW-01.s4": {
+  "clase": "estatico",
+  "codigo": "SEM023",
+  "mensaje": "Condition must be a boolean expression, found integer",
+  "impreso": ""
+ },
+ "FLW-01.s5": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `y`",
+  "impreso": ""
+ },
+ "STM-05.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `twice`",
+  "impreso": ""
+ },
+ "STM-05.p1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "12",
+  "impreso": "12\n"
+ },
+ "STM-05.p2": {
+  "clase": "estatico",
+  "codigo": "SCOPE002",
+  "mensaje": "`x` is already declared and still visible",
+  "impreso": ""
+ },
+ "STM-05.p3": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `k`",
+  "impreso": ""
+ },
+ "FLW-02.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `items`",
+  "impreso": ""
+ },
+ "FLW-02.e1b": {
+  "clase": "valor",
+  "tipo": "list",
+  "valor": "",
+  "impreso": "x\ny\n"
+ },
+ "FLW-02.e2": {
+  "clase": "sin-valor",
+  "impreso": "h\ne\nl\nl\no\n"
+ },
+ "FLW-02.r0": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `source`",
+  "impreso": ""
+ },
+ "FLW-02.r1": {
+  "clase": "sin-valor",
+  "impreso": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+ },
+ "FLW-02.r2": {
+  "clase": "sin-valor",
+  "impreso": "10\n8\n6\n4\n2\n"
+ },
+ "FLW-02.r3": {
+  "clase": "sin-valor",
+  "impreso": "C\nl\ne\na\nn\n"
+ },
+ "FLW-02.r4": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `grid`",
+  "impreso": ""
+ },
+ "FLW-02.r4b": {
+  "clase": "valor",
+  "tipo": "list",
+  "valor": "",
+  "impreso": "1\n2\n3\n4\n"
+ },
+ "FLW-02.r5": {
+  "clase": "sin-valor",
+  "impreso": "0\n5\n10\n15\n20\n25\n30\n35\n40\n45\n50\n55\n60\n65\n70\n75\n80\n85\n90\n95\n100\n"
+ },
+ "FLW-02.n1": {
+  "clase": "sin-valor",
+  "impreso": "0\n3\n6\n9\n12\n15\n18\n21\n24\n27\n30\n33\n36\n39\n42\n45\n48\n51\n54\n57\n60\n63\n66\n69\n72\n75\n78\n81\n84\n87\n90\n93\n96\n99\n"
+ },
+ "FLW-02.n2": {
+  "clase": "sin-valor",
+  "impreso": "5\n4\n3\n2\n1\n"
+ },
+ "FLW-02.n3": {
+  "clase": "sin-valor",
+  "impreso": "4\n"
+ },
+ "FLW-02.n4": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "10",
+  "impreso": "1\n2\n3\n"
+ },
+ "FLW-02.n6": {
+  "clase": "estatico",
+  "codigo": "SEM030",
+  "mensaje": "a range cannot advance with step 0",
+  "impreso": ""
+ },
+ "FLW-02.n7": {
+  "clase": "fallo",
+  "codigo": "RUN020",
+  "mensaje": "a range cannot advance with step 0",
+  "impreso": ""
+ },
+ "FLW-02.n8": {
+  "clase": "sin-valor",
+  "impreso": "1\n0\n"
+ },
+ "FLW-02.n9": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "cannot iterate over a value of type `integer`",
+  "impreso": ""
+ },
+ "FLW-02.n10": {
+  "clase": "estatico",
+  "codigo": "SEM004",
+  "mensaje": "a range bound or step must be `integer`, found `number`",
+  "impreso": ""
+ },
+ "FLW-02.w0": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `condition`",
+  "impreso": ""
+ },
+ "FLW-02.w1": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "5",
+  "impreso": "0\n1\n2\n3\n4\n"
+ },
+ "FLW-02.w2": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": ""
+ },
+ "FLW-02.w2b": {
+  "clase": "valor",
+  "tipo": "boolean",
+  "valor": "false",
+  "impreso": "3\n"
+ },
+ "FLW-02.w3": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": "outer: 0, inner: 0\nouter: 0, inner: 1\nouter: 1, inner: 0\nouter: 1, inner: 1\nouter: 2, inner: 0\nouter: 2, inner: 1\n"
+ },
+ "FLW-02.w4": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "10",
+  "impreso": "Even: 0\nOdd: 1\nEven: 2\nOdd: 3\nEven: 4\nOdd: 5\nEven: 6\nOdd: 7\nEven: 8\nOdd: 9\n"
+ },
+ "FLW-02.w5": {
+  "clase": "estatico",
+  "codigo": "SEM023",
+  "mensaje": "Condition must be a boolean expression, found integer",
+  "impreso": ""
+ },
+ "FLW-02.w6": {
+  "clase": "valor",
+  "tipo": "integer",
+  "valor": "3",
+  "impreso": "3\n"
+ },
+ "FLW-03.e1": {
+  "clase": "estatico",
+  "codigo": "SEM002",
+  "mensaje": "undefined variable `items`",
+  "impreso": ""
+ },
+ "FLW-03.e1b": {
+  "clase": "valor",
+  "tipo": "list",
+  "valor": "",
+  "impreso": "a\nb\n"
+ },
+ "FLW-03.p1": {
+  "clase": "estatico",
+  "codigo": "SEM025",
+  "mensaje": "'break' is not inside a loop",
+  "impreso": ""
+ },
+ "FLW-03.p2": {
+  "clase": "estatico",
+  "codigo": "SEM025",
+  "mensaje": "'continue' is not inside a loop",
+  "impreso": ""
+ },
+ "FLW-03.p3": {
+  "clase": "sin-valor",
+  "impreso": "1\n7\n10\n"
+ },
+ "FLW-03.p4": {
+  "clase": "sin-valor",
+  "impreso": "11\n13\n21\n23\n31\n33\n"
+ },
+ "FLW-03.p5": {
+  "clase": "sin-valor",
+  "impreso": "11\n21\n31\n"
+ }
+}

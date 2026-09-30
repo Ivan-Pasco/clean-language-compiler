@@ -1,5 +1,5 @@
 // Test: plugins/orm_insert_id_binding
-// Grammar: foundation/spec/plugins/frame-data.ebnf — typed insert_id expression
+// Grammar: framework/libraries/04-data.lark.md — typed insert_id expression
 // Semantic: SEM007 regression — `<type> <name> = Model.insert_id: ...` must
 //           preserve the LHS binding across plugin dispatch even when the verb
 //           is not in any hardcoded compiler whitelist. The fix replaces the

@@ -1,5 +1,5 @@
 // Test: control/loops/iterate_list_string
-// Grammar: iterate_statement (foundation/spec/grammar.ebnf)
+// Grammar: iterate_statement (language-principles/*.lark.md)
 // Regression for RUNTIME_ITERATE_LIST_STRING_CRASH (dashboard fingerprint db315f11cb8e):
 // the iterate-over-list MIR builder used to type the loop variable as I32 unconditionally,
 // so for list<string> the codegen took the integer print path and emitted

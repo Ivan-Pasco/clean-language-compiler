@@ -1,7 +1,7 @@
 // Test: bugfixes/expand_endpoints_oom_branched
 // Regression: COMPILER-MEM-ALLOC-NO-GROW-RECURRENCE (fingerprint b80c2f907c71)
 //
-// Grammar: grammar.ebnf `while_statement`, `if_statement`, `string_concat_expr`
+// Grammar: language-principles/*.lark.md `while_statement`, `if_statement`, `string_concat_expr`
 // Semantic: SEM-MEM-001 (host arena bump allocator monotonic growth)
 //
 // Models the branch-nested dual-accumulator pattern from the real

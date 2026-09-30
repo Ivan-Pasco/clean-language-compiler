@@ -1,5 +1,5 @@
 // Test: plugins/orm_find_with_where_binding
-// Grammar: foundation/spec/plugins/frame-data.ebnf — typed find expression with where
+// Grammar: framework/libraries/04-data.lark.md — typed find expression with where
 // Semantic: SEM007 regression — `<type> <name> = Model.find:` with a `where:`
 //           condition (which the plugin lowers to inline SQL containing
 //           `column = value`) must preserve the LHS binding across plugin

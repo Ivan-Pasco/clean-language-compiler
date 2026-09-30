@@ -1,5 +1,5 @@
 // Test: bugfixes/syn001_multiline_pairs_literal
-// Grammar: grammar.ebnf pairs_literal
+// Grammar: language-principles/*.lark.md pairs_literal
 // Semantic: SYN001 regression — parser must handle multi-line indented pairs literals
 //           (brace_depth tracking suppresses Indent/Dedent tokens inside {})
 //

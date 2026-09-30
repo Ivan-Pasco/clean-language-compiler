@@ -56,7 +56,7 @@ jobs:
       - name: registry vs Platform 09/10
         run: cargo test -p clean-compiler-types --test registry_spec -- --nocapture
 
-      - name: vendored grammar vs 04 language/grammar
+      - name: vendored grammar vs language-principles/*.lark.md
         run: |
           cargo test -p clean-compiler --test grammar_fuzz \
             vendored_grammar_matches_foundation -- --nocapture

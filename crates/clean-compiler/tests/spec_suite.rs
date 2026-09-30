@@ -1,5 +1,5 @@
-//! Spec conformance suite: one fixture directory per EBNF grammar
-//! chapter under `tests/spec/<chapter>/`, each `.cln` run through the
+//! Spec conformance suite: one fixture directory per Lark grammar
+//! companion under `tests/spec/<chapter>/`, each `.cln` run through the
 //! front-end — lex, parse, resolve, typecheck (M4) — to an insta snapshot
 //! under `tests/snapshots/spec/`. A surprising diff is a design question —
 //! never accept blindly.

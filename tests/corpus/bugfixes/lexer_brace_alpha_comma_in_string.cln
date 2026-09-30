@@ -1,5 +1,5 @@
 // Test: bugfixes/lexer_brace_alpha_comma_in_string
-// Grammar: string_part (foundation/spec/grammar.ebnf §1.6)
+// Grammar: string_part (language-principles/*.lark.md)
 // Regression for LEXER_BRACE_IN_NON_HTML_STRING (dashboard fingerprint 5c4962213b84):
 // the v0.30.323 fix (329b58da) widened the interpolation pre-scan to fall back to
 // literal `{` only when the braced content contains `:` `;` `#` `@` `$` `?`. It did

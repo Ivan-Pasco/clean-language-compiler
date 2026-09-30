@@ -1,0 +1,10 @@
+name = "cleansem"
+version = "0.1.0"
+defaultTargets = ["corpus"]
+
+[[lean_lib]]
+name = "Clean"
+
+[[lean_exe]]
+name = "corpus"
+root = "Main"

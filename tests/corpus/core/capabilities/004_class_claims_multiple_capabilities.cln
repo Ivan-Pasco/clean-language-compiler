@@ -1,5 +1,5 @@
 // Test: core/capabilities — a single class claims two capabilities via `can C1, C2`
-// Grammar: can_clause with comma-separated names (grammar.ebnf §6.4a)
+// Grammar: can_clause with comma-separated names (language-principles/*.lark.md)
 // Semantic: class must satisfy each capability's method contract
 // Expected output:
 //   ok

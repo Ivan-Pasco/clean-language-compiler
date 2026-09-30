@@ -2498,7 +2498,7 @@ impl<'a> Parser<'a> {
 
     // ----- types --------------------------------------------------------
 
-    /// Parses one TypeExpression (04-type-system.ebnf.md §1).
+    /// Parses one `type_expression` (04-type-system.lark.md, TYPG-01).
     fn type_expr(&mut self, pos: TypePos, sink: &mut DiagnosticSink) -> TypeExpr {
         let start = self.span();
         // Inside generic arguments the special powers of the outer position

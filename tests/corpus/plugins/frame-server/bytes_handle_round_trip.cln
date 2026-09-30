@@ -1,5 +1,5 @@
 // Test: plugins/frame-server/bytes_handle_round_trip
-// Grammar: frame-server.ebnf req_body_bytes, fs_write_bytes
+// Grammar: 08-server.lark.md req_body_bytes, fs_write_bytes
 // Semantic: type-system.md §9b Opaque Handle Convention
 // Fixed in: compiler 0.33.65
 // Expected output:

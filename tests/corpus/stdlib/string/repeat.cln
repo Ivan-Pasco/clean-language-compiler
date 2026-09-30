@@ -1,5 +1,5 @@
 // Test: stdlib/string/repeat
-// Grammar: grammar.ebnf method_call — string.repeat(count)
+// Grammar: language-principles/*.lark.md method_call — string.repeat(count)
 // Semantic: string.repeat(integer) -> string; repeats the string n times
 // Expected output:
 //   repeat ok

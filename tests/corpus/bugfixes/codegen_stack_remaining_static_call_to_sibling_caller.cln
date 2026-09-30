@@ -1,5 +1,5 @@
 // Test: bugfixes/codegen_stack_remaining_static_call_to_sibling_caller
-// Grammar: static_method_call → ClassName.method(args)  (grammar.ebnf §5
+// Grammar: static_method_call → ClassName.method(args)  (language-principles/*.lark.md
 //   static_method_call) on a method whose body has a sibling method call.
 // Regression: CODEGEN_STACK_REMAINING (dashboard fp df5b8c9b1021).
 //   Reported against compiler 0.30.268. Wrapping bare functions: blocks in

@@ -1,5 +1,5 @@
 // Test: control/loops/while_outer_list_push_escape
-// Grammar: while_statement, method_call (foundation/spec/grammar.ebnf)
+// Grammar: while_statement, method_call (language-principles/*.lark.md)
 // Spec: foundation/spec/stdlib-reference.md — list.push
 //
 // Regression guard for COMPILER-0-30-342-CLASS-METHOD-STRING-OPS-WASM-UNREACHABLE

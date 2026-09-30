@@ -1,5 +1,5 @@
 // Test: plugins/block_comment_isolation
-// Grammar: foundation/spec/grammar.ebnf — framework_block content extraction
+// Grammar: language-principles/*.lark.md — framework_block content extraction
 // Semantic: SYN001 regression — extract_block_content_raw must not capture
 //           lower-indented comments that follow the last content line of a
 //           block. The previous implementation sliced source bytes from the

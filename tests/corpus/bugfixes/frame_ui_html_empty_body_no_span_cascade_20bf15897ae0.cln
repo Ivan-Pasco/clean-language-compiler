@@ -1,5 +1,5 @@
 // Test: bugfixes/frame_ui_html_empty_body_no_span_cascade_20bf15897ae0
-// Grammar: frame.ui `html:` block with empty body (frame-ui.ebnf)
+// Grammar: frame.ui `html:` block with empty body (10-ui.lark.md)
 // Regression: dashboard fp 20bf15897ae0.
 //   Error code: DIAG-MISLABEL-HTML-BLOCK-CASCADE
 //   Message: "SEM001 span cascades from empty plugin-expanded body to

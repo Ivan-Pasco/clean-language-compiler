@@ -1,5 +1,5 @@
 // Test: bugfixes/sem003_orm_variable_bound_in_function
-// Grammar: frame-data.ebnf query_expression
+// Grammar: 04-data.lark.md query_expression
 // Semantic: SEM003/SEM007 regression — variable declared via ORM query expression
 //           (list<T> name = Model.verb: ...) must be visible in the enclosing
 //           function scope after expansion.
@@ -7,7 +7,7 @@
 // Expected behaviour: compiles without SEM003 "Undefined variable 'rows'" error.
 // Fixed: added data Item: model definition (was missing); changed list<string> to
 // list<Item> to match ORM query return type (spec §2.1 requires explicit model
-// declaration; id field must be declared pk, auto per frame-data.ebnf §2.1).
+// declaration; id field must be declared pk, auto per 04-data.lark.md).
 
 plugins:
 	frame.data

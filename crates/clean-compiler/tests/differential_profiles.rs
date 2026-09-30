@@ -15,10 +15,10 @@
 //! `DIFFERENTIAL_FUZZ_SEED` / `DIFFERENTIAL_FUZZ_COUNT`.
 
 mod common;
-#[path = "grammar_fuzz/ebnf.rs"]
-mod ebnf;
 #[path = "grammar_fuzz/generate.rs"]
 mod generate;
+#[path = "grammar_fuzz/lark.rs"]
+mod lark;
 
 use clean_compiler::{compile, CompileError};
 use clean_compiler_types::request::CompileRequest;
@@ -142,7 +142,7 @@ fn generated_programs_agree_across_profiles() {
     let count: u64 = std::env::var("DIFFERENTIAL_FUZZ_COUNT")
         .map(|v| v.parse().expect("DIFFERENTIAL_FUZZ_COUNT is a u64"))
         .unwrap_or(64);
-    let generator = generate::Generator::new(ebnf::Grammar::load(&vendored_files()));
+    let generator = generate::Generator::new(lark::Grammar::load(&vendored_files()));
     for seed in base..base + count {
         let source = generator.program(seed, 400);
         assert_profiles_agree(&source, &format!("fuzz seed {seed}"));
@@ -159,7 +159,7 @@ fn vendored_files() -> Vec<(String, String)> {
                 .into_string()
                 .expect("utf-8")
         })
-        .filter(|n| n.ends_with(".ebnf.md"))
+        .filter(|n| n.ends_with(".lark.md"))
         .collect();
     names.sort();
     names
