@@ -64,8 +64,12 @@ fn registry_matches_platform_09_and_10() {
         eprintln!("SKIP: ../clean-language-foundation not present; spec leg runs locally only");
         return;
     };
-    let spec09 = read(root.join("governance/product/interoperability-principles/platform/09-error-codes.md"));
-    let spec10 = read(root.join("governance/product/interoperability-principles/platform/10-semantic-rules.md"));
+    let spec09 = read(
+        root.join("governance/product/interoperability-principles/platform/09-error-codes.md"),
+    );
+    let spec10 = read(
+        root.join("governance/product/interoperability-principles/platform/10-semantic-rules.md"),
+    );
     let spec21 = read(root.join("governance/product/language-principles/21-block-handlers.md"));
     let rows = parse_09_rows(&spec09);
 
