@@ -1,5 +1,5 @@
 // Test: language/classes/91_inline_private_visibility (future duplicate)
-// Grammar: public_class_fields_section, public_class_methods_section (foundation/spec/grammar.ebnf §6.4a, §6.4b)
+// Grammar: public_class_fields_section, public_class_methods_section (language-principles/*.lark.md)
 // Semantic: SEM005 — private members are only accessible within the owning class.
 // Visibility model (2026-06-25): class members are PRIVATE by default;
 // a `public:` sub-section exposes the members inside it to outside callers.

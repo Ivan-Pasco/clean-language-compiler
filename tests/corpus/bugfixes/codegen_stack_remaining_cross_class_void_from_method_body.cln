@@ -1,5 +1,5 @@
 // Test: bugfixes/codegen_stack_remaining_cross_class_void_from_method_body
-// Grammar: static_method_call → ClassName.method(args)  (grammar.ebnf §5
+// Grammar: static_method_call → ClassName.method(args)  (language-principles/*.lark.md
 //   static_method_call) where the *receiver class* of the call is a DIFFERENT
 //   user-defined class than the one whose method body contains the call, and
 //   the resolved static method has a void return type. Surfaces as

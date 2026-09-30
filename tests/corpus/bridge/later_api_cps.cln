@@ -1,5 +1,5 @@
 // Test: bridge/later_api_cps
-// Grammar: grammar.ebnf §4.9 later_assignment
+// Grammar: language-principles/*.lark.md later_assignment
 // Verifies that `later result = api.get(url)` is CPS-lowered:
 //   - the current function emits _api_get(url, "__later_N_fnName")
 //   - a generated continuation __later_N_fnName is exported

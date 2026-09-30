@@ -1,6 +1,6 @@
 // Test: bugfixes/codegen_this_method_call_receiver_push
 // Grammar: method_call inside a class method where the receiver is `this`
-//   (grammar.ebnf §5 method_call, plus the `This` node produced by the
+//   (language-principles/*.lark.md method_call, plus the `This` node produced by the
 //   resolver for the `this` keyword).
 // Regression: dashboard fp 4376cf13-518a-4e71-877e-2f98c4dfa710.
 //   Reported against compiler 0.31.6. Any class method whose body contained

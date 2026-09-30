@@ -1,5 +1,5 @@
 // Test: error_statement/error_statement_traps_with_message
-// Grammar: error_statement (foundation/spec/grammar.ebnf)
+// Grammar: error_statement (language-principles/*.lark.md)
 // Spec: foundation/spec/semantic-rules.md — SEM error()
 //
 // Regression guard for COMPILER-SYNTHETIC-MODULE-START-BLOCK-DROPPED

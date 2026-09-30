@@ -1,5 +1,5 @@
 // Test: bugfixes/events_block_plugin_shape
-// Grammar: foundation/spec/plugins/frame-ui.ebnf §events_section
+// Grammar: framework/libraries/10-ui.lark.md
 // Semantic: Mirrors the AST shape that frame.ui's `expand_component` emits
 //           after `normalize_handlers` becomes a pass-through (the v2.12.4
 //           intent). A component-source `class` with fields, an events:

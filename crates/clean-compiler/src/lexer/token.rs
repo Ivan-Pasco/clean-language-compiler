@@ -1,4 +1,5 @@
-//! Token vocabulary, mirroring `03-lexical-structure.ebnf.md` §4–§8.
+//! Token vocabulary, mirroring the terminals of `03-lexical-structure.lark.md`
+//! (LEXG-).
 
 use crate::source::{ByteSpan, LineMap};
 

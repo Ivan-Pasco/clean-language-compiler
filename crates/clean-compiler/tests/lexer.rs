@@ -1,5 +1,5 @@
 //! Milestone 1 step 5a checks: the lexer against the shapes of
-//! `03-lexical-structure.ebnf.md` — tab layout, keywords vs identifiers,
+//! `03-lexical-structure.lark.md` — tab layout, keywords vs identifiers,
 //! literals, comments, and the SYN recovery paths.
 
 use clean_compiler::diag::DiagnosticSink;

@@ -1,5 +1,5 @@
 // Test: control/loops/iterate_split_list_string
-// Grammar: iterate_statement (foundation/spec/grammar.ebnf)
+// Grammar: iterate_statement (language-principles/*.lark.md)
 // Spec: foundation/spec/stdlib-reference.md — string.split, list iteration
 //
 // Regression guard for the second RUNTIME_ITERATE_LIST_STRING_CRASH report

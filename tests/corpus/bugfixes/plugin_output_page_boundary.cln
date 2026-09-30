@@ -2,7 +2,7 @@
 // Regression: COMPILER-PLUGIN-OUTPUT-NULL-BYTE-CORRUPTION-AT-PAGE-BOUNDARY
 // (fingerprint 835d361c9515 / cdb735a9453a)
 //
-// Grammar: grammar.ebnf `plugins_block`, `expand_block_usage`
+// Grammar: language-principles/*.lark.md `plugins_block`, `expand_block_usage`
 // Semantic: SEM-PLUGIN-001 (plugin host bridge string integrity)
 //
 // The reporter observed that plugin output crossing the ~64 KiB WASM page

@@ -1,6 +1,6 @@
 // Test: bugfixes/codegen_return_undefined_bare_return_no_stack
 // Grammar: return_statement + if_statement + iterate_statement
-//   inside a non-void function body (grammar.ebnf §5/§6).
+//   inside a non-void function body (language-principles/*.lark.md).
 // Regression: dashboard fp 1531f955d487.
 //   Reported against compiler 0.33.1. Any non-void function whose reachable
 //   tail contained an if-block whose body explicitly returns, followed by

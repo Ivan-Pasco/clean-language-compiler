@@ -1,5 +1,5 @@
 // Test: testing/tests_block_basic
-// Grammar: grammar.ebnf tests_block, named_test, anonymous_test
+// Grammar: language-principles/*.lark.md tests_block, named_test, anonymous_test
 // Expected output:
 //   PASS: integer equality
 //   PASS: string equality

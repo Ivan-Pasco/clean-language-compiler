@@ -1,5 +1,5 @@
 // Test: stdlib/string/matches
-// Grammar: grammar.ebnf method_call — string.matches(pattern)
+// Grammar: language-principles/*.lark.md method_call — string.matches(pattern)
 // Semantic: SEM010 — argument must be one of the allowed pattern names
 // Expected output:
 //   matches ok

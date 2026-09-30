@@ -15,7 +15,7 @@
 // Regression: the pest chain in src/parser/grammar.pest previously placed
 //   unary_expression ABOVE additive_expression (looser), which meant
 //   `-2 ^ 2` parsed as `-(2 ^ 2) = -4`. Clean_Language_Specification.md
-//   §Expressions → Operator Precedence and foundation/spec/grammar.ebnf §3.1
+//   §Expressions → Operator Precedence and language-principles/*.lark.md
 //   both state unary (level 3) binds TIGHTER than power (level 4), so
 //   `-x^2` must parse as `(-x)^2` (standard mathematical convention).
 //   Grammar fix: swap the chain so power_expression's operand is

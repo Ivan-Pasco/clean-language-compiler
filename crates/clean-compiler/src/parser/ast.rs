@@ -653,7 +653,7 @@ pub enum UnOp {
     Neg,
 }
 
-/// A type as written (04-type-system.ebnf.md), plus the width-suffix forms
+/// A type as written (04-type-system.lark.md), plus the width-suffix forms
 /// valid only in host-function positions (LBS-02, ADR-0002).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeExpr {

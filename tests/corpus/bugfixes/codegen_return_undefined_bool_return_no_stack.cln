@@ -1,6 +1,6 @@
 // Test: bugfixes/codegen_return_undefined_bool_return_no_stack
 // Grammar: return_statement + if_statement + iterate_statement
-//   inside a non-void function body (grammar.ebnf §5/§6).
+//   inside a non-void function body (language-principles/*.lark.md).
 // Regression: dashboard fp 3e81879b5fd93b3b.
 //   Reported against compiler 0.33.1 and NOT closed by 0.33.2. The 0.33.2 fix
 //   (fp 1531f955d487) added push_zero_for_return_type at every bare

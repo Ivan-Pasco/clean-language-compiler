@@ -1,0 +1,41 @@
+# The formal law (FS-01..FS-05, foundation 22 — Formal Specification):
+# the Lark grammar composed from the law's .lark.md companions builds
+# LALR(1) without conflicts, every syntax case conforms, and the Lean 4
+# semantics gives every semantic mark its expected outcome.
+name: formal
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The law is the sibling foundation checkout, where formal/componer.py
+      # looks for it. Needs the FOUNDATION_READ_TOKEN secret, as ci.yml.
+      - name: clone spec checkout (foundation)
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${{ secrets.FOUNDATION_READ_TOKEN }}@github.com/Ivan-Pasco/clean-language-foundation.git" \
+            "$GITHUB_WORKSPACE/../clean-language-foundation"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install lark
+        run: pip install -r formal/requirements.txt
+
+      - name: install lean (elan)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: verificar (grammar, syntax cases, Lean semantics)
+        working-directory: formal
+        run: python verificar.py --semantica

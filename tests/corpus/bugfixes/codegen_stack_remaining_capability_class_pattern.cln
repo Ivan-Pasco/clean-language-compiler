@@ -1,5 +1,5 @@
 // Test: bugfixes/codegen_stack_remaining_capability_class_pattern
-// Grammar: static_method_call → ClassName.method(args)  (grammar.ebnf §5
+// Grammar: static_method_call → ClassName.method(args)  (language-principles/*.lark.md
 //   static_method_call) where 15+ stateless utility classes ("capability
 //   classes") each expose a void method and a single entrypoint routes
 //   sibling calls through ClassName.method(args) expression-statements.

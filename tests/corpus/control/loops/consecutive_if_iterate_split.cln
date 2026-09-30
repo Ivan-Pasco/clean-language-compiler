@@ -1,5 +1,5 @@
 // Test: control/loops/consecutive_if_iterate_split
-// Grammar: iterate_statement, if_statement (foundation/spec/grammar.ebnf)
+// Grammar: iterate_statement, if_statement (language-principles/*.lark.md)
 // Spec: foundation/spec/stdlib-reference.md — string.split, list iteration
 //
 // Regression guard for RUNTIME-CONSECUTIVE-IF-ITERATE-DROPPED (dashboard

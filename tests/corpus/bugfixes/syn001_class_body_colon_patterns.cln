@@ -1,5 +1,5 @@
 // Test: bugfixes/syn001_class_body_colon_patterns
-// Grammar: grammar.ebnf class_field, indented_class_body
+// Grammar: language-principles/*.lark.md class_field, indented_class_body
 // Semantic: SYN001 regression — colon in class body must not trigger precision-modifier path.
 //           Two plugin-generated patterns must parse correctly:
 //

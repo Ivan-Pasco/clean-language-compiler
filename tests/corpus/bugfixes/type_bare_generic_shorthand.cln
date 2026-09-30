@@ -10,7 +10,7 @@
 //
 // Fix: root spec 04-type-system.md §"Bare Generic Type Shorthand" adds
 //   `list` = `list<any>`, `matrix` = `matrix<any>`, `pairs` = `pairs<string, any>`.
-//   grammar.ebnf makes the `<...>` block optional on all three.
+//   language-principles/*.lark.md makes the `<...>` block optional on all three.
 //   grammar.pest matches with `!(ASCII_ALPHANUMERIC | "_")` guard so
 //   `listFoo` / `pairsBar` still parse as identifiers.
 //   token_parser/declarations.rs constructs the parameterized type directly

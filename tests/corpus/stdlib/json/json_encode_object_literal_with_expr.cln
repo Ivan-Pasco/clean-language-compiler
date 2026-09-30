@@ -1,6 +1,6 @@
 // Test: stdlib/json/json_encode_object_literal_with_expr
 // Grammar: pairs_literal — `pair_element = ( string_literal | identifier |
-//   decimal_integer ) , ":" , single_line_expression` (grammar.ebnf:167-169).
+//   decimal_integer ) , ":" , single_line_expression` (language-principles/*.lark.md).
 //   Field values are `single_line_expression` — any expression, not just
 //   literals.
 // Regression: ANON-OBJ-LITERAL-NOT-EVALUATED (dashboard fp 910690b7e20a).

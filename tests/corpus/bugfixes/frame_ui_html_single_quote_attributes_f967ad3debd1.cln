@@ -1,5 +1,5 @@
 // Test: bugfixes/frame_ui_html_single_quote_attributes_f967ad3debd1
-// Grammar: frame.ui `html:` block (foundation/spec/plugins/frame-ui.ebnf)
+// Grammar: frame.ui `html:` block (framework/libraries/10-ui.lark.md)
 // Regression: dashboard fp f967ad3debd1.
 //   Error code: SYN001 (raised inside emitted fragment).
 //   Reported against a pre-3.2.3 frame.ui: when an `html:` block used

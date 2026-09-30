@@ -1,7 +1,8 @@
 //! Pass [2] — Lex (Platform 14 §14.4.2). Hand-written lexer (ADR-0006):
 //! per-file `TokenStream` with byte-accurate spans; comment spans preserved
-//! for the LSP. Syntax authority: `04 language/grammar/03-lexical-structure.ebnf.md`
-//! (DOC-15) — tab-structured indentation (LEX-01), CRLF normalisation
+//! for the LSP. Syntax authority: the Lark companion
+//! `governance/product/language-principles/03-lexical-structure.lark.md`
+//! (DOC-15, FS-01) — tab-structured indentation (LEX-01), CRLF normalisation
 //! (LEX-07), exact-case keywords (LEX-08), nesting block comments (LEX-09).
 
 mod scan;

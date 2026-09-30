@@ -1,5 +1,5 @@
 // Test: core/capabilities — declare a capability with only required signatures
-// Grammar: can_declaration (grammar.ebnf §6.4a)
+// Grammar: can_declaration (language-principles/*.lark.md)
 // Semantic: SEM011 (would fire if a claiming class omitted a required method)
 // Expected output:
 //   ok

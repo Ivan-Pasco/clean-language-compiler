@@ -1,7 +1,8 @@
 //! Milestone 6 stage 6 — first-class `bytes` (§14.14.2 with chapter-15
 //! naming): operators, indexing, length, slice, fromText/toText with full
-//! RFC 3629 validation. `b"..."` literals do not exist in the EBNF
-//! (DISCOVERIES-M6), so bytes values originate from `bytes.fromText` and
+//! RFC 3629 validation. `b"..."` literals were absent from the grammar when
+//! this stage landed (DISCOVERIES-M6; the Lark grammar now defines them,
+//! LEXG-07), so these bytes values originate from `bytes.fromText` and
 //! host returns.
 
 use clean_compiler::diag::DiagnosticSink;

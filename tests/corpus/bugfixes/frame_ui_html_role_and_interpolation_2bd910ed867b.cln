@@ -1,5 +1,5 @@
 // Test: bugfixes/frame_ui_html_role_and_interpolation_2bd910ed867b
-// Grammar: frame.ui `html:` block (foundation/spec/plugins/frame-ui.ebnf)
+// Grammar: frame.ui `html:` block (framework/libraries/10-ui.lark.md)
 // Regression: dashboard fp 2bd910ed867b.
 //   Error code: SYN001 (raised inside emitted fragment).
 //   Sibling of f967ad3debd1 — same root cause (frame.ui html: attribute

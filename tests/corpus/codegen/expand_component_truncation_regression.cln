@@ -1,5 +1,5 @@
 // Test: codegen/expand_component_truncation_regression
-// Grammar: grammar.ebnf §4.6 if_statement (with and without else_clause),
+// Grammar: language-principles/*.lark.md if_statement (with and without else_clause),
 //          §4.4 function_decl (string return type)
 // Semantic: SEM-FUNC return-from-non-void (every path must reach `return`)
 //
