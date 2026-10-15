@@ -1,19 +1,32 @@
 # CLAUDE.md
 
-## Qué es este repo (2026-09-09)
+## What this repo is (2026-09-09)
 
-Repo GitHub de la **implementación** del compilador de Clean Language.
-Aquí va **solo código** (crates, tests, CI).
+GitHub repo of the **implementation** of the Clean Language compiler.
+It holds **only code** (crates, tests, CI).
 
-La **documentación vive en el repo hermano `../clean-language-foundation`**
-(spec del lenguaje, arquitectura, decisiones). No crear ni restaurar aquí
-`docs/`, `README.md`, ADRs ni notas de trabajo: si algo hay que documentar,
-va a foundation.
+The **documentation lives in the sibling repo `../clean-language-foundation`**
+(language spec, architecture, decisions). Do not create or restore ADRs or working notes here: anything that needs documenting goes to foundation.
 
-## Avance del desarrollo (2026-09-09)
+## Language (2026-10-14)
 
-El avance se mide con el **árbol de alcance (WBS)** que vive en foundation,
-junto a la spec del componente (`../clean-language-foundation/02 components/compiler/`,
-regla SCM-05). Este repo no tiene carpeta de scope ni copia del árbol: aquí
-queda solo la **evidencia**, los tests que citan las unidades (reglas, códigos
-de diagnóstico, producciones de la gramática) que cada paquete de trabajo lleva.
+- This repo is written entirely in **English**: code, comments, tests, CI and
+  this file. Anything found in Spanish is translated.
+- Spec changes in foundation are **always written in English**, even when the
+  user chats in Spanish.
+
+## Methodology: spec-driven design (2026-10-14)
+
+
+- **Never write code that is not in the specs.**
+- Code without a spec is **surplus**: remove it, or specify it first.
+- A spec without code is **missing**: it is pending work.
+- An ambiguous or contradictory spec is resolved in foundation before coding.
+- **Human in the loop:** never change a spec in foundation without the user's
+  explicit approval. Propose the change and wait for the yes.
+- **Every proposed change to a foundation document is shown as a diff in VS
+  Code** before it is applied: write the proposed version to the scratchpad and
+  open
+  `"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --diff <original> <proposal>`.
+  Only after the user approves is it applied to the real file.
+

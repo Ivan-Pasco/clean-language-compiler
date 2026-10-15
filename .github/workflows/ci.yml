@@ -72,7 +72,7 @@ jobs:
       - name: test
         run: cargo test --workspace
 
-      # M2 1:1 gate — código ⇔ regla ⇔ snapshot. Redundant with the full
+      # M2 1:1 gate — code ⇔ rule ⇔ snapshot. Redundant with the full
       # suite above, but named so a gate breach is legible in the log. The
       # registry_spec leg runs against the foundation clone made above;
       # CLEAN_SPEC_REQUIRED forbids it from self-skipping.

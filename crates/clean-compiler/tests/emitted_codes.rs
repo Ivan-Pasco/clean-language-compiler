@@ -2,7 +2,7 @@
 //! references must be an active, compiler-emittable registry row. Together
 //! with `registry_spec.rs` (code ↔ rule in Platform 09/10) and
 //! `diagnostics_fixtures.rs` (code ↔ DIA-06 snapshot triple), this closes
-//! código ⇔ regla ⇔ snapshot: a pass emitting a withdrawn code, a code
+//! code ⇔ rule ⇔ snapshot: a pass emitting a withdrawn code, a code
 //! owned by another component (Framework/Host/Toolchain), or an
 //! unregistered string fails here.
 
