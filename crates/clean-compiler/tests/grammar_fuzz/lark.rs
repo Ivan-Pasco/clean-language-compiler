@@ -1,10 +1,8 @@
-//! Reader for the Lark grammar the law writes (FS-01, foundation
-//! `governance/product/language-principles/*.lark.md`, vendored byte for
-//! byte under `tests/fixtures/grammar/`).
+//! Reader for the Lark grammar of Clean (`grammar/*.md` at the repository
+//! root, derived from foundation's examples; see `grammar/README.md`).
 //!
-//! Reads the subset of Lark those companions use, from the ```` ```lark ````
-//! fences of each file in filename order — the order FS-01 composes them
-//! in:
+//! Reads the subset of Lark those chapters use, from the ```` ```lark ````
+//! fences of each chapter in the order they compose in (`COMPOSITION`):
 //!
 //! - definitions `name: …` (rules) and `NAME: …` (terminals), with the
 //!   `?` / `!` rule prefixes and `.n` priorities; continuation lines are
@@ -25,6 +23,47 @@
 #![allow(dead_code)]
 
 use indexmap::IndexMap;
+use std::path::{Path, PathBuf};
+
+/// The chapters of `grammar/`, in the order they compose in — the order of
+/// `tools/grammar/check.py` and `grammar/README.md`.
+pub const COMPOSITION: [&str; 17] = [
+    "lexical",
+    "file-structure",
+    "expressions",
+    "statements",
+    "control-flow",
+    "functions",
+    "classes",
+    "contracts",
+    "errors",
+    "state",
+    "testing",
+    "ai",
+    "modules",
+    "async",
+    "apply-blocks",
+    "method-syntax",
+    "block-handlers",
+];
+
+pub fn grammar_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../grammar")
+}
+
+/// Every chapter of the grammar as `(file name, markdown)`, in composition
+/// order.
+pub fn chapter_files() -> Vec<(String, String)> {
+    COMPOSITION
+        .iter()
+        .map(|chapter| {
+            let name = format!("{chapter}.md");
+            let content = std::fs::read_to_string(grammar_dir().join(&name))
+                .unwrap_or_else(|e| panic!("grammar/{name} reads: {e}"));
+            (name, content)
+        })
+        .collect()
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {

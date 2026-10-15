@@ -142,32 +142,9 @@ fn generated_programs_agree_across_profiles() {
     let count: u64 = std::env::var("DIFFERENTIAL_FUZZ_COUNT")
         .map(|v| v.parse().expect("DIFFERENTIAL_FUZZ_COUNT is a u64"))
         .unwrap_or(64);
-    let generator = generate::Generator::new(lark::Grammar::load(&vendored_files()));
+    let generator = generate::Generator::new(lark::Grammar::load(&lark::chapter_files()));
     for seed in base..base + count {
         let source = generator.program(seed, 400);
         assert_profiles_agree(&source, &format!("fuzz seed {seed}"));
     }
-}
-
-fn vendored_files() -> Vec<(String, String)> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/grammar");
-    let mut names: Vec<String> = std::fs::read_dir(&dir)
-        .expect("vendored grammar directory exists")
-        .map(|e| {
-            e.expect("readable dir entry")
-                .file_name()
-                .into_string()
-                .expect("utf-8")
-        })
-        .filter(|n| n.ends_with(".lark.md"))
-        .collect();
-    names.sort();
-    names
-        .into_iter()
-        .map(|name| {
-            let content =
-                std::fs::read_to_string(dir.join(&name)).expect("vendored grammar file reads");
-            (name, content)
-        })
-        .collect()
 }
