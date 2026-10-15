@@ -1,15 +1,15 @@
-//! Grammar-seeded program generator (M9). Expands `source_file` of the
-//! vendored Lark grammar (FS-01) with a deterministic PRNG, so every
-//! generated program is drawn from the grammar the law writes and every
-//! failure reproduces from its seed alone.
+//! Grammar-seeded program generator (M9). Expands `file` of the Lark
+//! grammar in `grammar/` with a deterministic PRNG, so every generated
+//! program is drawn from the grammar derived from the specification and
+//! every failure reproduces from its seed alone.
 //!
 //! Rules expand structurally. A terminal becomes one lexeme: a terminal
 //! spelled only with literals and other terminals is built from its
 //! definition, its pieces concatenated with no space; a terminal whose
 //! definition holds a regular expression takes its text from the
 //! hand-written sample table below, and one with no sample fails loudly.
-//! `_NEWLINE`, `_INDENT` and `_DEDENT` are the indenter's events (LEX-01,
-//! LEXG-02): they render as a line end and as one tab more or less at
+//! `_NL`, `_INDENT` and `_DEDENT` are the indenter's events (grammar
+//! `lexical.md`): they render as a line end and as one tab more or less at
 //! the start of the next line.
 
 // Shared by several test binaries; not every binary uses every item.
@@ -22,19 +22,16 @@ use indexmap::{IndexMap, IndexSet};
 /// be generated; alternatives priced `INF` are never chosen.
 const INF: u32 = u32::MAX / 4;
 
-/// The start symbols of the language grammar (FS-01): a whole `.cln`
-/// file, and the statement run the chapters' snippets are.
-pub const ROOTS: [&str; 2] = ["source_file", "statement_sequence"];
+/// The start symbols of the grammar: a whole `.cln` file, and the
+/// statement sequence the specification's fragments are.
+pub const ROOTS: [&str; 2] = ["file", "fragment"];
 
-/// The terminals the postlex indenter produces (LEXG-02). They are events,
-/// not text: `_NEWLINE` ends a line; `_INDENT` / `_DEDENT` move the tab
-/// level of the lines after it.
-const NEWLINE: &str = "_NEWLINE";
+/// The terminals the postlex indenter produces (grammar `lexical.md`).
+/// They are events, not text: `_NL` ends a line; `_INDENT` / `_DEDENT`
+/// move the tab level of the lines after it.
+const NEWLINE: &str = "_NL";
 const INDENT: &str = "_INDENT";
 const DEDENT: &str = "_DEDENT";
-
-/// `error` as a value (13, ERHG-03), never before "(".
-const ERROR_VALUE: &str = "ERROR_VALUE";
 
 /// The `//` comment the generator sometimes writes before a line end.
 const LINE_COMMENT: &str = "LINE_COMMENT";
@@ -48,136 +45,44 @@ const LINE_COMMENT: &str = "LINE_COMMENT";
 /// refreshing this table in the same change.
 pub fn regex_terminal_samples() -> Vec<(&'static str, &'static [&'static str])> {
     vec![
-        // 21 — a library block's body line, read whole and tokenised by
-        // the handler (BLKG-02).
-        (
-            "BLOCK_TEXT",
-            &["title \"Hello\"", "integer id primary", "<p>{name}</p>"],
-        ),
-        // 03 — character fragments.
-        (
-            "ASCII_LETTER",
-            &["a", "b", "c", "k", "x", "y", "z", "A", "B", "M", "Q", "Z"],
-        ),
-        ("ASCII_DIGIT", &["0", "1", "2", "5", "7", "9"]),
-        ("HEX_DIGIT", &["0", "9", "a", "f", "A", "F"]),
-        ("OCTAL_DIGIT", &["0", "3", "7"]),
-        // 03 — comments (written by the generator at line ends).
+        // lexical — comments (written by the generator at line ends).
         (LINE_COMMENT, &["// note", "// ünïcode 漢 🙂", "//"]),
-        // 03 — hard keywords (LEX-04).
-        ("RESERVED", &["for", "from", "unit"]),
-        ("_AFTER", &["after"]),
-        ("_ALWAYS", &["always"]),
-        ("_AND", &["and"]),
-        ("_ASSERT", &["assert"]),
-        ("_BACKGROUND", &["background"]),
-        ("_BASE", &["base"]),
-        ("_BEFORE", &["before"]),
-        ("_BLOCK", &["block"]),
-        ("_BREAK", &["break"]),
-        ("_CAN", &["can"]),
-        ("_CASE", &["case"]),
-        ("_CLASS", &["class"]),
-        ("_COMPILETIME", &["compiletime"]),
-        ("_CONSTANT", &["constant"]),
-        ("_CONSTRUCTOR", &["constructor"]),
-        ("_CONTINUE", &["continue"]),
-        ("_DEFAULT", &["default"]),
-        ("_ELSE", &["else"]),
-        ("_ERROR", &["error"]),
-        ("_FALSE", &["false"]),
-        ("_FUNCTION", &["function"]),
-        ("_HANDLES", &["handles"]),
-        ("_IF", &["if"]),
-        ("_IMPORT", &["import"]),
-        ("_IN", &["in"]),
-        ("_INTENT", &["intent"]),
-        ("_IS", &["is"]),
-        ("_ITERATE", &["iterate"]),
-        ("_LATER", &["later"]),
-        ("_MATCH", &["match"]),
-        ("_NONE", &["none"]),
-        ("_NOT", &["not"]),
-        ("_ONERROR", &["onError"]),
-        ("_OR", &["or"]),
-        ("_PRINT", &["print"]),
-        ("_PUBLIC", &["public"]),
-        ("_RESET", &["reset"]),
-        ("_RESULT", &["result"]),
-        ("_RETURN", &["return"]),
-        ("_RETURNS", &["returns"]),
-        ("_SPEC", &["spec"]),
-        ("_START", &["start"]),
-        ("_THIS", &["this"]),
-        ("_TO", &["to"]),
-        ("_TRUE", &["true"]),
-        ("_WHILE", &["while"]),
-        ("_WITH", &["with"]),
-        // 03 — contextual keywords (LEX-04).
-        ("_COMPUTED", &["computed"]),
-        ("_DESCRIPTION", &["description"]),
-        ("_FUNCTIONS", &["functions"]),
-        ("_GUARD", &["guard"]),
-        ("_INPUT", &["input"]),
-        ("_SOURCE", &["source"]),
-        ("_STATE", &["state"]),
-        ("_STEP", &["step"]),
-        ("_TESTS", &["tests"]),
-        ("_WATCH", &["watch"]),
-        // 03 — type keywords.
+        // lexical — names: never a reserved word.
         (
-            "PRIMITIVE_TYPE",
+            "NAME",
             &[
-                "any", "boolean", "bytes", "datetime", "integer", "number", "string", "void",
+                "x",
+                "count",
+                "myVariable",
+                "value1",
+                "MAX_SIZE",
+                "Point",
+                "T",
+                "description",
+                "step",
+                "result",
             ],
         ),
-        ("LIST_NAME", &["list"]),
-        ("GENERIC_NAME", &["matrix", "pairs"]),
-        // 03 — string and bytes pieces. TXT-01 admits any scalar; the
-        // samples keep line structure intact and include multi-byte
-        // scalars so UTF-8 handling is exercised.
+        // lexical — literals.
+        ("INT", &["0", "42", "7", "0xff", "0b1010", "0o777"]),
+        ("FLOAT", &["3.14", ".5", "6.02e23", "0.0"]),
         (
-            "STRING_CHARACTER",
+            "STRING",
             &[
-                "a", "Z", "0", " ", "_", ".", ",", ":", "!", "}", "%", "á", "漢", "🙂",
+                "\"\"",
+                "\"Hello, World!\"",
+                "\"Line 1\\nLine 2\"",
+                "\"Hello, {name}!\"",
+                "\"\\{literal\\}\"",
+                "\"ünïcode 漢 🙂\"",
             ],
         ),
-        (
-            "SIMPLE_ESCAPE",
-            &[r"\n", r"\t", r"\r", r"\\", r#"\""#, r"\{", r"\}", r"\0"],
-        ),
-        (
-            "UNICODE_ESCAPE",
-            &[r"\u000041", r"\u0000E9", r"Ƕ42", r"ჿFF"],
-        ),
-        (
-            "MULTI_LINE_STRING",
-            &[
-                "\"\"\"\nplain text line\n\"\"\"",
-                "\"\"\"\n{not interpolated} é\n\tsecond line\n\"\"\"",
-                "\"\"\"\n\"\"\"",
-            ],
-        ),
-        ("BYTES_CHARACTER", &["a", "Z", "0", " ", "{", "}", "é"]),
-        // 04 — behavior suffixes.
-        ("BEHAVIOR_NAME", &["line", "pile", "unique"]),
-        // 07 — the named argument of print.
-        ("NEWLINE_ARG", &["newline"]),
-        // 11 — a block test's description ends its line.
-        (
-            "BLOCK_TEST_DESCRIPTION",
-            &["\"adds two numbers\"", "\"edge case é\""],
-        ),
-        // 13 — the bound `error` value.
-        ("ERROR_VALUE", &["error"]),
-        // 17, 19, 20, 21 — words of one position.
-        ("_AS", &["as"]),
-        ("_VERSION", &["version"]),
-        ("_GENERATOR", &["generator"]),
-        ("_RULES", &["rules"]),
-        ("_RESET_STATE", &["state"]),
-        ("_WARNING", &["warning"]),
-        ("_INFO", &["info"]),
+        // statements — sized numeric types, one token.
+        ("SIZE_SUFFIX", &[":8", ":16", ":32", ":64", ":8u", ":32u"]),
+        // ai — a spec path, relative to the project root.
+        ("SPEC_PATH", &["\"specs/payment.md\"", "\"docs/a.md\""]),
+        // modules — an import path.
+        ("IMPORT_PATH", &["app/utils.cln", "app/data/User.cln"]),
     ]
 }
 
@@ -251,7 +156,7 @@ impl Generator {
                 .unwrap_or_else(|| panic!("terminal {name} is referenced but not defined"));
             assert!(
                 !has_regex(&def.expr) || generator.samples.contains_key(name.as_str()),
-                "regex terminal {name} has no sample text — the vendored grammar \
+                "regex terminal {name} has no sample text — the grammar \
                  grew a terminal; add it to regex_terminal_samples()"
             );
         }
@@ -292,7 +197,7 @@ impl Generator {
             let cost = self.min_cost.get(root).copied().unwrap_or(INF);
             assert!(
                 cost < INF,
-                "{root} has no finite derivation — vendored grammar changed?"
+                "{root} has no finite derivation — grammar changed?"
             );
         }
     }
@@ -418,17 +323,6 @@ impl Generator {
             }
             Expr::Name(name) if name == INDENT => out.push(Tok::Indent),
             Expr::Name(name) if name == DEDENT => out.push(Tok::Dedent),
-            Expr::Name(name) if name == ERROR_VALUE => {
-                // ERROR_VALUE is `error` NOT followed by "(" (13, ERHG-03):
-                // no rule says what follows it, so it is written
-                // parenthesized — `( error )`, the same primary — and a
-                // call or index after it cannot turn it into the raise
-                // keyword.
-                *spent += 1;
-                out.push(Tok::Text("(".into()));
-                out.push(Tok::Text(self.lexeme(name, rng)));
-                out.push(Tok::Text(")".into()));
-            }
             Expr::Name(name) if is_terminal_name(name) => {
                 *spent += 1;
                 out.push(Tok::Text(self.lexeme(name, rng)));
@@ -445,9 +339,8 @@ impl Generator {
     }
 
     /// The items between an `_INDENT` and its `_DEDENT`. The lexer emits
-    /// no `_INDENT` for a body without a line (LEXG-02), so a body the
-    /// grammar lets be empty (`functions_block_member*`, `public_body`,
-    /// `state_body`, `class_body` …) must still come out with a token:
+    /// no `_INDENT` for a body without a line, so a body must still come
+    /// out with a token:
     /// when the free draw leaves it empty, it is drawn again forced.
     fn expand_body(
         &self,
@@ -616,8 +509,8 @@ fn emits_text(toks: &[Tok]) -> bool {
 }
 
 /// Renders the token stream: NEWLINE emits `\n`; INDENT/DEDENT adjust the
-/// tab level applied at the start of the next line (LEX-01: indentation is
-/// tabs); lexemes on one line are separated by single spaces.
+/// tab level applied at the start of the next line (indentation is tabs);
+/// lexemes on one line are separated by single spaces.
 fn render(toks: &[Tok]) -> String {
     let mut output = String::new();
     let mut level: u32 = 0;

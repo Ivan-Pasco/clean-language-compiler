@@ -1,0 +1,175 @@
+---
+source: crates/clean-compiler/tests/grammar_conformance.rs
+expression: rendered
+---
+checked 416 | agree 246 | disagree 170
+components/framework/libraries/auth.md:100 [outer_block] passes: rejects, should accept — SYN002 5:7 expected an expression, found Question
+components/framework/libraries/auth.md:126 [outer_block] passes: rejects, should accept — SYN002 6:52 expected an expression, found Keyword(OnError)
+components/framework/libraries/auth.md:189 [outer_block] passes: rejects, should accept — SYN002 2:31 expected ']'
+components/framework/libraries/auth.md:328 [outer_block] passes: rejects, should accept — SYN002 14:55 expected an expression, found Keyword(OnError)
+components/framework/libraries/auth.md:405 [outer_block] passes: rejects, should accept — SYN002 4:7 expected an expression, found Lt
+components/framework/libraries/jobs.md:53 [outer_block] passes: rejects, should accept — SYN001 20:17 character '\' is not valid in any lexical context
+components/framework/libraries/jobs.md:168 [outer_block] passes: rejects, should accept — SYN002 3:7 expected an expression, found Lt
+components/framework/libraries/jobs.md:221 [outer_block] passes: rejects, should accept — SYN001 20:17 character '\' is not valid in any lexical context
+components/framework/libraries/jobs.md:250 [outer_block] passes: rejects, should accept — SYN001 14:17 character '\' is not valid in any lexical context
+components/framework/libraries/locale.md:70 [outer_block] passes: rejects, should accept — SYN009 2:1 'locale' cannot appear at the top level of a file
+components/framework/libraries/locale.md:384 [outer_block] passes: rejects, should accept — SYN002 4:7 expected an expression, found Lt
+components/framework/libraries/server.md:73 [outer_block] passes: rejects, should accept — SYN002 4:7 expected an expression, found Lt
+components/framework/libraries/server.md:113 [outer_block] passes: rejects, should accept — SYN002 7:25 expected ']'
+components/framework/libraries/server.md:223 [outer_block] passes: rejects, should accept — SYN002 5:27 expected ']'
+components/framework/libraries/server.md:356 [outer_block] passes: rejects, should accept — SYN001 3:25 character '→' is not valid in any lexical context
+components/framework/libraries/server.md:483 [outer_block] passes: rejects, should accept — SYN002 4:7 expected an expression, found Lt
+components/framework/libraries/server.md:506 [outer_block] passes: rejects, should accept — SYN002 6:32 expected ']'
+components/framework/libraries/server.md:685 [outer_block] passes: rejects, should accept — SYN002 11:115 expected an expression, found Keyword(OnError)
+components/framework/libraries/server.md:724 [outer_block] passes: rejects, should accept — SYN002 8:53 'from' is reserved for a future language version and cannot be used as an identifier
+components/framework/libraries/server.md:802 [outer_block] passes: rejects, should accept — SYN002 11:5 'from' is reserved for a future language version and cannot be used as an identifier
+components/framework/libraries/storage.md:115 [outer_block] passes: rejects, should accept — SYN002 10:29 expected an expression, found Keyword(OnError)
+language/ai.md:22 [fragment] passes: rejects, should accept — SYN002 2:2 expected an expression, found Keyword(Spec)
+language/ai.md:79 [file] passes: rejects, should accept — SYN002 15:17 expected end of line
+language/ai.md:142 [file] passes: rejects, should accept — SYN002 2:24 keyword cannot be used as parameter name
+language/async.md:28 [file] passes: rejects, should accept — SYN002 4:7 expected ':' after 'print'
+language/design.md:84 [fragment] passes: rejects, should accept — SYN002 6:8 expected ':' after 'print'
+language/errors.md:51 [fragment] passes: rejects, should accept — SYN002 2:29 expected an expression, found Keyword(Print)
+language/errors.md:57 [fragment] passes: rejects, should accept — SYN002 3:8 expected ':' after 'print'
+language/functions.md:20 [file] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/functions.md:39 [file] passes: rejects, should accept — SYN002 13:8 expected ':' after 'print'
+language/functions.md:59 [file] passes: rejects, should accept — SYN002 9:11 keyword cannot be used as variable name
+language/functions.md:150 [file] passes: rejects, should accept — SYN002 9:8 expected ':' after 'print'
+language/functions.md:164 [file] passes: rejects, should accept — SYN002 3:7 expected ':' after 'print'
+language/functions.md:185 [file] passes: rejects, should accept — SYN002 3:8 expected ':' after 'print'
+language/functions.md:195 [file] passes: rejects, should accept — SYN002 3:8 expected ':' after 'print'
+language/functions.md:229 [file] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/modules.md:30 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/modules.md:47 [file] passes: rejects, should accept — SYN002 2:5 expected end of line
+language/modules.md:87 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/modules.md:91 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/modules.md:136 [file] passes: rejects, should accept — SYN009 1:1 'libraries' cannot appear at the top level of a file
+language/modules.md:166 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/modules.md:198 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/modules.md:212 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:85 [file] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/semantics.md:125 [fragment] passes: rejects, should accept — SYN002 3:8 expected ':' after 'print'
+language/semantics.md:167 [file] passes: rejects, should accept — SYN002 6:7 expected ':' after 'print'
+language/semantics.md:240 [file] passes: rejects, should accept — SYN002 4:8 expected ':' after 'print'
+language/semantics.md:261 [fragment] passes: rejects, should accept — SYN002 2:2 expected an expression, found Keyword(Spec)
+language/semantics.md:308 [file] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/semantics.md:314 [file] passes: rejects, should accept — SYN002 3:7 expected ':' after 'print'
+language/semantics.md:358 [fragment] passes: rejects, should accept — SYN002 2:9 keyword cannot be used as variable name
+language/semantics.md:369 [fragment] passes: rejects, should accept — SYN002 2:9 keyword cannot be used as variable name
+language/semantics.md:397 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:407 [file] passes: rejects, should accept — SYN002 9:37 expected ')'
+language/semantics.md:447 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:483 [file] passes: rejects, should accept — SYN002 2:1 expected indented class body
+language/semantics.md:579 [file] passes: rejects, should accept — SYN002 8:10 expected ':' after 'print'
+language/semantics.md:597 [file] passes: rejects, should accept — SYN002 2:1 expected indented class body
+language/semantics.md:608 [file] passes: rejects, should accept — SYN002 8:10 expected ':' after 'print'
+language/semantics.md:626 [file] passes: rejects, should accept — SYN002 8:10 expected ':' after 'print'
+language/semantics.md:644 [file] passes: rejects, should accept — SYN002 8:10 expected ':' after 'print'
+language/semantics.md:812 [fragment] passes: rejects, should accept — SYN002 6:8 expected ':' after 'print'
+language/semantics.md:821 [fragment] passes: rejects, should accept — SYN002 4:7 expected ':' after 'print'
+language/semantics.md:836 [fragment] passes: rejects, should accept — SYN002 3:8 expected ':' after 'print'
+language/semantics.md:843 [fragment] passes: rejects, should accept — SYN002 3:8 expected ':' after 'print'
+language/semantics.md:875 [fragment] passes: rejects, should accept — SYN002 3:28 expected an expression, found LBrace
+language/semantics.md:881 [fragment] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/semantics.md:982 [file] passes: rejects, should accept — SYN002 5:7 expected ':' after 'print'
+language/semantics.md:991 [file] passes: rejects, should accept — SYN002 6:7 expected ':' after 'print'
+language/semantics.md:1042 [fragment] passes: rejects, should accept — SYN002 7:7 expected ':' after 'print'
+language/semantics.md:1052 [fragment] passes: rejects, should accept — SYN002 5:7 expected ':' after 'print'
+language/semantics.md:1091 [file] passes: rejects, should accept — SYN002 6:10 keyword cannot be used as variable name
+language/semantics.md:1107 [file] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1138 [file] passes: rejects, should accept — SYN002 5:8 expected ':' after 'print'
+language/semantics.md:1194 [file] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/semantics.md:1200 [file] passes: rejects, should accept — SYN002 1:6 expected ':'
+language/semantics.md:1215 [file] passes: rejects, should accept — SYN002 4:7 expected ':' after 'print'
+language/semantics.md:1232 [file] passes: rejects, should accept — SYN002 6:10 keyword cannot be used as variable name
+language/semantics.md:1248 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1256 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1267 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1275 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1280 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1291 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1299 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1310 [fragment] passes: rejects, should accept — SYN002 2:10 keyword cannot be used as variable name
+language/semantics.md:1480 [file] passes: rejects, should accept — SYN002 6:3 expected an expression, found Keyword(After)
+language/semantics.md:1500 [fragment] passes: rejects, should accept — SYN002 2:2 expected an expression, found Keyword(Before)
+language/semantics.md:1506 [fragment] passes: rejects, should accept — SYN002 2:2 expected an expression, found Keyword(Before)
+language/semantics.md:1533 [file] passes: rejects, should accept — SYN002 5:11 keyword cannot be used as variable name
+language/semantics.md:1591 [fragment] passes: rejects, should accept — SYN002 2:2 expected an expression, found Keyword(Before)
+language/semantics.md:1597 [fragment] passes: rejects, should accept — SYN002 2:2 expected an expression, found Keyword(Before)
+language/semantics.md:1662 [fragment] passes: rejects, should accept — SYN002 2:34 expected an expression, found LBrace
+language/semantics.md:1668 [fragment] passes: rejects, should accept — SYN002 2:34 expected an expression, found LBrace
+language/semantics.md:1710 [file] passes: rejects, should accept — SYN002 3:12 expected end of line
+language/semantics.md:1843 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1854 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1877 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1881 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1888 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1892 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1907 [file] passes: rejects, should accept — SYN002 2:5 expected end of line
+language/semantics.md:1913 [file] passes: rejects, should accept — SYN002 2:5 expected end of line
+language/semantics.md:1928 [file] passes: rejects, should accept — SYN002 2:5 expected end of line
+language/semantics.md:1935 [file] passes: rejects, should accept — SYN002 2:5 expected end of line
+language/semantics.md:1950 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:1961 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/semantics.md:2130 [file] passes: rejects, should accept — SYN002 2:6 expected 'interface' after 'host'
+language/state.md:52 [file] passes: rejects, should accept — SYN002 9:8 expected ':' after 'print'
+language/state.md:68 [file] passes: rejects, should accept — SYN002 8:7 keyword cannot be used as function name
+language/state.md:99 [file] passes: rejects, should accept — SYN002 3:5 expected end of line
+language/state.md:118 [file] passes: rejects, should accept — SYN002 9:7 expected ':' after 'print'
+language/state.md:132 [file] passes: rejects, should accept — SYN002 6:7 expected ':' after 'print'
+language/state.md:145 [file] passes: rejects, should accept — SYN002 16:7 expected ':' after 'print'
+language/state.md:247 [file] passes: rejects, should accept — SYN002 43:7 expected ':' after 'print'
+language/stdlib/core.md:60 [file] passes: rejects, should accept — SYN002 3:9 keyword cannot be used as variable name
+language/stdlib/core.md:311 [file] passes: rejects, should accept — SYN002 8:8 expected ':' after 'print'
+language/stdlib/core.md:379 [file] passes: rejects, should accept — SYN001 6:21 character '\' is not valid in any lexical context
+language/stdlib/core.md:420 [file] passes: rejects, should accept — SYN002 5:8 expected ':' after 'print'
+language/stdlib/core.md:435 [expression] passes: rejects, should accept — SYN002 3:23 expected end of line
+language/stdlib/core.md:509 [file] passes: rejects, should accept — SYN001 2:22 character '\' is not valid in any lexical context
+language/stdlib/core.md:541 [file] passes: rejects, should accept — SYN001 18:24 character '\' is not valid in any lexical context
+language/stdlib/core.md:633 [fragment] passes: rejects, should accept — SYN001 3:18 character '\' is not valid in any lexical context
+language/stdlib/core.md:663 [fragment] passes: rejects, should accept — SYN001 3:22 character '\' is not valid in any lexical context
+language/stdlib/core.md:685 [file] passes: rejects, should accept — SYN002 3:30 expected the end of the interpolation
+language/syntax/block-handlers.md:30 [file] passes: rejects, should accept — SYN002 1:25 expected '(' after function name
+language/syntax/block-handlers.md:198 [file] passes: rejects, should accept — SYN002 1:25 expected '(' after function name
+language/syntax/block-handlers.md:214 [fragment] passes: rejects, should accept — SYN002 2:7 keyword cannot be used as variable name
+language/syntax/block-handlers.md:311 [file] passes: rejects, should accept — SYN002 2:55 expected an expression, found Newline
+language/syntax/control-flow.md:8 [fragment] passes: rejects, should accept — SYN002 7:2 expected indented block
+language/syntax/control-flow.md:32 [fragment] passes: rejects, should accept — SYN002 4:8 expected ':' after 'print'
+language/syntax/control-flow.md:44 [fragment] passes: rejects, should accept — SYN002 2:31 expected ']'
+language/syntax/control-flow.md:71 [fragment] passes: rejects, should accept — SYN002 4:1 expected indented block
+language/syntax/control-flow.md:78 [fragment] passes: rejects, should accept — SYN002 5:8 expected ':' after 'print'
+language/syntax/expressions.md:36 [fragment] passes: rejects, should accept — SYN005 3:2 assignment target must be a variable, member, or index
+language/syntax/expressions.md:116 [fragment] passes: rejects, should accept — SYN002 9:9 expected end of line
+language/syntax/expressions.md:131 [fragment] passes: rejects, should accept — SYN002 3:2 expected indented block
+language/syntax/expressions.md:264 [fragment] passes: rejects, should accept — SYN002 2:34 expected an expression, found LBrace
+language/syntax/expressions.md:274 [file] passes: rejects, should accept — SYN002 3:11 expected an expression, found LBrace
+language/syntax/file-structure.md:43 [file] passes: rejects, should accept — SYN009 1:1 'libraries' cannot appear at the top level of a file
+language/syntax/lexical.md:27 [file] passes: rejects, should accept — SYN002 4:8 expected ':' after 'print'
+language/syntax/lexical.md:40 [fragment] passes: rejects, should accept — SYN005 2:2 assignment target must be a variable, member, or index
+language/syntax/lexical.md:175 [fragment] passes: rejects, should accept — SYN001 3:21 character '\' is not valid in any lexical context
+language/syntax/method-syntax.md:52 [fragment] passes: rejects, should accept — SYN002 8:6 expected '<' after 'list'
+language/syntax/statements.md:18 [fragment] passes: rejects, should accept — SYN002 7:7 expected ':' after 'print'
+language/syntax/statements.md:45 [fragment] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/syntax/statements.md:59 [fragment] passes: rejects, should accept — SYN002 7:7 expected ':' after 'print'
+language/syntax/statements.md:94 [file] passes: rejects, should accept — SYN009 11:1 'variable declaration' cannot appear at the top level of a file
+language/syntax/statements.md:133 [fragment] passes: rejects, should accept — SYN002 2:7 expected ':' after 'print'
+language/syntax/statements.md:169 [file] passes: rejects, should accept — SYN002 4:7 expected ':' after 'print'
+language/testing.md:12 [file] passes: rejects, should accept — SYN002 13:28 expected an expression, found Newline
+language/types/classes.md:50 [file] passes: rejects, should accept — SYN002 9:24 expected ')'
+language/types/classes.md:175 [file] passes: rejects, should accept — SYN002 8:10 expected ':' after 'print'
+language/types/classes.md:249 [file] passes: rejects, should accept — SYN002 25:9 keyword cannot be used as variable name
+language/types/classes.md:329 [file] passes: rejects, should accept — SYN002 17:14 'unit' is reserved for a future language version and cannot be used as an identifier
+language/types/classes.md:387 [file] passes: rejects, should accept — SYN002 16:4 expected indented block
+language/types/classes.md:448 [file] passes: rejects, should accept — SYN002 10:9 keyword cannot be used as variable name
+language/types/contracts.md:117 [file] passes: rejects, should accept — SYN002 2:2 expected a type
+language/types/type-system.md:46 [fragment] passes: rejects, should accept — SYN002 6:10 expected end of line
+language/types/type-system.md:71 [fragment] passes: rejects, should accept — SYN002 6:9 expected end of line
+language/types/type-system.md:94 [file] passes: rejects, should accept — SYN002 12:11 expected end of line
+language/types/type-system.md:147 [file] passes: rejects, should accept — SYN002 3:15 expected end of line
+language/types/type-system.md:200 [fragment] passes: rejects, should accept — SYN001 2:31 character '\' is not valid in any lexical context
+language/types/type-system.md:211 [file] passes: rejects, should accept — SYN002 4:9 expected ':' after 'print'
+language/types/type-system.md:237 [file] passes: rejects, should accept — SYN002 10:9 expected ':' after 'print'
+language/types/type-system.md:279 [file] passes: rejects, should accept — SYN002 13:9 expected ':' after 'print'
+language/types/type-system.md:305 [file] passes: rejects, should accept — SYN002 13:9 expected ':' after 'print'
+language/types/type-system.md:331 [file] passes: rejects, should accept — SYN002 11:8 expected ':' after 'print'
+language/types/type-system.md:393 [file] passes: rejects, should accept — SYN002 28:7 expected ':' after 'print'

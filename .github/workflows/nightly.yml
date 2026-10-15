@@ -56,11 +56,6 @@ jobs:
       - name: registry vs Platform 09/10
         run: cargo test -p clean-compiler-types --test registry_spec -- --nocapture
 
-      - name: vendored grammar vs language-principles/*.lark.md
-        run: |
-          cargo test -p clean-compiler --test grammar_fuzz \
-            vendored_grammar_matches_foundation -- --nocapture
-
   # Wide grammar-fuzz and differential sweeps. The seed rotates by date so
   # every night explores new territory; a failure log always contains the
   # seed, which reproduces the exact program on any machine.
