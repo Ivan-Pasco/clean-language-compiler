@@ -89,5 +89,8 @@ python3 -I tools/grammar/extract.py ../clean-language-foundation/specs grammar/c
 cargo test -p clean-compiler --test grammar_conformance                                              # parser vs corpus
 ```
 
-`check.py` exits non-zero on any LALR conflict, any case whose result
-differs from `expected`, and any production no example backs.
+`extract.py --check` exits non-zero when the manifest is not up to date
+with foundation. `check.py` exits non-zero on any LALR conflict, any case whose result
+differs from `expected`, and any production no example backs. Both run in
+the `grammar` workflow (`.github/workflows/grammar.yml`), informational for
+now.

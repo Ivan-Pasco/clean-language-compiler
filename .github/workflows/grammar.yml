@@ -1,0 +1,40 @@
+# The Lark grammar derived from foundation's examples (grammar/README.md):
+# the manifest is up to date with foundation, the grammar builds LALR(1)
+# without conflicts and gives every case its expected result.
+# Informational until foundation #190-#195 close: a red step does not fail
+# the workflow.
+name: grammar
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # extract.py reads the sibling foundation checkout. Needs the
+      # FOUNDATION_READ_TOKEN secret, as ci.yml.
+      - name: clone spec checkout (foundation)
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${{ secrets.FOUNDATION_READ_TOKEN }}@github.com/Ivan-Pasco/clean-language-foundation.git" \
+            "$GITHUB_WORKSPACE/../clean-language-foundation"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install lark
+        run: pip install -r tools/grammar/requirements.txt
+
+      - name: manifest up to date with foundation
+        continue-on-error: true
+        run: python -I tools/grammar/extract.py ../clean-language-foundation/specs grammar/corpus.json --check
+
+      - name: grammar vs corpus
+        continue-on-error: true
+        run: python -I tools/grammar/check.py

@@ -1,14 +1,15 @@
 """Extract the ```clean examples of foundation into the grammar corpus.
 
 Usage:
-    python3 -I extract.py <foundation/specs> <grammar/corpus.json> [--write]
+    python3 -I extract.py <foundation/specs> <grammar/corpus.json> [--write | --check]
 
 Reads every ```clean fence under the specs directory, seals each block by
 the SHA-256 of its code, classifies it with the relevance rules below, and
 compares the result with the existing manifest: blocks new, changed
 (a seal gone and a seal born in the same file) and deleted, per file.
-Writes the manifest only with --write.  Exit 0 always, unless arguments
-are wrong; the report is the output.
+Writes the manifest only with --write.  Exit 0, except: 2 when the
+arguments are wrong, and 1 with --check when the manifest is not up to
+date (for CI).
 
 Relevance rules (they live here, never in foundation):
 
@@ -383,6 +384,8 @@ def main(argv):
         for f, r in report.items():
             print(f"  {f}: +{len(r['born'])} new/changed at lines {r['born']}, -{r['gone']} gone ({r['changed']} changed)")
 
+    if "--check" in argv and report:
+        return 1
     if "--write" in argv:
         data = {"schema_version": 1, "cases": sorted(cases, key=lambda c: (c["file"], c["line"], c.get("part", 0)))}
         text = json.dumps(data, ensure_ascii=False, indent=1) + "\n"
