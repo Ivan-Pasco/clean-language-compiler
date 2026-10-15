@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "jpchauny-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "jpchauny/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "team-workflow@jpchauny-plugins": true
+  }
+}
