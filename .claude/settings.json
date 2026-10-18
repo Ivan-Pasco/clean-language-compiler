@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "shared@jpchauny-plugins": true
+  },
   "extraKnownMarketplaces": {
     "jpchauny-plugins": {
       "source": {
@@ -6,8 +9,5 @@
         "repo": "jpchauny/claude-plugins"
       }
     }
-  },
-  "enabledPlugins": {
-    "team-workflow@jpchauny-plugins": true
   }
 }
