@@ -186,6 +186,11 @@ jobs:
   mutation:
     name: mutation score (ADR-0027 Tier 1, floor 60%)
     runs-on: ubuntu-latest
+    # One eighth of the mutants took over GitHub's 6-hour job limit, so the
+    # job was cancelled every night and never reported a score. With 32
+    # rotating shards a shard fits well inside this limit, and a full pass
+    # completes every 32 nights.
+    timeout-minutes: 150
     env:
       CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
@@ -219,11 +224,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SHARD=$(( $(date -u +%j) % 8 ))
-          echo "running shard ${SHARD}/8"
+          SHARD=$(( $(date -u +%j) % 32 ))
+          echo "running shard ${SHARD}/32"
           # Non-zero exit just means missed mutants exist; the floor check
           # below decides pass/fail.
-          cargo mutants --workspace --shard "${SHARD}/8" --timeout-multiplier 2 || true
+          cargo mutants --workspace --shard "${SHARD}/32" --timeout-multiplier 2 || true
 
       - name: enforce mutation floor 60%
         shell: bash
