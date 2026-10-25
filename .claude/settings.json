@@ -1,5 +1,7 @@
 {
   "enabledPlugins": {
+    "development-methodology@jpchauny-plugins": true,
+    "utilities@jpchauny-plugins": true,
     "shared@jpchauny-plugins": true
   },
   "extraKnownMarketplaces": {
