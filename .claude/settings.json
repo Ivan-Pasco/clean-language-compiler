@@ -10,5 +10,10 @@
         "repo": "jpchauny/claude-plugins"
       }
     }
+  },
+  "permissions": {
+    "deny": [
+      "Edit(//**/clean-language-acceptance/**)"
+    ]
   }
 }
