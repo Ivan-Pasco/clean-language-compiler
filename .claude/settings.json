@@ -1,13 +1,13 @@
 {
   "enabledPlugins": {
-    "development-methodology@jpchauny-plugins": true,
-    "utilities@jpchauny-plugins": true
+    "development-methodology@indra-software-factory": true,
+    "utilities@indra-software-factory": true
   },
   "extraKnownMarketplaces": {
-    "jpchauny-plugins": {
+    "indra-software-factory": {
       "source": {
         "source": "github",
-        "repo": "jpchauny/claude-plugins"
+        "repo": "jpchauny/indra-software-factory"
       }
     }
   },
